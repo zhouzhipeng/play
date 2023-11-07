@@ -1,117 +1,112 @@
 use std::collections::HashMap;
 use std::fs;
-use std::io::Cursor;
-use std::path::PathBuf;
+use std::sync::Arc;
 
-use rustpython_vm as vm;
-use rustpython_vm::convert::IntoObject;
-use rustpython_vm::Interpreter;
+use axum::{http::StatusCode, Json, response::IntoResponse, Router, routing::{get, post}};
+use axum::extract::State;
+use axum::handler::HandlerWithoutStateExt;
+use crossbeam_channel::{Sender, unbounded};
+use serde::{Deserialize, Serialize};
+use tokio::spawn;
+use crate::py_tool::Value;
 
-fn main() {
-    let html = fs::read_to_string("/Users/zhouzhipeng/RustroverProjects/play/templates/index.html").unwrap();
+mod py_tool;
 
-    let args = HashMap::from([
-        ("name", Value::Str("周志鹏sss".into())),
-        ("age", Value::Int(20)),
-        ("male", Value::Bool(true))
-    ]);
 
-    match run_py_template(html.as_str(), "hello", args) {
-        Ok(s) => println!("{}", s),
-        Err(s) => println!("{}", s),
-    }
-
-    match run_py_code("print(1+1)") {
-        Ok(s) => println!("{}", "execute ok "),
-        Err(s) => println!("{}", s),
-    }
+// Define a struct to hold the shared state
+struct AppState {
+    py_sender: Sender<&'static str>,
 }
 
-pub enum Value {
-    Str(String),
-    Int(i64),
-    Bool(bool),
-}
+#[tokio::main]
+async fn main() {
+    // initialize tracing
+    tracing_subscriber::fmt::init();
 
-fn run_py_template(source: &str, filename: &str, args: HashMap<&str, Value>) -> Result<String, String> {
-    let interp = init_py_interpreter();
-    interp.enter(|vm| {
-        let scope = vm.new_scope_with_builtins();
+    //
 
-        let module = vm::py_compile!(file = "python/simple_template.py");
+// Create a channel of unbounded capacity.
+    let (s, r) = unbounded();
 
+// Send a message into the channel.
+    s.send("Hello, world!").unwrap();
+    spawn(async move {
+        let interpreter = py_tool::init_py_interpreter();
 
-        //mandatory args
-        scope.locals.set_item("__source__", vm.ctx.new_str(source).into_object(), vm).unwrap();
-        scope.locals.set_item("__filename__", vm.ctx.new_str(filename).into_object(), vm).unwrap();
+        loop{
+            // Receive the message from the channel.
+            let result = r.recv().unwrap();
+            println!("recv : {}", result);
 
-        //custom args
-        for (k, v) in args {
-            match v {
-                Value::Str(s) => scope.locals.set_item(k, vm.ctx.new_str(s).into_object(), vm).unwrap(),
-                Value::Int(s) => scope.locals.set_item(k, vm.ctx.new_int(s).into_object(), vm).unwrap(),
-                Value::Bool(s) => scope.locals.set_item(k, vm.ctx.new_bool(s).into_object(), vm).unwrap(),
+            let html = fs::read_to_string("/Users/zhouzhipeng/RustroverProjects/play/templates/index.html").unwrap();
+
+            let args = HashMap::from([
+                ("name", Value::Str("周志鹏sss".into())),
+                ("age", Value::Int(20)),
+                ("male", Value::Bool(true))
+            ]);
+
+            match py_tool::run_py_template( &interpreter, html.as_str(), "hello", args) {
+                Ok(s) => println!("{}", s),
+                Err(s) => println!("{}", s),
             }
         }
+    });
 
 
-        let res = vm.run_code_obj(vm.ctx.new_code(module), scope.clone());
-        if let Err(exc) = res {
-            let mut s = String::new();
-            vm.write_exception_inner(&mut s, &exc).expect("write error");
-            Err(s)
-        } else {
-            let result = scope.locals.get_item("__ret__", vm).unwrap().try_into_value::<String>(vm).unwrap();
-            Ok(result)
-        }
-    })
+    // Create an instance of the shared state
+    let app_state = Arc::new(AppState {
+        py_sender: s,
+    });
+
+    // build our application with a route
+    let app = Router::new()
+
+        // `GET /` goes to `root`
+        .route("/", get(root))
+        // `POST /users` goes to `create_user`
+        .route("/users", post(create_user))
+        .with_state(app_state);
+
+    // run it with hyper on localhost:3000
+    axum::Server::bind(&"0.0.0.0:3000".parse().unwrap())
+        .serve(app.into_make_service())
+        .await
+        .unwrap();
 }
 
-fn init_py_interpreter() -> Interpreter {
-    // extra embed python stdlib zip file to a directory and add it to syspath.
-    let output_dir = "output_dir";
-    let target_dir = PathBuf::from(output_dir); // Doesn't need to exist
-
-    if !target_dir.exists() {
-        println!("output_dir not existed , ready to extract stdlib to it.");
-
-        let data = include_bytes!("../python/Lib.zip");
-
-        let archive = Cursor::new(data);
-
-        // The third parameter allows you to strip away toplevel directories.
-        // If `archive` contained a single folder, that folder's contents would be extracted instead.
-        zip_extract::extract(archive, &target_dir, true).unwrap();
-    }
-
-
-    let mut settings = vm::Settings::default();
-    settings.path_list.push(output_dir.to_string());
-    Interpreter::with_init(settings, |vm| {
-        // vm.add_native_modules(rustpython_stdlib::get_module_inits());
-        // vm.insert_sys_path(vm.new_pyobj("/Users/zhouzhipeng/RustroverProjects/play/python"))
-        //     .expect("add path");
-        // let module = vm.import("simple_template", None, 0).unwrap();
-        // let init_fn = module.get_attr("render_tpl", vm).unwrap();
-        // init_fn.call(("hello {{name}}".to_string(),), vm).unwrap();
-    })
+// basic handler that responds with a static string
+async fn root(State(state): State<Arc<AppState>>,) -> &'static str {
+    // py_tool::test();
+    state.py_sender.send("hello").expect("send error");
+    "Hello, World!"
 }
 
+async fn create_user(
+    // this argument tells axum to parse the request body
+    // as JSON into a `CreateUser` type
+    Json(payload): Json<CreateUser>,
+) -> (StatusCode, Json<User>) {
+    // insert your application logic here
+    let user = User {
+        id: 1337,
+        username: payload.username,
+    };
 
-fn run_py_code(source: &str) -> Result<(), String> {
-    let interp = init_py_interpreter();
-    interp.enter(|vm| {
-        let scope = vm.new_scope_with_builtins();
-        return match vm.run_code_string(scope, source, "<tmp>".into()) {
-            Ok(s) => {
-                // vm.unwrap_pyresult(s.to_pyresult(vm));
-                Ok(())
-            }
-            Err(exc) => {
-                let mut s = String::new();
-                vm.write_exception_inner(&mut s, &exc).expect("write error");
-                Err(s)
-            }
-        };
-    })
+    // this will be converted into a JSON response
+    // with a status code of `201 Created`
+    (StatusCode::CREATED, Json(user))
+}
+
+// the input to our `create_user` handler
+#[derive(Deserialize)]
+struct CreateUser {
+    username: String,
+}
+
+// the output to our `create_user` handler
+#[derive(Serialize)]
+struct User {
+    id: u64,
+    username: String,
 }
