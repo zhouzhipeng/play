@@ -4,7 +4,6 @@ import re
 from functools import cached_property
 
 
-
 def html_escape(string):
     ''' Escape HTML special characters ``&<>`` and quotes ``'"``. '''
     return string.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;') \
@@ -360,12 +359,18 @@ class SimpleTemplate(BaseTemplate):
         return ''.join(stdout)
 
 
-
 # global cache
 global_cache = {}
 
-def __get_global_cache():
-    return __global_cache
+
+def clear_cache(filename: str) -> bool:
+    if filename in global_cache:
+        del global_cache[filename]
+        return True
+    else:
+        return False
+
+
 def render_tpl(source: str, filename: str, args: dict) -> str:
     t = SimpleTemplate(source, noescape=True)
     t.filename = filename

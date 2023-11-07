@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use axum::{http::StatusCode, Json, response::IntoResponse, Router, routing::{get, post}};
-use axum::extract::State;
+use axum::extract::{Query, State};
 use axum::handler::HandlerWithoutStateExt;
 use crossbeam_channel::{bounded, Receiver, Sender, unbounded};
 use rustpython_vm as vm;
@@ -48,7 +48,7 @@ async fn main() {
                 let pycode = fs::read_to_string("/Users/zhouzhipeng/RustroverProjects/play/python/test.py").unwrap();
 
                 let args = HashMap::from([
-                    ("name", Value::Str("周志鹏sss".into())),
+                    ("name", Value::Str(result)),
                     ("age", Value::Int(20)),
                     ("male", Value::Bool(true))
                 ]);
@@ -94,10 +94,15 @@ async fn main() {
         .unwrap();
 }
 
+#[derive(Deserialize)]
+struct Param{
+    name : String
+}
+
 // basic handler that responds with a static string
-async fn root(State(state): State<Arc<AppState>>,) -> String {
+async fn root(name: Query<Param> , State(state): State<Arc<AppState>>,) -> String {
     // py_tool::test();
-    state.py_sender.send("hello".to_string()).expect("send error");
+    state.py_sender.send(name.0.name).expect("send error");
     state.api_receiver.recv().unwrap()
 }
 
