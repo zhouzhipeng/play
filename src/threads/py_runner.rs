@@ -1,14 +1,14 @@
-use std::time::Instant;
-use crossbeam_channel::{Receiver, Sender};
-use crate::{TemplateData};
-
 use std::fs;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 
+use crossbeam_channel::{Receiver, Sender};
 use rustpython_vm as vm;
 use rustpython_vm::{Interpreter, py_compile, VirtualMachine};
 use rustpython_vm::convert::IntoObject;
+
+use crate::TemplateData;
 
 fn run_py_template(vm: &VirtualMachine, template: String, filename: &str, json_str_args: String) -> Result<String, String> {
 
@@ -83,7 +83,7 @@ fn run_py_code(source: &str) -> Result<(), String> {
     interp.enter(|vm| {
         let scope = vm.new_scope_with_builtins();
         return match vm.run_code_string(scope, source, "<tmp>".into()) {
-            Ok(s) => {
+            Ok(_) => {
                 // vm.unwrap_pyresult(s.to_pyresult(vm));
                 let elapsed = start.elapsed();
                 println!("run_code_string spent: {}", elapsed.as_millis());

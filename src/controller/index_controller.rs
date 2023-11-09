@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
 use axum::extract::{Query, State};
+use axum::Router;
+use axum::routing::get;
 use serde::Deserialize;
 use serde_json::json;
 
@@ -10,10 +12,6 @@ use crate::{AppState, render, TEST_HTML};
 pub struct Param {
     name: String,
 }
-
-
-// basic handler that respo
-// nds with a static string
 
 
 pub async fn root(name: Query<Param>, State(state): State<Arc<AppState>>) -> String {
