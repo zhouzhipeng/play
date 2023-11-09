@@ -1,48 +1,21 @@
-use std::collections::HashMap;
+use std::time::Instant;
+use crossbeam_channel::{Receiver, Sender};
+use crate::{TemplateData};
+
 use std::fs;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
-use std::time::Instant;
 
 use rustpython_vm as vm;
+use rustpython_vm::{Interpreter, py_compile, VirtualMachine};
 use rustpython_vm::convert::IntoObject;
-use rustpython_vm::{Interpreter, PyRef, VirtualMachine};
-use lazy_static::lazy_static;
-use rustpython_vm::builtins::PyCode;
-use tracing::info;
 
-pub fn test() {
+fn run_py_template(vm: &VirtualMachine, template: String, filename: &str, json_str_args: String) -> Result<String, String> {
 
-    // let html = fs::read_to_string("/Users/zhouzhipeng/RustroverProjects/play/templates/index.html").unwrap();
-    //
-    // let args = HashMap::from([
-    //     ("name", Value::Str("周志鹏sss".into())),
-    //     ("age", Value::Int(20)),
-    //     ("male", Value::Bool(true))
-    // ]);
-    //
-    // match run_py_template( &init_py_interpreter(), html.as_str(), "hello", args) {
-    //     Ok(s) => println!("{}", s),
-    //     Err(s) => println!("{}", s),
-    // }
-    //
-    // match run_py_code("print(1+1)") {
-    //     Ok(s) => println!("{}", "execute ok "),
-    //     Err(s) => println!("{}", s),
-    // }
-}
 
-pub enum Value {
-    Str(String),
-    Int(i64),
-    Bool(bool),
-}
-
-pub fn run_py_template(vm: &VirtualMachine, code: &str, template: &str, filename: &str, args: HashMap<&str, Value>) -> Result<String, String> {
     // interpreter.enter(|vm| {
     let start = Instant::now();
     let scope = vm.new_scope_with_builtins();
-
 
 
     //mandatory args
@@ -50,20 +23,11 @@ pub fn run_py_template(vm: &VirtualMachine, code: &str, template: &str, filename
     scope.locals.set_item("__filename__", vm.ctx.new_str(filename).into_object(), vm).unwrap();
 
     //custom args
-    for (k, v) in args {
-        match v {
-            Value::Str(s) => scope.locals.set_item(k, vm.ctx.new_str(s).into_object(), vm).unwrap(),
-            Value::Int(s) => scope.locals.set_item(k, vm.ctx.new_int(s).into_object(), vm).unwrap(),
-            Value::Bool(s) => scope.locals.set_item(k, vm.ctx.new_bool(s).into_object(), vm).unwrap(),
-        }
-    }
+    scope.locals.set_item("__args__", vm.ctx.new_str(json_str_args).into_object(), vm).unwrap();
 
 
-
-    let res = vm.run_code_string( scope.clone(),code, filename.to_string());
+    let res = vm.run_code_obj(vm.ctx.new_code(py_compile!(file = "python/run_template.py")), scope.clone());
     println!("scope spent:{}", start.elapsed().as_millis());
-
-
     if let Err(exc) = res {
         let mut s = String::new();
         vm.write_exception_inner(&mut s, &exc).expect("write error");
@@ -72,17 +36,10 @@ pub fn run_py_template(vm: &VirtualMachine, code: &str, template: &str, filename
         let result = scope.locals.get_item("__ret__", vm).unwrap().try_into_value::<String>(vm).unwrap();
         Ok(result)
     }
-    // })
 }
 
-// lazy_static! {
-//     static ref interpreter: Interpreter = {
-//        init_py_interpreter()
-//     };
-// }
 
-
-pub fn init_py_interpreter() -> Interpreter {
+fn init_py_interpreter() -> Interpreter {
     // extra embed python stdlib zip file to a directory and add it to syspath.
     let output_dir = "output_dir";
     let target_dir = PathBuf::from(output_dir); // Doesn't need to exist
@@ -90,7 +47,7 @@ pub fn init_py_interpreter() -> Interpreter {
     if !target_dir.exists() {
         println!("output_dir not existed , ready to extract stdlib to it.");
 
-        let data = include_bytes!("../python/Lib.zip");
+        let data = include_bytes!("../../python/Lib.zip");
         let archive = Cursor::new(data);
 
         // The third parameter allows you to strip away toplevel directories.
@@ -98,7 +55,7 @@ pub fn init_py_interpreter() -> Interpreter {
         zip_extract::extract(archive, &target_dir, true).unwrap();
 
         //copy custom python files to output dir.
-        let data = include_bytes!("../python/simple_template.py");
+        let data = include_bytes!("../../python/simple_template.py");
         fs::write(Path::new(output_dir).join("simple_template.py"), data).expect("write file error!");
     }
 
@@ -116,7 +73,7 @@ pub fn init_py_interpreter() -> Interpreter {
 }
 
 
-pub fn run_py_code(source: &str) -> Result<(), String> {
+fn run_py_code(source: &str) -> Result<(), String> {
     let start = Instant::now();
     let interp = init_py_interpreter();
     let elapsed = start.elapsed();
@@ -139,4 +96,29 @@ pub fn run_py_code(source: &str) -> Result<(), String> {
             }
         };
     })
+}
+
+pub async fn run(req_receiver: Receiver<TemplateData>, res_sender: Sender<String>) {
+    let interpreter = init_py_interpreter();
+
+    interpreter.enter(|vm| {
+        // let module = vm::py_compile!(file = "python/test.py");
+        // let code = vm.ctx.new_code(module);
+
+        loop {
+            // Receive the message from the channel.
+            let data = req_receiver.recv().unwrap();
+
+
+            let start = Instant::now();
+
+            let r = match run_py_template(vm, data.template, "hello", data.args.to_string()) {
+                Ok(s) => s,
+                Err(s) => s,
+            };
+
+            res_sender.try_send(r).expect("send error");
+            println!("send spent:{}", start.elapsed().as_millis());
+        }
+    });
 }
