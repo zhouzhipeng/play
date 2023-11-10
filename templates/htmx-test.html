@@ -5,7 +5,7 @@
     <title>Title</title>
 </head>
 <body>
-% include top.html
+{{top}}
 
 ssr : {{server}}
 
@@ -13,9 +13,11 @@ ssr : {{server}}
 <button hx-get="/hello"  hx-target="#result" hx-include="[name='name']" >Click Load</button>
 
 <p id="result"></p>
-% include bottom.html
 
 
-<script src="https://unpkg.com/htmx.org@1.9.8"></script>
+{{bottom}}
+
+
+<script src="/static/js/htmx.min.js"></script>
 </body>
 </html>
