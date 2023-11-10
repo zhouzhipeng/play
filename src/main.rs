@@ -7,21 +7,29 @@ use axum::handler::HandlerWithoutStateExt;
 use axum::http::{header, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use crossbeam_channel::bounded;
+use sqlx::Row;
 use tokio::spawn;
 use tracing::info;
 
-use play::{AppState, STATIC_DIR, TemplateData};
+use play::{AppState, STATIC_DIR, tables, TemplateData};
 use play::controller::index_controller;
 use play::threads::py_runner;
 
+
 #[tokio::main]
 async fn main() {
+
+
     // initialize tracing
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::INFO)
         .init();
 
     //
+
+    //init db pool.
+    let db = tables::init_pool().await;
+
 
 // Create a channel of unbounded capacity.
     let (req_sender, req_receiver) = bounded::<TemplateData>(0);
@@ -32,6 +40,7 @@ async fn main() {
     let app_state = Arc::new(AppState {
         req_sender,
         res_receiver,
+        db,
     });
 
     //run a thread to run python code.

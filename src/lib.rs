@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
 use crossbeam_channel::{Receiver, Sender};
+use include_dir::{Dir, include_dir};
 use rustpython_vm;
 use serde_json::Value;
 
-
-use include_dir::{include_dir, Dir};
+use crate::tables::DBPool;
 
 pub static STATIC_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/static");
 
@@ -22,6 +22,7 @@ pub struct TemplateData {
 pub struct AppState {
     pub req_sender: Sender<TemplateData>,
     pub res_receiver: Receiver<String>,
+    pub db: DBPool,
 }
 
 
@@ -40,6 +41,6 @@ pub fn render_template(state: Arc<AppState>, name: &str, args: Value) -> String 
 }
 
 
-
 pub mod controller;
 pub mod threads;
+pub mod tables;
