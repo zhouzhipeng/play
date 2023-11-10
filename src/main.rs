@@ -11,8 +11,9 @@ use sqlx::Row;
 use tokio::spawn;
 use tracing::info;
 
-use play::{AppState, STATIC_DIR, tables, TemplateData};
+use play::{AppState, STATIC_DIR, tables};
 use play::controller::index_controller;
+use play::service::template_service::TemplateData;
 use play::threads::py_runner;
 
 

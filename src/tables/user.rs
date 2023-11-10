@@ -25,7 +25,7 @@ impl User {
             .await
     }
 
-    pub async fn query_users_by_name(name: &String, pool: &DBPool) -> Result<Vec<User>, Error> {
+    pub async fn query_users_by_name(name: &str, pool: &DBPool) -> Result<Vec<User>, Error> {
         sqlx::query_as::<_, User>("SELECT id, name FROM users where name = ?")
             .bind(name)
             .fetch_all(pool)

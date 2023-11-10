@@ -2,13 +2,12 @@ use std::sync::Arc;
 
 use axum::extract::{Query, State};
 use axum::response::Html;
-use axum::Router;
-use axum::routing::get;
 use serde::Deserialize;
 use serde_json::json;
 use tracing::info;
 
-use crate::{AppState, render, render_template, TEMPLATES_DIR};
+use crate::AppState;
+use crate::service::template_service::render_template;
 use crate::tables::user::{AddUser, User};
 
 #[derive(Deserialize)]
@@ -22,10 +21,10 @@ pub async fn root(name: Query<Param>, State(state): State<Arc<AppState>>) -> Htm
 
     let name = name.0.name;
 
-    let user = AddUser {  name: name.to_string() };
-    User::add_user( user, &state.db).await.expect("add user error");
+    let user = AddUser { name: name.to_string() };
+    User::add_user(user, &state.db).await.expect("add user error");
 
-    let users = User::query_users_by_name(&name, &state.db).await.unwrap();
+    let users = User::query_users_by_name(name.as_str(), &state.db).await.unwrap();
 
     info!("users : {:?}", users);
 
@@ -51,12 +50,12 @@ pub async fn htmx_test(name: Query<Param>, State(state): State<Arc<AppState>>) -
 
     });
 
-    let s2= render_template(state, "htmx-test.html", args);
+    let s2 = render_template(state, "htmx-test.html", args);
     // info!("s2 = {}", s2);
     Html::from(s2)
 }
 
 
-pub async fn hello(name: Query<Param>, State(state): State<Arc<AppState>>) -> String {
+pub async fn hello(name: Query<Param>) -> String {
     format!("hello , {}", name.0.name).to_string()
 }
