@@ -51,12 +51,17 @@ fn init_py_interpreter() -> Interpreter {
     if !target_dir.exists() {
         info!("output_dir not existed , ready to extract stdlib to it.");
 
+        //python stdlib
         let data = include_bytes!("../../python/Lib.zip");
         let archive = Cursor::new(data);
-
-        // The third parameter allows you to strip away toplevel directories.
-        // If `archive` contained a single folder, that folder's contents would be extracted instead.
         zip_extract::extract(archive, &target_dir, true).unwrap();
+
+        //below code cant work : ModuleNotFoundError: No module named 'urllib3'
+        //requests lib : https://github.com/psf/requests
+        // let data = include_bytes!("../../python/requests.zip");
+        // let archive = Cursor::new(data);
+        // zip_extract::extract(archive, &target_dir.join("requests"), true).unwrap();
+
 
         //copy custom python files to output dir.
         let data = include_bytes!("../../python/simple_template.py");

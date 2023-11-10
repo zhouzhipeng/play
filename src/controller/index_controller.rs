@@ -36,13 +36,13 @@ pub async fn htmx_test(name: Query<Param>, State(state): State<Arc<AppState>>) -
 
     let args = json!({
         "server": "rust play server",
-        "top": top,
-        "bottom": bottom
+        "top_html": top,
+        "bottom_html": bottom
 
     });
 
     let s2= render_template(state, "htmx-test.html", args);
-    info!("s2 = {}", s2);
+    // info!("s2 = {}", s2);
     Html::from(s2)
 }
 
