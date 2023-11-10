@@ -8,6 +8,7 @@ use axum::http::{header, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use crossbeam_channel::bounded;
 use tokio::spawn;
+use tracing::info;
 
 use play::{AppState, STATIC_DIR, TemplateData};
 use play::controller::index_controller;
@@ -16,7 +17,9 @@ use play::threads::py_runner;
 #[tokio::main]
 async fn main() {
     // initialize tracing
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::INFO)
+        .init();
 
     //
 
@@ -40,12 +43,15 @@ async fn main() {
 
     let app = Router::new()
         .route("/", get(index_controller::root))
+        .route("/test", get(index_controller::htmx_test))
+        .route("/hello", get(index_controller::hello))
         .with_state(app_state);
 
     let static_router = axum::Router::new()
         .route("/static/*path", get(static_path));
 
 
+    info!("server start...");
     // run it with hyper on localhost:3000
     axum::Server::bind(&"0.0.0.0:3000".parse().unwrap())
         .serve(app.merge(static_router).into_make_service())

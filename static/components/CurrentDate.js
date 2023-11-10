@@ -2,6 +2,18 @@ class CurrentDate extends HTMLElement {
     // The browser calls this method when the element is
     // added to the DOM.
     connectedCallback() {
+        let template = `
+            <style>
+                .completed {
+                    text-decoration: line-through;
+                }
+            </style>
+            <li class="todo-item">
+                <input type="checkbox">
+                <label></label>
+                <button>Delete</button>
+            </li>
+        `
         // Create a Date object representing the current date.
         const now = new Date();
 

@@ -7,15 +7,17 @@ use crossbeam_channel::{Receiver, Sender};
 use rustpython_vm as vm;
 use rustpython_vm::{Interpreter, py_compile, VirtualMachine};
 use rustpython_vm::convert::IntoObject;
+use tracing::{debug, info};
 
 use crate::TemplateData;
 
-fn run_py_template(vm: &VirtualMachine, template: String, filename: &str, json_str_args: String) -> Result<String, String> {
+fn run_py_template(vm: &VirtualMachine, template: String, filename: String, json_str_args: String) -> Result<String, String> {
 
 
     // interpreter.enter(|vm| {
     let start = Instant::now();
     let scope = vm.new_scope_with_builtins();
+
 
 
     //mandatory args
@@ -26,8 +28,9 @@ fn run_py_template(vm: &VirtualMachine, template: String, filename: &str, json_s
     scope.locals.set_item("__args__", vm.ctx.new_str(json_str_args).into_object(), vm).unwrap();
 
 
+
     let res = vm.run_code_obj(vm.ctx.new_code(py_compile!(file = "python/run_template.py")), scope.clone());
-    println!("scope spent:{}", start.elapsed().as_millis());
+    info!("scope spent:{}", start.elapsed().as_millis());
     if let Err(exc) = res {
         let mut s = String::new();
         vm.write_exception_inner(&mut s, &exc).expect("write error");
@@ -45,7 +48,7 @@ fn init_py_interpreter() -> Interpreter {
     let target_dir = PathBuf::from(output_dir); // Doesn't need to exist
 
     if !target_dir.exists() {
-        println!("output_dir not existed , ready to extract stdlib to it.");
+        info!("output_dir not existed , ready to extract stdlib to it.");
 
         let data = include_bytes!("../../python/Lib.zip");
         let archive = Cursor::new(data);
@@ -77,7 +80,7 @@ fn run_py_code(source: &str) -> Result<(), String> {
     let start = Instant::now();
     let interp = init_py_interpreter();
     let elapsed = start.elapsed();
-    println!("init spent: {}", elapsed.as_millis());
+    info!("init spent: {}", elapsed.as_millis());
 
     let start = Instant::now();
     interp.enter(|vm| {
@@ -86,7 +89,7 @@ fn run_py_code(source: &str) -> Result<(), String> {
             Ok(_) => {
                 // vm.unwrap_pyresult(s.to_pyresult(vm));
                 let elapsed = start.elapsed();
-                println!("run_code_string spent: {}", elapsed.as_millis());
+                info!("run_code_string spent: {}", elapsed.as_millis());
                 Ok(())
             }
             Err(exc) => {
@@ -112,13 +115,13 @@ pub async fn run(req_receiver: Receiver<TemplateData>, res_sender: Sender<String
 
             let start = Instant::now();
 
-            let r = match run_py_template(vm, data.template, "hello", data.args.to_string()) {
+            let r = match run_py_template(vm, data.template, data.filename, data.args.to_string()) {
                 Ok(s) => s,
                 Err(s) => s,
             };
 
             res_sender.try_send(r).expect("send error");
-            println!("send spent:{}", start.elapsed().as_millis());
+            info!("send spent:{}", start.elapsed().as_millis());
         }
     });
 }

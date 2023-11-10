@@ -1,0 +1,53 @@
+<html>
+<head></head>
+
+<body>
+<!-- Main App -->
+<div id="todo-app">
+    <input type="text" id="addTodoInput">
+    <button id="addTodo">Add</button>
+    <ul id="todos"></ul>
+</div>
+<script src="components/todo-item.js"></script>
+<script>
+    const $todoApp = document.querySelector('#todo-app');
+    const $addTodoInput = document.querySelector('#addTodoInput');
+    const $addTodo = document.querySelector('#addTodo');
+    const $todoList = document.querySelector('#todos');
+    let todos = [];
+
+    function addTodo() {
+        const newTodo = { text: $addTodoInput.value, checked: false };
+        todos.push(newTodo);
+        renderTodos();
+        $addTodoInput.value = '';
+    }
+
+    function renderTodos() {
+        $todoList.innerHTML = '';
+        todos.forEach((todo, index) => {
+            const $todoItem = document.createElement('todo-item');
+            $todoItem.setAttribute('text', todo.text);
+            $todoItem.setAttribute('checked', todo.checked);
+            $todoItem.setAttribute('index', index);
+            $todoItem.addEventListener('onRemove', () => removeTodo(index));
+            $todoItem.addEventListener('onToggle', () => toggleTodo(index));
+            $todoList.appendChild($todoItem);
+        });
+    }
+
+    function removeTodo(index) {
+        todos.splice(index, 1);
+        renderTodos();
+    }
+
+    function toggleTodo(index) {
+        const todo = todos[index];
+        todo.checked = !todo.checked;
+        renderTodos();
+    }
+
+    $addTodo.addEventListener('click', addTodo);
+</script>
+</body>
+</html>

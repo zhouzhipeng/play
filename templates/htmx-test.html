@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+% include top.html
+
+ssr : {{server}}
+
+<input type="text" name="name"/>
+<button hx-get="/hello"  hx-target="#result" hx-include="[name='name']" >Click Load</button>
+
+<p id="result"></p>
+% include bottom.html
+
+
+<script src="https://unpkg.com/htmx.org@1.9.8"></script>
+</body>
+</html>
