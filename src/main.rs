@@ -12,11 +12,10 @@ use play::threads::py_runner;
 
 #[tokio::main]
 async fn main() {
-
-
     // initialize tracing
     tracing_subscriber::fmt().with_max_level(tracing::Level::INFO).init();
 
+    //create a group of channels to handle python code running
     let (req_sender, req_receiver) = bounded::<TemplateData>(0);
     let (res_sender, res_receiver) = bounded::<String>(1);
 
@@ -27,19 +26,14 @@ async fn main() {
     });
 
 
-    // build our application with a route
-    let app = routers(app_state);
-
     //run a thread to run python code.
-    spawn(async move {
-        py_runner::run(req_receiver, res_sender).await;
-    });
+    spawn(async move { py_runner::run(req_receiver, res_sender).await; });
 
 
     info!("server start...");
     // run it with hyper on localhost:3000
     axum::Server::bind(&"0.0.0.0:3000".parse().unwrap())
-        .serve(app.into_make_service())
+        .serve(routers(app_state).into_make_service())
         .await
         .unwrap();
 }

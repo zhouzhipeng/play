@@ -2,6 +2,8 @@ use std::sync::Arc;
 
 use axum::extract::{Query, State};
 use axum::response::Html;
+use axum::Router;
+use axum::routing::get;
 use serde::Deserialize;
 use serde_json::json;
 use tracing::info;
@@ -10,12 +12,18 @@ use crate::AppState;
 use crate::tables::user::{AddUser, User};
 
 #[derive(Deserialize)]
-pub struct Param {
+struct Param {
     name: String,
 }
 
+pub fn init() -> Router<Arc<AppState>> {
+    Router::new()
+        .route("/", get(root))
+        .route("/test", get(htmx_test))
+        .route("/hello", get(hello))
+}
 
-pub async fn root(name: Query<Param>, State(state): State<Arc<AppState>>) -> Html<String> {
+async fn root(name: Query<Param>, State(state): State<Arc<AppState>>) -> Html<String> {
     // py_tool::test();
 
     let name = name.0.name;
@@ -37,10 +45,10 @@ pub async fn root(name: Query<Param>, State(state): State<Arc<AppState>>) -> Htm
 }
 
 
-pub async fn htmx_test(name: Query<Param>, State(state): State<Arc<AppState>>) -> Html<String> {
+async fn htmx_test(name: Query<Param>, State(state): State<Arc<AppState>>) -> Html<String> {
     // py_tool::test();
     let top = state.template_service.render_template("top.html", json!({}));
-    let bottom = state.template_service.render_template( "bottom.html", json!({}));
+    let bottom = state.template_service.render_template("bottom.html", json!({}));
 
     let args = json!({
         "server": "rust play server",
@@ -55,6 +63,6 @@ pub async fn htmx_test(name: Query<Param>, State(state): State<Arc<AppState>>) -
 }
 
 
-pub async fn hello(name: Query<Param>) -> String {
+async fn hello(name: Query<Param>) -> String {
     format!("hello , {}", name.0.name).to_string()
 }

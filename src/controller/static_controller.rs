@@ -3,12 +3,19 @@ use axum::body::{Empty, Full};
 use axum::extract::Path;
 use axum::http::{header, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
+use axum::Router;
+use axum::routing::get;
 use include_dir::{Dir, include_dir};
 use rustpython_vm;
 
 static STATIC_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/static");
 
-pub async fn static_path(Path(path): Path<String>) -> impl IntoResponse {
+pub fn init() -> Router {
+    Router::new().route("/static/*path", get(static_path))
+}
+
+
+async fn static_path(Path(path): Path<String>) -> impl IntoResponse {
     let path = path.trim_start_matches('/');
     let mime_type = mime_guess::from_path(path).first_or_text_plain();
 

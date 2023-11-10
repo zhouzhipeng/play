@@ -7,7 +7,7 @@ use crossbeam_channel::{Receiver, Sender};
 use rustpython_vm as vm;
 use rustpython_vm::{Interpreter, py_compile, VirtualMachine};
 use rustpython_vm::convert::IntoObject;
-use tracing::{debug, info};
+use tracing::info;
 
 use crate::TemplateData;
 
@@ -19,14 +19,12 @@ fn run_py_template(vm: &VirtualMachine, template: String, filename: String, json
     let scope = vm.new_scope_with_builtins();
 
 
-
     //mandatory args
     scope.locals.set_item("__source__", vm.ctx.new_str(template).into_object(), vm).unwrap();
     scope.locals.set_item("__filename__", vm.ctx.new_str(filename).into_object(), vm).unwrap();
 
     //custom args
     scope.locals.set_item("__args__", vm.ctx.new_str(json_str_args).into_object(), vm).unwrap();
-
 
 
     let res = vm.run_code_obj(vm.ctx.new_code(py_compile!(file = "python/run_template.py")), scope.clone());
@@ -40,7 +38,6 @@ fn run_py_template(vm: &VirtualMachine, template: String, filename: String, json
         Ok(result)
     }
 }
-
 
 
 fn init_py_interpreter() -> Interpreter {
@@ -108,6 +105,7 @@ fn run_py_code(source: &str) -> Result<(), String> {
 }
 
 pub async fn run(req_receiver: Receiver<TemplateData>, res_sender: Sender<String>) {
+    info!("py_runner start...");
     let interpreter = init_py_interpreter();
 
     interpreter.enter(|vm| {
