@@ -9,7 +9,7 @@ use serde_json::json;
 use tracing::info;
 
 use crate::{AppState, render, render_template, TEMPLATES_DIR};
-use crate::tables::user::User;
+use crate::tables::user::{AddUser, User};
 
 #[derive(Deserialize)]
 pub struct Param {
@@ -22,9 +22,10 @@ pub async fn root(name: Query<Param>, State(state): State<Arc<AppState>>) -> Htm
 
     let name = name.0.name;
 
-    User::add_user(User { id: 0, name: name.to_string() }, &state.db).await.expect("add user error");
+    let user = AddUser {  name: name.to_string() };
+    User::add_user( user, &state.db).await.expect("add user error");
 
-    let users = User::query_users(&state.db).await.unwrap();
+    let users = User::query_users_by_name(&name, &state.db).await.unwrap();
 
     info!("users : {:?}", users);
 
