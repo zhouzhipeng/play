@@ -21,3 +21,5 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 lazy_static = { version = "1.4.0", features = [] }
 crossbeam-channel = "0.5.8"
+include_dir = "0.7.3"
+mime_guess = "2.0.4"

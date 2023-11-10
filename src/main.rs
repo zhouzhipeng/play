@@ -1,11 +1,15 @@
 use std::sync::Arc;
 
-use axum::{Router, routing::get};
+use axum::{body, Router, routing::get};
+use axum::body::{Empty, Full};
+use axum::extract::Path;
 use axum::handler::HandlerWithoutStateExt;
+use axum::http::{header, HeaderValue, StatusCode};
+use axum::response::{IntoResponse, Response};
 use crossbeam_channel::bounded;
 use tokio::spawn;
 
-use play::{AppState, TemplateData};
+use play::{AppState, STATIC_DIR, TemplateData};
 use play::controller::index_controller;
 use play::threads::py_runner;
 
@@ -38,10 +42,34 @@ async fn main() {
         .route("/", get(index_controller::root))
         .with_state(app_state);
 
+    let static_router = axum::Router::new()
+        .route("/static/*path", get(static_path));
+
+
     // run it with hyper on localhost:3000
     axum::Server::bind(&"0.0.0.0:3000".parse().unwrap())
-        .serve(app.into_make_service())
+        .serve(app.merge(static_router).into_make_service())
         .await
         .unwrap();
 }
 
+
+async fn static_path(Path(path): Path<String>) -> impl IntoResponse {
+    let path = path.trim_start_matches('/');
+    let mime_type = mime_guess::from_path(path).first_or_text_plain();
+
+    match STATIC_DIR.get_file(path) {
+        None => Response::builder()
+            .status(StatusCode::NOT_FOUND)
+            .body(body::boxed(Empty::new()))
+            .unwrap(),
+        Some(file) => Response::builder()
+            .status(StatusCode::OK)
+            .header(
+                header::CONTENT_TYPE,
+                HeaderValue::from_str(mime_type.as_ref()).unwrap(),
+            )
+            .body(body::boxed(Full::from(file.contents())))
+            .unwrap(),
+    }
+}

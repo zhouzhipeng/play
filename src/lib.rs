@@ -4,6 +4,11 @@ use crossbeam_channel::{Receiver, Sender};
 use rustpython_vm;
 use serde_json::Value;
 
+
+use include_dir::{include_dir, Dir};
+
+pub static STATIC_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/static");
+
 ///
 /// static files
 pub const TEST_HTML: &'static str = include_str!("../templates/test.html");

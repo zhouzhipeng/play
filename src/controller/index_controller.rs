@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use axum::extract::{Query, State};
+use axum::response::Html;
 use axum::Router;
 use axum::routing::get;
 use serde::Deserialize;
@@ -14,7 +15,7 @@ pub struct Param {
 }
 
 
-pub async fn root(name: Query<Param>, State(state): State<Arc<AppState>>) -> String {
+pub async fn root(name: Query<Param>, State(state): State<Arc<AppState>>) -> Html<String> {
     // py_tool::test();
 
 
@@ -23,5 +24,5 @@ pub async fn root(name: Query<Param>, State(state): State<Arc<AppState>>) -> Str
         "age": 43,
         "male": true,
     });
-    render(state, TEST_HTML.to_string(), args)
+    Html::from(render(state, TEST_HTML.to_string(), args))
 }
