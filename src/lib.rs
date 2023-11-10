@@ -2,18 +2,13 @@ use crossbeam_channel::{Receiver, Sender};
 use include_dir::{Dir, include_dir};
 use rustpython_vm;
 
-use crate::service::template_service::TemplateData;
+use crate::service::template_service::{TemplateData, TemplateService};
 use crate::tables::DBPool;
 
-pub static STATIC_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/static");
-
-///
-/// templates files
 
 
 pub struct AppState {
-    pub req_sender: Sender<TemplateData>,
-    pub res_receiver: Receiver<String>,
+    pub template_service: TemplateService,
     pub db: DBPool,
 }
 

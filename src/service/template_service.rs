@@ -1,11 +1,7 @@
-use std::sync::Arc;
-
-use rustpython_vm;
-use serde_json::Value;
 use crossbeam_channel::{Receiver, Sender};
 use include_dir::{Dir, include_dir};
-
-use crate::{AppState};
+use rustpython_vm;
+use serde_json::Value;
 
 const TEMPLATES_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/templates");
 
@@ -16,17 +12,29 @@ pub struct TemplateData {
     pub args: Value,
 }
 
-
-pub fn render(state: Arc<AppState>, template: String, filename: String, args: Value) -> String {
-    state.req_sender.send(TemplateData {
-        template,
-        filename,
-        args,
-    }).expect("send error");
-    state.res_receiver.recv().unwrap()
+pub struct TemplateService {
+    req_sender: Sender<TemplateData>,
+    res_receiver: Receiver<String>,
 }
 
-pub fn render_template(state: Arc<AppState>, name: &str, args: Value) -> String {
-    let template = TEMPLATES_DIR.get_file(name).unwrap().contents_utf8().unwrap().to_string();
-    render(state, template, name.to_string(), args)
+impl TemplateService {
+    pub fn new(req_sender: Sender<TemplateData>,res_receiver: Receiver<String>)->Self{
+        Self{
+            req_sender,
+            res_receiver,
+        }
+    }
+    pub fn render(&self, template: String, filename: String, args: Value) -> String {
+        self.req_sender.send(TemplateData {
+            template,
+            filename,
+            args,
+        }).expect("send error");
+        self.res_receiver.recv().unwrap()
+    }
+
+    pub fn render_template(&self, name: &str, args: Value) -> String {
+        let template = TEMPLATES_DIR.get_file(name).unwrap().contents_utf8().unwrap().to_string();
+        self.render(template, name.to_string(), args)
+    }
 }

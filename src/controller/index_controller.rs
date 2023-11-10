@@ -7,7 +7,6 @@ use serde_json::json;
 use tracing::info;
 
 use crate::AppState;
-use crate::service::template_service::render_template;
 use crate::tables::user::{AddUser, User};
 
 #[derive(Deserialize)]
@@ -34,14 +33,14 @@ pub async fn root(name: Query<Param>, State(state): State<Arc<AppState>>) -> Htm
         "age": 43,
         "male": true,
     });
-    Html::from(render_template(state, "test.html", args))
+    Html::from(state.template_service.render_template("test.html", args))
 }
 
 
 pub async fn htmx_test(name: Query<Param>, State(state): State<Arc<AppState>>) -> Html<String> {
     // py_tool::test();
-    let top = render_template(state.clone(), "top.html", json!({}));
-    let bottom = render_template(state.clone(), "bottom.html", json!({}));
+    let top = state.template_service.render_template("top.html", json!({}));
+    let bottom = state.template_service.render_template( "bottom.html", json!({}));
 
     let args = json!({
         "server": "rust play server",
@@ -50,7 +49,7 @@ pub async fn htmx_test(name: Query<Param>, State(state): State<Arc<AppState>>) -
 
     });
 
-    let s2 = render_template(state, "htmx-test.html", args);
+    let s2 = state.template_service.render_template("htmx-test.html", args);
     // info!("s2 = {}", s2);
     Html::from(s2)
 }
