@@ -114,7 +114,7 @@ pub async fn run(req_receiver: Receiver<TemplateData>, res_sender: Sender<String
 
         loop {
             // Receive the message from the channel.
-            let data = req_receiver.recv().unwrap();
+            let data = req_receiver.recv().expect("recv error!");
 
 
             let start = Instant::now();

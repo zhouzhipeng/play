@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use axum::body;
 use axum::body::{Empty, Full};
 use axum::extract::Path;
@@ -7,6 +8,7 @@ use axum::Router;
 use axum::routing::get;
 use include_dir::{Dir, include_dir};
 use rustpython_vm;
+use crate::controller::AppError;
 
 static STATIC_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/static");
 
@@ -23,14 +25,14 @@ async fn static_path(Path(path): Path<String>) -> impl IntoResponse {
         None => Response::builder()
             .status(StatusCode::NOT_FOUND)
             .body(body::boxed(Empty::new()))
-            .unwrap(),
+            .unwrap_or(AppError(anyhow!("unknown error.")).into_response()),
         Some(file) => Response::builder()
             .status(StatusCode::OK)
             .header(
                 header::CONTENT_TYPE,
-                HeaderValue::from_str(mime_type.as_ref()).unwrap(),
+                HeaderValue::from_str(mime_type.as_ref()).unwrap_or_default(),
             )
             .body(body::boxed(Full::from(file.contents())))
-            .unwrap(),
+            .unwrap_or(AppError(anyhow!("unknown error.")).into_response()),
     }
 }

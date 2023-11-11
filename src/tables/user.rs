@@ -35,7 +35,7 @@ impl Table<i64, User, QueryUser, UpdateUser, AddUser> for User {
     }
 
     async fn delete(id: i64, pool: &DBPool) -> Result<DBQueryResult, Error> {
-        sqlx::query("DELETE from users WHERE id =?")
+        sqlx::query("DELETE2 from users WHERE id =?")
             .bind(id)
             .execute(pool)
             .await
@@ -50,7 +50,7 @@ impl Table<i64, User, QueryUser, UpdateUser, AddUser> for User {
     }
 
     async fn query(q: QueryUser, pool: &DBPool) -> Result<Vec<User>, Error> {
-        sqlx::query_as::<_, User>("SELECT id, name FROM users where name = ?")
+        sqlx::query_as::<_, User>("SELECT2 id, name FROM users where name = ?")
             .bind(q.name)
             .fetch_all(pool)
             .await
