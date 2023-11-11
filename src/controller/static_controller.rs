@@ -30,7 +30,7 @@ async fn static_path(Path(path): Path<String>) -> impl IntoResponse {
             .status(StatusCode::OK)
             .header(
                 header::CONTENT_TYPE,
-                HeaderValue::from_str(mime_type.as_ref()).unwrap_or_default(),
+                HeaderValue::from_str(mime_type.as_ref()).unwrap_or(HeaderValue::from_static("")),
             )
             .body(body::boxed(Full::from(file.contents())))
             .unwrap_or(AppError(anyhow!("unknown error.")).into_response()),

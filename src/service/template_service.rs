@@ -24,16 +24,16 @@ impl TemplateService {
             res_receiver,
         }
     }
-    pub fn render(&self, template: String, filename: String, args: Value) -> String {
+    pub fn render(&self, template: String, filename: String, args: Value) -> anyhow::Result<String> {
         self.req_sender.send(TemplateData {
             template,
             filename,
             args,
-        }).expect("send error");
-        self.res_receiver.recv().unwrap()
+        })?;
+        Ok(self.res_receiver.recv()?)
     }
 
-    pub fn render_template(&self, name: &str, args: Value) -> String {
+    pub fn render_template(&self, name: &str, args: Value) -> anyhow::Result<String> {
         let template = TEMPLATES_DIR.get_file(name).unwrap().contents_utf8().unwrap().to_string();
         self.render(template, name.to_string(), args)
     }
