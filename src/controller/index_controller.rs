@@ -9,7 +9,7 @@ use serde_json::{json, json_internal};
 use tracing::info;
 
 use crate::AppState;
-use crate::controller::AppError;
+use crate::controller::{AppError, R, S};
 use crate::tables::user::{AddUser, User};
 
 #[derive(Deserialize)]
@@ -24,7 +24,7 @@ pub fn init() -> Router<Arc<AppState>> {
         .route("/hello", get(hello))
 }
 
-async fn root(name: Query<Param>, State(state): State<Arc<AppState>>) -> Result<Html<String>, AppError> {
+async fn root(name: Query<Param>, State(state): S) -> R<Html<String>> {
     // py_tool::test();
 
     let name = name.0.name;
@@ -38,7 +38,7 @@ async fn root(name: Query<Param>, State(state): State<Arc<AppState>>) -> Result<
 }
 
 
-async fn htmx_test(name: Query<Param>, State(state): State<Arc<AppState>>) -> Result<Html<String>, AppError> {
+async fn htmx_test(name: Query<Param>, State(state): S) -> R<Html<String>> {
     // py_tool::test();
     let top = state.template_service.render_template("top.html", json!({}))?;
     let bottom = state.template_service.render_template("bottom.html", json!({}))?;

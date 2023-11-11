@@ -3,13 +3,19 @@ use std::sync::Arc;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 
-use axum::Router;
+use axum::{Json, Router};
+use axum::extract::State;
+use serde_json::json;
 
 use crate::AppState;
 
 mod index_controller;
 mod static_controller;
 mod user_controller;
+
+
+type R<T> = Result<T, AppError>;
+type S = State<Arc<AppState>>;
 
 pub fn routers(app_state: Arc<AppState>) -> Router {
     Router::new()
@@ -27,7 +33,8 @@ impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Something went wrong: {}", self.0),
+           format!("Server Error: {}", self.0),
+
         )
             .into_response()
     }
