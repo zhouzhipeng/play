@@ -1,26 +1,41 @@
 use std::sync::Arc;
 
-use axum::extract::{Query, State};
-use axum::Router;
+use axum::{Json, Router};
+use axum::extract::{Path, Query, State};
 use axum::routing::get;
-use serde::Deserialize;
 
 use crate::AppState;
-use crate::tables::user::User;
-
-#[derive(Deserialize)]
-struct Param {
-    name: String,
-}
+use crate::tables::Table;
+use crate::tables::user::{AddUser, QueryUser, UpdateUser, User};
 
 pub fn init() -> Router<Arc<AppState>> {
     Router::new()
         .route("/users", get(user_list))
+        .route("/add-user", get(add_user))
+        .route("/update-user/:user_id", get(modify_user))
+        .route("/delete-user/:user_id", get(delete_user))
 }
 
-async fn user_list(name: Query<Param>, State(state): State<Arc<AppState>>) -> String {
-    let users = User::query_users_by_name(name.0.name.as_str(), &state.db).await.unwrap();
+async fn user_list(Query(q): Query<QueryUser>, State(state): State<Arc<AppState>>) -> Json<Vec<User>> {
+    let users = User::query(q, &state.db).await.unwrap();
 
-    format!("users : {:?}", users)
+    Json(users)
+}
+
+async fn add_user(Query(q): Query<AddUser>, State(state): State<Arc<AppState>>) -> String {
+    let r = User::insert(q, &state.db).await.unwrap();
+
+    format!("rows affected : {}", r.rows_affected())
+}
+async fn modify_user(Path(user_id): Path<i64>, Query(q): Query<UpdateUser>, State(state): State<Arc<AppState>>) -> String {
+    let r = User::update(user_id, q,&state.db).await.unwrap();
+
+    format!("rows affected : {}", r.rows_affected())
+}
+
+async fn delete_user(Path(user_id): Path<i64>, State(state): State<Arc<AppState>>) -> String {
+    let r = User::delete(user_id, &state.db).await.unwrap();
+
+    format!("rows affected : {}", r.rows_affected())
 }
 

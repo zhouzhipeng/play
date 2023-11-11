@@ -24,3 +24,4 @@ crossbeam-channel = "0.5.8"
 include_dir = "0.7.3"
 mime_guess = "2.0.4"
 sqlx = {version = "0.7.2",features = ["runtime-tokio-native-tls", "sqlite"]}
+async-trait = "0.1.74"

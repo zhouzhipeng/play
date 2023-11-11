@@ -28,14 +28,6 @@ async fn root(name: Query<Param>, State(state): State<Arc<AppState>>) -> Html<St
 
     let name = name.0.name;
 
-    let user = AddUser { name: name.to_string() };
-    User::add_user(user, &state.db).await.expect("add user error");
-
-    let users = User::query_users_by_name(name.as_str(), &state.db).await.unwrap();
-
-    info!("users : {:?}", users);
-
-
     let args = json!({
         "name": name,
         "age": 43,
