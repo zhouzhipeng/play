@@ -13,8 +13,10 @@ fn main() {
         }
         "
     ).unwrap();
+
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=templates");
     println!("cargo:rerun-if-changed=static");
     println!("cargo:rerun-if-changed=src");
+    println!("cargo:rustc-cfg=ENV=\"{}\"", option_env!("ENV").unwrap_or("dev"));
 }

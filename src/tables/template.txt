@@ -1,7 +1,7 @@
 <%
 if not locals().get("s"):
     s = '''
-        create table IF NOT EXISTS {{model}}(
+        create table IF NOT EXISTS article(
             id integer primary key,
             title varchar(255) not null,
             content text

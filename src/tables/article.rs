@@ -91,7 +91,10 @@ mod tests {
         assert_eq!(rows[0].content, "this is a content".to_string());
         assert_eq!(rows[0].id, 1);
 
-        let r = Article::update(1, UpdateArticle { title: "new title".to_string(), content: "new content".to_string() }, &pool).await?;
+        let r = Article::update(1, UpdateArticle {
+            title: "new title".to_string(),
+            content: "new content".to_string()
+        }, &pool).await?;
         assert_eq!(r.rows_affected(), 1);
 
         let rows = Article::query(QueryArticle {
