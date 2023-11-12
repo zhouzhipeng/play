@@ -1,6 +1,6 @@
 use crossbeam_channel::{Receiver, Sender};
 use include_dir::{Dir, include_dir};
-use rustpython_vm;
+
 use serde_json::Value;
 
 const TEMPLATES_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/templates");

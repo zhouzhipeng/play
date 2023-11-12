@@ -1,11 +1,10 @@
 use std::ops::Deref;
 use std::sync::Arc;
+
+use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-
-use axum::{Json, Router};
-use axum::extract::State;
-use serde_json::json;
+use axum::Router;
 
 use crate::AppState;
 
@@ -33,16 +32,14 @@ impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-           format!("Server Error: {}", self.0),
-
+            format!("Server Error: {}", self.0),
         )
             .into_response()
     }
 }
 
 
-
-impl Deref for AppError{
+impl Deref for AppError {
     type Target = anyhow::Error;
 
     fn deref(&self) -> &Self::Target {

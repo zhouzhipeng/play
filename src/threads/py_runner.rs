@@ -68,7 +68,7 @@ fn init_py_interpreter() -> Interpreter {
 
     let mut settings = vm::Settings::default();
     settings.path_list.push(output_dir.to_string());
-    Interpreter::with_init(settings, |vm| {
+    Interpreter::with_init(settings, |_vm| {
         // vm.add_native_modules(rustpython_stdlib::get_module_inits());
         // vm.insert_sys_path(vm.new_pyobj("/Users/zhouzhipeng/RustroverProjects/play/python"))
         //     .expect("add path");
@@ -79,6 +79,7 @@ fn init_py_interpreter() -> Interpreter {
 }
 
 
+#[allow(dead_code)]
 fn run_py_code(source: &str) -> Result<(), String> {
     let start = Instant::now();
     let interp = init_py_interpreter();

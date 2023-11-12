@@ -1,0 +1,67 @@
+% model="User"
+% table="users"
+
+use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
+use sqlx::{Error, FromRow};
+
+use crate::tables::{DBPool, DBQueryResult, Table};
+
+#[derive(Clone, FromRow, Debug, Serialize)]
+pub struct {{model}} {
+
+}
+
+#[derive(Deserialize)]
+pub struct Add{{model}} {
+
+}
+
+#[derive(Deserialize)]
+pub struct Update{{model}} {
+
+}
+
+#[derive(Deserialize)]
+pub struct Query{{model}} {
+
+}
+
+#[async_trait]
+impl Table<i64, {{model}}, Query{{model}}, Update{{model}}, Add{{model}}> for {{model}} {
+    async fn insert(t: Add{{model}}, pool: &DBPool) -> Result<DBQueryResult, Error> {
+        /*sqlx::query("INSERT INTO {{table}} (name) VALUES (?)")
+            .bind(&t.name)
+            .execute(pool)
+            .await */
+        todo!()
+    }
+
+    async fn delete(id: i64, pool: &DBPool) -> Result<DBQueryResult, Error> {
+        /*sqlx::query("DELETE2 from {{table}} WHERE id =?")
+            .bind(id)
+            .execute(pool)
+            .await*/
+        todo!()
+    }
+
+    async fn update(id: i64, t: Update{{model}}, pool: &DBPool) -> Result<DBQueryResult, Error> {
+        /*sqlx::query("UPDATE {{table}} set name=? WHERE id =?")
+            .bind(t.name)
+            .bind(id)
+            .execute(pool)
+            .await*/
+
+        todo!()
+
+    }
+
+    async fn query(q: Query{{model}}, pool: &DBPool) -> Result<Vec<{{model}}>, Error> {
+        /*sqlx::query_as::<_, {{model}}>("SELECT id, name FROM {{table}} where name = ?")
+            .bind(q.name)
+            .fetch_all(pool)
+            .await*/
+        todo!()
+    }
+}
+

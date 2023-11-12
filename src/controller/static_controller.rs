@@ -7,7 +7,7 @@ use axum::response::{IntoResponse, Response};
 use axum::Router;
 use axum::routing::get;
 use include_dir::{Dir, include_dir};
-use rustpython_vm;
+
 use crate::controller::AppError;
 
 static STATIC_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/static");

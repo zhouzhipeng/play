@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use axum::handler::HandlerWithoutStateExt;
 use crossbeam_channel::bounded;
 use tokio::spawn;
 use tracing::info;
@@ -10,8 +9,12 @@ use play::controller::routers;
 use play::service::template_service::{TemplateData, TemplateService};
 use play::threads::py_runner;
 
+include!(concat!(env!("OUT_DIR"), "/hello.rs"));
+
+
 #[tokio::main]
 async fn main() {
+    println!("test >>> {}", message());
     // initialize tracing
     tracing_subscriber::fmt().with_max_level(tracing::Level::INFO).init();
 

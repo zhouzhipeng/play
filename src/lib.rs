@@ -1,5 +1,3 @@
-use rustpython_vm;
-
 use crate::service::template_service::{TemplateData, TemplateService};
 use crate::tables::DBPool;
 
