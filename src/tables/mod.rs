@@ -1,5 +1,10 @@
-use sqlx::{migrate::MigrateDatabase, MySql, Pool, Sqlite, SqlitePool};
+#[cfg(ENV = "dev")]
+use sqlx::{migrate::MigrateDatabase, Pool, Sqlite, SqlitePool};
+#[cfg(ENV = "prod")]
 use sqlx::mysql::{MySqlPoolOptions, MySqlQueryResult};
+#[cfg(ENV = "prod")]
+use sqlx::{ MySql, Pool};
+#[cfg(ENV = "dev")]
 use sqlx::sqlite::SqliteQueryResult;
 use tracing::info;
 
@@ -34,10 +39,22 @@ pub async fn init_pool() -> DBPool {
     }
 
     let db = SqlitePool::connect(DB_URL).await.unwrap();
-    let result = sqlx::query(include_str!("db.sql")).execute(&db).await.unwrap();
+    let result = sqlx::query(include_str!("db_sqlite.sql")).execute(&db).await.unwrap();
     info!("Create  table result: {:?}", result);
     db
 }
+
+
+#[cfg(ENV = "dev")]
+pub async fn init_test_pool() -> DBPool {
+    let db_test_url = ":memory:";
+    let db = SqlitePool::connect(db_test_url).await.unwrap();
+    let result = sqlx::query(include_str!("db_sqlite.sql")).execute(&db).await.unwrap();
+    info!("Create  table result: {:?}", result);
+    db
+}
+
+
 
 #[cfg(ENV = "prod")]
 pub async fn init_pool() -> DBPool {
@@ -48,7 +65,7 @@ pub async fn init_pool() -> DBPool {
         .max_connections(5)
         .connect(DB_URL).await.unwrap();
 
-    for s in include_str!("db.sql").split(";"){
+    for s in include_str!("db_mysql.sql").split(";"){
         if s.trim().is_empty(){
             continue
         }
@@ -63,23 +80,7 @@ pub async fn init_pool() -> DBPool {
 
 #[cfg(ENV = "prod")]
 pub async fn init_test_pool() -> DBPool {
-    const DB_URL: &str = "mysql://localhost:3306/mysql";
-
-    let db = MySqlPoolOptions::new()
-        .max_connections(5)
-        .connect(DB_URL).await.unwrap();
-
-    db
-}
-
-
-#[cfg(ENV = "dev")]
-pub async fn init_test_pool() -> DBPool {
-    let db_test_url = ":memory:";
-    let db = SqlitePool::connect(db_test_url).await.unwrap();
-    let result = sqlx::query(include_str!("db.sql")).execute(&db).await.unwrap();
-    info!("Create  table result: {:?}", result);
-    db
+    init_pool().await
 }
 
 
