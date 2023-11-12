@@ -100,10 +100,8 @@ mod tests {
         assert_eq!(rows[0].content, "new content".to_string());
         assert_eq!(rows[0].id, 1);
 
-        let  r = Article::delete(1, &pool).await?;
-        assert_eq!(r.rows_affected(),1);
-
-
+        let r = Article::delete(1, &pool).await?;
+        assert_eq!(r.rows_affected(), 1);
 
 
         Ok(())
