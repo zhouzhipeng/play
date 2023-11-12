@@ -1,13 +1,11 @@
 use std::sync::Arc;
 
-
 use axum::{Json, Router};
 use axum::extract::{Path, Query, State};
 use axum::routing::get;
 
 use crate::AppState;
 use crate::controller::{R, S};
-use crate::tables::Table;
 use crate::tables::user::{AddUser, QueryUser, UpdateUser, User};
 
 pub fn init() -> Router<Arc<AppState>> {
@@ -32,8 +30,8 @@ async fn add_user(Query(q): Query<AddUser>, State(state): S) -> R<String> {
 
 async fn modify_user(Path(user_id): Path<i64>, Query(q): Query<UpdateUser>, State(state): S) -> R<String> {
     let r = User::update(user_id, q, &state.db).await?;
-    let users = User::query(QueryUser{ name: "zzp".to_string() }, &state.db).await?;
-    Ok(format!("rows affected : {}, now users : {:?}", r.rows_affected(),users))
+    let users = User::query(QueryUser { name: "zzp".to_string() }, &state.db).await?;
+    Ok(format!("rows affected : {}, now users : {:?}", r.rows_affected(), users))
 }
 
 async fn delete_user(Path(user_id): Path<i64>, State(state): S) -> R<String> {

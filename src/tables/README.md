@@ -1,7 +1,7 @@
-## how to use [model_template.txt](model_template.txt)
+## how to use [template.txt](template.txt)
 
-use "codebox" tool  "String Magic"
+> use `codebox` tool  > `String Magic`
 
 1. copy model_template.txt content into input area.
-2. replace the top variables `model` and `table` to yours.
+2. copy your 'create table' sql into top input area.
 3. run and copy result.

@@ -1802,7 +1802,6 @@ name = "play"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "async-trait",
  "axum",
  "crossbeam-channel",
  "include_dir",
