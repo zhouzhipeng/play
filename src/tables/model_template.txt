@@ -1,6 +1,34 @@
-% model="User"
-% table="users"
+<%
+s2='''
+create table IF NOT EXISTS article(
+    id integer primary key,
+    title varchar(255) not null,
+    content text
+);
+'''
 
+if not locals().get("s"):
+    s = s2
+end
+
+def judge_rust_type(db_type):
+	if db_type=="integer":
+		return "i64"
+	elif 'varchar' in db_type:
+		return "String"
+	elif 'text' in db_type:
+		return "String"
+	end
+end
+
+data = f('parse_sql', create_sql=s)
+table= data['table']
+# underscore --> camel
+model=''.join(x.capitalize() or '_' for x in table.split('_'))
+primary_key_rust_type=judge_rust_type(data['cols'][0]['type'])
+
+
+%>
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use sqlx::{Error, FromRow};
@@ -28,7 +56,7 @@ pub struct Query{{model}} {
 }
 
 #[async_trait]
-impl Table<i64, {{model}}, Query{{model}}, Update{{model}}, Add{{model}}> for {{model}} {
+impl Table<{{primary_key_rust_type}}, {{model}}, Query{{model}}, Update{{model}}, Add{{model}}> for {{model}} {
     async fn insert(t: Add{{model}}, pool: &DBPool) -> Result<DBQueryResult, Error> {
         /*sqlx::query("INSERT INTO {{table}} (name) VALUES (?)")
             .bind(&t.name)
@@ -37,15 +65,15 @@ impl Table<i64, {{model}}, Query{{model}}, Update{{model}}, Add{{model}}> for {{
         todo!()
     }
 
-    async fn delete(id: i64, pool: &DBPool) -> Result<DBQueryResult, Error> {
-        /*sqlx::query("DELETE2 from {{table}} WHERE id =?")
+    async fn delete(id: {{primary_key_rust_type}}, pool: &DBPool) -> Result<DBQueryResult, Error> {
+        /*sqlx::query("DELETE from {{table}} WHERE id =?")
             .bind(id)
             .execute(pool)
             .await*/
         todo!()
     }
 
-    async fn update(id: i64, t: Update{{model}}, pool: &DBPool) -> Result<DBQueryResult, Error> {
+    async fn update(id: {{primary_key_rust_type}}, t: Update{{model}}, pool: &DBPool) -> Result<DBQueryResult, Error> {
         /*sqlx::query("UPDATE {{table}} set name=? WHERE id =?")
             .bind(t.name)
             .bind(id)

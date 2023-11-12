@@ -1,4 +1,3 @@
-
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use sqlx::{Error, FromRow};
@@ -36,7 +35,7 @@ impl Table<i64, Article, QueryArticle, UpdateArticle, AddArticle> for Article {
     }
 
     async fn delete(id: i64, pool: &DBPool) -> Result<DBQueryResult, Error> {
-        /*sqlx::query("DELETE2 from article WHERE id =?")
+        /*sqlx::query("DELETE from article WHERE id =?")
             .bind(id)
             .execute(pool)
             .await*/
