@@ -9,6 +9,8 @@ include!(concat!(env!("OUT_DIR"), "/hello.rs"));
 #[tokio::main]
 async fn main() {
     println!("test >>> {}", message());
+    // initialize tracing
+    tracing_subscriber::fmt().with_max_level(tracing::Level::INFO).init();
 
     //init app_state
     let app_state = init_app_state().await;

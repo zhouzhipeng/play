@@ -30,8 +30,7 @@ pub async fn init_app_state() -> Arc<AppState> {
 // init config
     let config = init_config();
 
-    // initialize tracing
-    tracing_subscriber::fmt().with_max_level(tracing::Level::INFO).init();
+
 
 
     //create a group of channels to handle python code running
