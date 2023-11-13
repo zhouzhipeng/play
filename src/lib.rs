@@ -5,6 +5,7 @@ pub mod controller;
 pub mod threads;
 pub mod tables;
 pub mod service;
+pub mod config;
 
 
 pub struct AppState {

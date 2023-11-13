@@ -5,6 +5,7 @@ use tokio::spawn;
 use tracing::info;
 
 use play::{AppState, tables};
+use play::config::init_config;
 use play::controller::routers;
 use play::service::template_service::{TemplateData, TemplateService};
 use play::threads::py_runner;
@@ -15,6 +16,10 @@ include!(concat!(env!("OUT_DIR"), "/hello.rs"));
 #[tokio::main]
 async fn main() {
     println!("test >>> {}", message());
+
+    // init config
+    init_config();
+
     // initialize tracing
     tracing_subscriber::fmt().with_max_level(tracing::Level::INFO).init();
 
