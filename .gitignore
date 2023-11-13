@@ -5,3 +5,4 @@ output_dir
 .idea/
 *.db
 sqlite.db*
+.DS_Store
