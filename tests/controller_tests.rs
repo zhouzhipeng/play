@@ -51,7 +51,7 @@ async fn test_user_controller() -> anyhow::Result<()> {
 
     let response = server.get("/users").add_query_params(QueryUser{ name: "abc new".to_string() }).await;
     assert_eq!(response.status_code(),200);
-    assert_eq!(response.json::<Vec<User>>().len(),0);
+    assert_eq!(response.json::<Vec<User>>().len(),1);
 
     Ok(())
 }

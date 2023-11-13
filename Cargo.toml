@@ -3,6 +3,11 @@ name = "play"
 version = "0.1.0"
 edition = "2021"
 
+
+[dev-dependencies]
+cargo-husky = "1.5.0"
+
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -28,3 +33,4 @@ sqlx = {version = "0.7.2",features = ["runtime-tokio-native-tls", "sqlite", "mys
 anyhow = "1.0.75"
 toml = "0.8.8"
 hyper = "0.14.27"
+git_hooks = { version = "0.1.3"}
