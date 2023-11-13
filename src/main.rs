@@ -13,7 +13,7 @@ async fn main() {
     tracing_subscriber::fmt().with_max_level(tracing::Level::INFO).init();
 
     //init app_state
-    let app_state = init_app_state().await;
+    let app_state = init_app_state(false).await;
     info!("app state init ok.");
 
     info!("server start...");

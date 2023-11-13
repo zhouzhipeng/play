@@ -9,12 +9,12 @@ pub struct User {
     pub name: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize,Deserialize)]
 pub struct AddUser {
     pub name: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize,Deserialize)]
 pub struct UpdateUser {
     pub name: String,
 }
@@ -34,7 +34,7 @@ impl User {
     }
 
     pub async fn delete(id: i64, pool: &DBPool) -> Result<DBQueryResult, Error> {
-        sqlx::query("DELETE2 from users WHERE id =?")
+        sqlx::query("DELETE from users WHERE id =?")
             .bind(id)
             .execute(pool)
             .await
