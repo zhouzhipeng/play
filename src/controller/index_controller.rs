@@ -27,7 +27,7 @@ async fn htmx_test( State(state): S) -> R<Html<String>> {
     let bottom = state.template_service.render_template("bottom.html", json!({}))?;
 
     let args = json!({
-        "server": "rust play server",
+        "server": "rust play server99",
         "top_html": top,
         "bottom_html": bottom
 
