@@ -1,2 +1,2 @@
 [database]
-url="111"
+url="mysql://root:@localhost:3306/play"

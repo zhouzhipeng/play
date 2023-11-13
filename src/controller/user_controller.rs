@@ -3,6 +3,7 @@ use std::sync::Arc;
 use axum::{Json, Router};
 use axum::extract::{Path, Query, State};
 use axum::routing::get;
+use tracing::info;
 
 use crate::AppState;
 use crate::controller::{R, S};
@@ -18,7 +19,7 @@ pub fn init() -> Router<Arc<AppState>> {
 
 async fn user_list(Query(q): Query<QueryUser>, State(state): S) -> R<Json<Vec<User>>> {
     let users = User::query(q, &state.db).await?;
-
+    info!("config : {:?}", state.config);
     Ok(Json(users))
 }
 

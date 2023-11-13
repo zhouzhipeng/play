@@ -22,21 +22,12 @@ pub fn init() -> Router<Arc<AppState>> {
         .route("/hello", get(hello))
 }
 
-async fn root(name: Query<Param>, State(state): S) -> R<Html<String>> {
-    // py_tool::test();
-
-    let name = name.0.name;
-
-    let args = json!({
-        "name": name,
-        "age": 43,
-        "male": true,
-    });
-    Ok(Html::from(state.template_service.render_template("test.html", args)?))
+async fn root(State(state): S) -> R<Html<&'static str>> {
+   Ok(Html("ok."))
 }
 
 
-async fn htmx_test(_name: Query<Param>, State(state): S) -> R<Html<String>> {
+async fn htmx_test( State(state): S) -> R<Html<String>> {
     // py_tool::test();
     let top = state.template_service.render_template("top.html", json!({}))?;
     let bottom = state.template_service.render_template("bottom.html", json!({}))?;

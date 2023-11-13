@@ -3,11 +3,11 @@ use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use crossbeam_channel::{Receiver, Sender};
+use crossbeam_channel::{Receiver, RecvError, Sender};
 use rustpython_vm as vm;
 use rustpython_vm::{Interpreter, py_compile, VirtualMachine};
 use rustpython_vm::convert::IntoObject;
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::TemplateData;
 
@@ -105,7 +105,7 @@ fn run_py_code(source: &str) -> Result<(), String> {
     })
 }
 
-pub async fn run(req_receiver: Receiver<TemplateData>, res_sender: Sender<String>) {
+pub  fn run(req_receiver: Receiver<TemplateData>, res_sender: Sender<String>) {
     info!("py_runner start...");
     let interpreter = init_py_interpreter();
 
@@ -115,7 +115,13 @@ pub async fn run(req_receiver: Receiver<TemplateData>, res_sender: Sender<String
 
         loop {
             // Receive the message from the channel.
-            let data = req_receiver.recv().expect("recv error!");
+            let data = match req_receiver.recv() {
+                Ok(s) => s,
+                Err(e) => {
+                    warn!("req_receiver.recv error : {}", e);
+                    return;
+                }
+            };
 
 
             let start = Instant::now();

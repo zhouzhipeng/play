@@ -1,2 +1,2 @@
 [database]
-url="111"
+url="sqlite://sqlite.db"

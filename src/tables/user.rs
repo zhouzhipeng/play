@@ -3,7 +3,7 @@ use sqlx::{Error, FromRow};
 
 use crate::tables::{DBPool, DBQueryResult};
 
-#[derive(Clone, FromRow, Debug, Serialize)]
+#[derive(Clone, FromRow, Debug, Serialize,Deserialize)]
 pub struct User {
     pub id: i64,
     pub name: String,
@@ -19,7 +19,7 @@ pub struct UpdateUser {
     pub name: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct QueryUser {
     pub name: String,
 }

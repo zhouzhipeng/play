@@ -7,6 +7,7 @@ use sqlx::{migrate::MigrateDatabase, MySql, Pool};
 #[cfg(ENV = "dev")]
 use sqlx::sqlite::SqliteQueryResult;
 use tracing::info;
+use crate::config::Config;
 
 pub mod user;
 mod article;
@@ -24,13 +25,13 @@ pub type DBPool = Pool<MySql>;
 pub type DBQueryResult = MySqlQueryResult;
 
 #[cfg(ENV = "dev")]
-pub async fn init_pool() -> DBPool {
+pub async fn init_pool(config : &Config) -> DBPool {
 
-    const DB_URL: &str = "sqlite://sqlite.db";
+    let db_url: &str = config.database.url.as_str();
 
-    if !Sqlite::database_exists(DB_URL).await.unwrap_or(false) {
-        info!("Creating database {}", DB_URL);
-        match Sqlite::create_database(DB_URL).await {
+    if !Sqlite::database_exists(db_url).await.unwrap_or(false) {
+        info!("Creating database {}", db_url);
+        match Sqlite::create_database(db_url).await {
             Ok(_) => println!("Create db success"),
             Err(error) => panic!("error: {}", error),
         }
@@ -38,7 +39,7 @@ pub async fn init_pool() -> DBPool {
         info!("Database already exists");
     }
 
-    let db = SqlitePool::connect(DB_URL).await.unwrap();
+    let db = SqlitePool::connect(db_url).await.unwrap();
     let result = sqlx::query(include_str!("db_sqlite.sql")).execute(&db).await.unwrap();
     info!("Create  table result: {:?}", result);
     db
@@ -57,13 +58,13 @@ pub async fn init_test_pool() -> DBPool {
 
 
 #[cfg(ENV = "prod")]
-pub async fn init_pool() -> DBPool {
+pub async fn init_pool(config : &Config) -> DBPool {
 
-    const DB_URL: &str = "mysql://localhost:3306/play";
+    let db_url: &str = config.database.url.as_str();
 
-    if !MySql::database_exists(DB_URL).await.unwrap_or(false) {
-        info!("Creating database {}", DB_URL);
-        match MySql::create_database(DB_URL).await {
+    if !MySql::database_exists(db_url).await.unwrap_or(false) {
+        info!("Creating database {}", db_url);
+        match MySql::create_database(db_url).await {
             Ok(_) => println!("Create db success"),
             Err(error) => panic!("error: {}", error),
         }
@@ -71,7 +72,7 @@ pub async fn init_pool() -> DBPool {
 
     let db = MySqlPoolOptions::new()
         .max_connections(5)
-        .connect(DB_URL).await.unwrap();
+        .connect(db_url).await.unwrap();
 
     for s in include_str!("db_mysql.sql").split(";"){
         if s.trim().is_empty(){

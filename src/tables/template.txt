@@ -36,28 +36,28 @@ use sqlx::{Error, FromRow};
 
 use crate::tables::{DBPool, DBQueryResult};
 
-#[derive(Clone, FromRow, Debug, Serialize)]
+#[derive(Clone, FromRow, Debug, Serialize, Deserialize)]
 pub struct {{model}} {
 	%for c in columns:
 	pub {{c['name']}}: {{judge_rust_type(c['type'])}},
 	%end
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize,Deserialize)]
 pub struct Add{{model}} {
 	%for c in columns[1:]:
 	pub {{c['name']}}: {{judge_rust_type(c['type'])}},
 	%end
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize,Deserialize)]
 pub struct Update{{model}} {
 	%for c in columns[1:]:
 	pub {{c['name']}}: {{judge_rust_type(c['type'])}},
 	%end
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize,Deserialize)]
 pub struct Query{{model}} {
     %c =columns[1]
 	pub {{c['name']}}: {{judge_rust_type(c['type'])}},
