@@ -3,13 +3,13 @@ use tracing::info;
 use play::controller::routers;
 use play::init_app_state;
 
-include!(concat!(env!("OUT_DIR"), "/hello.rs"));
+// include!(concat!(env!("OUT_DIR"), "/hello.rs"));
 
 
 #[tokio::main]
 async fn main() {
-
-    println!("test >>> {}", message());
+    //
+    // println!("test >>> {}", message());
     // initialize tracing
     tracing_subscriber::fmt().with_max_level(tracing::Level::INFO).init();
 

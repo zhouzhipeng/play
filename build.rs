@@ -37,8 +37,9 @@ fn main() {
     file.write_all(PRE_COMMIT_HOOK.as_bytes()).unwrap();
 
 
+
+
     //generate rustc args.
-    println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=templates");
     println!("cargo:rerun-if-changed=static");
     println!("cargo:rerun-if-changed=src");

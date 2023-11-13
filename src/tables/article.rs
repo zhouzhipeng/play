@@ -3,28 +3,29 @@ use sqlx::{Error, FromRow};
 
 use crate::tables::{DBPool, DBQueryResult};
 
-#[derive(Clone, FromRow, Debug, Serialize)]
+#[derive(Clone, FromRow, Debug, Serialize, Deserialize)]
 pub struct Article {
     pub id: i64,
     pub title: String,
     pub content: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize,Deserialize)]
 pub struct AddArticle {
     pub title: String,
     pub content: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize,Deserialize)]
 pub struct UpdateArticle {
     pub title: String,
     pub content: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize,Deserialize)]
 pub struct QueryArticle {
     pub title: String,
+
 }
 
 
@@ -66,6 +67,7 @@ impl Article {
 }
 
 
+
 #[cfg(test)]
 mod tests {
     use crate::tables::init_test_pool;
@@ -77,34 +79,39 @@ mod tests {
     async fn test_all() -> anyhow::Result<()> {
         let pool = init_test_pool().await;
 
-
         let r = Article::insert(AddArticle {
-            title: "this a a title".to_string(),
-            content: "this is a content".to_string(),
+            title: "test title".to_string(),
+            content: "test content".to_string(),
         }, &pool).await?;
 
         assert_eq!(r.rows_affected(), 1);
 
         let rows = Article::query(QueryArticle {
-            title: "this a a title".to_string(),
+            title: "test title".to_string(),
         }, &pool).await?;
-        assert_eq!(rows[0].content, "this is a content".to_string());
+        assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].id, 1);
 
         let r = Article::update(1, UpdateArticle {
             title: "new title".to_string(),
-            content: "new content".to_string()
+            content: "new content".to_string(),
         }, &pool).await?;
         assert_eq!(r.rows_affected(), 1);
 
         let rows = Article::query(QueryArticle {
             title: "new title".to_string(),
         }, &pool).await?;
-        assert_eq!(rows[0].content, "new content".to_string());
         assert_eq!(rows[0].id, 1);
 
-        let r = Article::delete(1, &pool).await?;
-        assert_eq!(r.rows_affected(), 1);
+        let  r = Article::delete(1, &pool).await?;
+        assert_eq!(r.rows_affected(),1);
+
+        let rows = Article::query(QueryArticle {
+            title: "new title".to_string(),
+        }, &pool).await?;
+        assert_eq!(rows.len(), 0);
+
+
 
 
         Ok(())

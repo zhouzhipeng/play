@@ -1,28 +1,22 @@
 use std::sync::Arc;
 
-use axum::extract::{Query, State};
+use axum::extract::State;
 use axum::response::Html;
 use axum::Router;
 use axum::routing::get;
-use serde::Deserialize;
-use serde_json::{json};
+use serde_json::json;
 
 use crate::AppState;
 use crate::controller::{R, S};
 
-#[derive(Deserialize)]
-struct Param {
-    name: String,
-}
-
+//fixme: register 'init' method in mod.rs
 pub fn init() -> Router<Arc<AppState>> {
     Router::new()
         .route("/", get(root))
         .route("/test", get(htmx_test))
-        .route("/hello", get(hello))
 }
 
-async fn root(State(state): S) -> R<Html<&'static str>> {
+async fn root() -> R<Html<&'static str>> {
    Ok(Html("ok."))
 }
 
@@ -46,6 +40,3 @@ async fn htmx_test( State(state): S) -> R<Html<String>> {
 }
 
 
-async fn hello(name: Query<Param>) -> String {
-    format!("hello , {}", name.0.name).to_string()
-}
