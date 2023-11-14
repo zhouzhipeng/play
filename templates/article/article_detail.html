@@ -6,11 +6,8 @@
 </head>
 <body>
 <ul>
-    % for article in articles:
-    <li>
-        <a href="/article/{{article.id}}">{{article.title}}</a>
-    </li>
-    %end
+ title: {{article.title}}
+ content: {{article.content}}
 </ul>
 </body>
 </html>

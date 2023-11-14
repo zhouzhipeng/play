@@ -373,7 +373,7 @@ class SimpleTemplate(BaseTemplate):
         for dictarg in args: env.update(dictarg)
         env.update(kwargs)
         self.execute(stdout, env)
-        return ''.join(stdout)
+        return ''.join(str(x) for x in stdout)
 
 
 # global cache
