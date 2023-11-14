@@ -42,7 +42,7 @@ fn run_py_template(vm: &VirtualMachine, template: String, filename: String, json
 
 fn init_py_interpreter() -> Interpreter {
     // extra embed python stdlib zip file to a directory and add it to syspath.
-    let output_dir = "output_dir";
+    let output_dir = "output_dir/python";
     let target_dir = PathBuf::from(output_dir); // Doesn't need to exist
 
     if !target_dir.exists() {
