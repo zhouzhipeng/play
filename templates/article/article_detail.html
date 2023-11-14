@@ -3,11 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <title>Title</title>
+    {{head_html}}
 </head>
 <body>
+{{top_html}}
 <ul>
  title: {{article.title}}
  content: {{article.content}}
 </ul>
+
+<button hx-get="/article/full/{{article.id}}" hx-target="#result">click</button>
+<pre id="result"></pre>
+{{bottom_html}}
 </body>
 </html>

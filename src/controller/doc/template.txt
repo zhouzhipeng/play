@@ -1,3 +1,4 @@
+% table = "test"
 use std::sync::Arc;
 
 use axum::extract::State;
@@ -9,6 +10,7 @@ use serde_json::json;
 use crate::AppState;
 use crate::controller::{R, S};
 
+//remember to register 'init' in mod.rs
 pub fn init() -> Router<Arc<AppState>> {
     Router::new()
         .route("/{{table}}", get(test))

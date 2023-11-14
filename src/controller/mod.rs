@@ -2,9 +2,12 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use axum::extract::State;
+use axum::headers::Header;
 use axum::http::StatusCode;
-use axum::response::{IntoResponse, Response};
+use axum::response::{Html, IntoResponse, Response};
 use axum::Router;
+use hyper::HeaderMap;
+use serde_json::{json, Value};
 
 use crate::AppState;
 
@@ -12,7 +15,6 @@ mod index_controller;
 mod static_controller;
 mod user_controller;
 mod article_controller;
-
 
 
 type R<T> = Result<T, AppError>;
@@ -60,4 +62,44 @@ impl<E> From<E> for AppError
     fn from(err: E) -> Self {
         Self(err.into())
     }
+}
+
+
+fn should_return_json(header_map: HeaderMap) -> bool {
+    let mut return_json = false;
+    if let Some(v) = header_map.get("accept") {
+        if v.to_str().unwrap().contains("json") {
+            return_json = true;
+        }
+    }
+    return_json
+}
+
+
+fn render(s: S, name: &str, data: Value) -> R<Response> {
+    let head = s.template_service.render_template("head.html", json!({}))?;
+    let top = s.template_service.render_template("top.html", json!({}))?;
+    let bottom = s.template_service.render_template("bottom.html", json!({}))?;
+
+    let mut json = json!({
+        "head_html": head,
+        "top_html": top,
+        "bottom_html": bottom,
+    });
+
+    json = merge_json(json, data);
+
+    let content = s.template_service.render_template(name, json)?;
+    Ok(Html(content).into_response())
+}
+
+fn merge_json(mut json1: Value, json2: Value) -> Value {
+    if let Value::Object(ref mut obj1) = json1 {
+        if let Value::Object(obj2) = json2 {
+            for (key, value) in obj2 {
+                obj1.insert(key.clone(), value.clone());
+            }
+        }
+    }
+    json1
 }

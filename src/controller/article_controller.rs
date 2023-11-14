@@ -1,35 +1,61 @@
 use std::sync::Arc;
 
-use axum::extract::{Path, State};
-use axum::response::Html;
-use axum::Router;
+use axum::{Json, Router};
+use axum::extract::Path;
+use axum::headers::HeaderMap;
+use axum::response::{Html, IntoResponse, Response};
 use axum::routing::get;
 use serde_json::json;
 
 use crate::AppState;
-use crate::controller::{R, S};
-use crate::tables::article::{Article, QueryArticle};
+use crate::tables::article::Article;
+
+use super::{R, render, S, should_return_json};
 
 pub fn init() -> Router<Arc<AppState>> {
     Router::new()
         .route("/article/index", get(index))
         .route("/article/:id", get(get_article))
+        .route("/article/full/:id", get(get_article_full))
 }
 
-async fn index(State(s): S) -> R<Html<String>> {
-    let articles = Article::query_all( &s.db).await?;
-    let data = json!({
+async fn index(s: S, header_map: HeaderMap) -> R<Response> {
+    let articles = Article::query_all(&s.db).await?;
+
+
+    if should_return_json(header_map) {
+        Ok(Json(articles).into_response())
+    } else {
+        let data = json!({
         "articles":articles
-    });
-    let contnet = s.template_service.render_template("article/articles.html", data)?;
-    Ok(Html(contnet))
+        });
+
+        render(s, "article/articles.html", data)
+    }
 }
-async fn get_article(Path(id) : Path<u32>,State(s): S) -> R<Html<String>> {
-    let articles = Article::query_by_id( id,&s.db).await?;
-    let data = json!({
+
+async fn get_article(s: S,Path(id): Path<u32>,header_map: HeaderMap ) -> R<Response>  {
+    let articles = Article::query_by_id(id, &s.db).await?;
+
+    if should_return_json(header_map){
+        Ok(Json(&articles[0]).into_response())
+    }else{
+        let data = json!({
         "article":articles[0]
-    });
-    let contnet = s.template_service.render_template("article/article_detail.html", data)?;
-    Ok(Html(contnet))
+        });
+        render(s, "article/article_detail.html", data)
+    }
+}
+async fn get_article_full(s: S,Path(id): Path<u32>,header_map: HeaderMap ) -> R<Response>  {
+    let articles = Article::query_by_id(id, &s.db).await?;
+
+    if should_return_json(header_map){
+        Ok(Json(&articles[0]).into_response())
+    }else{
+        let data = json!({
+        "article":articles[0]
+        });
+        render(s, "article/article_detail_full.html", data)
+    }
 }
 
