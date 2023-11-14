@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use crossbeam_channel::{Receiver, Sender};
 use include_dir::{Dir, include_dir};
 
@@ -34,7 +35,7 @@ impl TemplateService {
     }
 
     pub fn render_template(&self, name: &str, args: Value) -> anyhow::Result<String> {
-        let template = TEMPLATES_DIR.get_file(name).unwrap().contents_utf8().unwrap().to_string();
+        let template = TEMPLATES_DIR.get_file(name).ok_or(anyhow!("temmplate {} not found.", name))?.contents_utf8().ok_or(anyhow!("utf-8 not supported."))?.to_string();
         self.render(template, name.to_string(), args)
     }
 }
