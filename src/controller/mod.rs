@@ -14,6 +14,7 @@ mod user_controller;
 mod article_controller;
 
 
+
 type R<T> = Result<T, AppError>;
 type S = State<Arc<AppState>>;
 
