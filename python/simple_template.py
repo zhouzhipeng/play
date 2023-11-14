@@ -285,6 +285,21 @@ class BaseTemplate(object):
         raise NotImplementedError
 
 
+
+class AttributeDict(dict):
+    def __init__(self, data):
+        super(AttributeDict, self).__init__(data)
+        self.__dict__ = self
+        for name, value in data.items():
+            setattr(self, name, self._wrap(value))
+
+    def _wrap(self, value):
+        if isinstance(value, (tuple, list, set, frozenset)):
+            return type(value)([self._wrap(v) for v in value])
+        else:
+            return AttributeDict(value) if isinstance(value, dict) else value
+
+
 class SimpleTemplate(BaseTemplate):
 
     def prepare(self, escape_func=html_escape, noescape=False, syntax=None, **ka):
@@ -343,7 +358,7 @@ class SimpleTemplate(BaseTemplate):
                     'rebase': functools.partial(self._rebase, env), '_rebase': None,
                     '_str': self._str, '_escape': self._escape, 'get': env.get,
                     'setdefault': env.setdefault, 'defined': env.__contains__})
-        eval(self.co, env)
+        eval(self.co, AttributeDict(env))
         if env.get('_rebase'):
             subtpl, rargs = env.pop('_rebase')
             rargs['base'] = ''.join(_stdout)  # copy stdout
@@ -378,3 +393,9 @@ def render_tpl(source: str, filename: str, args: dict) -> str:
     t.filename = filename
     s = t.render(**args)
     return s
+
+
+if __name__ == '__main__':
+    test_data = {"ss":"bb", "aa":{"name":"111"}}
+    test_data = AttributeDict(test_data)
+    print(test_data.aa.name)

@@ -64,6 +64,11 @@ impl Article {
             .fetch_all(pool)
             .await
     }
+    pub async fn query_all(pool: &DBPool) -> Result<Vec<Article>, Error> {
+        sqlx::query_as::<_, Article>("SELECT * FROM article")
+            .fetch_all(pool)
+            .await
+    }
 }
 
 

@@ -10,7 +10,7 @@ use tracing::info;
 use crate::config::Config;
 
 pub mod user;
-mod article;
+pub mod article;
 
 
 
