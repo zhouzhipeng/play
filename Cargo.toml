@@ -15,7 +15,7 @@ malachite-q = "=0.3.2"
 malachite-base = "=0.3.2"
 zip-extract = "0.1.2"
 
-axum = { version = "0.6.20", features = ["headers", "http2"] }
+axum = { version = "0.6.20", features = ["headers", "http2", "ws"] }
 axum-test = "13.1.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.68"
@@ -32,3 +32,5 @@ anyhow = "1.0.75"
 toml = "0.8.8"
 hyper = "0.14.27"
 tower-livereload = {version="0.8.2", optional = true}
+tower-http = { version = "0.4.0", features = ["fs", "trace","timeout"] }
+futures = "0.3.29"

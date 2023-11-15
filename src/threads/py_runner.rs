@@ -124,15 +124,12 @@ pub  fn run(req_receiver: Receiver<TemplateData>, res_sender: Sender<String>) {
             };
 
 
-            let start = Instant::now();
-
             let r = match run_py_template(vm, data.template, data.filename, data.args.to_string()) {
                 Ok(s) => s,
                 Err(s) => s,
             };
 
             res_sender.try_send(r).expect("send error");
-            info!("send spent:{}", start.elapsed().as_millis());
         }
     });
 }

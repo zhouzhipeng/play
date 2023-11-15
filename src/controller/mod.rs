@@ -1,5 +1,6 @@
 use std::ops::Deref;
 use std::sync::Arc;
+use std::time::Duration;
 
 use axum::{Json, Router};
 use axum::extract::State;
@@ -9,6 +10,8 @@ use axum::response::{Html, IntoResponse, Response};
 use hyper::HeaderMap;
 use serde::Serialize;
 use serde_json::{json, Value};
+use tower_http::timeout::TimeoutLayer;
+use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 
 use crate::AppState;
 
@@ -16,6 +19,7 @@ mod index_controller;
 mod static_controller;
 mod user_controller;
 mod article_controller;
+mod ws_controller;
 
 
 type R<T> = Result<T, AppError>;
@@ -26,9 +30,13 @@ pub fn routers(app_state: Arc<AppState>) -> Router {
         .merge(index_controller::init())
         .merge(user_controller::init())
         .merge(article_controller::init())
+        .merge(ws_controller::init())
         //register your new controller here
         .with_state(app_state)
         .merge(static_controller::init())
+        // logging so we can see whats going on
+        .layer(TraceLayer::new_for_http().make_span_with(DefaultMakeSpan::default().include_headers(true)))
+        .layer(TimeoutLayer::new(Duration::from_secs(30)))
 }
 
 // Make our own error that wraps `anyhow::Error`.
@@ -120,7 +128,7 @@ fn merge_json(mut json1: Value, json2: Value) -> Value {
     json1
 }
 
-fn auto_response<T: Serialize>(s: S, header_map: &HeaderMap, data: &T, page: &str, fragment: &str, key: &str) -> R<Response> {
+fn auto_response<T: Serialize>(s: S, header_map: &HeaderMap, page: &str, fragment: &str, key: &str,data: &T, ) -> R<Response> {
     if should_return_json(&header_map) {
         Ok(Json(data).into_response())
     } else {

@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
-use axum::Router;
 use axum::extract::Path;
 use axum::headers::HeaderMap;
 use axum::response::Response;
+use axum::Router;
 use axum::routing::get;
 
 use crate::AppState;
@@ -26,18 +26,16 @@ const ARTICLE_DETAIL_FULL: &str = "article/fragments/article_detail_full.html";
 
 async fn index(s: S, header_map: HeaderMap) -> R<Response> {
     let articles = Article::query_all(&s.db).await?;
-    auto_response(s, &header_map,&articles, PAGE, ARTICLES, "articles")
-
+    auto_response(s, &header_map, PAGE, ARTICLES, "articles", &articles)
 }
 
 async fn get_article(s: S, Path(id): Path<u32>, header_map: HeaderMap) -> R<Response> {
     let articles = Article::query_by_id(id, &s.db).await?;
-    auto_response(s, &header_map,&articles[0], PAGE, ARTICLE_DETAIL, "article")
-
+    auto_response(s, &header_map, PAGE, ARTICLE_DETAIL, "article", &articles[0])
 }
 
 async fn get_article_full(s: S, Path(id): Path<u32>, header_map: HeaderMap) -> R<Response> {
     let articles = Article::query_by_id(id, &s.db).await?;
-    auto_response(s, &header_map,&articles[0], PAGE, ARTICLE_DETAIL_FULL, "article")
+    auto_response(s, &header_map, PAGE, ARTICLE_DETAIL_FULL, "article", &articles[0])
 }
 
