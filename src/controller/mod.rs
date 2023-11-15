@@ -1,12 +1,13 @@
 use std::ops::Deref;
 use std::sync::Arc;
 
+use axum::{Json, Router};
 use axum::extract::State;
 use axum::headers::Header;
 use axum::http::StatusCode;
 use axum::response::{Html, IntoResponse, Response};
-use axum::Router;
 use hyper::HeaderMap;
+use serde::Serialize;
 use serde_json::{json, Value};
 
 use crate::AppState;
@@ -65,7 +66,7 @@ impl<E> From<E> for AppError
 }
 
 
-fn should_return_json(header_map: HeaderMap) -> bool {
+fn should_return_json(header_map: &HeaderMap) -> bool {
     let mut return_json = false;
     if let Some(v) = header_map.get("accept") {
         if v.to_str().unwrap().contains("json") {
@@ -76,20 +77,35 @@ fn should_return_json(header_map: HeaderMap) -> bool {
 }
 
 
-fn render(s: S, name: &str, data: Value) -> R<Response> {
+fn should_return_fragment(header_map: &HeaderMap) -> bool {
+    let mut return_fragment = false;
+    if let Some(v) = header_map.get("HX-Request") {
+        return_fragment = true;
+    }
+    return_fragment
+}
+
+fn render(s: S, page: &str, fragment: &str, data: Value) -> R<Response> {
     let head = s.template_service.render_template("head.html", json!({}))?;
     let top = s.template_service.render_template("top.html", json!({}))?;
     let bottom = s.template_service.render_template("bottom.html", json!({}))?;
 
-    let mut json = json!({
+    let content = s.template_service.render_template(fragment, data)?;
+
+    let final_data = json!({
         "head_html": head,
         "top_html": top,
         "bottom_html": bottom,
+        "content": content
     });
 
-    json = merge_json(json, data);
+    let final_html = s.template_service.render_template(page, final_data)?;
 
-    let content = s.template_service.render_template(name, json)?;
+    Ok(Html(final_html).into_response())
+}
+
+fn render_fragment(s: S, fragment: &str, data: Value) -> R<Response> {
+    let content = s.template_service.render_template(fragment, data)?;
     Ok(Html(content).into_response())
 }
 
@@ -102,4 +118,19 @@ fn merge_json(mut json1: Value, json2: Value) -> Value {
         }
     }
     json1
+}
+
+fn auto_response<T: Serialize>(s: S, header_map: &HeaderMap, data: &T, page: &str, fragment: &str, key: &str) -> R<Response> {
+    if should_return_json(&header_map) {
+        Ok(Json(data).into_response())
+    } else {
+        let data = json!({
+                key:data
+                });
+        if should_return_fragment(&header_map) {
+            render_fragment(s, fragment, data)
+        } else {
+            render(s, page, fragment, data)
+        }
+    }
 }

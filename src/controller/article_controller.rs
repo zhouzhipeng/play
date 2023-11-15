@@ -1,16 +1,15 @@
 use std::sync::Arc;
 
-use axum::{Json, Router};
+use axum::Router;
 use axum::extract::Path;
 use axum::headers::HeaderMap;
-use axum::response::{Html, IntoResponse, Response};
+use axum::response::Response;
 use axum::routing::get;
-use serde_json::json;
 
 use crate::AppState;
 use crate::tables::article::Article;
 
-use super::{R, render, S, should_return_json};
+use super::{auto_response, R, S};
 
 pub fn init() -> Router<Arc<AppState>> {
     Router::new()
@@ -19,43 +18,26 @@ pub fn init() -> Router<Arc<AppState>> {
         .route("/article/full/:id", get(get_article_full))
 }
 
+const PAGE: &str = "article/index.html";
+const ARTICLES: &str = "article/fragments/articles.html";
+const ARTICLE_DETAIL: &str = "article/fragments/article_detail.html";
+const ARTICLE_DETAIL_FULL: &str = "article/fragments/article_detail_full.html";
+
+
 async fn index(s: S, header_map: HeaderMap) -> R<Response> {
     let articles = Article::query_all(&s.db).await?;
+    auto_response(s, &header_map,&articles, PAGE, ARTICLES, "articles")
 
-
-    if should_return_json(header_map) {
-        Ok(Json(articles).into_response())
-    } else {
-        let data = json!({
-        "articles":articles
-        });
-
-        render(s, "article/articles.html", data)
-    }
 }
 
-async fn get_article(s: S,Path(id): Path<u32>,header_map: HeaderMap ) -> R<Response>  {
+async fn get_article(s: S, Path(id): Path<u32>, header_map: HeaderMap) -> R<Response> {
     let articles = Article::query_by_id(id, &s.db).await?;
+    auto_response(s, &header_map,&articles[0], PAGE, ARTICLE_DETAIL, "article")
 
-    if should_return_json(header_map){
-        Ok(Json(&articles[0]).into_response())
-    }else{
-        let data = json!({
-        "article":articles[0]
-        });
-        render(s, "article/article_detail.html", data)
-    }
 }
-async fn get_article_full(s: S,Path(id): Path<u32>,header_map: HeaderMap ) -> R<Response>  {
-    let articles = Article::query_by_id(id, &s.db).await?;
 
-    if should_return_json(header_map){
-        Ok(Json(&articles[0]).into_response())
-    }else{
-        let data = json!({
-        "article":articles[0]
-        });
-        render(s, "article/article_detail_full.html", data)
-    }
+async fn get_article_full(s: S, Path(id): Path<u32>, header_map: HeaderMap) -> R<Response> {
+    let articles = Article::query_by_id(id, &s.db).await?;
+    auto_response(s, &header_map,&articles[0], PAGE, ARTICLE_DETAIL_FULL, "article")
 }
 
