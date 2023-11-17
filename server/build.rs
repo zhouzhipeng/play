@@ -14,7 +14,7 @@ use wasm_pack::command::run_wasm_pack;
 
 const HOOKS_PATH: &str = "../.git/hooks";
 const PRE_COMMIT_HOOK: &str = "#!/bin/sh
-cd server && exec cargo test
+exec cargo test
 ";
 
 fn is_mod_file(entry: &DirEntry) -> bool {
