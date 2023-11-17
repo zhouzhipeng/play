@@ -9,8 +9,11 @@ crate-type = ["cdylib"]
 
 [dependencies]
 wasm-bindgen = "0.2.88"
+wasm-bindgen-futures = "0.4.38"
 js-sys = "0.3"
-
+reqwest = { version = "0.11.22", features = ["json"] }
+anyhow = "1.0.75"
+shared={path = "../shared"}
 [dependencies.web-sys]
 version = "0.3.22"
 features = [

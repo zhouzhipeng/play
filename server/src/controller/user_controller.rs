@@ -8,7 +8,7 @@ use tracing::info;
 
 use crate::AppState;
 use crate::controller::{R, S};
-use shared::models::user::{AddUser, QueryUser, UpdateUser};
+use shared::models::user::{AddUser, QueryUser, UpdateUser, UserVo};
 use crate::tables::user::User;
 
 pub fn init() -> Router<Arc<AppState>> {
