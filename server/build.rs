@@ -5,10 +5,14 @@ use std::io::prelude::*;
 use std::io::Write;
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::Path;
+use std::process::Command;
+use fs_extra::dir::CopyOptions;
 
 use walkdir::{DirEntry, WalkDir};
+use wasm_pack::command::build::{BuildOptions, Target};
+use wasm_pack::command::run_wasm_pack;
 
-const HOOKS_PATH: &str = ".git/hooks";
+const HOOKS_PATH: &str = "../.git/hooks";
 const PRE_COMMIT_HOOK: &str = "#!/bin/sh
 exec cargo test
 ";
@@ -29,6 +33,8 @@ fn main() {
     //check if you forgot to add your new rust file into mod.rs
     check_mod_files();
 
+    //copy wasm files from `client` crate
+    copy_wasm_files();
 
     //generate rustc args.
     println!("cargo:rerun-if-changed=templates");
@@ -36,6 +42,25 @@ fn main() {
     println!("cargo:rerun-if-changed=config");
     println!("cargo:rerun-if-changed=src");
     println!("cargo:rustc-cfg=ENV=\"{}\"", option_env!("ENV").unwrap_or("dev"));
+}
+
+
+
+fn copy_wasm_files(){
+     run_wasm_pack(  wasm_pack::command::Command::Build(BuildOptions{
+         path: Some(Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("client")),
+         out_dir: "pkg".to_string(),
+         release: true,
+         target: Target::Web,
+         ..BuildOptions::default()
+     })).expect("wasm-pack failed") ;
+    // run_wasm_pack(Command::new("wasm-pack")
+    //     .current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("client"))
+    //     .arg("build"));
+
+
+    let from_dir = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join(Path::new("client/pkg"));
+    fs_extra::dir::copy(from_dir, Path::new(env!("CARGO_MANIFEST_DIR")).join("static/wasm"), &CopyOptions::new().overwrite(true)).expect("copy wasm files failed!");
 }
 
 fn check_mod_files() {

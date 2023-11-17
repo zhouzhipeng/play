@@ -6,3 +6,4 @@ output_dir
 *.db
 sqlite.db*
 .DS_Store
+pkg

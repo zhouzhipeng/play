@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 use sqlx::{Error, FromRow};
+use shared::models::user::{AddUser, QueryUser, UpdateUser};
+
 
 use crate::tables::{DBPool, DBQueryResult};
 
@@ -8,23 +10,6 @@ pub struct User {
     pub id: i64,
     pub name: String,
 }
-
-#[derive(Serialize,Deserialize)]
-pub struct AddUser {
-    pub name: String,
-}
-
-#[derive(Serialize,Deserialize)]
-pub struct UpdateUser {
-    pub name: String,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct QueryUser {
-    pub name: String,
-}
-
-
 impl User {
     pub async fn insert(t: AddUser, pool: &DBPool) -> Result<DBQueryResult, Error> {
         sqlx::query("INSERT INTO users (name) VALUES (?)")

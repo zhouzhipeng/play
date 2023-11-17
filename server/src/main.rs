@@ -1,3 +1,4 @@
+use std::path::Path;
 use axum::Router;
 #[cfg(feature = "tower-livereload")]
 use tower_livereload::LiveReloadLayer;
@@ -19,6 +20,9 @@ fn setup_layer(router: Router) -> Router {
 }
 #[tokio::main]
 async fn main() {
+    // let from_dir = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join(Path::new("client/pkg"));
+    //
+    // println!("dir : {:?}", from_dir);
     //
     // println!("test >>> {}", message());
     // initialize tracing

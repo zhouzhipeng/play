@@ -1,36 +1,7 @@
-[package]
-name = "play"
-version = "0.1.0"
-edition = "2021"
-
-[build-dependencies]
-walkdir = "2"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-rustpython-vm = { version = "0.3.0", features = ["freeze-stdlib"] }
-malachite-bigint = { version = "=0.1.0" }
-malachite-q = "=0.3.2"
-malachite-base = "=0.3.2"
-zip-extract = "0.1.2"
-
-axum = { version = "0.6.20", features = ["headers", "http2", "ws"] }
-axum-test = "13.1.1"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0.68"
-tokio = { version = "1.0", features = ["full"] }
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-
-lazy_static = { version = "1.4.0", features = [] }
-crossbeam-channel = "0.5.8"
-include_dir = "0.7.3"
-mime_guess = "2.0.4"
-sqlx = {version = "0.7.2",features = ["runtime-tokio-native-tls", "sqlite", "mysql"]}
-anyhow = "1.0.75"
-toml = "0.8.8"
-hyper = "0.14.27"
-tower-livereload = {version="0.8.2", optional = true}
-tower-http = { version = "0.4.0", features = ["fs", "trace","timeout"] }
-futures = "0.3.29"
+[workspace]
+resolver="2"
+members = [
+    "shared",
+    "client",
+    "server",
+]

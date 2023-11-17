@@ -64,6 +64,13 @@ pub struct Query{{model}} {
 
 }
 
+#[derive(Serialize,Deserialize)]
+pub struct {{model}}Vo {
+	%for c in columns:
+	pub {{c['name']}}: {{judge_rust_type(c['type'])}},
+	%end
+}
+
 
 impl {{model}} {
     pub async fn insert(t: Add{{model}}, pool: &DBPool) -> Result<DBQueryResult, Error> {

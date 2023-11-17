@@ -1,0 +1,23 @@
+
+<ul>
+ title: {{article.title}}
+ content: {{article.content}}
+</ul>
+
+<button hx-get="/article/full/{{article.id}}" hx-target="#result">click</button>
+<pre id="result"></pre>
+
+
+
+
+<div hx-ext="ws" ws-connect="/ws" hx-target="#notifications">
+ <div id="notifications">
+  <p>New messages</p>
+ </div>
+ <div id="chat_room">
+  ...
+ </div>
+ <form id="form" ws-send>
+  <input name="chat_message">
+ </form>
+</div>
