@@ -1,7 +1,7 @@
 use axum_test::TestServer;
+
 use play::controller::routers;
 use play::init_app_state;
-use play::tables::user::{AddUser, QueryUser, UpdateUser, User};
 
 #[tokio::test]
 async fn test_all() -> anyhow::Result<()> {
