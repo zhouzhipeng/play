@@ -19,7 +19,7 @@ pub struct Database {
 static CONFIG_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/config");
 
 pub fn init_config() -> Config {
-    let file_path = format!("config_{}.toml", env::var("ENV").unwrap_or("dev".to_string()));
+    let file_path = format!("config_{}.toml", option_env!("ENV").unwrap_or("dev"));
 
 
     let output_dir = "output_dir";

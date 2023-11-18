@@ -33,8 +33,12 @@ fn main() {
     //check if you forgot to add your new rust file into mod.rs
     check_mod_files();
 
-    //copy wasm files from `client` crate
-    copy_wasm_files();
+    if Ok("release".to_owned()) != env::var("PROFILE") {
+        //will trigger deadlock when build --release
+        //copy wasm files from `client` crate
+        copy_wasm_files();
+    }
+
 
 
     //generate rustc args.
@@ -55,6 +59,7 @@ fn copy_wasm_files(){
          out_dir: "pkg".to_string(),
          release: true,
          target: Target::Web,
+         // extra_options: vec!{"--target-dir".to_string(), "target2".to_string()},
          ..BuildOptions::default()
      })).expect("wasm-pack failed") ;
 

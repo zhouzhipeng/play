@@ -5,7 +5,7 @@ use std::time::Duration;
 use axum::{Json, Router};
 use axum::extract::State;
 use axum::headers::Header;
-use axum::http::StatusCode;
+use axum::http::{Method, StatusCode};
 use axum::response::{Html, IntoResponse, Response};
 use hyper::HeaderMap;
 use serde::Serialize;
@@ -14,7 +14,7 @@ use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 
 use crate::AppState;
-
+use tower_http::cors::{Any, CorsLayer};
 mod index_controller;
 mod static_controller;
 mod user_controller;
@@ -26,6 +26,12 @@ type R<T> = Result<T, AppError>;
 type S = State<Arc<AppState>>;
 
 pub fn routers(app_state: Arc<AppState>) -> Router {
+    let cors = CorsLayer::new()
+        // allow `GET` and `POST` when accessing the resource
+        .allow_methods([Method::GET, Method::POST])
+        // allow requests from any origin
+        .allow_origin(Any);
+
     Router::new()
         .merge(index_controller::init())
         .merge(user_controller::init())
@@ -36,7 +42,8 @@ pub fn routers(app_state: Arc<AppState>) -> Router {
         .merge(static_controller::init())
         // logging so we can see whats going on
         .layer(TraceLayer::new_for_http().make_span_with(DefaultMakeSpan::default().include_headers(true)))
-        .layer(TimeoutLayer::new(Duration::from_secs(30)))
+        .layer(TimeoutLayer::new(Duration::from_secs(3)))
+        .layer(cors)
 }
 
 // Make our own error that wraps `anyhow::Error`.
