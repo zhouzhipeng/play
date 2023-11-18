@@ -8,12 +8,12 @@ use tracing::info;
 
 use crate::AppState;
 use crate::controller::{R, S};
-use shared::models::user::{AddUser, QueryUser, UpdateUser, UserVo};
+use shared::models::user::{AddUser, QueryUser, UpdateUser, USER_LIST, UserVo};
 use crate::tables::user::User;
 
 pub fn init() -> Router<Arc<AppState>> {
     Router::new()
-        .route("/users", get(user_list))
+        .route(USER_LIST, get(user_list))
         .route("/add-user", get(add_user))
         .route("/update-user/:user_id", get(modify_user))
         .route("/delete-user/:user_id", get(delete_user))

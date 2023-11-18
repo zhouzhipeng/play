@@ -1,3 +1,0 @@
-# see: https://doc.rust-lang.org/cargo/reference/config.html
-[build]
-target="wasm32-unknown-unknown"

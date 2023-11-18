@@ -1,7 +1,7 @@
-use reqwest::Client;
 use wasm_bindgen::prelude::*;
-use web_sys::{ErrorEvent, MessageEvent, WebSocket};
-use shared::models::user::{AddUser, QueryUser, UserVo};
+
+use shared::models::user;
+use shared::models::user::{AddUser, QueryUser};
 
 macro_rules! console_log {
     ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
@@ -14,19 +14,15 @@ extern "C" {
 }
 
 async fn test_http()->anyhow::Result<()>{
-    let body = Client::new().get("http://localhost:3000/add-user").query(&AddUser{
+    let body = user::add_user(AddUser{
         name: "zzp".to_string(),
-    }).send().await?.text()
-        .await?;
+    }).await?;
 
     console_log!("body = {:?}", body);
 
-    let body = Client::new().get("http://localhost:3000/users").query(&QueryUser{
+    let body = user::query_users(QueryUser{
         name: "zzp".to_string(),
-    }).send().await?.json::<Vec<UserVo>>()
-        .await?;
-
-
+    }).await?;
 
     console_log!("body = {:?}", body);
     Ok(())
