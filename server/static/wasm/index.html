@@ -6,5 +6,20 @@
     <script type="module" src="index.js"></script>
 </head>
 <body>
+<h2>Add article</h2>
+
+
+    <label>
+        title:
+        <input id="title" type="text"/>
+    </label>
+    <label>
+        content :
+        <input id="content"  type="text"/>
+    </label>
+    <button id="save" onclick="wasm.save_btn_click()">save</button>
+
+    <pre id="result"></pre>
+
 </body>
 </html>

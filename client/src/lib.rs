@@ -1,6 +1,10 @@
+use anyhow::anyhow;
 use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::spawn_local;
+use web_sys::HtmlElement;
 
-use shared::models::user;
+use shared::models::{RequestClient, user};
+use shared::models::article::AddArticle;
 use shared::models::user::{AddUser, QueryUser};
 
 macro_rules! console_log {
@@ -13,97 +17,58 @@ extern "C" {
     fn log(s: &str);
 }
 
-async fn test_http()->anyhow::Result<()>{
-    let body = user::add_user(AddUser{
+async fn test_http() -> anyhow::Result<()> {
+    let body = user::add_user(AddUser {
         name: "zzp".to_string(),
     }).await?;
 
     console_log!("body = {:?}", body);
 
-    let body = user::query_users(QueryUser{
+    let body = user::query_users(QueryUser {
         name: "zzp".to_string(),
     }).await?;
 
     console_log!("body = {:?}", body);
     Ok(())
-
-
 }
 
 #[wasm_bindgen(start)]
-async fn init() -> Result<(), JsValue> {
+async fn main() -> Result<(), JsValue> {
+    Ok(init().await.unwrap())
+}
+
+#[wasm_bindgen]
+pub async fn save_btn_click() -> Result<(), JsValue> {
     //test
-    test_http().await.unwrap();
+    let client = RequestClient::default();
+
+
+    //dom related
+    let window = web_sys::window().expect("global window does not exists");
+    let document = window.document().expect("expecting a document on window");
+    let title_input = document.get_element_by_id("title").unwrap().dyn_into::<web_sys::HtmlInputElement>().unwrap();
+    let content_input = document.get_element_by_id("content").unwrap().dyn_into::<web_sys::HtmlInputElement>().unwrap();
+    // let save_button = document.get_element_by_id("save").unwrap().dyn_into::<web_sys::HtmlButtonElement>().unwrap();
+    let result_pre = document.get_element_by_id("result").unwrap().dyn_into::<web_sys::HtmlElement>().unwrap();
+
+    let r = client.api_article_add(&AddArticle{
+        title: title_input.value(),
+        content: content_input.value(),
+    }).await.unwrap();
+
+    result_pre.set_inner_text(r.as_str());
+
+    console_log!("clicked");
+    Ok(())
+}
+
+
+// #[wasm_bindgen(start)]
+async fn init() -> anyhow::Result<()> {
 
 
 
-    // Connect to an echo server
-    // let ws = WebSocket::new("wss://echo.websocket.events")?;
-    // // For small binary messages, like CBOR, Arraybuffer is more efficient than Blob handling
-    // ws.set_binary_type(web_sys::BinaryType::Arraybuffer);
-    // // create callback
-    // let cloned_ws = ws.clone();
-    // let onmessage_callback = Closure::<dyn FnMut(_)>::new(move |e: MessageEvent| {
-    //     // Handle difference Text/Binary,...
-    //     if let Ok(abuf) = e.data().dyn_into::<js_sys::ArrayBuffer>() {
-    //         console_log!("message event, received arraybuffer: {:?}", abuf);
-    //         let array = js_sys::Uint8Array::new(&abuf);
-    //         let len = array.byte_length() as usize;
-    //         console_log!("Arraybuffer received {}bytes: {:?}", len, array.to_vec());
-    //         // here you can for example use Serde Deserialize decode the message
-    //         // for demo purposes we switch back to Blob-type and send off another binary message
-    //         cloned_ws.set_binary_type(web_sys::BinaryType::Blob);
-    //         match cloned_ws.send_with_u8_array(&[5, 6, 7, 8]) {
-    //             Ok(_) => console_log!("binary message successfully sent"),
-    //             Err(err) => console_log!("error sending message: {:?}", err),
-    //         }
-    //     } else if let Ok(blob) = e.data().dyn_into::<web_sys::Blob>() {
-    //         console_log!("message event, received blob: {:?}", blob);
-    //         // better alternative to juggling with FileReader is to use https://crates.io/crates/gloo-file
-    //         let fr = web_sys::FileReader::new().unwrap();
-    //         let fr_c = fr.clone();
-    //         // create onLoadEnd callback
-    //         let onloadend_cb = Closure::<dyn FnMut(_)>::new(move |_e: web_sys::ProgressEvent| {
-    //             let array = js_sys::Uint8Array::new(&fr_c.result().unwrap());
-    //             let len = array.byte_length() as usize;
-    //             console_log!("Blob received {}bytes: {:?}", len, array.to_vec());
-    //             // here you can for example use the received image/png data
-    //         });
-    //         fr.set_onloadend(Some(onloadend_cb.as_ref().unchecked_ref()));
-    //         fr.read_as_array_buffer(&blob).expect("blob not readable");
-    //         onloadend_cb.forget();
-    //     } else if let Ok(txt) = e.data().dyn_into::<js_sys::JsString>() {
-    //         console_log!("message event, received Text: {:?}", txt);
-    //     } else {
-    //         console_log!("message event, received Unknown: {:?}", e.data());
-    //     }
-    // });
-    // // set message event handler on WebSocket
-    // ws.set_onmessage(Some(onmessage_callback.as_ref().unchecked_ref()));
-    // // forget the callback to keep it alive
-    // onmessage_callback.forget();
-    //
-    // let onerror_callback = Closure::<dyn FnMut(_)>::new(move |e: ErrorEvent| {
-    //     console_log!("error event: {:?}", e);
-    // });
-    // ws.set_onerror(Some(onerror_callback.as_ref().unchecked_ref()));
-    // onerror_callback.forget();
-    //
-    // let cloned_ws = ws.clone();
-    // let onopen_callback = Closure::<dyn FnMut()>::new(move || {
-    //     console_log!("socket opened");
-    //     match cloned_ws.send_with_str("ping") {
-    //         Ok(_) => console_log!("message successfully sent"),
-    //         Err(err) => console_log!("error sending message: {:?}", err),
-    //     }
-    //     // send off binary message
-    //     match cloned_ws.send_with_u8_array(&[0, 1, 2, 3]) {
-    //         Ok(_) => console_log!("binary message successfully sent"),
-    //         Err(err) => console_log!("error sending message: {:?}", err),
-    //     }
-    // });
-    // ws.set_onopen(Some(onopen_callback.as_ref().unchecked_ref()));
-    // onopen_callback.forget();
+
 
     Ok(())
 }

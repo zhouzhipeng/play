@@ -18,4 +18,4 @@ js-sys = "0.3"
 reqwest = { version = "0.11.22", features = ["json"] }
 anyhow = "1.0.75"
 shared={path = "../shared"}
-web-sys = {version = "0.3.65", features = []}
+web-sys = {version = "0.3.65", features = ["Window","Document", "Element", "HtmlElement","HtmlInputElement", "HtmlButtonElement"]}
