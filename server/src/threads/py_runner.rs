@@ -48,6 +48,8 @@ fn init_py_interpreter() -> Interpreter {
     if !target_dir.exists() {
         info!("output_dir not existed , ready to extract stdlib to it.");
 
+        let _ = fs::create_dir("output_dir");
+
         //python stdlib
         let data = include_bytes!("../../python/Lib.zip");
         let archive = Cursor::new(data);

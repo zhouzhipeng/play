@@ -52,7 +52,7 @@ fn main() {
 
     // let env = option_env!("ENV").unwrap_or("dev");
     println!("cargo:rustc-cfg=ENV=\"{}\"",env );
-    println!("cargo:rustc-env=ENV=\"{}\"",env );
+    println!("cargo:rustc-env=ENV={}",env );
 
 
 }

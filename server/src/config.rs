@@ -1,10 +1,6 @@
-use std::{env, fs};
-use std::path::{Path, PathBuf};
-use include_dir::{Dir, include_dir};
+use std::env;
 
 use serde::Deserialize;
-use tracing::info;
-use tracing_subscriber::fmt::format;
 
 #[derive(Deserialize, Debug)]
 pub struct Config {
@@ -16,30 +12,13 @@ pub struct Database {
     pub url: String,
 }
 
-static CONFIG_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/config");
+#[cfg(ENV = "dev")]
+const CONFIG: &str = include_str!("../config/config_dev.toml");
+#[cfg(ENV = "prod")]
+const CONFIG: &str = include_str!("../config/config_prod.toml");
 
 pub fn init_config() -> Config {
-    let env = if cfg!(feature = "dev"){"dev"}else{"prod"};
-    let file_path = format!("config_{}.toml", env);
-
-
-    let output_dir = "output_dir";
-    let target_dir = PathBuf::from(output_dir); // Doesn't need to exist
-
-    if !target_dir.exists() {
-        info!("output_dir not existed , ready to create it.");
-        fs::create_dir(target_dir).expect(format!("create dir : {} failed", output_dir).as_str());
-
-        //python stdlib
-        let data = CONFIG_DIR.get_file(file_path.as_str()).unwrap().contents();
-
-        //copy custom python files to output dir.
-        fs::write(Path::new(output_dir).join(file_path.as_str()), data).expect("write file error!");
-    }
-
-
-    let config_content = fs::read_to_string(Path::new(output_dir).join(file_path.as_str())).expect(format!("config file : {}  not existed!", file_path).as_str());
-    let config: Config = toml::from_str(config_content.as_str()).unwrap();
-    println!("init config file : {}, content >>  {:?}", file_path,  config);
+    let config: Config = toml::from_str(CONFIG).unwrap();
+    println!("init config file :  content >>  {:?}", config);
     config
 }
