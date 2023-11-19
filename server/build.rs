@@ -46,7 +46,15 @@ fn main() {
     println!("cargo:rerun-if-changed=static");
     println!("cargo:rerun-if-changed=config");
     println!("cargo:rerun-if-changed=src");
-    println!("cargo:rustc-cfg=ENV=\"{}\"", option_env!("ENV").unwrap_or("dev"));
+    println!("cargo:rerun-if-changed=build.rs");
+
+    let env = if cfg!(feature = "dev"){"dev"}else if cfg!(feature = "prod"){"prod"}else{"dev"};
+
+    // let env = option_env!("ENV").unwrap_or("dev");
+    println!("cargo:rustc-cfg=ENV=\"{}\"",env );
+    println!("cargo:rustc-env=ENV=\"{}\"",env );
+
+
 }
 
 

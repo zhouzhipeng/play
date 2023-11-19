@@ -14,14 +14,4 @@ js-sys = "0.3"
 reqwest = { version = "0.11.22", features = ["json"] }
 anyhow = "1.0.75"
 shared={path = "../shared"}
-[dependencies.web-sys]
-version = "0.3.22"
-features = [
-    "BinaryType",
-    "Blob",
-    "ErrorEvent",
-    "FileReader",
-    "MessageEvent",
-    "ProgressEvent",
-    "WebSocket",
-]
+web-sys = {version = "0.3.65", features = []}

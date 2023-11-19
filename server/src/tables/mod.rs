@@ -1,10 +1,10 @@
-#[cfg(ENV = "dev")]
+#[cfg(ENV =  "dev")]
 use sqlx::{migrate::MigrateDatabase, Pool, Sqlite, SqlitePool};
-#[cfg(ENV = "prod")]
+#[cfg(ENV =  "prod")]
 use sqlx::mysql::{MySqlPoolOptions, MySqlQueryResult};
-#[cfg(ENV = "prod")]
+#[cfg(ENV =  "prod")]
 use sqlx::{migrate::MigrateDatabase, MySql, Pool};
-#[cfg(ENV = "dev")]
+#[cfg(ENV =  "dev")]
 use sqlx::sqlite::SqliteQueryResult;
 use tracing::info;
 use crate::config::Config;
@@ -14,17 +14,17 @@ pub mod article;
 
 
 
-#[cfg(ENV = "dev")]
+#[cfg(ENV =  "dev")]
 pub type DBPool = Pool<Sqlite>;
-#[cfg(ENV = "dev")]
+#[cfg(ENV =  "dev")]
 pub type DBQueryResult = SqliteQueryResult;
 
-#[cfg(ENV = "prod")]
+#[cfg(ENV =  "prod")]
 pub type DBPool = Pool<MySql>;
-#[cfg(ENV = "prod")]
+#[cfg(ENV =  "prod")]
 pub type DBQueryResult = MySqlQueryResult;
 
-#[cfg(ENV = "dev")]
+#[cfg(ENV =   "dev")]
 pub async fn init_pool(config : &Config) -> DBPool {
 
     let db_url: &str = config.database.url.as_str();
@@ -46,7 +46,7 @@ pub async fn init_pool(config : &Config) -> DBPool {
 }
 
 
-#[cfg(ENV = "dev")]
+#[cfg(ENV =   "dev")]
 pub async fn init_test_pool() -> DBPool {
     let db_test_url = ":memory:";
     let db = SqlitePool::connect(db_test_url).await.unwrap();
@@ -57,7 +57,7 @@ pub async fn init_test_pool() -> DBPool {
 
 
 
-#[cfg(ENV = "prod")]
+#[cfg(ENV =   "prod")]
 pub async fn init_pool(config : &Config) -> DBPool {
 
     let db_url: &str = config.database.url.as_str();
@@ -87,7 +87,7 @@ pub async fn init_pool(config : &Config) -> DBPool {
     db
 }
 
-#[cfg(ENV = "prod")]
+#[cfg(ENV =   "prod")]
 pub async fn init_test_pool() -> DBPool {
     const DB_URL: &str = "mysql://localhost:3306/test";
 

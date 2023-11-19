@@ -8,5 +8,5 @@ A playground project writen in rust for run.
 cargo clean && cargo build && cargo build --release
 
 # prod
-cargo clean &&  cargo build &&  ENV=prod  cargo build --release
+cargo clean &&  cargo build &&  cargo build --release  --no-default-features --features=prod
 ```
