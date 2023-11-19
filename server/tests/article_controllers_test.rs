@@ -1,21 +1,31 @@
-use axum_test::TestServer;
+use axum_test::{TestServer, TestServerConfig, Transport};
+use reqwest::Client;
 
 use play::controller::routers;
 use play::init_app_state;
 use play::tables::article::Article;
+use shared::constants::API_ARTICLE_ADD;
+use shared::models::{article, RequestClient};
 use shared::models::article::{AddArticle, QueryArticle};
 
 #[tokio::test]
-async fn test_data_controller() -> anyhow::Result<()> {
-    let server = TestServer::new(routers(init_app_state(true).await))?;
-
-
-    let response = server.post("/api/article/add").form(&AddArticle {
+async fn test_api_controller() -> anyhow::Result<()> {
+    let server = TestServer::new_with_config(routers(init_app_state(true).await), TestServerConfig{
+        transport:  Some(Transport::HttpRandomPort),
+       ..TestServerConfig::default()
+    })?;
+    let host = server.server_address().unwrap().to_string();
+    println!("host >> {}", host);
+    //
+    let client = RequestClient{
+        host,
+        ..RequestClient::default()
+    };
+    let r = client.api_article_add( &AddArticle{
         title: "123".to_string(),
         content: "456".to_string(),
-    }).await;
-    assert_eq!(response.status_code(), 200);
-    assert_eq!(response.text(), "ok");
+    }).await?;
+    assert_eq!(r, "ok");
 
 
     let response = server.get("/api/article/list").add_query_params(QueryArticle {

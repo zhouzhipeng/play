@@ -10,7 +10,7 @@ use shared::models::article::AddArticle;
 
 use crate::{AppState, include_html};
 use crate::controller::{R, render_fragment, S, Template};
-use crate::controller::article::data_controller;
+use crate::controller::article::api_controller;
 
 include_html!(ADD_NAME,ADD_CONTENT, "article/fragments/add_article_result_fragment.html");
 
@@ -21,7 +21,7 @@ pub fn init() -> Router<Arc<AppState>> {
 
 
 async fn add_article(s: S, Form(q): Form<AddArticle>) -> R<Html<String>> {
-    let r = data_controller::add_article(s.clone(), Form(q)).await?;
+    let r = api_controller::add_article(s.clone(), Form(q)).await?;
 
     render_fragment(&s, Template { name: ADD_NAME, content: ADD_CONTENT }, json!({"success":r }))
 }

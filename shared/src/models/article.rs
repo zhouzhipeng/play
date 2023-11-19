@@ -1,7 +1,10 @@
+use anyhow::{anyhow, bail};
+use reqwest::{Client, StatusCode, Url};
 use serde::{Deserialize, Serialize};
+use crate::constants::API_ARTICLE_ADD;
+use crate::models::{check_response, RequestClient};
 
 
-pub const ADD_ARTICLE: &str = "/article/add";
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ArticleVo {
     pub id: i64,
@@ -27,3 +30,11 @@ pub struct QueryArticle {
 
 }
 
+impl RequestClient{
+    pub async fn api_article_add(&self, add_article: &AddArticle) -> anyhow::Result<String> {
+        let response = self.client.post(self.url(API_ARTICLE_ADD)?).form(add_article).send().await?;
+        check_response(&response)?;
+        let body = response.text().await?;
+        Ok(body)
+    }
+}

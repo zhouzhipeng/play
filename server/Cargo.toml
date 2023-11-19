@@ -39,7 +39,8 @@ mime_guess = "2.0.4"
 
 anyhow = "1.0.75"
 toml = "0.8.8"
-hyper = "0.14.27"
+hyper = "1.0.1"
 tower-livereload = {version="0.8.2", optional = true}
 tower-http = { version = "0.4.0", features = ["fs", "trace","timeout", "cors"] }
 futures = "0.3.29"
+reqwest = { version = "0.11.22", features = ["json"] }
