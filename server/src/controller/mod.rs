@@ -113,11 +113,11 @@ include_html!(TOP,TOP_CONTENT, "top.html");
 include_html!(BOTTOM,BOTTOM_CONTENT, "bottom.html");
 
 fn render_page(s: &S, page: Template, fragment: Template, data: Value) -> R<Html<String>> {
-    let head = s.template_service.render_template(HEAD, HEAD_CONTENT, json!({}))?;
-    let top = s.template_service.render_template(TOP, TOP_CONTENT, json!({}))?;
-    let bottom = s.template_service.render_template(BOTTOM, BOTTOM_CONTENT, json!({}))?;
+    let head = s.template_service.render_template(Template{ name:HEAD, content:HEAD_CONTENT}, json!({}))?;
+    let top = s.template_service.render_template(Template{ name:TOP,  content:TOP_CONTENT}, json!({}))?;
+    let bottom = s.template_service.render_template(Template{ name:BOTTOM, content:BOTTOM_CONTENT}, json!({}))?;
 
-    let content = s.template_service.render_template(fragment.name, fragment.content, data)?;
+    let content = s.template_service.render_template(Template{ name:fragment.name, content:fragment.content}, data)?;
 
     let final_data = json!({
         "head_html": head,
@@ -126,13 +126,13 @@ fn render_page(s: &S, page: Template, fragment: Template, data: Value) -> R<Html
         "content": content
     });
 
-    let final_html = s.template_service.render_template(page.name,page.content, final_data)?;
+    let final_html = s.template_service.render_template(Template{ name:page.name,content:page.content}, final_data)?;
 
     Ok(Html(final_html))
 }
 
 fn render_fragment(s: &S, fragment: Template, data: Value) -> R<Html<String>> {
-    let content = s.template_service.render_template(fragment.name, fragment.content, data)?;
+    let content = s.template_service.render_template(Template{ name:fragment.name, content:fragment.content}, data)?;
     Ok(Html(content))
 }
 

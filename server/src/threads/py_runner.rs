@@ -126,7 +126,7 @@ pub  fn run(req_receiver: Receiver<TemplateData>, res_sender: Sender<String>) {
             };
 
 
-            let r = match run_py_template(vm, data.filename, data.template, data.args.to_string()) {
+            let r = match run_py_template(vm, data.template.name, data.template.content, data.args.to_string()) {
                 Ok(s) => s,
                 Err(s) => s,
             };

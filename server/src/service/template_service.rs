@@ -1,9 +1,9 @@
 use crossbeam_channel::{Receiver, Sender};
 use serde_json::Value;
+use crate::controller::Template;
 
 pub struct TemplateData {
-    pub template: &'static str,
-    pub filename: &'static str,
+    pub template: Template,
     pub args: Value,
 }
 
@@ -19,11 +19,10 @@ impl TemplateService {
             res_receiver,
         }
     }
-    pub fn render_template(&self, filename: &'static str,template: &'static str,  args: Value) -> anyhow::Result<String> {
+    pub fn render_template(&self, t: Template, data: Value) -> anyhow::Result<String> {
         self.req_sender.send(TemplateData {
-            template,
-            filename,
-            args,
+            template:t,
+            args: data,
         })?;
         Ok(self.res_receiver.recv()?)
     }
