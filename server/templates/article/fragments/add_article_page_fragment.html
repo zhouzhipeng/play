@@ -1,6 +1,6 @@
 <h2>Add article</h2>
 
-<form hx->
+<form hx-post="/fragment/article/add" hx-target="#result">
     <label>
         title:
         <input type="text" name="title"/>
@@ -10,4 +10,6 @@
         <input type="text" name="content"/>
     </label>
     <button type="submit">save</button>
+
+    <pre id="result"></pre>
 </form>

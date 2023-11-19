@@ -10,7 +10,7 @@ async fn test_data_controller() -> anyhow::Result<()> {
     let server = TestServer::new(routers(init_app_state(true).await))?;
 
 
-    let response = server.post("/api/article/add").add_query_params(AddArticle {
+    let response = server.post("/api/article/add").form(&AddArticle {
         title: "123".to_string(),
         content: "456".to_string(),
     }).await;
@@ -32,7 +32,7 @@ async fn test_fragment_controller() -> anyhow::Result<()> {
     let server = TestServer::new(routers(init_app_state(true).await))?;
 
 
-    let response = server.post("/fragment/article/add").add_query_params(AddArticle {
+    let response = server.post("/fragment/article/add").form(&AddArticle {
         title: "123".to_string(),
         content: "456".to_string(),
     }).await;
@@ -44,6 +44,22 @@ async fn test_fragment_controller() -> anyhow::Result<()> {
     }).await;
     assert_eq!(response.status_code(), 200);
     assert_eq!(response.json::<Vec<Article>>().len(), 1);
+
+
+    Ok(())
+}
+
+
+
+#[tokio::test]
+async fn test_page_controller() -> anyhow::Result<()> {
+    let server = TestServer::new(routers(init_app_state(true).await))?;
+
+
+    let response = server.get("/page/article/add").await;
+    assert_eq!(response.status_code(), 200);
+    // assert_eq!(response.text(), "Added result : ok");
+
 
 
     Ok(())

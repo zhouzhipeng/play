@@ -37,6 +37,7 @@ pub fn routers(app_state: Arc<AppState>) -> Router {
         .merge(user_controller::init())
         .merge(article::data_controller::init())
         .merge(article::fragment_controller::init())
+        .merge(article::page_controller::init())
         .merge(ws_controller::init())
         //register your new controller here
         .with_state(app_state)
@@ -102,31 +103,36 @@ fn should_return_fragment(header_map: &HeaderMap) -> bool {
 }
 
 
+pub struct Template{
+    pub name: &'static str,
+    pub content: &'static str,
+}
+
 include_html!(HEAD,HEAD_CONTENT, "head.html");
 include_html!(TOP,TOP_CONTENT, "top.html");
 include_html!(BOTTOM,BOTTOM_CONTENT, "bottom.html");
 
-// fn render(s: &S, page: &str, fragment: &str, data: Value) -> R<Response> {
-//     let head = s.template_service.render_template(HEAD, HEAD_CONTENT, json!({}))?;
-//     let top = s.template_service.render_template(TOP, TOP_CONTENT, json!({}))?;
-//     let bottom = s.template_service.render_template(BOTTOM, BOTTOM_CONTENT, json!({}))?;
-//
-//     let content = s.template_service.render_template(fragment, data)?;
-//
-//     let final_data = json!({
-//         "head_html": head,
-//         "top_html": top,
-//         "bottom_html": bottom,
-//         "content": content
-//     });
-//
-//     let final_html = s.template_service.render_template(page, final_data)?;
-//
-//     Ok(Html(final_html).into_response())
-// }
+fn render_page(s: &S, page: Template, fragment: Template, data: Value) -> R<Html<String>> {
+    let head = s.template_service.render_template(HEAD, HEAD_CONTENT, json!({}))?;
+    let top = s.template_service.render_template(TOP, TOP_CONTENT, json!({}))?;
+    let bottom = s.template_service.render_template(BOTTOM, BOTTOM_CONTENT, json!({}))?;
 
-fn render_fragment(s: &S, name: &'static str, content: &'static str, data: Value) -> R<Html<String>> {
-    let content = s.template_service.render_template(name, content, data)?;
+    let content = s.template_service.render_template(fragment.name, fragment.content, data)?;
+
+    let final_data = json!({
+        "head_html": head,
+        "top_html": top,
+        "bottom_html": bottom,
+        "content": content
+    });
+
+    let final_html = s.template_service.render_template(page.name,page.content, final_data)?;
+
+    Ok(Html(final_html))
+}
+
+fn render_fragment(s: &S, fragment: Template, data: Value) -> R<Html<String>> {
+    let content = s.template_service.render_template(fragment.name, fragment.content, data)?;
     Ok(Html(content))
 }
 
