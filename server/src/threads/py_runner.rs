@@ -11,7 +11,7 @@ use tracing::{info, warn};
 
 use crate::TemplateData;
 
-fn run_py_template(vm: &VirtualMachine, template: String, filename: String, json_str_args: String) -> Result<String, String> {
+fn run_py_template(vm: &VirtualMachine,filename: &str, template: &str,  json_str_args: String) -> Result<String, String> {
 
 
     // interpreter.enter(|vm| {
@@ -126,7 +126,7 @@ pub  fn run(req_receiver: Receiver<TemplateData>, res_sender: Sender<String>) {
             };
 
 
-            let r = match run_py_template(vm, data.template, data.filename, data.args.to_string()) {
+            let r = match run_py_template(vm, data.filename, data.template, data.args.to_string()) {
                 Ok(s) => s,
                 Err(s) => s,
             };

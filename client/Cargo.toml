@@ -3,6 +3,10 @@ name = "client"
 version = "0.1.0"
 edition = "2021"
 
+## if wasm-opt not supported on a machine , uncomment below code to disable it.
+#[package.metadata.wasm-pack.profile.release]
+#wasm-opt=false
+
 
 [lib]
 crate-type = ["cdylib"]

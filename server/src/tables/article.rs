@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use sqlx::{Error, FromRow};
+use shared::models::article::*;
 
 use crate::tables::{DBPool, DBQueryResult};
 
@@ -8,24 +9,6 @@ pub struct Article {
     pub id: i64,
     pub title: String,
     pub content: String,
-}
-
-#[derive(Serialize,Deserialize)]
-pub struct AddArticle {
-    pub title: String,
-    pub content: String,
-}
-
-#[derive(Serialize,Deserialize)]
-pub struct UpdateArticle {
-    pub title: String,
-    pub content: String,
-}
-
-#[derive(Serialize,Deserialize)]
-pub struct QueryArticle {
-    pub title: String,
-
 }
 
 

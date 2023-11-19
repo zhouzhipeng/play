@@ -8,3 +8,5 @@
 ## principle
 * should always write a test file in `tests` folder for your controller, like [index_controller_test.rs](..%2F..%2F..%2Ftests%2Findex_controller_test.rs)
 * the structure of controller should be the same, remember to register your `init` method in `mod.rs`
+* `get` --> return html content
+* `post` ---> return json data

@@ -13,13 +13,13 @@ use serde_json::{json, Value};
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 
-use crate::AppState;
+use crate::{AppState, include_html};
 use tower_http::cors::{Any, CorsLayer};
 mod index_controller;
 mod static_controller;
 mod user_controller;
-mod article_controller;
 mod ws_controller;
+pub mod article;
 
 
 type R<T> = Result<T, AppError>;
@@ -35,7 +35,8 @@ pub fn routers(app_state: Arc<AppState>) -> Router {
     Router::new()
         .merge(index_controller::init())
         .merge(user_controller::init())
-        .merge(article_controller::init())
+        .merge(article::data_controller::init())
+        .merge(article::fragment_controller::init())
         .merge(ws_controller::init())
         //register your new controller here
         .with_state(app_state)
@@ -47,7 +48,7 @@ pub fn routers(app_state: Arc<AppState>) -> Router {
 }
 
 // Make our own error that wraps `anyhow::Error`.
-struct AppError(anyhow::Error);
+pub struct AppError(anyhow::Error);
 
 // Tell axum how to convert `AppError` into a response.
 impl IntoResponse for AppError {
@@ -100,28 +101,33 @@ fn should_return_fragment(header_map: &HeaderMap) -> bool {
     return_fragment
 }
 
-fn render(s: S, page: &str, fragment: &str, data: Value) -> R<Response> {
-    let head = s.template_service.render_template("head.html", json!({}))?;
-    let top = s.template_service.render_template("top.html", json!({}))?;
-    let bottom = s.template_service.render_template("bottom.html", json!({}))?;
 
-    let content = s.template_service.render_template(fragment, data)?;
+include_html!(HEAD,HEAD_CONTENT, "head.html");
+include_html!(TOP,TOP_CONTENT, "top.html");
+include_html!(BOTTOM,BOTTOM_CONTENT, "bottom.html");
 
-    let final_data = json!({
-        "head_html": head,
-        "top_html": top,
-        "bottom_html": bottom,
-        "content": content
-    });
+// fn render(s: &S, page: &str, fragment: &str, data: Value) -> R<Response> {
+//     let head = s.template_service.render_template(HEAD, HEAD_CONTENT, json!({}))?;
+//     let top = s.template_service.render_template(TOP, TOP_CONTENT, json!({}))?;
+//     let bottom = s.template_service.render_template(BOTTOM, BOTTOM_CONTENT, json!({}))?;
+//
+//     let content = s.template_service.render_template(fragment, data)?;
+//
+//     let final_data = json!({
+//         "head_html": head,
+//         "top_html": top,
+//         "bottom_html": bottom,
+//         "content": content
+//     });
+//
+//     let final_html = s.template_service.render_template(page, final_data)?;
+//
+//     Ok(Html(final_html).into_response())
+// }
 
-    let final_html = s.template_service.render_template(page, final_data)?;
-
-    Ok(Html(final_html).into_response())
-}
-
-fn render_fragment(s: S, fragment: &str, data: Value) -> R<Response> {
-    let content = s.template_service.render_template(fragment, data)?;
-    Ok(Html(content).into_response())
+fn render_fragment(s: &S, name: &'static str, content: &'static str, data: Value) -> R<Html<String>> {
+    let content = s.template_service.render_template(name, content, data)?;
+    Ok(Html(content))
 }
 
 fn merge_json(mut json1: Value, json2: Value) -> Value {
@@ -135,17 +141,17 @@ fn merge_json(mut json1: Value, json2: Value) -> Value {
     json1
 }
 
-fn auto_response<T: Serialize>(s: S, header_map: &HeaderMap, page: &str, fragment: &str, key: &str,data: &T, ) -> R<Response> {
-    if should_return_json(&header_map) {
-        Ok(Json(data).into_response())
-    } else {
-        let data = json!({
-                key:data
-                });
-        if should_return_fragment(&header_map) {
-            render_fragment(s, fragment, data)
-        } else {
-            render(s, page, fragment, data)
-        }
-    }
-}
+// fn auto_response(s: S, header_map: &HeaderMap, page: &str, fragment: &str, data: Value ) -> R<Response> {
+//     if should_return_json(&header_map) {
+//         Ok(Json(data).into_response())
+//     } else {
+//         if should_return_fragment(&header_map) {
+//             render_fragment(s, fragment, data)
+//         } else {
+//             render(s, page, fragment, data)
+//         }
+//     }
+// }
+//
+//
+//

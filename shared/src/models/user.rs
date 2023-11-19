@@ -1,6 +1,6 @@
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use crate::models::HOST;
+use crate::constants::HOST;
 
 
 pub const USER_LIST: &str = "/users";

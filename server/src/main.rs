@@ -35,9 +35,11 @@ async fn main() {
     let mut router = routers(app_state);
     router = setup_layer(router);
 
-    info!("server start...");
+    let server_port = 3000;
+
+    info!("server start at port : {} ...", server_port);
     // run it with hyper on localhost:3000
-    axum::Server::bind(&"0.0.0.0:3000".parse().unwrap())
+    axum::Server::bind(&format!("0.0.0.0:{}", server_port).parse().unwrap())
         .serve(router.into_make_service())
         .await
         .unwrap();

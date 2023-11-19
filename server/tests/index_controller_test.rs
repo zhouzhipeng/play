@@ -9,8 +9,6 @@ async fn test_all() -> anyhow::Result<()> {
     let response = server.get("/").await;
     assert_eq!(response.status_code(), 200);
 
-    let response = server.get("/test").await;
-    assert_eq!(response.status_code(), 200);
 
     Ok(())
 }

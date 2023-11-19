@@ -31,7 +31,7 @@ async fn test_http()->anyhow::Result<()>{
 }
 
 #[wasm_bindgen(start)]
-async fn start_websocket() -> Result<(), JsValue> {
+async fn init() -> Result<(), JsValue> {
     //test
     test_http().await.unwrap();
 

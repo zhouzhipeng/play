@@ -1,0 +1,50 @@
+use axum_test::TestServer;
+
+use play::controller::routers;
+use play::init_app_state;
+use play::tables::article::Article;
+use shared::models::article::{AddArticle, QueryArticle};
+
+#[tokio::test]
+async fn test_data_controller() -> anyhow::Result<()> {
+    let server = TestServer::new(routers(init_app_state(true).await))?;
+
+
+    let response = server.post("/api/article/add").add_query_params(AddArticle {
+        title: "123".to_string(),
+        content: "456".to_string(),
+    }).await;
+    assert_eq!(response.status_code(), 200);
+    assert_eq!(response.text(), "ok");
+
+
+    let response = server.get("/api/article/list").add_query_params(QueryArticle {
+        title: "123".to_string(),
+    }).await;
+    assert_eq!(response.status_code(), 200);
+    assert_eq!(response.json::<Vec<Article>>().len(), 1);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_fragment_controller() -> anyhow::Result<()> {
+    let server = TestServer::new(routers(init_app_state(true).await))?;
+
+
+    let response = server.post("/fragment/article/add").add_query_params(AddArticle {
+        title: "123".to_string(),
+        content: "456".to_string(),
+    }).await;
+    assert_eq!(response.status_code(), 200);
+    assert_eq!(response.text(), "Added result : ok");
+
+    let response = server.get("/api/article/list").add_query_params(QueryArticle {
+        title: "123".to_string(),
+    }).await;
+    assert_eq!(response.status_code(), 200);
+    assert_eq!(response.json::<Vec<Article>>().len(), 1);
+
+
+    Ok(())
+}

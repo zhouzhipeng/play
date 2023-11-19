@@ -50,3 +50,11 @@ pub async fn init_app_state(use_test_pool: bool) -> Arc<AppState> {
 }
 
 
+#[macro_export]
+macro_rules! include_html {
+    ($name1: ident, $name2: ident,$fragment: expr) => {
+        pub const $name1: &str = $fragment;
+        pub const $name2: &str =include_str!(concat!(env!("CARGO_MANIFEST_DIR"),"/templates/",  $fragment));
+    };
+}
+
