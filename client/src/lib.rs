@@ -1,5 +1,5 @@
 use std::ops::Add;
-use anyhow::anyhow;
+use anyhow::{anyhow, bail};
 use js_sys::Reflect;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
@@ -81,10 +81,10 @@ type R<T> = Result<T, Error>;
 
 
 #[wasm_bindgen]
-pub async fn test_some(input: AddArticle) -> R<String> {
-    let resp = RequestClient::default().api_article_add(&input).await?;
+pub async fn test_some(input: AddArticle) -> AddArticle {
+    let resp = RequestClient::default().api_article_add(&input).await.unwrap();
     console_log!("test_some >> input :{:?}, response: {}", input, resp);
-    Ok(resp)
+    input
 }
 
 #[wasm_bindgen]

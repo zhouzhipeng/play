@@ -20,7 +20,7 @@ wasm-bindgen-futures = "0.4.38"
 js-sys = "0.3"
 reqwest = { version = "0.11.22", features = ["json"] }
 anyhow = "1.0.75"
-shared={path = "../shared",features = ["wasm-bindgen"]}
+shared={path = "../shared",features = ["wasm"]}
 web-sys = {version = "0.3.65", features = ["Window","Document", "Element", "HtmlElement","HtmlInputElement", "HtmlButtonElement"]}
 # The `console_error_panic_hook` crate provides better debugging of panics by
 # logging them with `console.error`. This is great for development, but requires

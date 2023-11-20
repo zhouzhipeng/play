@@ -2,6 +2,7 @@ use anyhow::{anyhow, bail};
 use reqwest::{Client, StatusCode, Url};
 use serde::{Deserialize, Serialize};
 
+
 use crate::constants::API_ARTICLE_ADD;
 use crate::models::{check_response, RequestClient};
 
@@ -13,12 +14,12 @@ pub struct ArticleVo {
     pub content: String,
 }
 
+
 #[derive(Serialize, Deserialize,Debug)]
 pub struct AddArticle {
     pub title: String,
     pub content: String,
 }
-
 
 #[derive(Serialize, Deserialize)]
 pub struct UpdateArticle {

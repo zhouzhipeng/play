@@ -4,7 +4,7 @@ use crate::constants::HOST;
 
 pub mod user;
 pub mod article;
-#[cfg(feature = "wasm-bindgen")]
+#[cfg(feature = "wasm")]
 mod wasm_traits_impl;
 
 pub fn check_response(response: &Response) -> anyhow::Result<()> {
