@@ -1,4 +1,4 @@
-use anyhow::{anyhow, bail};
+use anyhow::{bail};
 use reqwest::{Client, Response, Url};
 use crate::constants::HOST;
 

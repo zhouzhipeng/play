@@ -15,15 +15,15 @@ pub fn init() -> Router<Arc<AppState>> {
         .route("/page/article/list", get(article_list))
 }
 
-include_html!(f1,f2, "article/fragments/add_article_page_fragment.html");
-include_html!(f3,f4, "article/fragments/articles.html");
-include_html!(p1,p2, "article/index.html");
+include_html!(F1,F2, "article/fragments/add_article_page_fragment.html");
+include_html!(F3,F4, "article/fragments/articles.html");
+include_html!(P1,P2, "article/index.html");
 async fn add_article_page(s: S) -> R<Html<String>> {
-    render_page(&s, Template { name: p1, content: p2 }, Template { name: f1, content: f2 }, json!({}))
+    render_page(&s, Template { name: P1, content: P2 }, Template { name: F1, content: F2 }, json!({}))
 }
 async fn article_list(s: S) -> R<Html<String>> {
     let articles = Article::query_all(&s.db).await?;
-    render_page(&s, Template { name: p1, content: p2 }, Template { name: f3, content: f4 }
+    render_page(&s, Template { name: P1, content: P2 }, Template { name: F3, content: F4 }
                 , json!({"articles": articles}))
 }
 

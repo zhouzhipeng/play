@@ -3,7 +3,7 @@ use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use crossbeam_channel::{Receiver, RecvError, Sender};
+use crossbeam_channel::{Receiver, Sender};
 use rustpython_vm as vm;
 use rustpython_vm::{Interpreter, py_compile, VirtualMachine};
 use rustpython_vm::convert::IntoObject;

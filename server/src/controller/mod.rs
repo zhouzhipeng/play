@@ -2,13 +2,12 @@ use std::ops::Deref;
 use std::sync::Arc;
 use std::time::Duration;
 
-use axum::{Json, Router};
+use axum::{Router};
 use axum::extract::State;
-use axum::headers::Header;
 use axum::http::{Method, StatusCode};
 use axum::response::{Html, IntoResponse, Response};
 use hyper::HeaderMap;
-use serde::Serialize;
+
 use serde_json::{json, Value};
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
@@ -82,7 +81,7 @@ impl<E> From<E> for AppError
     }
 }
 
-
+#[allow(dead_code)]
 fn should_return_json(header_map: &HeaderMap) -> bool {
     let mut return_json = false;
     if let Some(v) = header_map.get("accept") {
@@ -94,9 +93,10 @@ fn should_return_json(header_map: &HeaderMap) -> bool {
 }
 
 
+#[allow(dead_code)]
 fn should_return_fragment(header_map: &HeaderMap) -> bool {
     let mut return_fragment = false;
-    if let Some(v) = header_map.get("HX-Request") {
+    if let Some(_v) = header_map.get("HX-Request") {
         return_fragment = true;
     }
     return_fragment
@@ -136,6 +136,7 @@ fn render_fragment(s: &S, fragment: Template, data: Value) -> R<Html<String>> {
     Ok(Html(content))
 }
 
+#[allow(dead_code)]
 fn merge_json(mut json1: Value, json2: Value) -> Value {
     if let Value::Object(ref mut obj1) = json1 {
         if let Value::Object(obj2) = json2 {

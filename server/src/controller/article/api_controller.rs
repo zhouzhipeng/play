@@ -18,7 +18,7 @@ pub fn init() -> Router<Arc<AppState>> {
 }
 
 pub async fn add_article(s: S, Form(q): Form<AddArticle>) -> R<String> {
-    let r = Article::insert(q, &s.db).await?;
+    let _r = Article::insert(q, &s.db).await?;
     Ok("ok".to_string())
 }
 

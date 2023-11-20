@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::thread;
 
 use crossbeam_channel::bounded;
-use tokio::spawn;
+
 use tracing::info;
 
 use crate::config::Config;

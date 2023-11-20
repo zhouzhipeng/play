@@ -1,14 +1,14 @@
-use std::ops::{Add, Deref};
+
 use std::sync::Arc;
 
 use axum::{Json, Router};
-use axum::extract::{Path, Query, State};
+use axum::extract::{Path, Query};
 use axum::routing::get;
 use tracing::info;
 
 use crate::AppState;
 use crate::controller::{R, S};
-use shared::models::user::{ADD_USER, AddUser, QueryUser, UpdateUser, USER_LIST, UserVo};
+use shared::models::user::{ADD_USER, AddUser, QueryUser, UpdateUser, USER_LIST};
 use crate::tables::user::User;
 
 pub fn init() -> Router<Arc<AppState>> {

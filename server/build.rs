@@ -5,10 +5,9 @@ use std::io::prelude::*;
 use std::io::Write;
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::Path;
-use std::process::Command;
-use fs_extra::dir::CopyOptions;
 
-use walkdir::{DirEntry, WalkDir};
+use fs_extra::dir::CopyOptions;
+use walkdir::WalkDir;
 use wasm_pack::command::build::{BuildOptions, Target};
 use wasm_pack::command::run_wasm_pack;
 
@@ -17,9 +16,6 @@ const PRE_COMMIT_HOOK: &str = "#!/bin/sh
 exec cargo test
 ";
 
-fn is_mod_file(entry: &DirEntry) -> bool {
-    entry.file_name().to_string_lossy() == "mod.rs"
-}
 
 fn main() {
 

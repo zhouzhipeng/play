@@ -1,11 +1,11 @@
 use axum_test::{TestServer, TestServerConfig, Transport};
-use reqwest::Client;
+
 
 use play::controller::routers;
 use play::init_app_state;
 use play::tables::article::Article;
-use shared::constants::API_ARTICLE_ADD;
-use shared::models::{article, RequestClient};
+
+use shared::models::{RequestClient};
 use shared::models::article::{AddArticle, QueryArticle};
 
 #[tokio::test]

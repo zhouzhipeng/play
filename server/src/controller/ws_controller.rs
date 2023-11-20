@@ -7,7 +7,6 @@ use axum::{
 };
 use axum::routing::get;
 //allows to split the websocket stream into separate TX and RX branches
-use futures::{sink::SinkExt, stream::StreamExt};
 use tracing::info;
 
 use crate::AppState;

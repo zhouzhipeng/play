@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
-use axum::extract::State;
+
 use axum::response::Html;
 use axum::Router;
 use axum::routing::get;
-use serde_json::json;
+
 
 use crate::AppState;
-use crate::controller::{R, S};
+use crate::controller::{R};
 
 //fixme: register 'init' method in mod.rs
 pub fn init() -> Router<Arc<AppState>> {

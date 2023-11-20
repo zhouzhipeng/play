@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use axum::{Form, Router};
-use axum::extract::Query;
+
 use axum::response::Html;
 use axum::routing::post;
 use serde_json::json;
