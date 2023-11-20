@@ -1,8 +1,12 @@
-
+use std::io;
 use axum::Router;
 #[cfg(feature = "tower-livereload")]
 use tower_livereload::LiveReloadLayer;
 use tracing::info;
+use tracing::level_filters::LevelFilter;
+use tracing_subscriber::filter;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
 
 use play::controller::routers;
 use play::init_app_state;
@@ -26,7 +30,17 @@ async fn main() {
     //
     // println!("test >>> {}", message());
     // initialize tracing
-    tracing_subscriber::fmt().with_max_level(tracing::Level::INFO).init();
+    let filter = filter::Targets::new()
+        .with_target("rustpython_vm", LevelFilter::ERROR)
+        .with_default(LevelFilter::INFO)
+    ;
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer()
+            .pretty()
+            .with_writer(io::stdout)
+        )
+        .with(filter)
+        .init();
 
     //init app_state
     let app_state = init_app_state(false).await;
