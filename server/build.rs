@@ -67,7 +67,8 @@ fn copy_wasm_files(){
          out_dir: "pkg".to_string(),
          release: true,
          target: Target::Web,
-         // extra_options: vec!{"--target-dir".to_string(), "target2".to_string()},
+         #[cfg(feature = "dev")]
+         extra_options: vec!{"--features".to_string(), "console_error_panic_hook".to_string()},
          ..BuildOptions::default()
      })).expect("wasm-pack failed") ;
 
