@@ -1,5 +1,6 @@
-import init from './pkg/client.js';
 
 window.addEventListener('load', async () => {
-    window.wasm = await init('./pkg/client_bg.wasm');
+    let client =  await import('./pkg/client.js');
+    await client.default('./pkg/client_bg.wasm');
+    window.wasm = client;
 });

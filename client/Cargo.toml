@@ -7,9 +7,9 @@ edition = "2021"
 #[package.metadata.wasm-pack.profile.release]
 #wasm-opt=false
 
-[profile.release]
-# Tell `rustc` to optimize for small code size.
-opt-level = "s"
+#[profile.release]
+## Tell `rustc` to optimize for small code size.
+#opt-level = "s"
 
 [lib]
 crate-type = ["cdylib"]
@@ -28,4 +28,4 @@ web-sys = {version = "0.3.65", features = ["Window","Document", "Element", "Html
 # code size when deploying.
 console_error_panic_hook = { version = "0.1.7", optional = true }
 serde = { version = "1.0.192", features = ["derive"] }
-serde-wasm-bindgen = "0.4"
+serde-wasm-bindgen = "0.6.1"

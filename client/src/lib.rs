@@ -4,6 +4,7 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlElement;
 use serde::{Deserialize, Serialize};
+use wasm_bindgen::__rt::IntoJsResult;
 
 use shared::models::{RequestClient, user};
 use shared::models::article::AddArticle;
@@ -54,6 +55,48 @@ async fn test_http() -> anyhow::Result<()> {
 async fn main() -> Result<(), JsValue> {
     set_panic_hook();
     Ok(init().await.unwrap())
+}
+
+pub struct Error(anyhow::Error);
+
+impl Into<JsValue> for Error{
+    fn into(self) -> JsValue {
+        JsValue::from_str(self.0.to_string().as_str())
+    }
+}
+impl<E> From<E> for Error
+    where
+        E: Into<anyhow::Error>,
+{
+    fn from(err: E) -> Self {
+        Self(err.into())
+    }
+}
+
+
+type R<T> = Result<T, Error>;
+
+#[wasm_bindgen]
+pub async fn test_some(input : &str) -> R<String> {
+
+    let resp = RequestClient::default().api_article_add(&AddArticle{
+        title: input.to_string(),
+        content: input.to_string(),
+    }).await?;
+    console_log!("test_some >> input :{}, response: {}", input, resp);
+    Ok(resp)
+}
+
+#[wasm_bindgen]
+pub fn add(input: &str) -> u32
+{
+    console_log!("add input :{}", input);
+    1
+}
+
+#[wasm_bindgen]
+pub fn greet(a: &str) -> String {
+    format!("Hello, {}!", a)
 }
 
 #[wasm_bindgen]
