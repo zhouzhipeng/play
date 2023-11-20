@@ -1,3 +1,4 @@
+use std::ops::Add;
 use anyhow::anyhow;
 use js_sys::Reflect;
 use wasm_bindgen::prelude::*;
@@ -5,6 +6,7 @@ use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlElement;
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::__rt::IntoJsResult;
+use wasm_bindgen::convert::FromWasmAbi;
 
 use shared::models::{RequestClient, user};
 use shared::models::article::AddArticle;
@@ -76,14 +78,12 @@ impl<E> From<E> for Error
 
 type R<T> = Result<T, Error>;
 
-#[wasm_bindgen]
-pub async fn test_some(input : &str) -> R<String> {
 
-    let resp = RequestClient::default().api_article_add(&AddArticle{
-        title: input.to_string(),
-        content: input.to_string(),
-    }).await?;
-    console_log!("test_some >> input :{}, response: {}", input, resp);
+
+#[wasm_bindgen]
+pub async fn test_some(input: AddArticle) -> R<String> {
+    let resp = RequestClient::default().api_article_add(&input).await?;
+    console_log!("test_some >> input :{:?}, response: {}", input, resp);
     Ok(resp)
 }
 
