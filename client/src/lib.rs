@@ -1,7 +1,9 @@
 use anyhow::anyhow;
+use js_sys::Reflect;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlElement;
+use serde::{Deserialize, Serialize};
 
 use shared::models::{RequestClient, user};
 use shared::models::article::AddArticle;
@@ -10,6 +12,22 @@ use shared::models::user::{AddUser, QueryUser};
 macro_rules! console_log {
     ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AppState {
+    counter: i32,
+    // Add more state items here
+}
+
+impl AppState {
+    fn new() -> AppState {
+        AppState {
+            counter: 0,
+            // Initialize more state here
+        }
+    }
+}
+
 
 #[wasm_bindgen]
 extern "C" {
@@ -52,7 +70,7 @@ pub async fn save_btn_click() -> Result<(), JsValue> {
     // let save_button = document.get_element_by_id("save").unwrap().dyn_into::<web_sys::HtmlButtonElement>().unwrap();
     let result_pre = document.get_element_by_id("result").unwrap().dyn_into::<web_sys::HtmlElement>().unwrap();
 
-    let r = client.api_article_add(&AddArticle{
+    let r = client.api_article_add(&AddArticle {
         title: title_input.value(),
         content: content_input.value(),
     }).await.unwrap();
@@ -66,14 +84,47 @@ pub async fn save_btn_click() -> Result<(), JsValue> {
 
 // #[wasm_bindgen(start)]
 async fn init() -> anyhow::Result<()> {
-    panic!("test panic!");
+    // panic!("test panic!");
 
+    let state = AppState::new();
 
+    let as_js_value = serde_wasm_bindgen::to_value(&state).unwrap();
+
+    let window = web_sys::window().unwrap();
+
+    Reflect::set(&window, &JsValue::from_str("app_state"), &as_js_value).unwrap();
 
 
     Ok(())
 }
 
+
+#[wasm_bindgen]
+pub fn increment_counter() -> Result<(), JsValue> {
+    let window = web_sys::window().unwrap();
+
+    if let Ok(state_value) = Reflect::get(&window, &JsValue::from_str("app_state")) {
+        let mut state: AppState = serde_wasm_bindgen::from_value(state_value)?;
+        state.counter += 1;
+        let as_js_value = serde_wasm_bindgen::to_value(&state)?;
+
+        Reflect::set(&window, &JsValue::from_str("app_state"), &as_js_value).unwrap();
+    }
+
+    Ok(())
+}
+
+#[wasm_bindgen]
+pub fn log_state() -> Result<(), JsValue> {
+    let window = web_sys::window().unwrap();
+
+    if let Ok(state_value) = Reflect::get(&window, &JsValue::from_str("app_state")) {
+        let state: AppState = serde_wasm_bindgen::from_value(state_value)?;
+        log(&format!("Counter is: {}", state.counter));
+    }
+
+    Ok(())
+}
 
 pub fn set_panic_hook() {
     // When the `console_error_panic_hook` feature is enabled, we can call the
