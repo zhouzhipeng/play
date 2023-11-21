@@ -6,8 +6,8 @@ edition = "2021"
 
 [features]
 default=["dev"]
-dev=["sqlx","sqlx/sqlite"]
-prod=["sqlx","sqlx/mysql"]
+dev=["sqlx","sqlx/sqlite", "bb8-redis"]
+prod=["sqlx","sqlx/mysql", "bb8-redis-cluster"]
 
 [build-dependencies]
 walkdir = "2"
@@ -44,3 +44,6 @@ tower-livereload = {version="0.8.2", optional = true}
 tower-http = { version = "0.4.0", features = ["fs", "trace","timeout", "cors"] }
 futures = "0.3.29"
 reqwest = { version = "0.11.22", features = ["json"] }
+bb8-redis = { version = "0.13.1", optional = true }
+bb8-redis-cluster = { version = "0.1.1", optional = true }
+futures-util = "0.3.29"

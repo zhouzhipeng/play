@@ -5,6 +5,7 @@ use serde::Deserialize;
 #[derive(Deserialize, Debug)]
 pub struct Config {
     pub database: Database,
+    pub redis_uri: Vec<String>,
 }
 
 #[derive(Deserialize, Debug)]

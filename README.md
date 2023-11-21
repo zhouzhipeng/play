@@ -25,3 +25,9 @@ cargo clean &&  cargo build &&  cargo build --release  --no-default-features --f
 
 ## running
 put the final binary `play` on your server , and just run `./play` , everything is embed in it including config files.
+
+
+## run a redis cluster locally
+```bash
+docker run -e "IP=0.0.0.0" -p 7000-7005:7000-7005 grokzen/redis-cluster:latest
+```

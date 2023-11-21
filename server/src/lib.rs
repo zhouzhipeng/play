@@ -7,6 +7,7 @@ use tracing::info;
 
 use crate::config::Config;
 use crate::config::init_config;
+use crate::service::redis::{RedisOperation, RedisService};
 use crate::service::template_service::{TemplateData, TemplateService};
 use crate::tables::DBPool;
 use crate::threads::py_runner;
@@ -21,6 +22,7 @@ pub mod config;
 pub struct AppState {
     pub template_service: TemplateService,
     pub db: DBPool,
+    pub redis_service: RedisService,
     pub config: Config,
 }
 
@@ -38,6 +40,7 @@ pub async fn init_app_state(use_test_pool: bool) -> Arc<AppState> {
     let app_state = Arc::new(AppState {
         template_service: TemplateService::new(req_sender, res_receiver),
         db: if use_test_pool {tables::init_test_pool().await}else{tables::init_pool(&config).await},
+        redis_service: RedisService::new(config.redis_uri.clone()).await,
         config,
     });
 

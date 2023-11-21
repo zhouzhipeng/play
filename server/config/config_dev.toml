@@ -1,2 +1,6 @@
+redis_uri = ["redis://127.0.0.1"]
+
 [database]
 url="sqlite://sqlite.db"
+
+
