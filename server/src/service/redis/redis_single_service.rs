@@ -1,3 +1,4 @@
+use std::time::Duration;
 use bb8_redis::{
     bb8,
     redis::AsyncCommands,
@@ -15,6 +16,7 @@ pub struct RedisService {
 }
 
 impl RedisService {
+
     pub async fn new(redis_uri: Vec<String>, is_test: bool) -> anyhow::Result<Self> {
         if is_test {
             let test_redis_service = redis_mock_service::RedisService::new(redis_uri).await.unwrap();
@@ -25,7 +27,10 @@ impl RedisService {
             })
         } else {
             let manager = RedisConnectionManager::new(redis_uri.get(0).unwrap().as_str())?;
-            let pool = bb8::Pool::builder().build(manager).await?;
+            let pool = bb8::Pool::builder()
+                .connection_timeout(Duration::from_secs(1))
+                .max_size(100)
+                .build(manager).await?;
 
             Ok(Self {
                 pool: Some(pool),
@@ -40,7 +45,7 @@ impl RedisService {
         if self.is_test {
             self.test_pool.as_ref().unwrap().set(key, val).await
         } else {
-            let mut conn = self.pool.as_ref().unwrap().get().await.unwrap();
+            let mut conn = self.pool.as_ref().unwrap().get().await?;
 
             conn.set(key, val).await?;
             Ok(())
@@ -51,7 +56,7 @@ impl RedisService {
         if self.is_test {
             self.test_pool.as_ref().unwrap().get(key).await
         } else {
-            let mut conn = self.pool.as_ref().unwrap().get().await.unwrap();
+            let mut conn = self.pool.as_ref().unwrap().get().await?;
             Ok(conn.get(key).await?)
         }
     }
