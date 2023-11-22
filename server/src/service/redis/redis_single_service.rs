@@ -1,47 +1,59 @@
-use axum::async_trait;
 use bb8_redis::{
     bb8,
     redis::AsyncCommands,
     RedisConnectionManager,
 };
 
-use crate::service::redis::{RedisOperation, RedisPool, RedisService};
+use crate::service::redis::redis_mock_service;
 
-pub async fn init_pool(redis_uri: &str) -> anyhow::Result<RedisPool> {
-    let manager = RedisConnectionManager::new(redis_uri)?;
-    let pool = bb8::Pool::builder().build(manager).await?;
+pub type RedisPool = bb8::Pool<RedisConnectionManager>;
 
-    Ok(pool)
+pub struct RedisService {
+    pool: Option<RedisPool>,
+    test_pool: Option<redis_mock_service::RedisService>,
+    is_test: bool,
 }
 
+impl RedisService {
+    pub async fn new(redis_uri: Vec<String>, is_test: bool) -> anyhow::Result<Self> {
+        if is_test {
+            let test_redis_service = redis_mock_service::RedisService::new(redis_uri).await.unwrap();
+            Ok(Self {
+                pool: None,
+                test_pool: Some(test_redis_service),
+                is_test,
+            })
+        } else {
+            let manager = RedisConnectionManager::new(redis_uri.get(0).unwrap().as_str())?;
+            let pool = bb8::Pool::builder().build(manager).await?;
 
-impl  RedisService{
+            Ok(Self {
+                pool: Some(pool),
+                test_pool: None,
+                is_test,
+            })
+        }
+    }
+
+
     pub async fn set(&self, key: &str, val: &str) -> anyhow::Result<()> {
-        let mut conn = self.pool.get().await.unwrap();
+        if self.is_test {
+            self.test_pool.as_ref().unwrap().set(key, val).await
+        } else {
+            let mut conn = self.pool.as_ref().unwrap().get().await.unwrap();
 
-        conn.set(key, val).await?;
-        Ok(())
+            conn.set(key, val).await?;
+            Ok(())
+        }
     }
 
     pub async fn get(&self, key: &str) -> anyhow::Result<String> {
-        let mut conn = self.pool.get().await.unwrap();
-        Ok(conn.get(key).await?)
+        if self.is_test {
+            self.test_pool.as_ref().unwrap().get(key).await
+        } else {
+            let mut conn = self.pool.as_ref().unwrap().get().await.unwrap();
+            Ok(conn.get(key).await?)
+        }
     }
 }
 
-
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[tokio::test]
-    async fn test_all() -> anyhow::Result<()> {
-        let redis_service = RedisService::new(vec!{"redis://127.0.0.1".to_string()}).await;
-        redis_service.set("testkey", "testval").await?;
-
-        let val = redis_service.get( "testkey").await?;
-        assert_eq!(val, "testval");
-
-        Ok(())
-    }
-}

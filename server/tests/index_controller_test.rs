@@ -20,6 +20,5 @@ async fn test_redis() -> anyhow::Result<()> {
     let response = server.get("/test-redis").await;
     assert_eq!(response.status_code(), 200);
 
-
     Ok(())
 }

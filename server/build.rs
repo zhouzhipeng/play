@@ -87,7 +87,7 @@ fn check_mod_files() {
                 f.read_to_string(&mut mod_contents).unwrap();
                 let expected = format!("mod {};", file_stem);
                 if !mod_contents.contains(&expected) {
-                    panic!("File {}.rs is not included in mod.rs", file_stem);
+                    panic!("Error >> File {}.rs is not included in mod.rs", file_stem);
                 }
             }
         }
