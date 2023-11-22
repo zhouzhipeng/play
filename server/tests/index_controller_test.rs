@@ -19,6 +19,6 @@ async fn test_redis() -> anyhow::Result<()> {
     let server = TestServer::new(routers(init_app_state(true).await))?;
     let response = server.get("/test-redis").await;
     assert_eq!(response.status_code(), 200);
-
+    assert_eq!(response.text(), "testval");
     Ok(())
 }

@@ -26,6 +26,8 @@ async fn redis_test(s: S) -> R<String> {
     s.redis_service.set("testkey", "testval").await?;
     let val = s.redis_service.get( "testkey").await?;
 
+    s.redis_service.publish("a", "test123").await?;
+
     Ok(val)
     // Ok("sdf".to_string())
 }
