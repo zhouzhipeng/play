@@ -12,7 +12,7 @@ use serde_json::{json, Value};
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 
-use crate::{AppState, include_html};
+use crate::{AppState, init_template};
 use tower_http::cors::{Any, CorsLayer};
 mod index_controller;
 mod static_controller;
@@ -108,14 +108,23 @@ pub struct Template{
     pub content: &'static str,
 }
 
-include_html!(HEAD,HEAD_CONTENT, "head.html");
-include_html!(TOP,TOP_CONTENT, "top.html");
-include_html!(BOTTOM,BOTTOM_CONTENT, "bottom.html");
+#[macro_export]
+macro_rules! init_template {
+    ($fragment: expr) => {
+        Template { name: $fragment, content: include_str!(concat!(env!("CARGO_MANIFEST_DIR"),"/templates/",  $fragment)) }
+    };
+}
+
+
+
+const HEAD: Template = init_template!("head.html");
+const TOP : Template = init_template!("top.html");
+const BOTTOM: Template = init_template!("bottom.html");
 
 fn render_page(s: &S, page: Template, fragment: Template, data: Value) -> R<Html<String>> {
-    let head = s.template_service.render_template(Template{ name:HEAD, content:HEAD_CONTENT}, json!({}))?;
-    let top = s.template_service.render_template(Template{ name:TOP,  content:TOP_CONTENT}, json!({}))?;
-    let bottom = s.template_service.render_template(Template{ name:BOTTOM, content:BOTTOM_CONTENT}, json!({}))?;
+    let head = s.template_service.render_template(HEAD, json!({}))?;
+    let top = s.template_service.render_template(TOP, json!({}))?;
+    let bottom = s.template_service.render_template(BOTTOM, json!({}))?;
 
     let content = s.template_service.render_template(Template{ name:fragment.name, content:fragment.content}, data)?;
 

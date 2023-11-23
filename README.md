@@ -38,12 +38,14 @@ docker run -e "IP=0.0.0.0" -p 7000-7005:7000-7005 grokzen/redis-cluster:latest
 * need to delete `server/output_dir` manually when config or python files changed.
 
 
-## how to run cargo bench
-```bash
+## how to write  benchmarks
+see `my_benchmark.rs` in benches folder. register your new file in Cargo.toml like below
 
-# optional
-rustup toolchain install nightly-aarch64-apple-darwin
+```toml
 
-# must specify `nightly` here .
-rustup run nightly cargo bench
+[[bench]]
+name = "my_benchmark"
+harness = false
 ```
+
+after that, run `cargo bench` then check the report html in `target/criterion/report/index.html`
