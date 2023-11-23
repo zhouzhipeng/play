@@ -39,6 +39,19 @@ fn run_py_template(vm: &VirtualMachine,filename: &str, template: &str,  json_str
     }
 }
 
+macro_rules! include_py {
+    ($t:literal) => {
+        include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"),"/python/", $t))
+    };
+}
+
+macro_rules! include_and_copy_py {
+    ($d: ident, $t:literal) => {
+        let data =include_py!($t);
+        fs::write(Path::new($d).join($t), data).expect("write file error!");
+    };
+}
+
 
 fn init_py_interpreter() -> Interpreter {
     // extra embed python stdlib zip file to a directory and add it to syspath.
@@ -51,7 +64,8 @@ fn init_py_interpreter() -> Interpreter {
         let _ = fs::create_dir("output_dir");
 
         //python stdlib
-        let data = include_bytes!("../../python/Lib.zip");
+        let data = include_py!("Lib.zip");
+        // let data = include_bytes!("../../python/Lib.zip");
         let archive = Cursor::new(data);
         zip_extract::extract(archive, &target_dir, true).unwrap();
 
@@ -63,8 +77,9 @@ fn init_py_interpreter() -> Interpreter {
 
 
         //copy custom python files to output dir.
-        let data = include_bytes!("../../python/simple_template.py");
-        fs::write(Path::new(output_dir).join("simple_template.py"), data).expect("write file error!");
+        // let data =include_py!("simple_template.py");
+        // fs::write(Path::new(output_dir).join("simple_template.py"), data).expect("write file error!");
+        include_and_copy_py!(output_dir, "simple_template.py");
     }
 
 

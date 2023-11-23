@@ -32,6 +32,10 @@ pub async fn init_app_state(use_test_pool: bool) -> Arc<AppState> {
 // init config
     let config = init_config();
 
+    let final_test_pool = use_test_pool || config.use_test_pool;
+
+    info!("use test pool : {}", final_test_pool);
+
     //create a group of channels to handle python code running
     let (req_sender, req_receiver) = bounded::<TemplateData>(0);
     let (res_sender, res_receiver) = bounded::<String>(1);
@@ -39,8 +43,8 @@ pub async fn init_app_state(use_test_pool: bool) -> Arc<AppState> {
     // Create an instance of the shared state
     let app_state = Arc::new(AppState {
         template_service: TemplateService::new(req_sender, res_receiver),
-        db: if use_test_pool {tables::init_test_pool().await}else{tables::init_pool(&config).await},
-        redis_service: RedisService::new(config.redis_uri.clone(), use_test_pool).await.unwrap(),
+        db: if final_test_pool {tables::init_test_pool().await}else{tables::init_pool(&config).await},
+        redis_service: RedisService::new(config.redis_uri.clone(), final_test_pool).await.unwrap(),
         config,
     });
 

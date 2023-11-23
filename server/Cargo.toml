@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 
+
 [features]
 default=["dev"]
 dev=["sqlx","sqlx/sqlite", "bb8-redis"]
@@ -18,7 +19,11 @@ wasm-pack = "0.12.1"
 [dev-dependencies]
 axum-test = "13.1.1"
 redis-test = "0.2.3"
+criterion = "0.5.1"
 
+[[bench]]
+name = "my_benchmark"
+harness = false
 
 [dependencies]
 shared={path="../shared"}
@@ -47,8 +52,12 @@ hyper = "1.0.1"
 tower-livereload = {version="0.8.2", optional = true}
 tower-http = { version = "0.4.0", features = ["fs", "trace","timeout", "cors"] }
 futures = "0.3.29"
-reqwest = { version = "0.11.22", features = ["json"] }
+#reqwest = { version = "0.11.22", features = ["json"] }
 bb8-redis = { version = "0.13.1", optional = true }
 bb8-redis-cluster = { version = "0.1.1", optional = true }
 futures-util = "0.3.29"
 dashmap = "5.5.3"
+
+reqwest = { version = "0.11", features = ["blocking", "json"] }
+plotters = "0.3.5"
+base64 = "0.21.5"

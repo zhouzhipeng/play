@@ -31,3 +31,19 @@ put the final binary `play` on your server , and just run `./play` , everything 
 ```bash
 docker run -e "IP=0.0.0.0" -p 7000-7005:7000-7005 grokzen/redis-cluster:latest
 ```
+
+## known issues
+* `output_dir` generation will encounter concurrency problem when running `cargo test`
+ ,to prevent that, u need to `cargo run` firstly to generate `output_dir`  and then run test.
+* need to delete `server/output_dir` manually when config or python files changed.
+
+
+## how to run cargo bench
+```bash
+
+# optional
+rustup toolchain install nightly-aarch64-apple-darwin
+
+# must specify `nightly` here .
+rustup run nightly cargo bench
+```
