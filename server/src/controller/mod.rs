@@ -2,11 +2,12 @@ use std::ops::Deref;
 use std::sync::Arc;
 use std::time::Duration;
 
-use axum::{Router};
+use axum::{Json, Router};
 use axum::extract::State;
 use axum::http::{Method, StatusCode};
 use axum::response::{Html, IntoResponse, Response};
 use hyper::HeaderMap;
+use serde::Serialize;
 
 use serde_json::{json, Value};
 use tower_http::timeout::TimeoutLayer;
@@ -23,6 +24,9 @@ pub mod article;
 
 type R<T> = Result<T, AppError>;
 type S = State<Arc<AppState>>;
+
+type HTML = Result<Html<String>, AppError>;
+
 
 pub fn routers(app_state: Arc<AppState>) -> Router {
     let cors = CorsLayer::new()
@@ -111,10 +115,21 @@ pub struct Template{
 #[macro_export]
 macro_rules! init_template {
     ($fragment: expr) => {
-        Template { name: $fragment, content: include_str!(concat!(env!("CARGO_MANIFEST_DIR"),"/templates/",  $fragment)) }
+        crate::controller::Template { name: $fragment, content: include_str!(concat!(env!("CARGO_MANIFEST_DIR"),"/templates/",  $fragment)) }
     };
 }
 
+#[macro_export]
+macro_rules! r_template {
+    ($s: ident, $fragment: literal, $($json:tt)+) => {
+        {
+            let t = init_template!($fragment);
+            let content = (&$s).template_service.render_template(t, json!($($json)+))?;
+            Ok(Html(content))
+        }
+
+    };
+}
 
 
 const HEAD: Template = init_template!("head.html");
@@ -144,6 +159,8 @@ fn render_fragment(s: &S, fragment: Template, data: Value) -> R<Html<String>> {
     let content = s.template_service.render_template(Template{ name:fragment.name, content:fragment.content}, data)?;
     Ok(Html(content))
 }
+
+
 
 #[allow(dead_code)]
 fn merge_json(mut json1: Value, json2: Value) -> Value {

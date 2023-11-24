@@ -45,12 +45,23 @@ macro_rules! include_py {
     };
 }
 
-macro_rules! include_and_copy_py {
+macro_rules! copy_single_py {
     ($d: ident, $t:literal) => {
         let data =include_py!($t);
-        fs::write(Path::new($d).join($t), data).expect("write file error!");
+        fs::write($d.join($t), data).expect("write file error!");
     };
 }
+
+macro_rules! copy_zip_py {
+    ($d: ident, $t:literal) => {
+       let data = include_py!($t);
+        // let data = include_bytes!("../../python/Lib.zip");
+        let archive = Cursor::new(data);
+        zip_extract::extract(archive, &$d, true).unwrap();
+    };
+}
+
+
 
 
 fn init_py_interpreter() -> Interpreter {
@@ -64,22 +75,10 @@ fn init_py_interpreter() -> Interpreter {
         let _ = fs::create_dir("output_dir");
 
         //python stdlib
-        let data = include_py!("Lib.zip");
-        // let data = include_bytes!("../../python/Lib.zip");
-        let archive = Cursor::new(data);
-        zip_extract::extract(archive, &target_dir, true).unwrap();
+        copy_zip_py!(target_dir,"Lib.zip");
 
-        //below code cant work : ModuleNotFoundError: No module named 'urllib3'
-        //requests lib : https://github.com/psf/requests
-        // let data = include_bytes!("../../python/requests.zip");
-        // let archive = Cursor::new(data);
-        // zip_extract::extract(archive, &target_dir.join("requests"), true).unwrap();
-
-
-        //copy custom python files to output dir.
-        // let data =include_py!("simple_template.py");
-        // fs::write(Path::new(output_dir).join("simple_template.py"), data).expect("write file error!");
-        include_and_copy_py!(output_dir, "simple_template.py");
+        //copy single python files
+        copy_single_py!(target_dir, "simple_template.py");
     }
 
 

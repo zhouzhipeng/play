@@ -57,7 +57,4 @@ bb8-redis = { version = "0.13.1", optional = true }
 bb8-redis-cluster = { version = "0.1.1", optional = true }
 futures-util = "0.3.29"
 dashmap = "5.5.3"
-
 reqwest = { version = "0.11", features = ["blocking", "json"] }
-plotters = "0.3.5"
-base64 = "0.21.5"
