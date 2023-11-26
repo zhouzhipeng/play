@@ -3,15 +3,16 @@ use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use crossbeam_channel::{Receiver, Sender};
-use rustpython_vm as vm;
+use async_channel::{Receiver, Sender};
+use futures::executor::block_on;
+use rustpython_vm;
 use rustpython_vm::{Interpreter, py_compile, VirtualMachine};
 use rustpython_vm::convert::IntoObject;
 use tracing::{info, warn};
 
 use crate::TemplateData;
 
-fn run_py_template(vm: &VirtualMachine,filename: &str, template: &str,  json_str_args: String) -> Result<String, String> {
+fn run_py_template(vm: &VirtualMachine, filename: &str, template: &str, json_str_args: String) -> Result<String, String> {
 
 
     // interpreter.enter(|vm| {
@@ -82,7 +83,7 @@ fn init_py_interpreter() -> Interpreter {
     }
 
 
-    let mut settings = vm::Settings::default();
+    let mut settings = rustpython_vm::Settings::default();
     settings.path_list.push(output_dir.to_string());
     Interpreter::with_init(settings, |_vm| {
         // vm.add_native_modules(rustpython_stdlib::get_module_inits());
@@ -121,31 +122,34 @@ fn run_py_code(source: &str) -> Result<(), String> {
     })
 }
 
+
 pub  fn run(req_receiver: Receiver<TemplateData>, res_sender: Sender<String>) {
     info!("py_runner start...");
     let interpreter = init_py_interpreter();
-
     interpreter.enter(|vm| {
-        // let module = vm::py_compile!(file = "python/test.py");
-        // let code = vm.ctx.new_code(module);
+        block_on(async move{
+            loop {
+                info!("ready to listen for template render request in py_runner...");
+                // Receive the message from the channel.
+                let data = match req_receiver.recv().await {
+                    Ok(s) => s,
+                    Err(e) => {
+                        warn!("req_receiver.recv error : {}", e);
+                        return;
+                    }
+                };
 
-        loop {
-            // Receive the message from the channel.
-            let data = match req_receiver.recv() {
-                Ok(s) => s,
-                Err(e) => {
-                    warn!("req_receiver.recv error : {}", e);
-                    return;
-                }
-            };
 
+                let r = match run_py_template(&vm, data.template.name, data.template.content, data.args.to_string()) {
+                    Ok(s) => s,
+                    Err(s) => s,
+                };
 
-            let r = match run_py_template(vm, data.template.name, data.template.content, data.args.to_string()) {
-                Ok(s) => s,
-                Err(s) => s,
-            };
-
-            res_sender.try_send(r).expect("send error");
-        }
+                res_sender.send(r).await.expect("send error");
+            }
+        });
     });
+
+
+
 }

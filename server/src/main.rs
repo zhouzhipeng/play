@@ -10,6 +10,7 @@ use tracing_subscriber::util::SubscriberInitExt;
 
 use play::controller::routers;
 use play::init_app_state;
+use macros::inspect_struct;
 
 // include!(concat!(env!("OUT_DIR"), "/hello.rs"));
 #[cfg(feature = "tower-livereload")]
@@ -22,6 +23,17 @@ fn setup_layer(router: Router) -> Router {
 fn setup_layer(router: Router) -> Router {
     router
 }
+
+// #[macro_use]
+// extern crate macros;
+#[inspect_struct("hello")]
+struct MyStruct {
+    field1: i32,
+    field2: String,
+    field3: f64,
+}
+
+
 #[tokio::main]
 async fn main() {
     // let from_dir = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join(Path::new("client/pkg"));

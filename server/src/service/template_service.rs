@@ -1,4 +1,5 @@
-use crossbeam_channel::{Receiver, Sender};
+use anyhow::{anyhow, bail};
+use async_channel::{Receiver, Sender};
 use serde_json::Value;
 use crate::controller::Template;
 
@@ -20,10 +21,18 @@ impl TemplateService {
         }
     }
     pub fn render_template(&self, t: Template, data: Value) -> anyhow::Result<String> {
+        // self.req_sender.send(TemplateData {
+        //     template:t,
+        //     args: data,
+        // }).await?;
+        // Ok(self.res_receiver.recv()?)
+        bail!("error");
+    }
+    pub async fn render_template_v2(&self, t: Template, data: Value) -> anyhow::Result<String> {
         self.req_sender.send(TemplateData {
             template:t,
             args: data,
-        })?;
-        Ok(self.res_receiver.recv()?)
+        }).await?;
+        Ok(self.res_receiver.recv().await?)
     }
 }

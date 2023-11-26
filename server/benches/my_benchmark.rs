@@ -1,16 +1,19 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use reqwest::blocking::Client;
+use tracing::error;
 
-#[inline]
-fn fibonacci(n: u64) -> u64 {
-    match n {
-        0 => 1,
-        1 => 1,
-        n => fibonacci(n-1) + fibonacci(n-2),
-    }
-}
-pub fn criterion_benchmark(c: &mut Criterion) {
-    c.bench_function("fib 20", |b| b.iter(|| fibonacci(black_box(20))));
+
+pub fn template_render_test(c: &mut Criterion) {
+    c.bench_function("template render test", |b| b.iter(|| {
+        //test code
+        let client = Client::builder().build().unwrap();
+        let res = client.get("http://localhost:3000/page/article/list/v2").send().unwrap();
+        // assert_eq!(code.is_success(), true);
+        if !res.status().is_success(){
+            error!("error >> {:?}",res.text())
+        }
+    }));
 }
 
-criterion_group!(benches, criterion_benchmark);
+criterion_group!(benches, template_render_test);
 criterion_main!(benches);

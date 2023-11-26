@@ -1,3 +1,5 @@
+mod music_player;
+
 use std::ops::Add;
 use anyhow::{anyhow, bail};
 use js_sys::Reflect;

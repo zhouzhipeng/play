@@ -1,7 +1,6 @@
 use std::sync::Arc;
 use std::thread;
 
-use crossbeam_channel::bounded;
 
 use tracing::info;
 
@@ -17,6 +16,7 @@ pub mod threads;
 pub mod tables;
 pub mod service;
 pub mod config;
+
 
 
 pub struct AppState {
@@ -37,8 +37,8 @@ pub async fn init_app_state(use_test_pool: bool) -> Arc<AppState> {
     info!("use test pool : {}", final_test_pool);
 
     //create a group of channels to handle python code running
-    let (req_sender, req_receiver) = bounded::<TemplateData>(0);
-    let (res_sender, res_receiver) = bounded::<String>(1);
+    let (req_sender, req_receiver) = async_channel::bounded::<TemplateData>(1);
+    let (res_sender, res_receiver) = async_channel::bounded::<String>(1);
 
     // Create an instance of the shared state
     let app_state = Arc::new(AppState {
@@ -51,7 +51,7 @@ pub async fn init_app_state(use_test_pool: bool) -> Arc<AppState> {
 
     //run a thread to run python code.
     info!("ready to spawn py_runner");
-    // spawn(async move { py_runner::run(req_receiver, res_sender).await; });
+    // tokio::spawn(async move { py_runner::run(req_receiver, res_sender).await; });
     thread::spawn(move ||{ py_runner::run(req_receiver, res_sender); });
     app_state
 }

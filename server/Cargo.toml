@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 
-
 [features]
 default=["dev"]
 dev=["sqlx","sqlx/sqlite", "bb8-redis"]
@@ -20,12 +19,15 @@ wasm-pack = "0.12.1"
 axum-test = "13.1.1"
 redis-test = "0.2.3"
 criterion = "0.5.1"
+reqwest = { version = "0.11", features = ["blocking", "json"] }
+
 
 [[bench]]
 name = "my_benchmark"
 harness = false
 
 [dependencies]
+macros={path="../macros"}
 shared={path="../shared"}
 rustpython-vm = { version = "0.3.0", features = ["freeze-stdlib"] }
 malachite-bigint = { version = "=0.1.0" }
@@ -58,3 +60,4 @@ bb8-redis-cluster = { version = "0.1.1", optional = true }
 futures-util = "0.3.29"
 dashmap = "5.5.3"
 reqwest = { version = "0.11", features = ["blocking", "json"] }
+async-channel = "2.1.1"

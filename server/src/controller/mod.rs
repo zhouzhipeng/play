@@ -78,7 +78,7 @@ impl Deref for AppError {
 // `Result<_, AppError>`. That way you don't need to do that manually.
 impl<E> From<E> for AppError
     where
-        E: Into<anyhow::Error>,
+        E:Into<anyhow::Error>,
 {
     fn from(err: E) -> Self {
         Self(err.into())
@@ -151,6 +151,24 @@ fn render_page(s: &S, page: Template, fragment: Template, data: Value) -> R<Html
     });
 
     let final_html = s.template_service.render_template(Template{ name:page.name,content:page.content}, final_data)?;
+
+    Ok(Html(final_html))
+}
+async fn render_page_v2(s: &S, page: Template, fragment: Template, data: Value) -> R<Html<String>> {
+    let head = s.template_service.render_template_v2(HEAD, json!({})).await?;
+    let top = s.template_service.render_template_v2(TOP, json!({})).await?;
+    let bottom = s.template_service.render_template_v2(BOTTOM, json!({})).await?;
+
+    let content = s.template_service.render_template_v2(Template{ name:fragment.name, content:fragment.content}, data).await?;
+
+    let final_data = json!({
+        "head_html": head,
+        "top_html": top,
+        "bottom_html": bottom,
+        "content": content
+    });
+
+    let final_html = s.template_service.render_template_v2(Template{ name:page.name,content:page.content}, final_data).await?;
 
     Ok(Html(final_html))
 }
