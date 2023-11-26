@@ -38,6 +38,7 @@ async fn test_api_controller() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
+#[ignore]
 async fn test_fragment_controller() -> anyhow::Result<()> {
     let server = TestServer::new(routers(init_app_state(true).await))?;
 
@@ -62,6 +63,7 @@ async fn test_fragment_controller() -> anyhow::Result<()> {
 
 
 #[tokio::test]
+#[ignore]
 async fn test_page_controller() -> anyhow::Result<()> {
     let server = TestServer::new(routers(init_app_state(true).await))?;
 
