@@ -2553,7 +2553,6 @@ dependencies = [
  "hyper 1.0.1",
  "include_dir",
  "lazy_static",
- "macros",
  "malachite-base",
  "malachite-bigint",
  "malachite-q",

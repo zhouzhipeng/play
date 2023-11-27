@@ -1,6 +1,8 @@
+
 use std::fmt::{Debug, Formatter, write};
 use std::io;
 use axum::Router;
+use rustpython_vm::pyclass;
 #[cfg(feature = "tower-livereload")]
 use tower_livereload::LiveReloadLayer;
 use tracing::info;
@@ -8,10 +10,10 @@ use tracing::level_filters::LevelFilter;
 use tracing_subscriber::filter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
+use shared::{increment, inspect_struct, MyTrait};
 
 use play::controller::routers;
 use play::init_app_state;
-use macros::{increment, inspect_struct, MyTrait};
 
 // include!(concat!(env!("OUT_DIR"), "/hello.rs"));
 #[cfg(feature = "tower-livereload")]
@@ -25,8 +27,6 @@ fn setup_layer(router: Router) -> Router {
     router
 }
 
-use shared::MyTrait;
-
 // #[macro_use]
 // extern crate macros;
 #[inspect_struct("hello")]
@@ -37,8 +37,26 @@ struct MyStruct {
     field3: f64,
 }
 
+
+macro_rules! print_literal {
+    (number: $val:expr) => {
+        println!("Received a number: {}", $val);
+    };
+    (string: $val:expr) => {
+        println!("Received a string: {}", $val);
+    };
+    (bool: $val:expr) => {
+        println!("Received a boolean: {}", $val);
+    };
+}
+
+
 #[tokio::main]
 async fn main() {
+    print_literal!(number: 42); // Matches the number pattern
+    print_literal!(string: "Hello"); // Matches the string pattern
+    print_literal!(bool: true); // Matches the boolean pattern
+
     let m = MyStruct{
         field1: 0,
         field2: "".to_string(),
