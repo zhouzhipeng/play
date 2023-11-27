@@ -1,3 +1,4 @@
+use std::fmt::{Debug, Formatter, write};
 use std::io;
 use axum::Router;
 #[cfg(feature = "tower-livereload")]
@@ -10,7 +11,7 @@ use tracing_subscriber::util::SubscriberInitExt;
 
 use play::controller::routers;
 use play::init_app_state;
-use macros::inspect_struct;
+use macros::{increment, inspect_struct, MyTrait};
 
 // include!(concat!(env!("OUT_DIR"), "/hello.rs"));
 #[cfg(feature = "tower-livereload")]
@@ -24,18 +25,32 @@ fn setup_layer(router: Router) -> Router {
     router
 }
 
+use shared::MyTrait;
+
 // #[macro_use]
 // extern crate macros;
 #[inspect_struct("hello")]
+#[derive(MyTrait)]
 struct MyStruct {
     field1: i32,
     field2: String,
     field3: f64,
 }
 
-
 #[tokio::main]
 async fn main() {
+    let m = MyStruct{
+        field1: 0,
+        field2: "".to_string(),
+        field3: 0.0,
+    };
+
+    println!("mystruct >> {:?}", m);
+    println!("mystruct >> {:?}", m.bark());
+
+    let num: u64 = increment!(10);
+    println!("Incremented value: {}", num); // Output: Incremented value: 11
+
     // let from_dir = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join(Path::new("client/pkg"));
     //
     // println!("dir : {:?}", from_dir);

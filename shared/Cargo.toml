@@ -19,3 +19,5 @@ serde-wasm-bindgen = { version = "0.6.1", optional =true }
 
 # for server
 zip-extract = { version = "0.1.2", optional = true }
+
+macros={path="../macros"}
