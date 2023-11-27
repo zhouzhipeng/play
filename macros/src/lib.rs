@@ -71,6 +71,7 @@ pub fn my_trait_derive(input: TokenStream) -> TokenStream {
 
     // Generate the code for implementing the trait (replace MyTrait with your trait name)
     let gen = quote! {
+        #[automatically_derived]
         impl MyTrait for #name {
             // Implement trait methods or other code here
             // For example:

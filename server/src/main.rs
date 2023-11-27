@@ -29,8 +29,9 @@ fn setup_layer(router: Router) -> Router {
 
 // #[macro_use]
 // extern crate macros;
-#[inspect_struct("hello")]
+
 #[derive(MyTrait)]
+#[inspect_struct("hello")]
 struct MyStruct {
     field1: i32,
     field2: String,
