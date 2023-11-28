@@ -1,9 +1,4 @@
-import functools
-import os
 import re
-from functools import cached_property
-
-
 def html_escape(string):
     ''' Escape HTML special characters ``&<>`` and quotes ``'"``. '''
     return string.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;') \
@@ -183,23 +178,6 @@ class StplParser(object):
         self.code_buffer.append(code)
 
     def fix_backward_compatibility(self, line, comment):
-        parts = line.strip().split(None, 2)
-        if parts and parts[0] in ('include', 'rebase'):
-
-            if len(parts) == 1:
-                return "_printlist([base])", comment
-            elif len(parts) == 2:
-                return "_=%s(%r)" % tuple(parts), comment
-            else:
-                return "_=%s(%r, %s)" % tuple(parts), comment
-        if self.lineno <= 2 and not line.strip() and 'coding' in comment:
-            m = re.match(r"#.*coding[:=]\s*([-\w.]+)", comment)
-            if m:
-                # 
-                enc = m.group(1)
-                self.source = self.source.encode(self.encoding).decode(enc)
-                self.encoding = enc
-                return line, comment.replace('coding', 'coding*')
         return line, comment
 
 
@@ -228,36 +206,16 @@ class BaseTemplate(object):
         self.name = name
         self.source = source.read() if hasattr(source, 'read') else source
         self.filename = source.filename if hasattr(source, 'filename') else None
-        self.lookup = [os.path.abspath(x) for x in lookup]
+        self.lookup = []
         self.encoding = encoding
         self.settings = self.settings.copy()  # Copy from class variable
         self.settings.update(settings)  # Apply
-        if not self.source and self.name:
-            self.filename = self.search(self.name, self.lookup)
-            if not self.filename:
-                raise TemplateError('Template %s not found.' % repr(name))
+
         if not self.source and not self.filename:
             raise TemplateError('No template specified.')
         self.prepare(**self.settings)
 
-    @classmethod
-    def search(cls, name, lookup=[]):
-        """ Search name in all directories specified in lookup.
-        First without, then with common extensions. Return first hit. """
-        if not lookup:
-            lookup = ['.']
 
-        if os.path.isabs(name) and os.path.isfile(name):
-            return os.path.abspath(name)
-
-        for spath in lookup:
-            spath = os.path.abspath(spath) + os.sep
-            fname = os.path.abspath(os.path.join(spath, name))
-            if not fname.startswith(spath): continue
-            if os.path.isfile(fname): return fname
-            for ext in cls.extensions:
-                if os.path.isfile('%s.%s' % (fname, ext)):
-                    return '%s.%s' % (fname, ext)
 
     @classmethod
     def global_config(cls, key, *args):
@@ -311,17 +269,19 @@ class SimpleTemplate(BaseTemplate):
         if noescape:
             self._str, self._escape = self._escape, self._str
 
-    @cached_property
+
     def co(self):
 
         if self.filename in global_cache:
             return global_cache[self.filename]
         else:
-            c = compile(self.code, self.filename or '<string>', 'exec')
+            #for test
+            # raise Exception(self.code())
+            c = compile(self.code(), self.filename or '<string>', 'exec')
             global_cache[self.filename] = c
             return c
 
-    @cached_property
+
     def code(self):
         source = self.source
         if not source:
@@ -354,16 +314,13 @@ class SimpleTemplate(BaseTemplate):
         env = self.defaults.copy()
         env.update(kwargs)
         env.update({'_stdout': _stdout, '_printlist': _stdout.extend,
-                    'include': functools.partial(self._include, env),
-                    'rebase': functools.partial(self._rebase, env), '_rebase': None,
+
                     '_str': self._str, '_escape': self._escape, 'get': env.get,
-                    'setdefault': env.setdefault, 'defined': env.__contains__})
-        eval(self.co, AttributeDict(env))
-        if env.get('_rebase'):
-            subtpl, rargs = env.pop('_rebase')
-            rargs['base'] = ''.join(_stdout)  # copy stdout
-            del _stdout[:]  # clear stdout
-            return self._include(env, subtpl, **rargs)
+                    'setdefault': env.setdefault, 'defined': env.__contains__
+                    })
+
+        eval(self.co(), AttributeDict(env))
+
         return env
 
     def render(self, *args, **kwargs):
@@ -396,6 +353,10 @@ def render_tpl(source: str, filename: str, args: dict) -> str:
 
 
 if __name__ == '__main__':
-    test_data = {"ss":"bb", "aa":{"name":"111"}}
-    test_data = AttributeDict(test_data)
-    print(test_data.aa.name)
+    # test_data = {"ss":"bb", "aa":{"name":"111"}}
+    # test_data = AttributeDict(test_data)
+    # print(test_data.aa.name)
+
+    args = {"ss":"bb", "aa":{"name":"111"}}
+    # local_map['__ret__'] =render_tpl()
+    print(render_tpl("{{ss}}","<tmp>", args))

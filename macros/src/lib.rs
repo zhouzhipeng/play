@@ -111,3 +111,23 @@ pub fn increment(input: TokenStream) -> TokenStream {
     output.into()
 }
 
+#[proc_macro]
+pub fn generate_code(_input: TokenStream) -> TokenStream {
+    // Generate Rust code using the quote crate
+    let generated_code = quote! {
+        fn hello_world() {
+            println!("Hello, world!");
+        }
+    };
+
+    // Get the path to the src directory
+    let src_path = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+    let src_dir = std::path::Path::new(&src_path).join("src");
+
+    // Write the generated code to a file in the src directory
+    let output_path = src_dir.join("generated_code.rs");
+    std::fs::write(&output_path, generated_code.to_string()).expect("Unable to write file");
+
+    // Return an empty TokenStream
+    TokenStream::new()
+}

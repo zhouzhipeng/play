@@ -10,7 +10,7 @@ use tracing::level_filters::LevelFilter;
 use tracing_subscriber::filter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use shared::{increment, inspect_struct, MyTrait};
+use shared::{generate_code, increment, inspect_struct, MyTrait};
 
 use play::controller::routers;
 use play::init_app_state;
@@ -52,8 +52,19 @@ macro_rules! print_literal {
 }
 
 
+generate_code!();
+
 #[tokio::main]
 async fn main() {
+'aa:{
+
+    }
+    let arr = vec![1,2,3];
+
+    for i in arr{
+        println!("{}", i );
+    }
+
     print_literal!(number: 42); // Matches the number pattern
     print_literal!(string: "Hello"); // Matches the string pattern
     print_literal!(bool: true); // Matches the boolean pattern

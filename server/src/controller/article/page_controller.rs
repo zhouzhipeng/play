@@ -30,6 +30,6 @@ async fn article_list(s: S) -> R<Html<String>> {
 async fn article_list_v2(s: S) -> R<Html<String>> {
     let articles = Article::query_all(&s.db).await?;
     render_page_v2(&s, INDEX, ARTICLES
-                , json!({"articles": articles})).await
+                , json!({"articles": articles, "name": "zzp"})).await
 }
 
