@@ -5,7 +5,7 @@ use axum::Router;
 use axum::routing::get;
 use serde_json::json;
 
-use crate::{AppState, init_template, r_template};
+use crate::{AppState, init_template, r_template, file_path};
 use crate::controller::{HTML, R, render_fragment, S};
 
 pub fn init() -> Router<Arc<AppState>> {

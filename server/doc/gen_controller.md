@@ -1,4 +1,4 @@
-## how to use [template.txt](template.txt)
+## how to use [controller_template.txt](controller_template.txt)
 
 > use `codebox` tool  > `String Magic`
 

@@ -8,6 +8,7 @@ use sqlx::{migrate::MigrateDatabase, MySql, Pool};
 use sqlx::sqlite::SqliteQueryResult;
 use tracing::info;
 use crate::config::Config;
+use crate::file_path;
 
 pub mod user;
 pub mod article;
@@ -40,7 +41,7 @@ pub async fn init_pool(config : &Config) -> DBPool {
     }
 
     let db = SqlitePool::connect(db_url).await.unwrap();
-    let result = sqlx::query(include_str!("doc/db_sqlite.sql")).execute(&db).await.unwrap();
+    let result = sqlx::query(include_str!(file_path!("/doc/db_sqlite.sql"))).execute(&db).await.unwrap();
     info!("Create  table result: {:?}", result);
     db
 }
@@ -50,7 +51,7 @@ pub async fn init_pool(config : &Config) -> DBPool {
 pub async fn init_test_pool() -> DBPool {
     let db_test_url = ":memory:";
     let db = SqlitePool::connect(db_test_url).await.unwrap();
-    let result = sqlx::query(include_str!("doc/db_sqlite.sql")).execute(&db).await.unwrap();
+    let result = sqlx::query(include_str!(file_path!("/doc/db_sqlite.sql"))).execute(&db).await.unwrap();
     info!("Create  table result: {:?}", result);
     db
 }

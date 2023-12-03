@@ -1,3 +1,4 @@
+server_port = 3000
 use_test_pool = false
 redis_uri = ["redis://127.0.0.1"]
 

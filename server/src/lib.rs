@@ -17,6 +17,12 @@ pub mod tables;
 pub mod service;
 pub mod config;
 
+#[macro_export]
+macro_rules! file_path {
+    ($s:expr) => {
+        concat!(env!("CARGO_MANIFEST_DIR"),$s)
+    };
+}
 
 
 pub struct AppState {
@@ -28,9 +34,8 @@ pub struct AppState {
 
 
 
-pub async fn init_app_state(use_test_pool: bool) -> Arc<AppState> {
-// init config
-    let config = init_config();
+pub async fn init_app_state(config: Config, use_test_pool: bool) -> Arc<AppState> {
+
 
     let final_test_pool = use_test_pool || config.use_test_pool;
 

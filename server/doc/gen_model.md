@@ -1,4 +1,6 @@
-## how to use [template.txt](template.txt)
+## how to use 
+[model_template.txt](model_template.txt)
+
 
 > use `codebox` tool  > `String Magic`
 

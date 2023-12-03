@@ -6,4 +6,34 @@
     %end
 
     my name is :{{name}}
+
+    %import time
+    time is  : {{time.time()}}
+
+    %import json
+    % data = {"aa":"bb"}
+    raw daa : {{data}}
+    json : {{json.dumps(data)}}
+
+    %import mymod
+    %(r,_)=mymod.other_thing('hello')
+
+    call mymod : {{r.upper()}}
+
+    %if 1:
+
+    display
+    %else:
+    dont display
+    %end
+
+
+    <%
+    def custom(name: str)->str:
+        return 'hello , '+ name
+    end
+    %>
+
+
+    <p>test custom function :  {{custom('zhouzhipeng')}} </p>
 </ul>

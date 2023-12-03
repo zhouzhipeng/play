@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="watch" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
-    <option name="command" value="watch -x run --features &quot;tower-livereload&quot;" />
+    <option name="command" value="watch  -x run --features &quot;tower-livereload&quot;" />
     <option name="workingDirectory" value="file://$PROJECT_DIR$/server" />
     <option name="emulateTerminal" value="true" />
     <option name="channel" value="DEFAULT" />

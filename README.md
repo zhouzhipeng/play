@@ -49,3 +49,6 @@ harness = false
 ```
 
 after that, run `cargo bench` then check the report html in `target/criterion/report/index.html`
+
+## check docs before developing
+[README.md](server/doc/README.md)

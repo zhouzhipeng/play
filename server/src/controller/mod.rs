@@ -112,16 +112,17 @@ pub struct Template{
     pub content: &'static str,
 }
 
+use crate::file_path;
 #[macro_export]
 macro_rules! init_template {
     ($fragment: expr) => {
-        crate::controller::Template { name: $fragment, content: include_str!(concat!(env!("CARGO_MANIFEST_DIR"),"/templates/",  $fragment)) }
+        crate::controller::Template { name: $fragment, content: include_str!(crate::file_path!(concat!("/templates/",  $fragment))) }
     };
 }
 
 #[macro_export]
 macro_rules! r_template {
-    ($s: ident, $fragment: literal, $($json:tt)+) => {
+    ($s: ident, $fragment: expr, $($json:tt)+) => {
         {
             let t = init_template!($fragment);
             let content = (&$s).template_service.render_template(t, json!($($json)+))?;
@@ -173,8 +174,8 @@ async fn render_page_v2(s: &S, page: Template, fragment: Template, data: Value) 
     Ok(Html(final_html))
 }
 
-fn render_fragment(s: &S, fragment: Template, data: Value) -> R<Html<String>> {
-    let content = s.template_service.render_template(Template{ name:fragment.name, content:fragment.content}, data)?;
+async fn render_fragment(s: &S, fragment: Template, data: Value) -> R<Html<String>> {
+    let content = s.template_service.render_template_v2(Template{ name:fragment.name, content:fragment.content}, data).await?;
     Ok(Html(content))
 }
 

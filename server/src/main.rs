@@ -1,6 +1,6 @@
 
 use std::fmt::{Debug, Formatter, write};
-use std::io;
+use std::{fs, io};
 use axum::Router;
 use rustpython_vm::pyclass;
 #[cfg(feature = "tower-livereload")]
@@ -10,6 +10,7 @@ use tracing::level_filters::LevelFilter;
 use tracing_subscriber::filter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
+use play::config::init_config;
 use shared::{generate_code, increment, inspect_struct, MyTrait};
 
 use play::controller::routers;
@@ -56,36 +57,10 @@ generate_code!();
 
 #[tokio::main]
 async fn main() {
-'aa:{
 
-    }
-    let arr = vec![1,2,3];
+    //init output_dir
+    fs::create_dir_all("output_dir").expect("Err: create output_dir failed.");
 
-    for i in arr{
-        println!("{}", i );
-    }
-
-    print_literal!(number: 42); // Matches the number pattern
-    print_literal!(string: "Hello"); // Matches the string pattern
-    print_literal!(bool: true); // Matches the boolean pattern
-
-    let m = MyStruct{
-        field1: 0,
-        field2: "".to_string(),
-        field3: 0.0,
-    };
-
-    println!("mystruct >> {:?}", m);
-    println!("mystruct >> {:?}", m.bark());
-
-    let num: u64 = increment!(10);
-    println!("Incremented value: {}", num); // Output: Incremented value: 11
-
-    // let from_dir = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join(Path::new("client/pkg"));
-    //
-    // println!("dir : {:?}", from_dir);
-    //
-    // println!("test >>> {}", message());
     // initialize tracing
     let filter = filter::Targets::new()
         .with_target("rustpython_vm", LevelFilter::ERROR)
@@ -99,14 +74,20 @@ async fn main() {
         .with(filter)
         .init();
 
+    //init config
+    // init config
+    let config = init_config();
+
+    let server_port = config.server_port;
+
     //init app_state
-    let app_state = init_app_state(false).await;
+    let app_state = init_app_state(config, false).await;
     info!("app state init ok.");
 
     let mut router = routers(app_state);
     router = setup_layer(router);
 
-    let server_port = 3000;
+
 
     info!("server start at port : {} ...", server_port);
     // run it with hyper on localhost:3000

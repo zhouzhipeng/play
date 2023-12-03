@@ -19,8 +19,11 @@ pub fn init() -> Router<Arc<AppState>> {
 const ADD: Template = init_template!("article/fragments/add_article_page_fragment.html");
 const ARTICLES : Template = init_template!( "article/fragments/articles.html");
 const INDEX: Template = init_template!( "article/index.html");
+
+
+
 async fn add_article_page(s: S) -> R<Html<String>> {
-    render_page(&s, INDEX, ADD, json!({}))
+    render_page_v2(&s, INDEX, ADD, json!({})).await
 }
 async fn article_list(s: S) -> R<Html<String>> {
     let articles = Article::query_all(&s.db).await?;
