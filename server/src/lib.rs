@@ -71,13 +71,28 @@ pub fn start_window() -> wry::Result<()> {
             event::{Event, StartCause, WindowEvent},
             event_loop::{ControlFlow, EventLoop},
             window::WindowBuilder,
+            dpi::{LogicalSize, Size},
+            window::Icon,
         },
         webview::WebViewBuilder,
+
     };
+
+    use image::ImageFormat;
+
+    //icon
+    let bytes: Vec<u8> = include_bytes!(file_path!("/static/icon.png")).to_vec();
+    let imagebuffer = image::load_from_memory_with_format(&bytes, ImageFormat::Png).unwrap().into_rgba8();
+    let (icon_width, icon_height) = imagebuffer.dimensions();
+    let icon_rgba = imagebuffer.into_raw();
+
+    let icon = Icon::from_rgba(icon_rgba, icon_width, icon_height).unwrap();
 
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
-        .with_title("Hello World")
+        .with_title("Play")
+        .with_inner_size(LogicalSize::new(1000, 600))
+        .with_window_icon(Some(icon.clone()))
         .build(&event_loop)?;
     let _webview = WebViewBuilder::new(window)?
         .with_url(&format!("{}/static/wasm/index.html", HOST))?
