@@ -7,21 +7,11 @@ use play::tables::article::Article;
 
 use shared::models::{RequestClient};
 use shared::models::article::{AddArticle, QueryArticle};
-
+mod common;
 #[tokio::test]
 async fn test_api_controller() -> anyhow::Result<()> {
+    let (server, client) = common::setup().await;
 
-    let server = TestServer::new_with_config(routers(init_app_state(play::config::init_config(), true).await), TestServerConfig{
-        transport:  Some(Transport::HttpRandomPort),
-       ..TestServerConfig::default()
-    })?;
-    let host = server.server_address().unwrap().to_string();
-    println!("host >> {}", host);
-    //
-    let client = RequestClient{
-        host,
-        ..RequestClient::default()
-    };
     let r = client.api_article_add( &AddArticle{
         title: "123".to_string(),
         content: "456".to_string(),

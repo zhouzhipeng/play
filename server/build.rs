@@ -56,7 +56,7 @@ fn main() {
 
 
 fn copy_wasm_files(){
-    let client_path = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("client");
+    let client_path = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("wasm");
     // fs::remove_dir_all(client_path.join("pkg"));
      run_wasm_pack(  wasm_pack::command::Command::Build(BuildOptions{
          path: Some(client_path),
@@ -68,7 +68,7 @@ fn copy_wasm_files(){
          ..BuildOptions::default()
      })).expect("wasm-pack failed") ;
 
-    let from_dir = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join(Path::new("client/pkg"));
+    let from_dir = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join(Path::new("wasm/pkg"));
     fs_extra::dir::copy(from_dir, Path::new(env!("CARGO_MANIFEST_DIR")).join("static/wasm"), &CopyOptions::new().overwrite(true)).expect("copy wasm files failed!");
 }
 

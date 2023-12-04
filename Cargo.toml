@@ -3,6 +3,6 @@ resolver="2"
 members = [
     "macros",
     "shared",
-    "client",
+    "wasm",
     "server",
 ]
