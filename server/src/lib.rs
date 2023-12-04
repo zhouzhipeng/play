@@ -1,8 +1,10 @@
 use std::sync::Arc;
 use std::thread;
+use axum::Router;
 
 
 use tracing::info;
+use shared::constants::HOST;
 
 use crate::config::Config;
 use crate::config::init_config;
@@ -62,3 +64,44 @@ pub async fn init_app_state(config: Config, use_test_pool: bool) -> Arc<AppState
 }
 
 
+#[cfg(ENV="dev")]
+pub fn start_window() -> wry::Result<()> {
+    use wry::{
+        application::{
+            event::{Event, StartCause, WindowEvent},
+            event_loop::{ControlFlow, EventLoop},
+            window::WindowBuilder,
+        },
+        webview::WebViewBuilder,
+    };
+
+    let event_loop = EventLoop::new();
+    let window = WindowBuilder::new()
+        .with_title("Hello World")
+        .build(&event_loop)?;
+    let _webview = WebViewBuilder::new(window)?
+        .with_url(&format!("{}/static/wasm/index.html", HOST))?
+        .build()?;
+
+    event_loop.run(move |event, _, control_flow| {
+        *control_flow = ControlFlow::Wait;
+
+        match event {
+            Event::NewEvents(StartCause::Init) => println!("Wry has started!"),
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                ..
+            } => *control_flow = ControlFlow::Exit,
+            _ => (),
+        }
+    });
+}
+
+pub async fn start_server(server_port: u32, router : Router){
+    info!("server start at port : {} ...", server_port);
+    // run it with hyper on localhost:3000
+    axum::Server::bind(&format!("0.0.0.0:{}", server_port).parse().unwrap())
+        .serve(router.into_make_service())
+        .await
+        .unwrap();
+}

@@ -14,7 +14,7 @@ use play::config::init_config;
 use shared::{generate_code, increment, inspect_struct, MyTrait};
 
 use play::controller::routers;
-use play::init_app_state;
+use play::{init_app_state, start_server};
 
 // include!(concat!(env!("OUT_DIR"), "/hello.rs"));
 #[cfg(feature = "tower-livereload")]
@@ -87,13 +87,18 @@ async fn main() {
     let mut router = routers(app_state);
     router = setup_layer(router);
 
+    #[cfg(ENV="dev")]
+    tokio::spawn(async move{
+        start_server(server_port, router).await;
+    });
+    #[cfg(ENV="dev")]
+    play::start_window().expect("start window error!");
 
 
-    info!("server start at port : {} ...", server_port);
-    // run it with hyper on localhost:3000
-    axum::Server::bind(&format!("0.0.0.0:{}", server_port).parse().unwrap())
-        .serve(router.into_make_service())
-        .await
-        .unwrap();
+    #[cfg(ENV="prod")]
+    start_server(server_port, router).await;
+
+
+
 }
 
