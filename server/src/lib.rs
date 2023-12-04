@@ -112,7 +112,8 @@ pub fn start_window() -> wry::Result<()> {
     });
 }
 
-pub async fn start_server(server_port: u32, router: Router) {
+pub async fn start_server(router: Router) {
+    let server_port = CONFIG.server_port;
     info!("server start at port : {} ...", server_port);
     // run it with hyper on localhost:3000
     axum::Server::bind(&format!("0.0.0.0:{}", server_port).parse().unwrap())

@@ -88,14 +88,14 @@ async fn main() {
 
     #[cfg(ENV="dev")]
     tokio::spawn(async move{
-        start_server(server_port, router).await;
+        start_server(router).await;
     });
     #[cfg(ENV="dev")]
     play::start_window().expect("start window error!");
 
 
     #[cfg(ENV="prod")]
-    start_server(server_port, router).await;
+    start_server( router).await;
 
 
 
