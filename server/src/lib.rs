@@ -1,9 +1,10 @@
 use std::sync::Arc;
 use std::thread;
+
 use axum::Router;
-
-
+use lazy_static::lazy_static;
 use tracing::info;
+
 use shared::constants::HOST;
 
 use crate::config::Config;
@@ -27,18 +28,19 @@ macro_rules! file_path {
 }
 
 
+
+lazy_static! {
+    pub static ref CONFIG: Config = init_config();
+}
+
 pub struct AppState {
     pub template_service: TemplateService,
     pub db: DBPool,
     pub redis_service: RedisService,
-    pub config: Config,
 }
 
 
-
-pub async fn init_app_state(config: Config, use_test_pool: bool) -> Arc<AppState> {
-
-
+pub async fn init_app_state(config: &Config, use_test_pool: bool) -> Arc<AppState> {
     let final_test_pool = use_test_pool || config.use_test_pool;
 
     info!("use test pool : {}", final_test_pool);
@@ -50,32 +52,30 @@ pub async fn init_app_state(config: Config, use_test_pool: bool) -> Arc<AppState
     // Create an instance of the shared state
     let app_state = Arc::new(AppState {
         template_service: TemplateService::new(req_sender, res_receiver),
-        db: if final_test_pool {tables::init_test_pool().await}else{tables::init_pool(&config).await},
+        db: if final_test_pool { tables::init_test_pool().await } else { tables::init_pool(&config).await },
         redis_service: RedisService::new(config.redis_uri.clone(), final_test_pool).await.unwrap(),
-        config,
     });
 
 
     //run a thread to run python code.
     info!("ready to spawn py_runner");
     // tokio::spawn(async move { py_runner::run(req_receiver, res_sender).await; });
-    thread::spawn(move ||{ py_runner::run(req_receiver, res_sender); });
+    thread::spawn(move || { py_runner::run(req_receiver, res_sender); });
     app_state
 }
 
 
-#[cfg(ENV="dev")]
+#[cfg(ENV = "dev")]
 pub fn start_window() -> wry::Result<()> {
     use wry::{
         application::{
+            dpi::LogicalSize,
             event::{Event, StartCause, WindowEvent},
             event_loop::{ControlFlow, EventLoop},
-            window::WindowBuilder,
-            dpi::{LogicalSize, Size},
             window::Icon,
+            window::WindowBuilder,
         },
         webview::WebViewBuilder,
-
     };
 
     use image::ImageFormat;
@@ -112,7 +112,7 @@ pub fn start_window() -> wry::Result<()> {
     });
 }
 
-pub async fn start_server(server_port: u32, router : Router){
+pub async fn start_server(server_port: u32, router: Router) {
     info!("server start at port : {} ...", server_port);
     // run it with hyper on localhost:3000
     axum::Server::bind(&format!("0.0.0.0:{}", server_port).parse().unwrap())

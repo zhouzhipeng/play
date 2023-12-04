@@ -7,6 +7,7 @@ use crate::file_path;
 #[derive(Deserialize, Debug)]
 pub struct Config {
     pub server_port: u32,
+    #[serde(default)]
     pub use_test_pool: bool,
     pub redis_uri: Vec<String>,
     pub database: Database,

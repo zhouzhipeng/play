@@ -24,7 +24,7 @@ async fn test_api_controller() -> anyhow::Result<()> {
 #[tokio::test]
 #[ignore]
 async fn test_fragment_controller() -> anyhow::Result<()> {
-    let server = TestServer::new(routers(init_app_state(play::config::init_config(), true).await))?;
+    let server = TestServer::new(routers(init_app_state(&play::config::init_config(), true).await))?;
 
 
     let response = server.post("/fragment/article/add").form(&AddArticle {
@@ -48,7 +48,7 @@ async fn test_fragment_controller() -> anyhow::Result<()> {
 #[tokio::test]
 #[ignore]
 async fn test_page_controller() -> anyhow::Result<()> {
-    let server = TestServer::new(routers(init_app_state(play::config::init_config(), true).await))?;
+    let server = TestServer::new(routers(init_app_state(&play::config::init_config(), true).await))?;
 
 
     let response = server.get("/page/article/add").await;

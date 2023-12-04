@@ -2,6 +2,7 @@
 use std::fmt::{Debug, Formatter, write};
 use std::{fs, io};
 use axum::Router;
+use lazy_static::lazy_static;
 use rustpython_vm::pyclass;
 #[cfg(feature = "tower-livereload")]
 use tower_livereload::LiveReloadLayer;
@@ -10,11 +11,11 @@ use tracing::level_filters::LevelFilter;
 use tracing_subscriber::filter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use play::config::init_config;
+use play::config::{Config, init_config};
 use shared::{generate_code, increment, inspect_struct, MyTrait};
 
 use play::controller::routers;
-use play::{init_app_state, start_server};
+use play::{CONFIG, init_app_state, start_server};
 
 // include!(concat!(env!("OUT_DIR"), "/hello.rs"));
 #[cfg(feature = "tower-livereload")]
@@ -53,8 +54,6 @@ macro_rules! print_literal {
 }
 
 
-generate_code!();
-
 #[tokio::main]
 async fn main() {
 
@@ -76,7 +75,7 @@ async fn main() {
 
     //init config
     // init config
-    let config = init_config();
+    let config = &CONFIG;
 
     let server_port = config.server_port;
 
