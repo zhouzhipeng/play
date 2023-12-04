@@ -29,6 +29,13 @@ type HTML = Result<Html<String>, AppError>;
 type JSON<T> = Result<Json<T>, AppError>;
 
 
+
+#[derive(Serialize)]
+pub struct Success{
+
+}
+
+
 pub fn routers(app_state: Arc<AppState>) -> Router {
     let cors = CorsLayer::new()
         // allow `GET` and `POST` when accessing the resource
