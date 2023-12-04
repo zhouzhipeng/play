@@ -121,12 +121,21 @@ macro_rules! init_template {
 }
 
 #[macro_export]
-macro_rules! r_template {
-    ($s: ident, $fragment: expr, $($json:tt)+) => {
+macro_rules! template {
+    ($s: ident, $fragment: expr, $json: expr) => {
         {
             let t = init_template!($fragment);
-            let content = (&$s).template_service.render_template(t, json!($($json)+))?;
-            Ok(Html(content))
+            let content: Html<String> = crate::controller::render_fragment(&$s,t,  $json).await?;
+            Ok(content)
+        }
+
+    };
+    ($s: ident, $page: expr, $fragment: expr, $json:expr) => {
+        {
+            let page = init_template!($page);
+            let frag = init_template!($fragment);
+            let content: Html<String> = crate::controller::render_page_v2(&$s,page,frag, $json).await?;
+            Ok(content)
         }
 
     };

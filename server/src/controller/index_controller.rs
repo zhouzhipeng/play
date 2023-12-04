@@ -6,7 +6,7 @@ use axum::routing::get;
 use serde_json::json;
 use shared::constants::API_EXECUTE_SQL;
 
-use crate::{AppState, init_template, r_template, file_path};
+use crate::{AppState, init_template, template, file_path};
 use crate::controller::{HTML, R, render_fragment, S};
 use crate::tables::article::Article;
 
@@ -35,7 +35,8 @@ async fn redis_test(s: S) -> R<String> {
 }
 
 async fn test(s: S) -> HTML {
-    r_template!(s, "test.html", {"name":"zzp"})
+    // template!(s, "test.html", json!({"name":"zzp"}))
+    template!(s, "index.html", "test.html", json!({"name":"zzp"}))
 }
 
 

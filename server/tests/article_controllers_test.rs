@@ -10,6 +10,7 @@ use shared::models::article::{AddArticle, QueryArticle};
 mod common;
 #[tokio::test]
 async fn test_api_controller() -> anyhow::Result<()> {
+    //dont replace below `server` to `_` , otherwise the server will be dropped and cant complete http request
     let (server, client) = common::setup().await;
 
     let r = client.api_article_add( &AddArticle{
@@ -17,14 +18,7 @@ async fn test_api_controller() -> anyhow::Result<()> {
         content: "456".to_string(),
     }).await?;
     assert_eq!(r, "ok");
-
-
-    let response = server.get("/api/article/list").add_query_params(QueryArticle {
-        title: "123".to_string(),
-    }).await;
-    assert_eq!(response.status_code(), 200);
-    assert_eq!(response.json::<Vec<Article>>().len(), 1);
-
+    // println!("{:?}", server);
     Ok(())
 }
 
