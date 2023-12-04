@@ -1,6 +1,6 @@
-use anyhow::{anyhow, bail};
 use async_channel::{Receiver, Sender};
 use serde_json::Value;
+
 use crate::controller::Template;
 
 pub struct TemplateData {

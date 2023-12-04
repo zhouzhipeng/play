@@ -4,10 +4,11 @@ use axum::response::Html;
 use axum::Router;
 use axum::routing::get;
 use serde_json::json;
+
 use shared::constants::API_EXECUTE_SQL;
 
-use crate::{AppState, init_template, template, file_path};
-use crate::controller::{HTML, R, render_fragment, S};
+use crate::{AppState, template};
+use crate::controller::{HTML, R, S};
 use crate::tables::article::Article;
 
 pub fn init() -> Router<Arc<AppState>> {

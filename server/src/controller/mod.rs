@@ -47,7 +47,6 @@ pub fn routers(app_state: Arc<AppState>) -> Router {
         .merge(index_controller::init())
         .merge(user_controller::init())
         .merge(article::api_controller::init())
-        .merge(article::fragment_controller::init())
         .merge(article::page_controller::init())
         .merge(ws_controller::init())
         //register your new controller here
