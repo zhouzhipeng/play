@@ -71,8 +71,18 @@ mod mymod {
     use std::collections::HashMap;
     use rustpython_vm::builtins::{PyListRef, PyStrRef};
     use regex::Regex;
-    use rustpython_vm::{PyObjectRef, PyResult, VirtualMachine};
+    use rustpython_vm::{pymodule, PyObjectRef, PyResult, VirtualMachine};
     use rustpython_vm::convert::ToPyObject;
+    use reqwest::blocking::Client;
+    use shared::constants::HOST;
+
+    #[pyfunction]
+    fn request(s: PyStrRef) -> String {
+        let client = Client::builder().build().unwrap();
+        let res = client.get(HOST).send().unwrap();
+        format!("{}, {}", s, res.text().unwrap())
+
+    }
 
     #[pyfunction]
     fn do_thing(x: i32) -> i32 {

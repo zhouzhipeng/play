@@ -1,6 +1,9 @@
+use std::env;
+
 fn main() {
     //generate rustc args.
-    println!("cargo:rustc-cfg=ENV=\"{}\"", option_env!("ENV").unwrap_or("dev"));
+    let env = if cfg!(feature = "dev"){"dev"}else if cfg!(feature = "prod"){"prod"}else{"dev"};
+    println!("cargo:rustc-cfg=ENV=\"{}\"", env);
 }
 
 

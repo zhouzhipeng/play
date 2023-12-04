@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
+dev=[]
+prod=[]
+
 wasm=["wasm-bindgen", "serde-wasm-bindgen"]
 utils=["zip-extract"]
 

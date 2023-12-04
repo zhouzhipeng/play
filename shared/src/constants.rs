@@ -1,6 +1,6 @@
 
 #[cfg(ENV = "dev")]
-pub const HOST: &str = "http://localhost:3000";
+pub const HOST: &str = "http://127.0.0.1:3000";
 #[cfg(ENV = "prod")]
 pub const HOST: &str = "http://127.0.0.1:3000";
 
@@ -9,3 +9,4 @@ pub const HOST: &str = "http://127.0.0.1:3000";
 //api
 pub const API_ARTICLE_ADD: &str = "/api/article/add";
 pub const API_ARTICLE_LIST: &str = "/api/article/list";
+pub const API_EXECUTE_SQL: &str = "/internal/execute-sql";

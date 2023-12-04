@@ -11,6 +11,10 @@ edition = "2021"
 ## Tell `rustc` to optimize for small code size.
 #opt-level = "s"
 
+[features]
+dev=[]
+prod=[]
+
 [lib]
 crate-type = ["cdylib"]
 
