@@ -95,7 +95,7 @@ pub fn start_window() -> wry::Result<()> {
         .with_window_icon(Some(icon.clone()))
         .build(&event_loop)?;
     let _webview = WebViewBuilder::new(window)?
-        .with_url(&format!("{}/static/wasm/index.html", HOST))?
+        .with_url(&format!("http://127.0.0.1:{}/static/wasm/index.html", CONFIG.server_port))?
         .build()?;
 
     event_loop.run(move |event, _, control_flow| {
