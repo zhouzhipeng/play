@@ -20,15 +20,8 @@ impl TemplateService {
             res_receiver,
         }
     }
-    pub fn render_template(&self, t: Template, data: Value) -> anyhow::Result<String> {
-        // self.req_sender.send(TemplateData {
-        //     template:t,
-        //     args: data,
-        // }).await?;
-        // Ok(self.res_receiver.recv()?)
-        bail!("Error: render_template is deprecated! use render_template_v2 instead.");
-    }
-    pub async fn render_template_v2(&self, t: Template, data: Value) -> anyhow::Result<String> {
+
+    pub async fn render_template(&self, t: Template, data: Value) -> anyhow::Result<String> {
         self.req_sender.send(TemplateData {
             template:t,
             args: data,

@@ -23,6 +23,6 @@ pub fn init() -> Router<Arc<AppState>> {
 async fn add_article(s: S, Form(q): Form<AddArticle>) -> R<Html<String>> {
     let r = api_controller::add_article(s.clone(), Form(q)).await?;
 
-    render_fragment(&s, result, json!({"success":r })).await
+    render_fragment(&s, result, json!({"success":*r })).await
 }
 

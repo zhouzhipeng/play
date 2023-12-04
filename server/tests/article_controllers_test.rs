@@ -17,7 +17,7 @@ async fn test_api_controller() -> anyhow::Result<()> {
         title: "123".to_string(),
         content: "456".to_string(),
     }).await?;
-    assert_eq!(r, "ok");
+    assert_eq!(r, "{}");
     // println!("{:?}", server);
     Ok(())
 }

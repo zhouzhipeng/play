@@ -9,7 +9,7 @@ use shared::constants::{API_ARTICLE_ADD, API_ARTICLE_LIST};
 use shared::models::article::{AddArticle, QueryArticle};
 
 use crate::AppState;
-use crate::controller::{R, S};
+use crate::controller::{JSON, R, S};
 use crate::tables::article::Article;
 
 pub fn init() -> Router<Arc<AppState>> {
@@ -18,13 +18,18 @@ pub fn init() -> Router<Arc<AppState>> {
         .route(API_ARTICLE_LIST, get(query_articles))
 }
 
-pub async fn add_article(s: S, Form(q): Form<AddArticle>) -> R<String> {
+#[derive(Serialize)]
+pub struct Success{
+
+}
+
+pub async fn add_article(s: S, Form(q): Form<AddArticle>) -> JSON<Success> {
     let _r = Article::insert(q, &s.db).await?;
-    Ok("ok".to_string())
+    Ok(Json(Success{}))
 }
 
 
-pub async fn query_articles(s: S, Query(q): Query<QueryArticle>) -> R<Json<Vec<Article>>> {
+pub async fn query_articles(s: S, Query(q): Query<QueryArticle>) -> JSON<Vec<Article>> {
     let r = Article::query(q, &s.db).await?;
     Ok(Json(r))
 }

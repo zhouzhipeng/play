@@ -26,6 +26,7 @@ type R<T> = Result<T, AppError>;
 type S = State<Arc<AppState>>;
 
 type HTML = Result<Html<String>, AppError>;
+type JSON<T> = Result<Json<T>, AppError>;
 
 
 pub fn routers(app_state: Arc<AppState>) -> Router {
@@ -124,7 +125,7 @@ macro_rules! init_template {
 macro_rules! template {
     ($s: ident, $fragment: expr, $json: expr) => {
         {
-            let t = init_template!($fragment);
+            let t = crate::init_template!($fragment);
             let content: Html<String> = crate::controller::render_fragment(&$s,t,  $json).await?;
             Ok(content)
         }
@@ -132,8 +133,8 @@ macro_rules! template {
     };
     ($s: ident, $page: expr, $fragment: expr, $json:expr) => {
         {
-            let page = init_template!($page);
-            let frag = init_template!($fragment);
+            let page = crate::init_template!($page);
+            let frag = crate::init_template!($fragment);
             let content: Html<String> = crate::controller::render_page_v2(&$s,page,frag, $json).await?;
             Ok(content)
         }
@@ -146,30 +147,13 @@ const HEAD: Template = init_template!("head.html");
 const TOP : Template = init_template!("top.html");
 const BOTTOM: Template = init_template!("bottom.html");
 
-fn render_page(s: &S, page: Template, fragment: Template, data: Value) -> R<Html<String>> {
-    let head = s.template_service.render_template(HEAD, json!({}))?;
-    let top = s.template_service.render_template(TOP, json!({}))?;
-    let bottom = s.template_service.render_template(BOTTOM, json!({}))?;
 
-    let content = s.template_service.render_template(Template{ name:fragment.name, content:fragment.content}, data)?;
-
-    let final_data = json!({
-        "head_html": head,
-        "top_html": top,
-        "bottom_html": bottom,
-        "content": content
-    });
-
-    let final_html = s.template_service.render_template(Template{ name:page.name,content:page.content}, final_data)?;
-
-    Ok(Html(final_html))
-}
 async fn render_page_v2(s: &S, page: Template, fragment: Template, data: Value) -> R<Html<String>> {
-    let head = s.template_service.render_template_v2(HEAD, json!({})).await?;
-    let top = s.template_service.render_template_v2(TOP, json!({})).await?;
-    let bottom = s.template_service.render_template_v2(BOTTOM, json!({})).await?;
+    let head = s.template_service.render_template(HEAD, json!({})).await?;
+    let top = s.template_service.render_template(TOP, json!({})).await?;
+    let bottom = s.template_service.render_template(BOTTOM, json!({})).await?;
 
-    let content = s.template_service.render_template_v2(Template{ name:fragment.name, content:fragment.content}, data).await?;
+    let content = s.template_service.render_template(Template{ name:fragment.name, content:fragment.content}, data).await?;
 
     let final_data = json!({
         "head_html": head,
@@ -178,13 +162,13 @@ async fn render_page_v2(s: &S, page: Template, fragment: Template, data: Value) 
         "content": content
     });
 
-    let final_html = s.template_service.render_template_v2(Template{ name:page.name,content:page.content}, final_data).await?;
+    let final_html = s.template_service.render_template(Template{ name:page.name,content:page.content}, final_data).await?;
 
     Ok(Html(final_html))
 }
 
 async fn render_fragment(s: &S, fragment: Template, data: Value) -> R<Html<String>> {
-    let content = s.template_service.render_template_v2(Template{ name:fragment.name, content:fragment.content}, data).await?;
+    let content = s.template_service.render_template(Template{ name:fragment.name, content:fragment.content}, data).await?;
     Ok(Html(content))
 }
 
