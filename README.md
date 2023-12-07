@@ -13,6 +13,9 @@ A playground project writen in rust for fun.
 cargo run
 ```
 
+<font color="red">aaa</font>
+<button>click</button>
+
 ## build binary
 ```bash
 ## run  `cargo build ` firstly because we need to generate wasm files (which will cause deadlock in --release mode)
