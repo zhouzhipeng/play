@@ -5,10 +5,7 @@
     </li>
     %end
 
-    % import mymod
-    {{mymod.request("zzp")}}
 
-    my name is :{{name}}
 
     %import time
     time is  : {{time.time()}}
@@ -18,10 +15,7 @@
     raw daa : {{data}}
     json : {{json.dumps(data)}}
 
-    %import mymod
-    %(r,_)=mymod.other_thing('hello')
 
-    call mymod : {{r.upper()}}
 
     %if 1:
 

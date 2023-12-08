@@ -46,12 +46,11 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> Arc<AppStat
     info!("use test pool : {}", final_test_pool);
 
     //create a group of channels to handle python code running
-    let (req_sender, req_receiver) = async_channel::bounded::<TemplateData>(1);
-    let (res_sender, res_receiver) = async_channel::bounded::<String>(1);
+    let (req_sender, req_receiver) = async_channel::unbounded::<TemplateData>();
 
     // Create an instance of the shared state
     let app_state = Arc::new(AppState {
-        template_service: TemplateService::new(req_sender, res_receiver),
+        template_service: TemplateService::new(req_sender),
         db: if final_test_pool { tables::init_test_pool().await } else { tables::init_pool(&config).await },
         redis_service: RedisService::new(config.redis_uri.clone(), final_test_pool).await.unwrap(),
     });
@@ -60,7 +59,7 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> Arc<AppStat
     //run a thread to run python code.
     info!("ready to spawn py_runner");
     // tokio::spawn(async move { py_runner::run(req_receiver, res_sender).await; });
-    thread::spawn(move || { py_runner::run(req_receiver, res_sender); });
+    thread::spawn(move || { py_runner::run(req_receiver); });
     app_state
 }
 

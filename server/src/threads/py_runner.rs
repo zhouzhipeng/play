@@ -8,7 +8,7 @@ use futures::executor::block_on;
 use rustpython_vm;
 use rustpython_vm::{Interpreter, py_compile, VirtualMachine};
 use rustpython_vm::convert::{IntoObject, ToPyObject, ToPyResult};
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 
 use crate::TemplateData;
 
@@ -278,7 +278,7 @@ fn run_py_code(source: &str) -> Result<String, String> {
 }
 
 
-pub fn run(req_receiver: Receiver<TemplateData>, res_sender: Sender<String>) {
+pub fn run(req_receiver: Receiver<TemplateData>) {
     info!("py_runner start...");
     let interpreter = init_py_interpreter();
     interpreter.enter(|vm| {
@@ -294,13 +294,24 @@ pub fn run(req_receiver: Receiver<TemplateData>, res_sender: Sender<String>) {
                     }
                 };
 
+                if data.response.is_closed(){
+                    warn!("response already closed , skip rendering");
+                    continue
+                }
 
                 let r = match run_py_template(vm, data.template.name, data.template.content, data.args.to_string()) {
                     Ok(s) => s,
                     Err(s) => s,
                 };
 
-                res_sender.send(r).await.expect("send error");
+                if data.response.is_closed(){
+                    warn!("response already closed , skip send back.");
+                    continue
+                }
+
+                if let Err(e)=data.response.send(r).await{
+                    error!("py_runner send error : {:?}", e.to_string() );
+                }
             }
         });
     });

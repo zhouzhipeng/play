@@ -7,7 +7,7 @@ pub fn template_render_test(c: &mut Criterion) {
     c.bench_function("template render test", |b| b.iter(|| {
         //test code
         let client = Client::builder().build().unwrap();
-        let res = client.get("http://localhost:3000/page/article/list/v2").send().unwrap();
+        let res = client.get("http://localhost:3000").send().unwrap();
         // assert_eq!(code.is_success(), true);
         if !res.status().is_success(){
             error!("error >> {:?}",res.text())

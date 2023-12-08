@@ -13,8 +13,6 @@ A playground project writen in rust for fun.
 cargo run
 ```
 
-<font color="red">aaa</font>
-<button>click</button>
 
 ## build binary
 ```bash
@@ -55,3 +53,11 @@ after that, run `cargo bench` then check the report html in `target/criterion/re
 
 ## check docs before developing
 [README.md](server/doc/README.md)
+
+
+## pressure test using wrk
+```bash
+#brew install wrk 
+# 10 thread, 20 connections, test 10 seconds.
+wrk -t 10  -c 20  -d 10  http://127.0.0.1:3000
+```
