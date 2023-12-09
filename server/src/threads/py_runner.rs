@@ -27,7 +27,6 @@ fn run_py_template(vm: &VirtualMachine, filename: &str, template: &str, json_str
     //custom args
     scope.locals.set_item("__args__", vm.ctx.new_str(json_str_args).into_object(), vm).unwrap();
 
-
     let res = vm.run_code_obj(vm.ctx.new_code(py_compile!(file = "python/run_template.py")), scope.clone());
     info!("scope spent:{}", start.elapsed().as_millis());
     if let Err(exc) = res {

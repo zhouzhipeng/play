@@ -66,7 +66,7 @@ async fn main() {
         .with_default(LevelFilter::INFO)
     ;
     tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer()
+        .with(tracing_subscriber::fmt::layer().with_thread_names(true)
             .pretty()
             .with_writer(io::stdout)
         )

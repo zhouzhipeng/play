@@ -59,7 +59,11 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> Arc<AppStat
     //run a thread to run python code.
     info!("ready to spawn py_runner");
     // tokio::spawn(async move { py_runner::run(req_receiver, res_sender).await; });
-    thread::spawn(move || { py_runner::run(req_receiver); });
+    // let copy_receiver = req_receiver.clone();
+    // let copy_receiver2 = req_receiver.clone();
+    thread::Builder::new().name("py_runner_1".to_string()).spawn(move || { py_runner::run(req_receiver); });
+    // thread::Builder::new().name("py_runner_2".to_string()).spawn(move || { py_runner::run(copy_receiver2); });
+    // thread::Builder::new().name("py_runner_3".to_string()).spawn(move || { py_runner::run(req_receiver); });
     app_state
 }
 

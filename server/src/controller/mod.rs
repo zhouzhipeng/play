@@ -155,16 +155,17 @@ const BOTTOM: Template = init_template!("bottom.html");
 
 
 async fn render_page_v2(s: &S, page: Template, fragment: Template, data: Value) -> R<Html<String>> {
-    let head = s.template_service.render_template(HEAD, json!({})).await?;
-    let top = s.template_service.render_template(TOP, json!({})).await?;
-    let bottom = s.template_service.render_template(BOTTOM, json!({})).await?;
+    // let head = s.template_service.render_template(HEAD, json!({})).await?;
+    // let top = s.template_service.render_template(TOP, json!({})).await?;
+    // let bottom = s.template_service.render_template(BOTTOM, json!({})).await?;
 
     let content = s.template_service.render_template(Template{ name:fragment.name, content:fragment.content}, data).await?;
 
+
     let final_data = json!({
-        "head_html": head,
-        "top_html": top,
-        "bottom_html": bottom,
+        "head_html": HEAD.content,
+        "top_html": TOP.content,
+        "bottom_html": BOTTOM.content,
         "content": content
     });
 
