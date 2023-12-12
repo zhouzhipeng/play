@@ -8,7 +8,7 @@ use pyo3::prelude::*;
 use pyo3::types::{IntoPyDict, PyList};
 use tracing::{error, info, warn};
 
-use crate::TemplateData;
+use crate::{file_path, TemplateData};
 
 
 macro_rules! include_py {
@@ -35,8 +35,10 @@ macro_rules! copy_zip_py {
 
 pub async fn run(req_receiver: Receiver<TemplateData>) -> ! {
     info!("py_runner start...");
-    let path = Path::new("/Users/zhouzhipeng/RustroverProjects/play/server/python");
+
+    // let path = Path::new(file_path!("/python"));
     // let py_app = fs::read_to_string(path.join("run_template.py"))?;
+    let py_app = include_str!(file_path!("/python/simple_template.py"));
 
 
     loop {
@@ -61,12 +63,12 @@ pub async fn run(req_receiver: Receiver<TemplateData>) -> ! {
         let args = (data.template.content, data.template.name, data.args.to_string());
 
         let r = Python::with_gil(|py| -> PyResult<String> {
-            let syspath: &PyList = py.import("sys")?.getattr("path")?.downcast()?;
-            syspath.insert(0, &path)?;
-            let app: Py<PyAny> = py.import("simple_template")?
+            // let syspath: &PyList = py.import("sys")?.getattr("path")?.downcast()?;
+            // syspath.insert(0, &path)?;
+            let app: Py<PyAny> =  PyModule::from_code(py, py_app, "", "")?
                 .getattr("render_tpl_with_str_args")?
                 .into();
-            let r = app.call1(py, args).unwrap().to_string();
+            let r = app.call1(py, args)?.to_string();
 
 
             Ok(r)

@@ -1,0 +1,9 @@
+/target
+*.pyc
+__pycache__
+output_dir
+.idea/
+*.db
+sqlite.db*
+.DS_Store
+pkg

@@ -75,15 +75,7 @@ async fn main() {
     let mut router = routers(app_state);
     router = setup_layer(router);
 
-    #[cfg(ENV="dev")]
-    tokio::spawn(async move{
-        start_server(router).await;
-    });
-    #[cfg(ENV="dev")]
-    play::start_window().expect("start window error!");
 
-
-    #[cfg(ENV="prod")]
     start_server( router).await;
 
 
