@@ -3,10 +3,12 @@ use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use async_channel::{Receiver, Sender};
-use futures::executor::block_on;
+use async_channel::Receiver;
+use pyo3::prelude::*;
+use pyo3::types::{IntoPyDict, PyList};
 use rustpython_vm;
 use rustpython_vm::{Interpreter, py_compile, VirtualMachine};
+use rustpython_vm::pymodule;
 use rustpython_vm::convert::{IntoObject, ToPyObject, ToPyResult};
 use tracing::{error, info, warn};
 
@@ -61,18 +63,16 @@ macro_rules! copy_zip_py {
     };
 }
 
-use rustpython_vm::{pymodule};
-
-
-
 #[pymodule]
 mod mymod {
     use std::collections::HashMap;
-    use rustpython_vm::builtins::{PyListRef, PyStrRef};
+
     use regex::Regex;
-    use rustpython_vm::{pymodule, PyObjectRef, PyResult, VirtualMachine};
-    use rustpython_vm::convert::ToPyObject;
     use reqwest::blocking::Client;
+    use rustpython_vm::{pymodule, PyObjectRef, PyResult, VirtualMachine};
+    use rustpython_vm::builtins::{PyListRef, PyStrRef};
+    use rustpython_vm::convert::ToPyObject;
+
     use shared::constants::HOST;
 
     #[pyfunction]
@@ -80,7 +80,6 @@ mod mymod {
         let client = Client::builder().build().unwrap();
         let res = client.get(HOST).send().unwrap();
         format!("{}, {}", s, res.text().unwrap())
-
     }
 
     #[pyfunction]
@@ -94,124 +93,117 @@ mod mymod {
         let prev_len = s.as_str().len();
         (new_string, prev_len)
     }
+
     #[pyfunction]
     fn escape(s: PyStrRef) -> String {
         regex::escape(s.to_string().as_str())
     }
+
     #[pyfunction]
-    fn search(pattern: PyStrRef, s: PyStrRef,vm: &VirtualMachine) -> Vec<PyObjectRef> {
+    fn search(pattern: PyStrRef, s: PyStrRef, vm: &VirtualMachine) -> Vec<PyObjectRef> {
         use fancy_regex::Regex;
         let re = Regex::new(&pattern.to_string()).unwrap();
-        let hay =  &s.to_string();
+        let hay = &s.to_string();
 
         println!("pattern >> \n {} , \n   s >> \n {}", pattern.as_str(), s.as_str());
 
 
         let mut start = 0;
-        let mut end=0;
+        let mut end = 0;
         let mut groups = vec![];
         for mat in re.captures_iter(hay) {
             let mat = mat.unwrap();
 
-            let mut i=0;
-            for mat in mat.iter(){
-                let mat = match mat{
+            let mut i = 0;
+            for mat in mat.iter() {
+                let mat = match mat {
                     None => continue,
                     Some(c) => c,
                 };
                 let g = mat.as_str();
-                if i==0{
+                if i == 0 {
                     start = mat.start();
                     end = mat.end();
                 }
 
-                if mat.start() < start{
+                if mat.start() < start {
                     start = mat.start();
                 }
 
-                if mat.end() > end{
+                if mat.end() > end {
                     end = mat.end();
                 }
 
-                println!("search match  >> \n {}, start = {}, end={}",g, mat.start(), mat.end() );
+                println!("search match  >> \n {}, start = {}, end={}", g, mat.start(), mat.end());
 
-                if i!=0{
+                if i != 0 {
                     groups.push(g);
                 }
 
-                i+=1;
+                i += 1;
             }
 
 
-
-
-            break
+            break;
         }
 
 
-        if groups.len()>0{
-
-
+        if groups.len() > 0 {
             let results = (start, end, groups.join("||"));
             println!("search results >> {:?}", results);
 
             vec![vm.new_pyobj(results)]
-        }else{
+        } else {
             vec![]
         }
     }
+
     #[pyfunction]
-    fn find_all( pattern: PyStrRef, s: PyStrRef,vm: &VirtualMachine) -> Vec<PyObjectRef> {
+    fn find_all(pattern: PyStrRef, s: PyStrRef, vm: &VirtualMachine) -> Vec<PyObjectRef> {
         use fancy_regex::Regex;
         let re = Regex::new(&pattern.to_string()).unwrap();
-        let hay =  &s.to_string();
+        let hay = &s.to_string();
 
 
         let mut results = vec![];
         for mat in re.captures_iter(hay) {
             let mat = mat.unwrap();
             let mut groups = vec![];
-            let mut i=-1;
+            let mut i = -1;
             let mut start = 0;
-            let mut end=0;
-            for mat in mat.iter(){
-                i+=1;
-                let mat = match mat{
+            let mut end = 0;
+            for mat in mat.iter() {
+                i += 1;
+                let mat = match mat {
                     None => continue,
                     Some(c) => c,
                 };
                 let g = mat.as_str();
-                if i==0{
+                if i == 0 {
                     start = mat.start();
                     end = mat.end();
                     continue;
                 }
 
 
-                if mat.start() < start{
+                if mat.start() < start {
                     start = mat.start();
                 }
 
-                if mat.end() > end{
+                if mat.end() > end {
                     end = mat.end();
                 }
 
 
-
-
-                if i!=0{
+                if i != 0 {
                     groups.push(g);
                 }
-
-
             }
 
-            println!("find_all match  >> \n {:?}, start = {}, end={}",groups, start, end );
+            println!("find_all match  >> \n {:?}, start = {}, end={}", groups, start, end);
 
-            results.push(vm.new_pyobj((start,end,groups.join("||"))));
-
+            results.push(vm.new_pyobj((start, end, groups.join("||"))));
         }
-
 
 
         println!("find_all results >> {:?}", results);
@@ -276,50 +268,59 @@ fn run_py_code(source: &str) -> Result<String, String> {
     })
 }
 
-
-pub fn run(req_receiver: Receiver<TemplateData>) {
+pub async fn run(req_receiver: Receiver<TemplateData>) -> ! {
     info!("py_runner start...");
-    let interpreter = init_py_interpreter();
-    interpreter.enter(|vm| {
-        block_on(async move {
-            loop {
-                info!("ready to listen for template render request in py_runner...");
-                // Receive the message from the channel.
-                let data = match req_receiver.recv().await {
-                    Ok(s) => s,
-                    Err(e) => {
-                        warn!("req_receiver.recv error : {}", e);
-                        return;
-                    }
-                };
+    let path = Path::new("/Users/zhouzhipeng/RustroverProjects/play/server/python");
+    // let py_app = fs::read_to_string(path.join("run_template.py"))?;
 
-                if data.response.is_closed(){
-                    warn!("response already closed , skip rendering");
-                    continue
-                }
 
-                let r = match run_py_template(vm, data.template.name, data.template.content, data.args.to_string()) {
-                    Ok(s) => s,
-                    Err(s) => s,
-                };
-
-                if data.response.is_closed(){
-                    warn!("response already closed , skip send back.");
-                    continue
-                }
-
-                if let Err(e)=data.response.send(r).await{
-                    error!("py_runner send error : {:?}", e.to_string() );
-                }
+    loop {
+        info!("ready to listen for template render request in py_runner...");
+        // Receive the message from the channel.
+        let data = match req_receiver.recv().await {
+            Ok(s) => s,
+            Err(e) => {
+                warn!("req_receiver.recv error : {}", e);
+                continue;
             }
-        });
-    });
+        };
+
+        if data.response.is_closed() {
+            warn!("response already closed , skip rendering");
+            continue;
+        }
+
+        // let aa = [("name", "zhouzhipeng")];
+        // aa[0].key();
+
+        let args = (data.template.content, data.template.name, data.args.to_string());
+
+        let r = Python::with_gil(|py| -> PyResult<String> {
+            let syspath: &PyList = py.import("sys")?.getattr("path")?.downcast()?;
+            syspath.insert(0, &path)?;
+            let app: Py<PyAny> = py.import("simple_template")?
+                .getattr("render_tpl_with_str_args")?
+                .into();
+            let r = app.call1(py, args).unwrap().to_string();
+
+
+            Ok(r)
+        }).expect("run python error!");
+
+        if data.response.is_closed() {
+            warn!("response already closed , skip send back.");
+            continue;
+        }
+
+        if let Err(e) = data.response.send(r).await {
+            error!("py_runner send error : {:?}", e.to_string() );
+        }
+    }
 }
 
 
 #[cfg(test)]
 mod tests {
-    use regex::Regex;
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
 
@@ -342,13 +343,12 @@ locals()['__ret__']=r
 
     #[ignore]
     #[test]
-    fn test_re()->anyhow::Result<()> {
+    fn test_re() -> anyhow::Result<()> {
         use fancy_regex::Regex;
 
         let pattern_str = r#"
 (?m)\{\{((?:([urbURB]?(?:''(?!')|""(?!")|'{6}|"{6}|'(?:[^\\']|\\.)+?'|"(?:[^\\"]|\\.)+?"|'{3}(?:[^\\]|\\.)+?'{3}|"{3}(?:[^\\]|\\.)+?"{3}))|[^'"]*?)+)\}\}
         "#;
-
 
 
         let regex = Regex::new(pattern_str).unwrap();
@@ -372,23 +372,20 @@ locals()['__ret__']=r
     }
 
     #[test]
-    fn test_re2(){
+    fn test_re2() {
         let tokens = vec!["<%", "%>", "%", "{{", "}}"];
-        for t in tokens{
+        for t in tokens {
             let escaped_text = regex::escape(t);
             println!("escaped_text :   {}", escaped_text);
         }
-
-
-
     }
 
     #[ignore]
     #[test]
-    fn test_search(){
+    fn test_search() {
         use fancy_regex::Regex;
         let re = Regex::new(r#"(?m)([urbURB]?(?:''(?!')|""(?!")|'{6}|"{6}|'(?:[^\\']|\\.)+?'|"(?:[^\\"]|\\.)+?"|'{3}(?:[^\\]|\\.|\n)+?'{3}|"{3}(?:[^\\]|\\.|\n)+?"{3}))|(#.*)|([\[\{\(])|([\]\}\)])|^([ \t]*(?:if|for|while|with|try|def|class)\b)|^([ \t]*(?:elif|else|except|finally)\b)|((?:^|;)[ \t]*end[ \t]*(?=(?:%>[ \t]*)?\r?$|;|#))|(%>[ \t]*(?=\r?$))|(\r?\n)"#).unwrap();
-        let hay =  r#"<ul>
+        let hay = r#"<ul>
     % for article in articles:
     <li>
         <a href="/article/{{article.id}}">{{article.title}}</a>
@@ -399,52 +396,48 @@ locals()['__ret__']=r
 </ul>"#;
 
 
-
-
         let mut start = 0;
-        let mut end=0;
+        let mut end = 0;
         let mut groups = vec![];
         for mat in re.captures_iter(hay) {
             let mat = mat.unwrap();
 
-            let mut i=0;
-            let mut find=false;
-            for mat in mat.iter(){
-                let mat = match mat{
+            let mut i = 0;
+            let mut find = false;
+            for mat in mat.iter() {
+                let mat = match mat {
                     None => continue,
                     Some(c) => c,
                 };
                 let g = mat.as_str();
-                if i==0{
+                if i == 0 {
                     start = mat.start();
                     end = mat.end();
                 }
 
-                if mat.start() < start{
+                if mat.start() < start {
                     start = mat.start();
                 }
 
-                if mat.end() > end{
+                if mat.end() > end {
                     end = mat.end();
                 }
 
-                println!("search match  >> \n {}, start = {}, end={}",g, mat.start(), mat.end() );
+                println!("search match  >> \n {}, start = {}, end={}", g, mat.start(), mat.end());
 
-                if i!=0{
+                if i != 0 {
                     groups.push(g);
-                }else{
+                } else {
                     find = true;
                 }
 
-                i+=1;
+                i += 1;
             }
 
 
-
-            if find{
-                break
+            if find {
+                break;
             }
-
         }
 
         let results = (start, end, groups);
@@ -455,55 +448,48 @@ locals()['__ret__']=r
 
     #[ignore]
     #[test]
-    fn test_finditer(){
+    fn test_finditer() {
         use fancy_regex::Regex;
         let re = Regex::new(r"(\w)haha(\w)").unwrap();
-        let hay =  "aahahabbaahahabb";
+        let hay = "aahahabbaahahabb";
 
 
         for mat in re.captures_iter(hay) {
             let mat = mat.unwrap();
             let mut groups = vec![];
-            let mut i=-1;
+            let mut i = -1;
             let mut start = 0;
-            let mut end=0;
-            for mat in mat.iter(){
-                i+=1;
+            let mut end = 0;
+            for mat in mat.iter() {
+                i += 1;
                 let mat = mat.unwrap();
                 let g = mat.as_str();
-                if i==0{
+                if i == 0 {
                     start = mat.start();
                     end = mat.end();
                     continue;
                 }
 
 
-                if mat.start() < start{
+                if mat.start() < start {
                     start = mat.start();
                 }
 
-                if mat.end() > end{
+                if mat.end() > end {
                     end = mat.end();
                 }
 
 
-
-
-                if i!=0{
+                if i != 0 {
                     groups.push(g);
                 }
-
-
             }
 
-            println!("search match  >> \n {:?}, start = {}, end={}",groups, start, end );
-
-
+            println!("search match  >> \n {:?}, start = {}, end={}", groups, start, end);
         }
 
         let results = ();
 
         println!("results >> {:?}", results);
     }
-
 }

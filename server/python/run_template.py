@@ -14,3 +14,5 @@ locals()['__ret__'] = ret
 args = None
 source = None
 filename = None
+
+print(ret)

@@ -351,6 +351,9 @@ def render_tpl(source: str, filename: str, args: dict) -> str:
     s = t.render(**args)
     return s
 
+import  json
+def render_tpl_with_str_args(source: str, filename: str, str_args: str) -> str:
+    return render_tpl(source, filename, json.loads(str_args))
 
 if __name__ == '__main__':
     # test_data = {"ss":"bb", "aa":{"name":"111"}}
