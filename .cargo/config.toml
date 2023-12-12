@@ -1,3 +1,11 @@
 # see: https://doc.rust-lang.org/cargo/reference/config.html
 [build]
 #rustflags = ["-Awarnings"]  #keep it uncomment to make wasm build success
+rustc-env = {PYO3_CONFIG_FILE = "/Users/zhouzhipeng/RustroverProjects/play/server/build/aarch64-apple-darwin/debug/resources/pyo3-build-config-file.txt"}
+
+
+
+[env]
+# Set ENV_VAR_NAME=value for any process run by Cargo
+PYO3_CONFIG_FILE = "/Users/zhouzhipeng/RustroverProjects/play/server/build/aarch64-apple-darwin/debug/resources/pyo3-build-config-file.txt"
+

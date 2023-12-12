@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::env;
 use std::env::set_var;
 use std::fs;
@@ -8,6 +9,7 @@ use std::os::unix::fs::OpenOptionsExt;
 use std::path::Path;
 
 use fs_extra::dir::CopyOptions;
+use pyoxidizerlib::environment::Environment;
 use walkdir::WalkDir;
 use wasm_pack::command::build::{BuildOptions, Target};
 use wasm_pack::command::run_wasm_pack;
@@ -35,6 +37,9 @@ fn main() {
         //copy wasm files from `client` crate
         copy_wasm_files();
     }
+
+    //build pyembed artifacts
+    build_pyembed_artifacts();
 
 
 
@@ -120,4 +125,26 @@ fn test() {
         }
         ",
     ).unwrap();
+}
+
+
+fn build_pyembed_artifacts(){
+    let mut map  = HashMap::new();
+
+    // let profile = std::env::var("PROFILE").unwrap();
+    //
+    //
+    let environment = Environment::new().unwrap();
+    // pyoxidizerlib::project_building::build_pyembed_artifacts(
+    //     &environment,
+    //     &Path::new("/Users/zhouzhipeng/RustroverProjects/play/server/python/pyoxidizer.bzl"),
+    //     &Path::new("output_dir/pyembed"),
+    //     None,
+    //     map,
+    //     current_platform::CURRENT_PLATFORM
+    //     , profile == "release"
+    //     , true).expect("Err: build pyembed artifacts failed!");
+
+
+    pyoxidizerlib::project_building::run_from_build( &environment,"build.rs", None, map).expect("Err: build pyembed artifacts failed!");
 }
