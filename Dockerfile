@@ -10,7 +10,7 @@ RUN source "$HOME/.cargo/env" && \
     cargo build && cargo build --release
 
 
-FROM python
+FROM python:slim
 WORKDIR /app
 COPY --from=BuildImage /app/target/release/play .
 CMD ./play
