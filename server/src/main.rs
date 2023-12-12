@@ -1,9 +1,7 @@
-
-use std::fmt::{Debug, Formatter, write};
 use std::{fs, io};
+use std::fmt::Debug;
+
 use axum::Router;
-use lazy_static::lazy_static;
-use rustpython_vm::pyclass;
 #[cfg(feature = "tower-livereload")]
 use tower_livereload::LiveReloadLayer;
 use tracing::info;
@@ -11,11 +9,10 @@ use tracing::level_filters::LevelFilter;
 use tracing_subscriber::filter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use play::config::{Config, init_config};
-use shared::{generate_code, increment, inspect_struct, MyTrait};
 
-use play::controller::routers;
 use play::{CONFIG, init_app_state, start_server};
+use play::controller::routers;
+use shared::{inspect_struct, MyTrait};
 
 // include!(concat!(env!("OUT_DIR"), "/hello.rs"));
 #[cfg(feature = "tower-livereload")]
@@ -31,14 +28,6 @@ fn setup_layer(router: Router) -> Router {
 
 // #[macro_use]
 // extern crate macros;
-
-#[derive(MyTrait)]
-#[inspect_struct("hello")]
-struct MyStruct {
-    field1: i32,
-    field2: String,
-    field3: f64,
-}
 
 
 macro_rules! print_literal {
@@ -62,7 +51,7 @@ async fn main() {
 
     // initialize tracing
     let filter = filter::Targets::new()
-        .with_target("rustpython_vm", LevelFilter::ERROR)
+        // .with_target("rustpython_vm", LevelFilter::ERROR)
         .with_default(LevelFilter::INFO)
     ;
     tracing_subscriber::registry()

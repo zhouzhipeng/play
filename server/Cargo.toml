@@ -28,10 +28,6 @@ harness = false
 
 [dependencies]
 shared={path="../shared"}
-rustpython-vm = { version = "0.3.0", features = ["freeze-stdlib"] }
-malachite-bigint = { version = "=0.1.0" }
-malachite-q = "=0.3.2"
-malachite-base = "=0.3.2"
 zip-extract = "0.1.2"
 sqlx = {version = "0.7.2",features = ["runtime-tokio-native-tls"],optional = true}
 axum = { version = "0.6.20", features = ["headers", "http2", "ws"] }
