@@ -3,11 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <title>Title</title>
-    {{head_html}}
+    <link rel="stylesheet" href="/static/css/classless.css">
+    <!--<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">-->
 </head>
 <body>
-{{top_html}}
+<div style="background-color: rebeccapurple">
+    top div
+
+</div>
 {{content}}
-{{bottom_html}}
+<div style="background-color: #bb680b">
+    bottom div
+
+</div>
+
+
+<script src="/static/js/htmx.min.js"></script>
+<!--<script src="https://unpkg.com/htmx.org/dist/ext/ws.js"></script>-->
+
 </body>
 </html>

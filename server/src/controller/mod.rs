@@ -149,9 +149,6 @@ macro_rules! template {
 }
 
 
-const HEAD: Template = init_template!("head.html");
-const TOP : Template = init_template!("top.html");
-const BOTTOM: Template = init_template!("bottom.html");
 
 
 async fn render_page_v2(s: &S, page: Template, fragment: Template, data: Value) -> R<Html<String>> {
@@ -163,9 +160,6 @@ async fn render_page_v2(s: &S, page: Template, fragment: Template, data: Value) 
 
 
     let final_data = json!({
-        "head_html": HEAD.content,
-        "top_html": TOP.content,
-        "bottom_html": BOTTOM.content,
         "content": content
     });
 
