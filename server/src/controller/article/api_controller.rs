@@ -3,13 +3,13 @@ use std::sync::Arc;
 use axum::{Form, Json, Router};
 use axum::extract::Query;
 use axum::routing::{get, post};
-use serde::Serialize;
+
 
 use shared::constants::{API_ARTICLE_ADD, API_ARTICLE_LIST};
 use shared::models::article::{AddArticle, QueryArticle};
 
 use crate::AppState;
-use crate::controller::{JSON, R, S, Success};
+use crate::controller::{JSON, S, Success};
 use crate::tables::article::Article;
 
 pub fn init() -> Router<Arc<AppState>> {

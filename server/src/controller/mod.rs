@@ -13,7 +13,7 @@ use serde_json::{json, Value};
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 
-use crate::{AppState, init_template};
+use crate::{AppState};
 use tower_http::cors::{Any, CorsLayer};
 mod index_controller;
 mod static_controller;
@@ -119,7 +119,7 @@ pub struct Template{
     pub content: &'static str,
 }
 
-use crate::file_path;
+
 #[macro_export]
 macro_rules! init_template {
     ($fragment: expr) => {

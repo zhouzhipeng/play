@@ -1,6 +1,6 @@
-use std::sync::Arc;
+
 use anyhow::bail;
-use async_channel::{Receiver, RecvError, Sender};
+use async_channel::{Sender};
 use serde_json::Value;
 use tracing::error;
 

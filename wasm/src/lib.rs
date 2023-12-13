@@ -1,14 +1,14 @@
-// mod music_player;
+#![allow(warnings)]
 
-use std::ops::Add;
-use anyhow::{anyhow, bail};
+
+
 use js_sys::Reflect;
 use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::spawn_local;
-use web_sys::HtmlElement;
+
+
 use serde::{Deserialize, Serialize};
-use wasm_bindgen::__rt::IntoJsResult;
-use wasm_bindgen::convert::FromWasmAbi;
+
+
 
 use shared::models::{RequestClient, user};
 use shared::models::article::AddArticle;
@@ -39,6 +39,7 @@ extern "C" {
     #[wasm_bindgen(js_namespace = console)]
     fn log(s: &str);
 }
+
 
 async fn test_http() -> anyhow::Result<()> {
     let body = user::add_user(AddUser {

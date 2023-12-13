@@ -2,3 +2,5 @@
 [build]
 #rustflags = ["-Awarnings"]  #keep it uncomment to make wasm build success
 
+[future-incompat-report]
+frequency = "never"

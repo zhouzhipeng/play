@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+
 use dashmap::DashMap;
 
 pub type RedisPool = DashMap<String, String>;
@@ -8,7 +8,7 @@ pub struct RedisService {
 }
 
 impl RedisService {
-    pub async fn new(redis_uri: Vec<String>) -> anyhow::Result<Self> {
+    pub async fn new(_redis_uri: Vec<String>) -> anyhow::Result<Self> {
 
         Ok(Self {
             pool: DashMap::new(),

@@ -1,12 +1,13 @@
+ #![allow(warnings)]
 use std::env::set_var;
-use std::fs;
+
 use std::io::Cursor;
-use std::path::{Path, PathBuf};
-use std::time::Instant;
+
+
 
 use async_channel::Receiver;
 use pyo3::prelude::*;
-use pyo3::types::{IntoPyDict, PyList};
+
 use tracing::{error, info, warn};
 
 use crate::{file_path, TemplateData};
@@ -17,6 +18,8 @@ macro_rules! include_py {
         include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"),"/python/", $t))
     };
 }
+
+
 
 macro_rules! copy_single_py {
     ($d: ident, $t:literal) => {
@@ -102,7 +105,7 @@ pub async fn run(req_receiver: Receiver<TemplateData>) -> ! {
 #[cfg(test)]
 mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
-    use super::*;
+    
 
 
     #[ignore]

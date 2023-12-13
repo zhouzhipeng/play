@@ -1,11 +1,11 @@
 use std::sync::Arc;
-use std::thread;
+
 
 use axum::Router;
 use lazy_static::lazy_static;
 use tracing::info;
 
-use shared::constants::HOST;
+
 
 use crate::config::Config;
 use crate::config::init_config;

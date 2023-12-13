@@ -4,7 +4,7 @@ use bb8_redis::{
     redis::AsyncCommands,
     RedisConnectionManager,
 };
-use tracing::instrument::WithSubscriber;
+
 
 use crate::service::redis::redis_mock_service;
 use futures_util::StreamExt;

@@ -1,5 +1,5 @@
 use std::{fs, io};
-use std::fmt::Debug;
+
 
 use axum::Router;
 #[cfg(feature = "tower-livereload")]
@@ -12,7 +12,7 @@ use tracing_subscriber::util::SubscriberInitExt;
 
 use play::{CONFIG, init_app_state, start_server};
 use play::controller::routers;
-use shared::{inspect_struct, MyTrait};
+
 
 // include!(concat!(env!("OUT_DIR"), "/hello.rs"));
 #[cfg(feature = "tower-livereload")]
@@ -29,18 +29,6 @@ fn setup_layer(router: Router) -> Router {
 // #[macro_use]
 // extern crate macros;
 
-
-macro_rules! print_literal {
-    (number: $val:expr) => {
-        println!("Received a number: {}", $val);
-    };
-    (string: $val:expr) => {
-        println!("Received a string: {}", $val);
-    };
-    (bool: $val:expr) => {
-        println!("Received a boolean: {}", $val);
-    };
-}
 
 
 #[tokio::main]
@@ -66,7 +54,7 @@ async fn main() {
     // init config
     let config = &CONFIG;
 
-    let server_port = config.server_port;
+    let _server_port = config.server_port;
 
     //init app_state
     let app_state = init_app_state(config, false).await;

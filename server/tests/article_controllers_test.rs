@@ -10,7 +10,7 @@ mod common;
 #[tokio::test]
 async fn test_api_controller() -> anyhow::Result<()> {
     //dont replace below `server` to `_` , otherwise the server will be dropped and cant complete http request
-    let (server, client) = common::setup().await;
+    let (_server, client) = common::setup().await;
 
     let r = client.api_article_add(&AddArticle {
         title: "123".to_string(),

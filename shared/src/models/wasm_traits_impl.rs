@@ -1,4 +1,4 @@
-use std::fmt::format;
+
 use wasm_bindgen::__rt::IntoJsResult;
 use wasm_bindgen::convert::FromWasmAbi;
 use wasm_bindgen::describe::{inform, STRING, WasmDescribe};

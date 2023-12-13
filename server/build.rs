@@ -62,7 +62,7 @@ fn main() {
 
 fn copy_wasm_files() {
     let client_path = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("wasm");
-    // fs::remove_dir_all(client_path.join("pkg"));
+    // let _ = fs::remove_dir_all(client_path.join("pkg"));
     run_wasm_pack(wasm_pack::command::Command::Build(BuildOptions {
         path: Some(client_path),
         out_dir: "pkg".to_string(),
@@ -141,39 +141,44 @@ fn build_python_artifacts() {
     ).expect("build python artifacts failed.");
 
     //delete USELESS directories.
-    fs::remove_dir_all(dest_path.join("stdlib/test"));
-    fs::remove_dir_all(dest_path.join("stdlib/sqlite3"));
-    fs::remove_dir_all(dest_path.join("stdlib/tkinter"));
-    fs::remove_dir_all(dest_path.join("stdlib/pydoc_data"));
-    fs::remove_dir_all(dest_path.join("stdlib/asyncio"));
-    fs::remove_dir_all(dest_path.join("stdlib/concurrent"));
-    fs::remove_dir_all(dest_path.join("stdlib/xmlrpc"));
-    fs::remove_dir_all(dest_path.join("stdlib/xml"));
-    fs::remove_dir_all(dest_path.join("stdlib/unittest"));
-    fs::remove_dir_all(dest_path.join("stdlib/site-packages"));
-    fs::remove_dir_all(dest_path.join("stdlib/multiprocessing"));
-    fs::remove_dir_all(dest_path.join("stdlib/lib2to3"));
-    fs::remove_dir_all(dest_path.join("stdlib/config-3.10-darwin"));
-    fs::remove_dir_all(dest_path.join("stdlib/turtledemo"));
-    fs::remove_dir_all(dest_path.join("stdlib/logging"));
-    fs::remove_dir_all(dest_path.join("stdlib/wsgiref"));
-    fs::remove_dir_all(dest_path.join("stdlib/idlelib"));
-    fs::remove_dir_all(dest_path.join("stdlib/venv"));
-    fs::remove_dir_all(dest_path.join("stdlib/importlib"));
-    fs::remove_dir_all(dest_path.join("stdlib/__pycache__"));
-    fs::remove_dir_all(dest_path.join("stdlib/email"));
-    fs::remove_dir_all(dest_path.join("stdlib/distutils"));
-    fs::remove_dir_all(dest_path.join("stdlib/dbm"));
-    fs::remove_dir_all(dest_path.join("stdlib/urllib"));
-    fs::remove_dir_all(dest_path.join("stdlib/turtle.py"));
-    fs::remove_dir_all(dest_path.join("stdlib/doctest.py"));
-    fs::remove_dir_all(dest_path.join("stdlib/tarfile.py"));
-    fs::remove_dir_all(dest_path.join("stdlib/ctypes"));
-    fs::remove_dir_all(dest_path.join("stdlib/ensurepip"));
-    fs::remove_dir_all(dest_path.join("stdlib/html"));
-    fs::remove_dir_all(dest_path.join("stdlib/http"));
-    fs::remove_dir_all(dest_path.join("stdlib/lib-dynload"));
-    fs::remove_dir_all(dest_path.join("stdlib/zoneinfo"));
+    for p in [
+        "test",
+        "sqlite3",
+        "tkinter",
+        "pydoc_data",
+        "asyncio",
+        "concurrent",
+        "xmlrpc",
+        "xml",
+        "unittest",
+        "site-packages",
+        "multiprocessing",
+        "lib2to3",
+        "config-3.10-darwin",
+        "turtledemo",
+        "logging",
+        "wsgiref",
+        "idlelib",
+        "venv",
+        "importlib",
+        "__pycache__",
+        "email",
+        "distutils",
+        "dbm",
+        "urllib",
+        "turtle.py",
+        "doctest.py",
+        "tarfile.py",
+        "ctypes",
+        "ensurepip",
+        "html",
+        "http",
+        "lib-dynload",
+        "zoneinfo",
+    ] {
+        let _ = fs::remove_dir_all(dest_path.join("stdlib").join(p));
+    }
+
 
     // sleep(Duration::from_secs(3));
     // set_var("PYO3_CONFIG_FILE","/Users/zhouzhipeng/RustroverProjects/play/server/python/build/pyo3-build-config-file.txt");
