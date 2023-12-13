@@ -1,3 +1,4 @@
+use std::env::set_var;
 use std::fs;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
@@ -36,6 +37,15 @@ macro_rules! copy_zip_py {
 pub async fn run(req_receiver: Receiver<TemplateData>) -> ! {
     info!("py_runner start...");
 
+    // set_var("PYO3_CONFIG_FILE","/Users/zhouzhipeng/RustroverProjects/play/server/python/build/pyo3-build-config-file.txt");
+
+    //decompress stdlib.zip to output_dir
+    let data = include_bytes!(file_path!("/python/build/stdlib.zip"));
+    let archive = Cursor::new(data);
+    zip_extract::extract(archive, "output_dir".as_ref(), false).unwrap();
+    set_var("PYTHONPATH","output_dir/stdlib");
+
+    pyo3::prepare_freethreaded_python();
     // let path = Path::new(file_path!("/python"));
     // let py_app = fs::read_to_string(path.join("run_template.py"))?;
     let py_app = include_str!(file_path!("/python/simple_template.py"));

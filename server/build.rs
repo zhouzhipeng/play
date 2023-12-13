@@ -1,16 +1,19 @@
 use std::env;
-use std::env::set_var;
 use std::fs;
 use std::fs::File;
-use std::io::prelude::*;
 use std::io::Write;
+use std::io::prelude::*;
 use std::os::unix::fs::OpenOptionsExt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use fs_extra::dir::CopyOptions;
+use pyoxidizerlib::environment::Environment;
+use pyoxidizerlib::projectmgmt;
 use walkdir::WalkDir;
 use wasm_pack::command::build::{BuildOptions, Target};
 use wasm_pack::command::run_wasm_pack;
+use zip_archive::Archiver;
+
 
 const HOOKS_PATH: &str = "../.git/hooks";
 const PRE_COMMIT_HOOK: &str = "#!/bin/sh
@@ -19,23 +22,26 @@ exec cargo test
 
 
 fn main() {
-
-    //test code.
-    test();
-
-    //generate git pre-commit file.
-    gen_pre_commit();
-
-
-    //check if you forgot to add your new rust file into mod.rs
-    check_mod_files();
-
     if Ok("release".to_owned()) != env::var("PROFILE") {
+
+        //test code.
+        test();
+
+        //generate git pre-commit file.
+        gen_pre_commit();
+
+
+        //check if you forgot to add your new rust file into mod.rs
+        check_mod_files();
+
+
         //will trigger deadlock when build --release
         //copy wasm files from `client` crate
         copy_wasm_files();
-    }
 
+        //generate python artifacts
+        build_python_artifacts();
+    }
 
 
     //generate rustc args.
@@ -46,28 +52,26 @@ fn main() {
     println!("cargo:rerun-if-changed=python");
     println!("cargo:rerun-if-changed=build.rs");
 
-    let env = if cfg!(feature = "dev"){"dev"}else if cfg!(feature = "prod"){"prod"}else{"dev"};
+    let env = if cfg!(feature = "dev") { "dev" } else if cfg!(feature = "prod") { "prod" } else { "dev" };
 
     // let env = option_env!("ENV").unwrap_or("dev");
-    println!("cargo:rustc-cfg=ENV=\"{}\"",env );
-    println!("cargo:rustc-env=ENV={}",env );
-
+    println!("cargo:rustc-cfg=ENV=\"{}\"", env);
+    println!("cargo:rustc-env=ENV={}", env);
 }
 
 
-
-fn copy_wasm_files(){
+fn copy_wasm_files() {
     let client_path = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("wasm");
     // fs::remove_dir_all(client_path.join("pkg"));
-     run_wasm_pack(  wasm_pack::command::Command::Build(BuildOptions{
-         path: Some(client_path),
-         out_dir: "pkg".to_string(),
-         release: true,
-         target: Target::Web,
-         #[cfg(feature = "dev")]
-         extra_options: vec!{"--features".to_string(), "console_error_panic_hook".to_string()},
-         ..BuildOptions::default()
-     })).expect("wasm-pack failed") ;
+    run_wasm_pack(wasm_pack::command::Command::Build(BuildOptions {
+        path: Some(client_path),
+        out_dir: "pkg".to_string(),
+        release: true,
+        target: Target::Web,
+        #[cfg(feature = "dev")]
+        extra_options: vec! {"--features".to_string(), "console_error_panic_hook".to_string()},
+        ..BuildOptions::default()
+    })).expect("wasm-pack failed");
 
     let from_dir = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join(Path::new("wasm/pkg"));
     fs_extra::dir::copy(from_dir, Path::new(env!("CARGO_MANIFEST_DIR")).join("static/wasm"), &CopyOptions::new().overwrite(true)).expect("copy wasm files failed!");
@@ -79,7 +83,7 @@ fn check_mod_files() {
     for entry in walker {
         let entry = entry.unwrap();
         let name = entry.file_name().to_string_lossy().to_string();
-        if name.ends_with(".rs") && name!="mod.rs" && name!="lib.rs" && name!="main.rs"{
+        if name.ends_with(".rs") && name != "mod.rs" && name != "lib.rs" && name != "main.rs" {
             let file_stem = Path::new(&name).file_stem().unwrap().to_str().unwrap();
             let parent_mod_file = entry.path().parent().unwrap().join("mod.rs");
             if parent_mod_file.exists() {
@@ -120,4 +124,73 @@ fn test() {
         }
         ",
     ).unwrap();
+}
+
+fn build_python_artifacts() {
+    let target_triple = current_platform::CURRENT_PLATFORM;
+    let flavor = "standalone";
+    let python_version = "3.10";
+    let dest_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("python/build");
+
+    projectmgmt::generate_python_embedding_artifacts(
+        &Environment::new().unwrap(),
+        target_triple,
+        flavor,
+        Some(python_version),
+        &dest_path,
+    ).expect("build python artifacts failed.");
+
+    //delete USELESS directories.
+    fs::remove_dir_all(dest_path.join("stdlib/test"));
+    fs::remove_dir_all(dest_path.join("stdlib/sqlite3"));
+    fs::remove_dir_all(dest_path.join("stdlib/tkinter"));
+    fs::remove_dir_all(dest_path.join("stdlib/pydoc_data"));
+    fs::remove_dir_all(dest_path.join("stdlib/asyncio"));
+    fs::remove_dir_all(dest_path.join("stdlib/concurrent"));
+    fs::remove_dir_all(dest_path.join("stdlib/xmlrpc"));
+    fs::remove_dir_all(dest_path.join("stdlib/xml"));
+    fs::remove_dir_all(dest_path.join("stdlib/unittest"));
+    fs::remove_dir_all(dest_path.join("stdlib/site-packages"));
+    fs::remove_dir_all(dest_path.join("stdlib/multiprocessing"));
+    fs::remove_dir_all(dest_path.join("stdlib/lib2to3"));
+    fs::remove_dir_all(dest_path.join("stdlib/config-3.10-darwin"));
+    fs::remove_dir_all(dest_path.join("stdlib/turtledemo"));
+    fs::remove_dir_all(dest_path.join("stdlib/logging"));
+    fs::remove_dir_all(dest_path.join("stdlib/wsgiref"));
+    fs::remove_dir_all(dest_path.join("stdlib/idlelib"));
+    fs::remove_dir_all(dest_path.join("stdlib/venv"));
+    fs::remove_dir_all(dest_path.join("stdlib/importlib"));
+    fs::remove_dir_all(dest_path.join("stdlib/__pycache__"));
+    fs::remove_dir_all(dest_path.join("stdlib/email"));
+    fs::remove_dir_all(dest_path.join("stdlib/distutils"));
+    fs::remove_dir_all(dest_path.join("stdlib/dbm"));
+    fs::remove_dir_all(dest_path.join("stdlib/urllib"));
+    fs::remove_dir_all(dest_path.join("stdlib/turtle.py"));
+    fs::remove_dir_all(dest_path.join("stdlib/doctest.py"));
+    fs::remove_dir_all(dest_path.join("stdlib/tarfile.py"));
+    fs::remove_dir_all(dest_path.join("stdlib/ctypes"));
+    fs::remove_dir_all(dest_path.join("stdlib/ensurepip"));
+    fs::remove_dir_all(dest_path.join("stdlib/html"));
+    fs::remove_dir_all(dest_path.join("stdlib/http"));
+    fs::remove_dir_all(dest_path.join("stdlib/lib-dynload"));
+    fs::remove_dir_all(dest_path.join("stdlib/zoneinfo"));
+
+    // sleep(Duration::from_secs(3));
+    // set_var("PYO3_CONFIG_FILE","/Users/zhouzhipeng/RustroverProjects/play/server/python/build/pyo3-build-config-file.txt");
+    // println!("cargo:rustc-env=PYO3_CONFIG_FILE={}","/Users/zhouzhipeng/RustroverProjects/play/server/python/build/pyo3-build-config-file.txt" );
+
+    compress_directory(&dest_path.join("stdlib"), &dest_path);
+}
+
+fn compress_directory(dir: &PathBuf, zip_file: &PathBuf) {
+    let origin = dir;
+    let dest = zip_file;
+    let thread_count = 4;
+
+    let mut archiver = Archiver::new();
+    archiver.push(origin);
+    archiver.set_destination(dest);
+    archiver.set_thread_count(thread_count);
+
+    archiver.archive().expect("compress error!");
 }

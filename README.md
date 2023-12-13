@@ -13,12 +13,19 @@ A playground project writen in rust for fun.
 cargo run
 ```
 
+## build python library
+```bash
+# set env
+PYO3_CONFIG_FILE=/Users/zhouzhipeng/RustroverProjects/play/server/python/build/pyo3-build-config-file.txt
+PYTHONPATH=/Users/zhouzhipeng/RustroverProjects/play/server/python/build/stdlib
+```
+
 
 ## build binary
 ```bash
 ## run  `cargo build ` firstly because we need to generate wasm files (which will cause deadlock in --release mode)
 # dev (default)
-cargo clean && cargo build && cargo build --release
+cargo clean && cargo build && PYO3_CONFIG_FILE=$(pwd)/server/python/build/pyo3-build-config-file.txt   cargo build --release
 
 # prod
 cargo clean &&  cargo build &&  cargo build --release  --no-default-features --features=prod

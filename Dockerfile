@@ -7,10 +7,13 @@ WORKDIR /app
 COPY . .
 
 RUN source "$HOME/.cargo/env" && \
-    cargo build && cargo build --release
+    cargo build && \
+    export PYO3_CONFIG_FILE=$(pwd)/server/python/build/pyo3-build-config-file.txt && \
+    cargo build --release
 
 
-FROM python:slim
+FROM debian:12-slim
 WORKDIR /app
+
 COPY --from=BuildImage /app/target/release/play .
-CMD ./play
+CMD /app/play

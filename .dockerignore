@@ -7,3 +7,5 @@ output_dir
 sqlite.db*
 .DS_Store
 pkg
+build
+.git
