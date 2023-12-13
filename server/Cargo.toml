@@ -4,11 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 
-[env]
-# Set ENV_VAR_NAME=value for any process run by Cargo
-PYO3_CONFIG_FILE = "/Users/zhouzhipeng/RustroverProjects2/play/server/python/build/pyo3-build-config-file.txt"
-
-
 [features]
 default=["dev"]
 dev=["sqlx","sqlx/sqlite", "bb8-redis"]

@@ -39,11 +39,14 @@ pub async fn run(req_receiver: Receiver<TemplateData>) -> ! {
 
     // set_var("PYO3_CONFIG_FILE","/Users/zhouzhipeng/RustroverProjects/play/server/python/build/pyo3-build-config-file.txt");
 
-    //decompress stdlib.zip to output_dir
-    let data = include_bytes!(file_path!("/python/build/stdlib.zip"));
-    let archive = Cursor::new(data);
-    zip_extract::extract(archive, "output_dir".as_ref(), false).unwrap();
-    set_var("PYTHONPATH","output_dir/stdlib");
+    if option_env!("PYO3_CONFIG_FILE").is_some(){
+        //decompress stdlib.zip to output_dir
+        let data = include_bytes!(file_path!("/python/build/stdlib.zip"));
+        let archive = Cursor::new(data);
+        zip_extract::extract(archive, "output_dir".as_ref(), false).unwrap();
+        set_var("PYTHONPATH","output_dir/stdlib");
+    }
+
 
     pyo3::prepare_freethreaded_python();
     // let path = Path::new(file_path!("/python"));

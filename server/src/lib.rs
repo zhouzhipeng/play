@@ -70,7 +70,7 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> Arc<AppStat
 
 pub async fn start_server(router: Router) {
     let server_port = CONFIG.server_port;
-    info!("server start at port : {} ...", server_port);
+    info!("server start at  : http://127.0.0.1:{}", server_port);
     // run it with hyper on localhost:3000
     axum::Server::bind(&format!("0.0.0.0:{}", server_port).parse().unwrap())
         .serve(router.into_make_service())

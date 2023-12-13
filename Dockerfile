@@ -7,9 +7,7 @@ WORKDIR /app
 COPY . .
 
 RUN source "$HOME/.cargo/env" && \
-    cargo build && \
-    export PYO3_CONFIG_FILE=$(pwd)/server/python/build/pyo3-build-config-file.txt && \
-    cargo build --release
+    ./build_dev.sh
 
 
 FROM debian:12-slim
