@@ -17,5 +17,5 @@ pub fn init() -> Router<Arc<AppState>> {
 }
 
 async fn str_joiner(s: S) -> HTML {
-    template!(s, "str_joiner.html",json!({}) )
+    template!(s, "str-joiner.html",json!({}) )
 }

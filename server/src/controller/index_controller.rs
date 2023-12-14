@@ -19,8 +19,8 @@ pub fn init() -> Router<Arc<AppState>> {
         .route(API_EXECUTE_SQL, get(execute_sql))
 }
 
-async fn root() -> R<Html<&'static str>> {
-    Ok(Html("ok."))
+async fn root(s: S) -> HTML {
+    template!(s, "index.html", json!({}))
 }
 
 
