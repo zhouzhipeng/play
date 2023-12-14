@@ -10,7 +10,7 @@ A playground project writen in rust for fun.
 
 ## local run
 ```bash
-cargo run
+cargo run  --features=debug
 ```
 
 ## build python library

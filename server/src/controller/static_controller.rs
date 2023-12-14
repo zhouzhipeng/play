@@ -7,19 +7,25 @@ use axum::response::{IntoResponse, Response};
 use axum::Router;
 use axum::routing::get;
 use include_dir::{Dir, include_dir};
+use tower_http::services::ServeDir;
 
 use crate::controller::AppError;
 
 static STATIC_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/static");
 
 pub fn init() -> Router {
-    Router::new().route("/static/*path", get(static_path))
+    #[cfg(not(feature = "debug"))]
+    {Router::new().route("/static/*path", get(static_path))}
+
+    #[cfg(feature = "debug")]
+    Router::new().nest_service("/static", ServeDir::new("static"))
 }
 
 
 async fn static_path(Path(path): Path<String>) -> impl IntoResponse {
     let path = path.trim_start_matches('/');
     let mime_type = mime_guess::from_path(path).first_or_text_plain();
+
 
     match STATIC_DIR.get_file(path) {
         None => Response::builder()

@@ -13,13 +13,8 @@ use crate::tables::article::Article;
 
 pub fn init() -> Router<Arc<AppState>> {
     Router::new()
-        .route("/page/str-joiner", get(str_joiner))
-        .route("/page/py-runner", get(py_runner))
+        // .route("/page/str-joiner", get(str_joiner))
+        // .route("/page/py-runner", get(py_runner))
 }
 
-async fn str_joiner(s: S) -> HTML {
-    template!(s, "str-joiner.html",json!({}) )
-}
-async fn py_runner(s: S) -> HTML {
-    template!(s, "py-runner.html",json!({}) )
-}
+

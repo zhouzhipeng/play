@@ -1,3 +1,4 @@
+use std::fs;
 use std::ops::Deref;
 use std::sync::Arc;
 use std::time::Duration;
@@ -130,11 +131,25 @@ pub enum Template {
 }
 
 
-
+#[cfg(not(feature = "debug"))]
 #[macro_export]
 macro_rules! init_template {
     ($fragment: expr) => {
+
         crate::controller::Template::StaticTemplate { name: $fragment, content: include_str!(crate::file_path!(concat!("/templates/",  $fragment))) }
+    };
+}
+
+#[cfg(feature = "debug")]
+#[macro_export]
+macro_rules! init_template {
+    ($fragment: expr) => {
+        {
+            use std::fs;
+           crate::controller::Template::DynamicTemplate { name: $fragment.to_string(), content: fs::read_to_string(crate::file_path!(concat!("/templates/",  $fragment))).unwrap() }
+
+        }
+
     };
 }
 

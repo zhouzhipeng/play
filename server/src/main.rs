@@ -1,33 +1,18 @@
 use std::{fs, io};
+use std::path::Path;
 
 
 use axum::Router;
-#[cfg(feature = "tower-livereload")]
-use tower_livereload::LiveReloadLayer;
+
 use tracing::info;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::filter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
-use play::{CONFIG, init_app_state, start_server};
+use play::{CONFIG, file_path, init_app_state, start_server};
 use play::controller::routers;
 
-
-// include!(concat!(env!("OUT_DIR"), "/hello.rs"));
-#[cfg(feature = "tower-livereload")]
-fn setup_layer(router: Router) -> Router {
-    info!("tower-livereload is enabled!");
-    router.layer(LiveReloadLayer::new())
-}
-
-#[cfg(not(feature = "tower-livereload"))]
-fn setup_layer(router: Router) -> Router {
-    router
-}
-
-// #[macro_use]
-// extern crate macros;
 
 
 
@@ -60,8 +45,25 @@ async fn main() {
     let app_state = init_app_state(config, false).await;
     info!("app state init ok.");
 
-    let mut router = routers(app_state);
-    router = setup_layer(router);
+    let  mut router = routers(app_state);
+    #[cfg(feature = "debug")]  //to make `watcher` live longer.
+    let mut watcher;
+    #[cfg(feature = "debug")]
+    {
+        use tower_livereload::LiveReloadLayer;
+        use notify::Watcher;
+        info!("tower-livereload is enabled!");
+        let livereload = LiveReloadLayer::new();
+        let reloader = livereload.reloader();
+        watcher = notify::recommended_watcher(move |_| {
+            info!("reloading...");
+            reloader.reload()
+        }).unwrap();
+        watcher.watch(Path::new("static"), notify::RecursiveMode::Recursive).unwrap();
+        watcher.watch(Path::new("templates"), notify::RecursiveMode::Recursive).unwrap();
+        router = router.layer(livereload);
+    }
+
 
 
     start_server( router).await;

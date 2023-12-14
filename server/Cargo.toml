@@ -8,6 +8,7 @@ edition = "2021"
 default=["dev"]
 dev=["sqlx","sqlx/sqlite", "bb8-redis"]
 prod=["sqlx","sqlx/mysql", "bb8-redis"]#"bb8-redis-cluster" should be used, (for test now)
+debug=["tower-livereload","notify"]  # to active live reload
 
 [build-dependencies]
 walkdir = "2"
@@ -51,6 +52,7 @@ anyhow = "1.0.75"
 toml = "0.8.8"
 hyper = "1.0.1"
 tower-livereload = {version="0.8.2", optional = true}
+notify = { version = "6.1.1", optional = true }
 tower-http = { version = "0.4.0", features = ["fs", "trace","timeout", "cors"] }
 futures = "0.3.29"
 bb8-redis = { version = "0.13.1", optional = true }
