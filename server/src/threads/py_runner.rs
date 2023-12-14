@@ -11,9 +11,10 @@ use pyo3::prelude::*;
 use tracing::{error, info, warn};
 
 use crate::{file_path, TemplateData};
+ use crate::controller::Template;
 
 
-macro_rules! include_py {
+ macro_rules! include_py {
     ($t:literal) => {
         include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"),"/python/", $t))
     };
@@ -86,8 +87,12 @@ pub async fn run(req_receiver: Receiver<TemplateData>) -> ! {
 
         // let aa = [("name", "zhouzhipeng")];
         // aa[0].key();
+        let (name, content, use_cache) = match data.template{
+            Template::StaticTemplate { name, content } => (name.to_string(),content.to_string(), true),
+            Template::DynamicTemplate { name, content } => (name,content, false),
+        };
 
-        let args = (data.template.content, data.template.name, data.args.to_string());
+        let args = (content, name, data.args.to_string(), use_cache);
 
         let r = Python::with_gil(|py| -> PyResult<String> {
             // let syspath: &PyList = py.import("sys")?.getattr("path")?.downcast()?;

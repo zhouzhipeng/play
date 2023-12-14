@@ -83,6 +83,7 @@ impl RedisService {
         }
     }
 
+    #[allow(dead_code)]
     // This is the main bit here
     fn initialise_subscriptions(&self) {
         let pool = self.pool.as_ref().unwrap().clone();

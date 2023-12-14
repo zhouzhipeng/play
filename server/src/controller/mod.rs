@@ -8,18 +8,20 @@ use axum::http::{Method, StatusCode};
 use axum::response::{Html, IntoResponse, Response};
 use hyper::HeaderMap;
 use serde::Serialize;
-
 use serde_json::{json, Value};
+use tower_http::cors::{Any, CorsLayer};
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 
-use crate::{AppState};
-use tower_http::cors::{Any, CorsLayer};
+use crate::AppState;
+
 mod index_controller;
 mod static_controller;
 mod user_controller;
 mod ws_controller;
 pub mod article;
+pub mod template_controller;
+pub mod function_controller;
 
 
 type R<T> = Result<T, AppError>;
@@ -29,11 +31,8 @@ type HTML = Result<Html<String>, AppError>;
 type JSON<T> = Result<Json<T>, AppError>;
 
 
-
 #[derive(Serialize)]
-pub struct Success{
-
-}
+pub struct Success {}
 
 
 pub fn routers(app_state: Arc<AppState>) -> Router {
@@ -49,6 +48,8 @@ pub fn routers(app_state: Arc<AppState>) -> Router {
         .merge(article::api_controller::init())
         .merge(article::page_controller::init())
         .merge(ws_controller::init())
+        .merge(template_controller::init())
+        .merge(function_controller::init())
         //register your new controller here
         .with_state(app_state)
         .merge(static_controller::init())
@@ -85,7 +86,7 @@ impl Deref for AppError {
 // `Result<_, AppError>`. That way you don't need to do that manually.
 impl<E> From<E> for AppError
     where
-        E:Into<anyhow::Error>,
+        E: Into<anyhow::Error>,
 {
     fn from(err: E) -> Self {
         Self(err.into())
@@ -113,17 +114,23 @@ fn should_return_fragment(header_map: &HeaderMap) -> bool {
     return_fragment
 }
 
-
-pub struct Template{
-    pub name: &'static str,
-    pub content: &'static str,
+pub enum Template {
+    StaticTemplate {
+        name: &'static str,
+        content: &'static str,
+    },
+    DynamicTemplate {
+        name: String,
+        content: String,
+    },
 }
+
 
 
 #[macro_export]
 macro_rules! init_template {
     ($fragment: expr) => {
-        crate::controller::Template { name: $fragment, content: include_str!(crate::file_path!(concat!("/templates/",  $fragment))) }
+        crate::controller::Template::StaticTemplate { name: $fragment, content: include_str!(crate::file_path!(concat!("/templates/",  $fragment))) }
     };
 }
 
@@ -156,23 +163,23 @@ async fn render_page_v2(s: &S, page: Template, fragment: Template, data: Value) 
     // let top = s.template_service.render_template(TOP, json!({})).await?;
     // let bottom = s.template_service.render_template(BOTTOM, json!({})).await?;
 
-    let content = s.template_service.render_template(Template{ name:fragment.name, content:fragment.content}, data).await?;
+    let content = s.template_service.render_template(fragment, data).await?;
 
 
     let final_data = json!({
         "content": content
     });
 
-    let final_html = s.template_service.render_template(Template{ name:page.name,content:page.content}, final_data).await?;
+    let final_html = s.template_service.render_template(page, final_data).await?;
 
     Ok(Html(final_html))
 }
 
 async fn render_fragment(s: &S, fragment: Template, data: Value) -> R<Html<String>> {
-    let content = s.template_service.render_template(Template{ name:fragment.name, content:fragment.content}, data).await?;
+    let content = s.template_service.render_template(fragment, data).await?;
     Ok(Html(content))
-}
 
+}
 
 
 #[allow(dead_code)]
