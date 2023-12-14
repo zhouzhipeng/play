@@ -45,7 +45,7 @@ impl RedisService {
 
 
             //start a subscribe task.
-            r.initialise_subscriptions();
+            // r.initialise_subscriptions();
 
             Ok(r)
         }

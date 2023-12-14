@@ -48,6 +48,7 @@ pub async fn run(req_receiver: Receiver<TemplateData>) -> ! {
         let archive = Cursor::new(data);
         zip_extract::extract(archive, "output_dir".as_ref(), false).unwrap();
         set_var("PYTHONPATH","output_dir/stdlib");
+        set_var("PYTHONHOME","output_dir"); //just to supress warning logs.
     }
 
 
@@ -56,9 +57,19 @@ pub async fn run(req_receiver: Receiver<TemplateData>) -> ! {
     // let py_app = fs::read_to_string(path.join("run_template.py"))?;
     let py_app = include_str!(file_path!("/python/simple_template.py"));
 
+    let py_render_fn = Python::with_gil(|py| -> PyResult<Py<PyAny>> {
+        // let syspath: &PyList = py.import("sys")?.getattr("path")?.downcast()?;
+        // syspath.insert(0, &path)?;
+        let app: Py<PyAny> =  PyModule::from_code(py, py_app, "", "")?
+            .getattr("render_tpl_with_str_args")?
+            .into();
+        Ok(app)
+    }).expect("run python error!");
+
+
 
     loop {
-        info!("ready to listen for template render request in py_runner...");
+        // info!("ready to listen for template render request in py_runner...");
         // Receive the message from the channel.
         let data = match req_receiver.recv().await {
             Ok(s) => s,
@@ -81,10 +92,10 @@ pub async fn run(req_receiver: Receiver<TemplateData>) -> ! {
         let r = Python::with_gil(|py| -> PyResult<String> {
             // let syspath: &PyList = py.import("sys")?.getattr("path")?.downcast()?;
             // syspath.insert(0, &path)?;
-            let app: Py<PyAny> =  PyModule::from_code(py, py_app, "", "")?
-                .getattr("render_tpl_with_str_args")?
-                .into();
-            let r = app.call1(py, args)?.to_string();
+            // let app: Py<PyAny> =  PyModule::from_code(py, py_app, "", "")?
+            //     .getattr("render_tpl_with_str_args")?
+            //     .into();
+            let r = py_render_fn.call1(py, args)?.to_string();
 
 
             Ok(r)
