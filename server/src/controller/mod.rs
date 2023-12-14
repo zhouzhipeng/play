@@ -123,6 +123,10 @@ pub enum Template {
         name: String,
         content: String,
     },
+    PythonCode {
+        name: String,
+        content: String,
+    },
 }
 
 

@@ -1,8 +1,8 @@
- #![allow(warnings)]
+#![allow(warnings)]
+
 use std::env::set_var;
 
 use std::io::Cursor;
-
 
 
 use async_channel::Receiver;
@@ -11,10 +11,10 @@ use pyo3::prelude::*;
 use tracing::{error, info, warn};
 
 use crate::{file_path, TemplateData};
- use crate::controller::Template;
+use crate::controller::Template;
 
 
- macro_rules! include_py {
+macro_rules! include_py {
     ($t:literal) => {
         include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"),"/python/", $t))
     };
@@ -43,13 +43,13 @@ pub async fn run(req_receiver: Receiver<TemplateData>) -> ! {
 
     // set_var("PYO3_CONFIG_FILE","/Users/zhouzhipeng/RustroverProjects/play/server/python/build/pyo3-build-config-file.txt");
 
-    if option_env!("PYO3_CONFIG_FILE").is_some(){
+    if option_env!("PYO3_CONFIG_FILE").is_some() {
         //decompress stdlib.zip to output_dir
         let data = include_bytes!(file_path!("/python/build/stdlib.zip"));
         let archive = Cursor::new(data);
         zip_extract::extract(archive, "output_dir".as_ref(), false).unwrap();
-        set_var("PYTHONPATH","output_dir/stdlib");
-        set_var("PYTHONHOME","output_dir"); //just to supress warning logs.
+        set_var("PYTHONPATH", "output_dir/stdlib");
+        set_var("PYTHONHOME", "output_dir"); //just to supress warning logs.
     }
 
 
@@ -61,12 +61,11 @@ pub async fn run(req_receiver: Receiver<TemplateData>) -> ! {
     let py_render_fn = Python::with_gil(|py| -> PyResult<Py<PyAny>> {
         // let syspath: &PyList = py.import("sys")?.getattr("path")?.downcast()?;
         // syspath.insert(0, &path)?;
-        let app: Py<PyAny> =  PyModule::from_code(py, py_app, "", "")?
+        let app: Py<PyAny> = PyModule::from_code(py, py_app, "", "")?
             .getattr("render_tpl_with_str_args")?
             .into();
         Ok(app)
     }).expect("run python error!");
-
 
 
     loop {
@@ -87,24 +86,32 @@ pub async fn run(req_receiver: Receiver<TemplateData>) -> ! {
 
         // let aa = [("name", "zhouzhipeng")];
         // aa[0].key();
-        let (name, content, use_cache) = match data.template{
-            Template::StaticTemplate { name, content } => (name.to_string(),content.to_string(), true),
-            Template::DynamicTemplate { name, content } => (name,content, false),
+        let (name, content, run_code, use_cache) = match data.template {
+            Template::StaticTemplate { name, content } => (name.to_string(), content.to_string(), false, true),
+            Template::DynamicTemplate { name, content } => (name, content, false, false),
+            Template::PythonCode { name, content } =>(name, content, true, false)
         };
 
-        let args = (content, name, data.args.to_string(), use_cache);
 
-        let r = Python::with_gil(|py| -> PyResult<String> {
+
+        let r = match Python::with_gil(|py| -> PyResult<String> {
             // let syspath: &PyList = py.import("sys")?.getattr("path")?.downcast()?;
             // syspath.insert(0, &path)?;
             // let app: Py<PyAny> =  PyModule::from_code(py, py_app, "", "")?
             //     .getattr("render_tpl_with_str_args")?
             //     .into();
-            let r = py_render_fn.call1(py, args)?.to_string();
-
-
-            Ok(r)
-        }).expect("run python error!");
+            if run_code {
+                py.run(&content, None, None)?;
+                Ok("ok".to_string())
+            } else {
+                let args = (&content, name, data.args.to_string(), use_cache);
+                let r = py_render_fn.call1(py, args)?.to_string();
+                Ok(r)
+            }
+        }){
+            Ok(s) => s,
+            Err(e) => e.to_string()
+        };
 
         if data.response.is_closed() {
             warn!("response already closed , skip send back.");
@@ -121,7 +128,7 @@ pub async fn run(req_receiver: Receiver<TemplateData>) -> ! {
 #[cfg(test)]
 mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
-    
+
 
 
     #[ignore]
