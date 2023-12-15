@@ -1,6 +1,7 @@
 #![allow(warnings)]
 
 use std::env::set_var;
+use std::fs;
 
 use std::io::Cursor;
 
@@ -16,7 +17,7 @@ use crate::controller::Template;
 
 macro_rules! include_py {
     ($t:literal) => {
-        include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"),"/python/", $t))
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"),"/python/", $t))
     };
 }
 
@@ -38,8 +39,40 @@ macro_rules! copy_zip_py {
     };
 }
 
+macro_rules! prepare_template {
+    ($fragment: expr) => {
+
+        ($fragment, include_str!(crate::file_path!(concat!("/templates/",  $fragment))))
+    };
+}
+
+
+#[pyfunction]
+fn add_one(x: i64) -> i64 {
+    x + 1
+}
+#[pyfunction]
+fn read_file(filename : String) -> String {
+    // info!("read file {} from python call", filename);
+    let c = fs::read_to_string(format!("{}/templates/{}", env!("CARGO_MANIFEST_DIR"),filename)).unwrap();
+    // info!(" content  >> {}", c);
+    c
+}
+
+#[pymodule]
+fn foo(_py: Python<'_>, foo_module: &PyModule) -> PyResult<()> {
+    foo_module.add_function(wrap_pyfunction!(add_one, foo_module)?)?;
+    foo_module.add_function(wrap_pyfunction!(read_file, foo_module)?)?;
+    Ok(())
+}
+
 pub async fn run(req_receiver: Receiver<TemplateData>) -> ! {
     info!("py_runner start...");
+
+    //init
+    pyo3::append_to_inittab!(foo);
+    pyo3::prepare_freethreaded_python();
+
 
     // set_var("PYO3_CONFIG_FILE","/Users/zhouzhipeng/RustroverProjects/play/server/python/build/pyo3-build-config-file.txt");
 
@@ -53,18 +86,28 @@ pub async fn run(req_receiver: Receiver<TemplateData>) -> ! {
     }
 
 
-    pyo3::prepare_freethreaded_python();
     // let path = Path::new(file_path!("/python"));
     // let py_app = fs::read_to_string(path.join("run_template.py"))?;
-    let py_app = include_str!(file_path!("/python/simple_template.py"));
+    let py_app = include_py!("/simple_template.py");
 
     let py_render_fn = Python::with_gil(|py| -> PyResult<Py<PyAny>> {
         // let syspath: &PyList = py.import("sys")?.getattr("path")?.downcast()?;
         // syspath.insert(0, &path)?;
-        let app: Py<PyAny> = PyModule::from_code(py, py_app, "", "")?
+        let render_fn: Py<PyAny> = PyModule::from_code(py, py_app, "", "")?
             .getattr("render_tpl_with_str_args")?
             .into();
-        Ok(app)
+        let cache_template_fn: Py<PyAny> = PyModule::from_code(py, py_app, "", "")?
+            .getattr("cache_template")?
+            .into();
+        let set_debug_mode_fn: Py<PyAny> = PyModule::from_code(py, py_app, "", "")?
+            .getattr("set_debug_mode")?
+            .into();
+        set_debug_mode_fn.call1(py, (cfg!(feature = "debug"),))?;
+
+        //prepare basic templates for `include` use.
+        cache_template_fn.call1(py, prepare_template!("todo/fragments/todo_item.html"))?;
+
+        Ok(render_fn)
     }).expect("run python error!");
 
 

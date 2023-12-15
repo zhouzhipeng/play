@@ -1,8 +1,11 @@
 use std::{fs, io};
 use std::path::Path;
+use axum::body::Body;
+use axum::http::Request;
 
 
 use axum::Router;
+
 
 use tracing::info;
 use tracing::level_filters::LevelFilter;
@@ -51,9 +54,22 @@ async fn main() {
     #[cfg(feature = "debug")]
     {
         use tower_livereload::LiveReloadLayer;
+        use tower_livereload::predicate::Predicate;
+        #[derive(Copy, Clone, Debug)]
+        pub struct NotHxRequest();
+        impl<T> Predicate<Request<T>> for NotHxRequest {
+            fn check(&mut self, request: &Request<T>) -> bool {
+                request
+                    .headers()
+                    .get("HX-Request")
+                    .is_none()
+            }
+        }
+
         use notify::Watcher;
         info!("tower-livereload is enabled!");
-        let livereload = LiveReloadLayer::new();
+        let  livereload = LiveReloadLayer::new();
+        let livereload = livereload.request_predicate::<Body, NotHxRequest>(NotHxRequest {});
         let reloader = livereload.reloader();
         watcher = notify::recommended_watcher(move |_| {
             info!("reloading...");

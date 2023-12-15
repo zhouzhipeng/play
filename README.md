@@ -8,7 +8,8 @@ A playground project writen in rust for fun.
 * server : a http server providing APIs and static files and templates.
 * server/python : for server side templates, we run a python interpreter inside rust.
 
-## local run
+## local debug
+the `debug` feature will activate live-reload mode for `static` and `templates` folders.
 ```bash
 cargo run  --features=debug
 ```
@@ -17,7 +18,6 @@ cargo run  --features=debug
 ```bash
 # set env
 PYO3_CONFIG_FILE=/Users/zhouzhipeng/RustroverProjects/play/server/python/build/pyo3-build-config-file.txt
-PYTHONPATH=/Users/zhouzhipeng/RustroverProjects/play/server/python/build/stdlib
 ```
 
 

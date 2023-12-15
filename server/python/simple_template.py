@@ -297,23 +297,11 @@ class SimpleTemplate(BaseTemplate):
         self.encoding = parser.encoding
         return code
 
-    def _rebase(self, _env, _name=None, **kwargs):
-        _env['_rebase'] = (_name, kwargs)
-
-    def _include(self, _env, _name=None, **kwargs):
-
-        # env = _env.copy()
-        # env.update(kwargs)
-        # if _name not in self.cache:
-        #     self.cache[_name] = self.__class__(name=_name, lookup=self.lookup)
-        # return self.cache[_name].execute(env['_stdout'], env)
-        # print(global_cache)
-        return eval(global_cache[_name], _env)
 
     def execute(self, _stdout, kwargs):
         env = self.defaults.copy()
         env.update(kwargs)
-        env.update({'_stdout': _stdout, '_printlist': _stdout.extend,
+        env.update({'_stdout': _stdout, '_printlist': _stdout.extend,'include':include,
 
                     '_str': self._str, '_escape': self._escape, 'get': env.get,
                     'setdefault': env.setdefault, 'defined': env.__contains__
@@ -357,6 +345,34 @@ def render_tpl_with_str_args(source: str, filename: str, str_args: str, use_cach
     if not use_cache:
         clear_cache(filename)
     return r
+
+
+cached_or_not = {}
+def cache_template(filename: str,source: str):
+    t = SimpleTemplate(source, noescape=True)
+    t.filename = filename
+    t.co()
+    cached_or_not[filename] = True
+    print("template :"+ filename+"  cached.")
+
+debug_mode=False
+
+def set_debug_mode(mode: bool):
+    global  debug_mode
+    debug_mode = mode
+    print("simple_template >> set debug mode = "+ str(mode))
+def include(file_name: str, **kwargs)->str:
+    # to prevent forgetting to call `cache_template`
+    if file_name not in cached_or_not:
+        raise Exception("template not found: "+ file_name+",  pls call cache_template firstly!")
+    if debug_mode:
+        import foo
+        clear_cache(file_name)
+        content = foo.read_file(file_name)
+    else:
+        content = global_cache[file_name]
+
+    return render_tpl(content, file_name, kwargs)
 
 if __name__ == '__main__':
     # test_data = {"ss":"bb", "aa":{"name":"111"}}

@@ -1,0 +1,10 @@
+<h3>Todo Manager</h3>
+<form hx-post="/todo/add-todo" hx-target="#todoList" hx-swap="afterbegin">
+    <input type="text" name="title" placeholder="add a todo">
+</form>
+
+<ul id="todoList">
+    % for item in items:
+    {{include("todo/fragments/todo_item.html", item = item)}}
+    %end
+</ul>

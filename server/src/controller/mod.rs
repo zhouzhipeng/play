@@ -2,6 +2,7 @@ use std::fs;
 use std::ops::Deref;
 use std::sync::Arc;
 use std::time::Duration;
+use anyhow::Error;
 
 use axum::{Json, Router};
 use axum::extract::State;
@@ -23,6 +24,7 @@ mod ws_controller;
 pub mod article;
 pub mod template_controller;
 pub mod function_controller;
+pub mod todo_controller;
 
 
 type R<T> = Result<T, AppError>;
@@ -51,6 +53,7 @@ pub fn routers(app_state: Arc<AppState>) -> Router {
         .merge(ws_controller::init())
         .merge(template_controller::init())
         .merge(function_controller::init())
+        .merge(todo_controller::init())
         //register your new controller here
         .with_state(app_state)
         .merge(static_controller::init())
@@ -75,6 +78,7 @@ impl IntoResponse for AppError {
 }
 
 
+
 impl Deref for AppError {
     type Target = anyhow::Error;
 
@@ -93,6 +97,8 @@ impl<E> From<E> for AppError
         Self(err.into())
     }
 }
+
+
 
 #[allow(dead_code)]
 fn should_return_json(header_map: &HeaderMap) -> bool {
@@ -146,6 +152,9 @@ macro_rules! init_template {
     ($fragment: expr) => {
         {
             use std::fs;
+            //for compiling time check file existed or not.
+           crate::controller::Template::StaticTemplate { name: $fragment, content: include_str!(crate::file_path!(concat!("/templates/",  $fragment))) };
+
            crate::controller::Template::DynamicTemplate { name: $fragment.to_string(), content: fs::read_to_string(crate::file_path!(concat!("/templates/",  $fragment))).unwrap() }
 
         }
@@ -158,7 +167,7 @@ macro_rules! template {
     ($s: ident, $fragment: expr, $json: expr) => {
         {
             let t = crate::init_template!($fragment);
-            let content: Html<String> = crate::controller::render_fragment(&$s,t,  $json).await?;
+            let content: axum::response::Html<String> = crate::controller::render_fragment(&$s,t,  $json).await?;
             Ok(content)
         }
 
@@ -167,7 +176,7 @@ macro_rules! template {
         {
             let page = crate::init_template!($page);
             let frag = crate::init_template!($fragment);
-            let content: Html<String> = crate::controller::render_page_v2(&$s,page,frag, $json).await?;
+            let content: axum::response::Html<String> = crate::controller::render_page(&$s,page,frag, $json).await?;
             Ok(content)
         }
 
@@ -177,11 +186,8 @@ macro_rules! template {
 
 
 
-async fn render_page_v2(s: &S, page: Template, fragment: Template, data: Value) -> R<Html<String>> {
-    // let head = s.template_service.render_template(HEAD, json!({})).await?;
-    // let top = s.template_service.render_template(TOP, json!({})).await?;
-    // let bottom = s.template_service.render_template(BOTTOM, json!({})).await?;
 
+async fn render_page(s: &S, page: Template, fragment: Template, data: Value) -> R<Html<String>> {
     let content = s.template_service.render_template(fragment, data).await?;
 
 

@@ -2,7 +2,7 @@
 [model_template.txt](model_template.txt)
 
 
-> use `codebox` tool  > `String Magic`
+> visit `String Joiner` page
 
 1. copy model_template.txt content into input area.
 2. copy your 'create table' sql into top input area.

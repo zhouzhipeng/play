@@ -27,6 +27,17 @@ macro_rules! file_path {
     };
 }
 
+#[macro_export]
+macro_rules! check {
+    ($($tt:tt)*) => {
+        {
+            (||{
+                ensure!($($tt)*);
+                Ok(())
+            })()?
+        }
+    };
+}
 
 
 lazy_static! {
