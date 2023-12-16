@@ -1,13 +1,34 @@
-<html lang="zh-cn">
-
-<head><title>test page</title></head>
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Any</title>
+    <link rel="stylesheet" href="/static/css/classless.css">
+</head>
 <body>
+<a href="/" >Home</a>
+<table>
+    <thead>
+    <tr>
+        <td>id</td>
+        <td>title</td>
+        <td>content</td>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>2</td>
+        <td>this a a title</td>
+        <td>this is a content</td>
+    </tr>
+    <tr>
+        <td>3</td>
+        <td>aaa</td>
+        <td>bbbb</td>
+    </tr>
+    </tbody>
+</table>
 
-your name is : {{name}}
-<script src="/static/components/CurrentDate.js"></script>
-
-<h2>Today's Date</h2>
-The current date is: <current-date></current-date>
+<script src="/static/js/htmx.min.js"></script>
 </body>
 </html>

@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>sql runner</title>
+
+	<link rel=stylesheet href="/static/codemirror/doc/docs.css">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+
+	<link rel="stylesheet" href="/static/codemirror/lib/codemirror.css" />
+	<script src="/static/codemirror/lib/codemirror.js"></script>
+	<script src="/static/codemirror/addon/edit/matchbrackets.js"></script>
+	<script src="/static/codemirror.net_5_addon_search_search.js"></script>
+	<script src="/static/codemirror.net_5_addon_search_searchcursor.js"></script>
+	<script src="/static/codemirror.net_5_addon_dialog_dialog.js"></script>
+	<!--<script src="/static/codemirror.net_5_addon_search_jump-to-line.js"></script>-->
+
+	<script src="/static/codemirror/mode/sql/sql.js"></script>
+<!--	<link rel="stylesheet" href="/static/codemirror/addon/hint/show-hint.css" />-->
+<!--	<script src="/static/codemirror/addon/hint/show-hint.js"></script>-->
+<!--	<script src="/static/codemirror/addon/hint/sql-hint.js"></script>-->
+	<script src="/static/js/split.min.js"></script>
+
+	
+	<style>
+
+
+		/*! CSS Used from: https://cdn.staticfile.org/twitter-bootstrap/5.1.3/css/bootstrap.min.css */
+		*,::after,::before{box-sizing:border-box;}
+		p{margin-top:0;margin-bottom:1rem;}
+		a{color:#0d6efd;text-decoration:underline;}
+		a:hover{color:#0a58ca;}
+		pre{font-family:var(--bs-font-monospace);font-size:1em;direction:ltr;unicode-bidi:bidi-override;}
+		pre{display:block;margin-top:0;margin-bottom:1rem;overflow:auto;font-size:.875em;}
+		button{border-radius:0;}
+		button:focus:not(:focus-visible){outline:0;}
+		button,textarea{margin:0;font-family:inherit;font-size:inherit;line-height:inherit;}
+		button{text-transform:none;}
+		[type=button],button{-webkit-appearance:button;}
+		::-moz-focus-inner{padding:0;border-style:none;}
+		textarea{resize:vertical;}
+		iframe{border:0;}
+		.container-fluid{width:100%;padding-right:var(--bs-gutter-x,.75rem);padding-left:var(--bs-gutter-x,.75rem);margin-right:auto;margin-left:auto;}
+		.form-control{display:block;width:100%;padding:.375rem .75rem;font-size:1rem;font-weight:400;line-height:1.5;color:#212529;background-color:#fff;background-clip:padding-box;border:1px solid #ced4da;-webkit-appearance:none;-moz-appearance:none;appearance:none;border-radius:.25rem;transition:border-color .15s ease-in-out,box-shadow .15s ease-in-out;}
+		@media (prefers-reduced-motion:reduce){
+			.form-control{transition:none;}
+		}
+		.form-control:focus{color:#212529;background-color:#fff;border-color:#86b7fe;outline:0;box-shadow:0 0 0 .25rem rgba(13,110,253,.25);}
+		.form-control::-moz-placeholder{color:#6c757d;opacity:1;}
+		.form-control::placeholder{color:#6c757d;opacity:1;}
+		.form-control:disabled{background-color:#e9ecef;opacity:1;}
+		textarea.form-control{min-height:calc(1.5em + .75rem + 2px);}
+		.btn{display:inline-block;font-weight:400;line-height:1.5;color:#212529;text-align:center;text-decoration:none;vertical-align:middle;cursor:pointer;-webkit-user-select:none;-moz-user-select:none;user-select:none;background-color:transparent;border:1px solid transparent;padding:.375rem .75rem;font-size:1rem;border-radius:.25rem;transition:color .15s ease-in-out,background-color .15s ease-in-out,border-color .15s ease-in-out,box-shadow .15s ease-in-out;}
+		@media (prefers-reduced-motion:reduce){
+			.btn{transition:none;}
+		}
+		.btn:hover{color:#212529;}
+		.btn:focus{outline:0;box-shadow:0 0 0 .25rem rgba(13,110,253,.25);}
+		.btn:disabled{pointer-events:none;opacity:.65;}
+		.btn-success{color:#fff;background-color:#198754;border-color:#198754;}
+		.btn-success:hover{color:#fff;background-color:#157347;border-color:#146c43;}
+		.btn-success:focus{color:#fff;background-color:#157347;border-color:#146c43;box-shadow:0 0 0 .25rem rgba(60,153,110,.5);}
+		.btn-success:active{color:#fff;background-color:#146c43;border-color:#13653f;}
+		.btn-success:active:focus{box-shadow:0 0 0 .25rem rgba(60,153,110,.5);}
+		.btn-success:disabled{color:#fff;background-color:#198754;border-color:#198754;}
+		.btn-warning{color:#000;background-color:#ffc107;border-color:#ffc107;}
+		.btn-warning:hover{color:#000;background-color:#ffca2c;border-color:#ffc720;}
+		.btn-warning:focus{color:#000;background-color:#ffca2c;border-color:#ffc720;box-shadow:0 0 0 .25rem rgba(217,164,6,.5);}
+		.btn-warning:active{color:#000;background-color:#ffcd39;border-color:#ffc720;}
+		.btn-warning:active:focus{box-shadow:0 0 0 .25rem rgba(217,164,6,.5);}
+		.btn-warning:disabled{color:#000;background-color:#ffc107;border-color:#ffc107;}
+		.btn-outline-secondary{color:#6c757d;border-color:#6c757d;}
+		.btn-outline-secondary:hover{color:#fff;background-color:#6c757d;border-color:#6c757d;}
+		.btn-outline-secondary:focus{box-shadow:0 0 0 .25rem rgba(108,117,125,.5);}
+		.btn-outline-secondary:active{color:#fff;background-color:#6c757d;border-color:#6c757d;}
+		.btn-outline-secondary:active:focus{box-shadow:0 0 0 .25rem rgba(108,117,125,.5);}
+		.btn-outline-secondary:disabled{color:#6c757d;background-color:transparent;}
+		.card{position:relative;display:flex;flex-direction:column;min-width:0;word-wrap:break-word;background-color:#fff;background-clip:border-box;border:1px solid rgba(0,0,0,.125);border-radius:.25rem;}
+		.card-body{flex:1 1 auto;padding:1rem 1rem;}
+		.card-header{padding:.5rem 1rem;margin-bottom:0;background-color:rgba(0,0,0,.03);border-bottom:1px solid rgba(0,0,0,.125);}
+		.card-header:first-child{border-radius:calc(.25rem - 1px) calc(.25rem - 1px) 0 0;}
+		.float-end{float:right!important;}
+		.shadow-sm{box-shadow:0 .125rem .25rem rgba(0,0,0,.075)!important;}
+		.border-bottom{border-bottom:1px solid #dee2e6!important;}
+		.my-4{margin-top:1.5rem!important;margin-bottom:1.5rem!important;}
+		.p-3{padding:1rem!important;}
+		.py-3{padding-top:1rem!important;padding-bottom:1rem!important;}
+		.pb-3{padding-bottom:1rem!important;}
+		.text-center{text-align:center!important;}
+		.text-muted{--bs-text-opacity:1;color:#6c757d!important;}
+		.bg-body{--bs-bg-opacity:1;background-color:rgba(var(--bs-body-bg-rgb),var(--bs-bg-opacity))!important;}
+		.rounded{border-radius:.25rem!important;}
+		/*! CSS Used from: https://cdn.staticfile.org/codemirror/5.40.2/codemirror.min.css */
+		.CodeMirror{font-family:monospace;height:300px;color:#000;direction:ltr;}
+		.CodeMirror-lines{padding:4px 0;}
+		.CodeMirror pre{padding:0 4px;}
+		.CodeMirror-gutter-filler,.CodeMirror-scrollbar-filler{background-color:#fff;}
+		.CodeMirror-gutters{border-right:1px solid #ddd;background-color:#f7f7f7;white-space:nowrap;}
+		.CodeMirror-cursor{border-left:1px solid #000;border-right:none;width:0;}
+		.cm-tab{display:inline-block;text-decoration:inherit;}
+		.cm-s-default .cm-string{color:#a11;}
+		.cm-s-default .cm-meta{color:#555;}
+		.cm-s-default .cm-bracket{color:#997;}
+		.cm-s-default .cm-tag{color:#170;}
+		.cm-s-default .cm-attribute{color:#00c;}
+		.CodeMirror{position:relative;overflow:hidden;background:#fff;}
+		.CodeMirror-scroll{overflow:scroll!important;margin-bottom:-30px;margin-right:-30px;padding-bottom:30px;height:100%;outline:0;position:relative;}
+		.CodeMirror-sizer{position:relative;border-right:30px solid transparent;}
+		.CodeMirror-gutter-filler,.CodeMirror-hscrollbar,.CodeMirror-scrollbar-filler,.CodeMirror-vscrollbar{position:absolute;z-index:6;display:none;}
+		.CodeMirror-vscrollbar{right:0;top:0;overflow-x:hidden;overflow-y:scroll;}
+		.CodeMirror-hscrollbar{bottom:0;left:0;overflow-y:hidden;overflow-x:scroll;}
+		.CodeMirror-scrollbar-filler{right:0;bottom:0;}
+		.CodeMirror-gutter-filler{left:0;bottom:0;}
+		.CodeMirror-gutters{position:absolute;left:0;top:0;min-height:100%;z-index:3;}
+		.CodeMirror-lines{cursor:text;min-height:1px;}
+		.CodeMirror pre{-moz-border-radius:0;-webkit-border-radius:0;border-radius:0;border-width:0;background:0 0;font-family:inherit;font-size:inherit;margin:0;white-space:pre;word-wrap:normal;line-height:inherit;color:inherit;z-index:2;position:relative;overflow:visible;-webkit-tap-highlight-color:transparent;-webkit-font-variant-ligatures:contextual;font-variant-ligatures:contextual;}
+		.CodeMirror-code{outline:0;}
+		.CodeMirror-gutters,.CodeMirror-scroll,.CodeMirror-sizer{-moz-box-sizing:content-box;box-sizing:content-box;}
+		.CodeMirror-measure{position:absolute;width:100%;height:0;overflow:hidden;visibility:hidden;}
+		.CodeMirror-cursor{position:absolute;pointer-events:none;}
+		div.CodeMirror-cursors{visibility:hidden;position:relative;z-index:3;}
+		.CodeMirror-line::selection,.CodeMirror-line>span::selection,.CodeMirror-line>span>span::selection{background:#d7d4f0;}
+		.CodeMirror-line::-moz-selection,.CodeMirror-line>span::-moz-selection,.CodeMirror-line>span>span::-moz-selection{background:#d7d4f0;}
+		@media print{
+			.CodeMirror div.CodeMirror-cursors{visibility:hidden;}
+		}
+		/*! CSS Used from: Embedded */
+		.split{display:flex;flex-direction:row;}
+		#iframeResult{display:block;height:100%;width:100%;}
+		.gutter{background-color:#f6f6f6;background-repeat:no-repeat;background-position:50%;}
+		.gutter.gutter-horizontal{background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAeCAYAAADkftS9AAAAIklEQVQoU2M4c+bMfxAGAgYYmwGrIIiDjrELjpo5aiZeMwF+yNnOs5KSvgAAAABJRU5ErkJggg==);cursor:col-resize;}
+
+
+		.tool{
+			cursor: pointer;
+			display: none;
+			background-color: white;
+			color: blue;
+			position: absolute;
+			left: 0px;
+			top: 0px;
+		}
+
+		.CodeMirror {
+			border-top: 0px solid black;
+			border-bottom: 0px solid black;
+			font-family: Arial, monospace;
+			font-size: 16px;
+
+			/*background-color: #f8f8f8;*/
+		}
+
+
+		body{
+			overflow: hidden;
+		}
+
+		.CodeMirror-cursor {
+        	border-left: 5px solid red;
+        }
+	</style>
+
+	<link rel="stylesheet" href="/static/css/bootstrap.min.css">
+		<link rel="stylesheet" href="/static/codemirror.net_5_addon_dialog_dialog.css">
+
+	<script src="/static/js/jquery.min.js"></script>
+	<script src="/static/js/bootstrap.min.js"></script>
+
+	
+	<style>
+		table {
+			border: solid 1px #DDEEEE;
+			border-collapse: collapse;
+			border-spacing: 0;
+			font: normal 13px Arial, sans-serif;
+		}
+		table thead th {
+			background-color: #DDEFEF;
+			border: solid 1px #DDEEEE;
+			color: #336B6B;
+			padding: 10px;
+			text-align: left;
+			text-shadow: 1px 1px 1px #fff;
+		}
+		table tbody td {
+			border: solid 1px #DDEEEE;
+			color: #333;
+			padding: 10px;
+			text-shadow: 1px 1px 1px #fff;
+		}
+	</style>
+</head>
+<body>
+
+
+	<div class="container-fluid pb-3">
+	<div class="split" style="">
+		<div id="split-0" class="bg-body rounded shadow-sm" style="width: calc(49.6516% - 5px);">
+			<div  style="display:block" id="dsSelectDiv">
+    			<select multiple style="width:100%; height: 200px; color: rgb(170, 85, 0)" id="dsSelect">
+    			    <option>mysql://root:@localhost:3306/mysql</option>
+    			</select>
+    			<button onclick="showDsTextarea(this)">Edit</button>
+    			<input id="tableNameInput" type="text" placeholder="input table name"/>
+    			<button onclick="checkTableDetail()">Table Detail</button>
+
+			</div>
+			 
+			<div style="display:none;" id="dsTextDiv">
+    			<textarea   wrap="off" style="width:100%; height: 200px; color: rgb(170, 85, 0)" id="dsTextarea">ttt</textarea>
+    			<button onclick="saveDsStr(this)">Save</button>
+			</div>
+		 
+		   
+		    <script>
+		        async function checkTableDetail(){
+		            if(tableNameInput.value){ 
+		                resultLoading.style.display="block"
+	                   	let data = new URLSearchParams();
+            			data.append( "sql", "show create table `"+tableNameInput.value+"`");
+            			data.append( "url", dsSelect.value);
+
+            			let result = await (await fetch("/functions/run-sql",
+            					{
+									headers: {'Content-Type': 'application/x-www-form-urlencoded', "HX-Request":"true"},
+									method: "POST",
+            						body: data
+            					})).text()
+            			// resultBlock.innerHTML= result.trim()
+            
+            			result.trim().split("<br/>").map(GenerateTable);
+            
+            			autodivheight();
+            			
+            			data = new URLSearchParams();
+            			data.append( "sql", "select * from  `"+tableNameInput.value+"` limit 5");
+            			data.append( "url", dsSelect.value);
+
+            			result = await (await fetch("/functions/run-sql",
+            					{
+									headers: {'Content-Type': 'application/x-www-form-urlencoded', "HX-Request":"true"},
+
+									method: "POST",
+            						body: data
+            					})).text()
+            			// resultBlock.innerHTML= result.trim()
+            
+            			result.trim().split("<br/>").map(GenerateTable);
+            
+            			autodivheight();
+            			
+            			resultLoading.style.display="none"
+		            }
+		        }
+		        function showDsTextarea(btn){
+		            dsSelectDiv.style.display="none"
+		            dsTextDiv.style.display="block"
+		        }
+		        
+		        
+		        function saveDsStr(btn){
+		            dsSelectDiv.style.display="block"
+		            dsTextDiv.style.display="none"
+		            localStorage.setItem("ds_text", dsTextarea.value)
+		            updateSelectOptions()
+		        }
+		        async function onSelectOption(){
+		            resultLoading.style.display="block"
+	                console.log(dsSelect.value)
+	            	let data = new URLSearchParams();
+        			data.append( "sql","show databases");
+        			data.append( "url", dsSelect.value);
+
+        			let result = await (await fetch("/functions/run-sql",
+        					{
+								headers: {'Content-Type': 'application/x-www-form-urlencoded', "HX-Request":"true"},
+
+								method: "POST",
+        						body: data
+        					})).text()
+        			// resultBlock.innerHTML= result.trim()
+        
+        			result.trim().split("<br/>").map(GenerateTable);
+        
+        			autodivheight();
+        			
+        			
+        		    data = new URLSearchParams();
+        			data.append( "sql", "show tables");
+        			data.append( "url", dsSelect.value);
+
+        			result = await (await fetch("/functions/run-sql",
+        					{
+								headers: {'Content-Type': 'application/x-www-form-urlencoded', "HX-Request":"true"},
+
+								method: "POST",
+        						body: data
+        					})).text()
+        			// resultBlock.innerHTML= result.trim()
+        
+        			result.trim().split("<br/>").map(GenerateTable);
+        
+        			autodivheight();
+        			
+        			resultLoading.style.display="none"
+		        }
+		        
+		        function updateSelectOptions(){
+	            	let dsStr = localStorage.getItem("ds_text");
+	            	if (dsStr){
+	            	    console.log("update select")
+	            	    dsTextarea.value = dsStr;
+	            	    while ( dsSelect.childNodes.length >= 1 )
+                        {
+                            dsSelect.removeChild(dsSelect.firstChild);       
+                        }
+	            	    dsStr.split("\n").map(line=>{
+	            	        if(line.trim()){
+                            let newOption = document.createElement('option');
+                            newOption.value=line;
+                            newOption.text=line;
+                            newOption.onclick=onSelectOption;
+                            dsSelect.appendChild(newOption);
+	            	        }
+                            
+	            	    })
+            		}
+		        }
+		        updateSelectOptions();
+		        
+		    </script>
+		
+			<div class="card">
+				<div class="card-header">
+					<button type="button"   class="btn btn-outline-secondary">Source：</button>
+					<button type="button" class="btn btn-success float-end" onclick="runSqlNew(this)" id="submitBTN">
+						Run Selected 》
+					</button>
+				</div>
+				<div class="card-body">
+					<textarea class="form-control" id="sqlInput" name="textareaCode" style="display: none;"></textarea>
+				</div>
+			</div>
+		</div>
+		<div id="split-1" class="bg-body rounded shadow-sm" style="width: calc(50.3484% - 5px);">
+			<div class="card">
+				<div class="card-header">
+					<button type="button" class="btn btn-outline-secondary">Running Result：</button>
+<!--					<button type="button" style="display: none" class="btn btn-warning float-end" id="framesize">尺寸: <span>948 x 522</span></button>-->
+				</div>
+				<div class="card-body">
+					<div id="iframeResult" style="overflow: auto">
+					    <div id="resultLoading" style="display:none">Loading...</div>
+						<div id="dvTable" style="font-size: 16px">
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+</div>
+
+
+
+<!--	<textarea id="sqlInput" style="width: 100%; height: 300px;    font-size: 18px; word-break: break-all">-->
+<!--&#45;&#45; @ds=root:123456@tcp(127.0.0.1:3306)/mysql-->
+<!--show tables-->
+<!--	</textarea>-->
+<!--	<button type="button"  style="    margin-top: 15px; margin-left: 30px;"  class="btn btn-success"   onclick="runSql(this)"  >Run Selected</button>-->
+
+<!--	<input type="button" onclick="runSql(this)" value="Run Selected"/>-->
+
+<!--	<hr/>-->
+<!--	<pre id="resultBlock" style="    font-size: 18px;"></pre>-->
+<!--	<div id="dvTable" style="font-size: 16px">-->
+<!--	</div>-->
+
+	<script>
+
+		window.editor = CodeMirror.fromTextArea(document.getElementById('sqlInput'), {
+			mode: "text/x-mysql",
+			indentWithTabs: true,
+			smartIndent: true,
+			lineNumbers: true,
+			matchBrackets : true,
+			autofocus: false,
+			styleActiveLine: {nonEmpty: true},
+            styleActiveSelected: true,
+
+			//extraKeys: {"Ctrl-Space": "autocomplete"},
+			// hintOptions: {tables: {
+			// 		users: ["name", "score", "birthDate"],
+			// 		countries: ["name", "population", "size"]
+			// 	}}
+		}); 
+		window.editor.on('blur', function () { $(".CodeMirror-cursors").css('visibility', 'visible'); });
+
+		
+// 		CodeMirror.on(window.editor, "cursorActivity", (instance, obj)=>{        
+//             console.log(instance.doc.getCursor())
+//         } )
+
+
+		let KEY_EXEC_PATH= "sql_runner.sql"
+
+		if(localStorage.getItem(KEY_EXEC_PATH)){
+			editor.getDoc().setValue(localStorage.getItem(KEY_EXEC_PATH))
+		}
+        function getSelectValues(select) {
+          var result = [];
+          var options = select && select.options;
+          var opt;
+        
+          for (var i=0, iLen=options.length; i<iLen; i++) {
+            opt = options[i];
+        
+            if (opt.selected) {
+              result.push(opt.value || opt.text);
+            }
+          }
+          return result;
+        }
+        
+        async function runSqlNew(btn){
+            let dsArr = getSelectValues(dsSelect)
+            for(let i in dsArr.reverse()){
+                await runSql(btn, dsArr[i])
+            }
+        }
+        
+        async function formatStr(s){
+        
+            let data = new URLSearchParams();
+            data.append( "s", s);
+    
+            let result = await (await fetch("/functions/str-joiner",
+                {
+                    method: "POST",
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'Hx-Request':"true"},
+                    body: data
+                })).text();
+            return result;
+        }
+
+
+		async function runSql(btn, dsText){
+		    let ranges = window.editor.listSelections()
+		    console.log(ranges)
+		    let lines = window.editor.getValue().split("\n")
+		    let ss = ""
+		    for (let range of ranges){
+		         let from = Math.min(range.anchor.line, range.head.line)
+ 		         let to = Math.max(range.anchor.line, range.head.line)
+
+ 		         for(let i=from;i<=to;i++){
+ 		             ss+=lines[i]+"\n"
+ 		         }
+
+		    }
+		    
+		    console.log("-------")
+		    console.log(ss) 
+		    
+			let txt = ss; //window.getSelection ? window.getSelection().toString() : document.selection.creatRange().text;
+			//dvTable.innerHTML = "";
+			if(!txt){
+				GenerateTable("Error : Please select some SQL and @ds text firstly!")
+				return;
+			}
+
+// 			btn.setAttribute("disabled","disabled")
+			btn.innerText="Running..."
+
+
+			localStorage.setItem(KEY_EXEC_PATH,editor.getDoc().getValue())
+
+			let data = new URLSearchParams();
+			data.append( "sql", await formatStr(txt) );
+			data.append( "url", dsText);
+
+			let result = await (await fetch("/functions/run-sql",
+					{
+						headers: {'Content-Type': 'application/x-www-form-urlencoded', "HX-Request":"true"},
+
+						method: "POST",
+						body: data
+					})).text()
+			// resultBlock.innerHTML= result.trim()
+
+
+
+			btn.removeAttribute("disabled")
+			btn.innerText="Run Selected"
+
+			GenerateTable(result);
+
+
+			autodivheight();
+
+		}
+	</script>
+
+	<script type="text/javascript">
+		function GenerateTable(table_html) {
+            iframeResult.scrollTop=0;
+
+
+			let  dvTable = document.getElementById("dvTable");
+			let div = document.createElement("div");
+			div.innerHTML = table_html;
+			dvTable.prepend(document.createElement("hr"))
+			dvTable.prepend(div);
+		}
+
+
+
+	</script>
+
+	<script>
+
+
+		window.addEventListener("resize", autodivheight);
+
+		var x = 0;
+		function autodivheight(){
+			var winHeight=0;
+			if (window.innerHeight) {
+				winHeight = window.innerHeight;
+			} else if ((document.body) && (document.body.clientHeight)) {
+				winHeight = document.body.clientHeight;
+			}
+			//通过深入Document内部对body进行检测，获取浏览器窗口高度
+			if (document.documentElement && document.documentElement.clientHeight) {
+				winHeight = document.documentElement.clientHeight;
+			}
+			let height = winHeight*0.8
+			editor.setSize('100%', height);
+			document.getElementById("iframeResult").style.height= height +"px";
+
+		}
+
+
+		autodivheight();
+
+		Split(['#split-0', '#split-1']);
+
+
+
+	</script>
+</body>
+</html>

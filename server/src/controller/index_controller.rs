@@ -37,7 +37,7 @@ async fn redis_test(s: S) -> R<String> {
 
 async fn test(s: S) -> HTML {
     // template!(s, "test.html", json!({"name":"zzp"}))
-    template!(s, "index.html", "test.html", json!({"name":"zzp"}))
+    template!(s, "test.html", json!({"name":"zzp"}))
 }
 
 

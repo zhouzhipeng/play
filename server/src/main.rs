@@ -1,5 +1,6 @@
 use std::{fs, io};
 use std::path::Path;
+use std::time::Duration;
 use axum::body::Body;
 use axum::http::Request;
 
@@ -69,6 +70,7 @@ async fn main() {
         use notify::Watcher;
         info!("tower-livereload is enabled!");
         let  livereload = LiveReloadLayer::new();
+        let livereload = livereload.reload_interval(Duration::from_secs(3));
         let livereload = livereload.request_predicate::<Body, NotHxRequest>(NotHxRequest {});
         let reloader = livereload.reloader();
         watcher = notify::recommended_watcher(move |_| {

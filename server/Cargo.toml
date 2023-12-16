@@ -6,7 +6,7 @@ edition = "2021"
 
 [features]
 default=["dev"]
-dev=["sqlx","sqlx/sqlite", "bb8-redis"]
+dev=["sqlx","sqlx/sqlite","sqlx/mysql", "bb8-redis"]
 prod=["sqlx","sqlx/mysql", "bb8-redis"]#"bb8-redis-cluster" should be used, (for test now)
 debug=["tower-livereload","notify"]  # to active live reload
 

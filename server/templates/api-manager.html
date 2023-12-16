@@ -587,7 +587,7 @@
         let result = await (await fetch("/functions/str-joiner",
             {
                 method: "POST",
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                headers: {'Content-Type': 'application/x-www-form-urlencoded', "HX-Request":"true"},
                 body: data
             })).text();
         return result;
@@ -640,7 +640,7 @@
 
         let isRespJson = false;
         fetch("/functions/run-http-request", {
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            headers: {'Content-Type': 'application/x-www-form-urlencoded', "HX-Request":"true"},
             method: "POST",
             body: data
         }).then(res => {
