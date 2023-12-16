@@ -3913,6 +3913,7 @@ dependencies = [
  "crossbeam-channel",
  "current_platform",
  "dashmap",
+ "either",
  "fancy-regex",
  "fs_extra",
  "futures",

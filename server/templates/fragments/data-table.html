@@ -19,8 +19,10 @@
             <td>
                 % if link_table_detail:
                 <a href="javascript:;" onclick="checkTableDetail('{{row}}')">{{row}}</a>
+                % elif '\n' in row:
+                <pre>{{row}}</pre>
                 % else:
-                {{row.replace('\n', '<br>')}}
+                {{row}}
                 % end
             </td>
             % end
@@ -29,5 +31,5 @@
     </tbody>
 </table>
 %else:
-<h3>Not Data.</h3>
+<h3>No Data.</h3>
 %end

@@ -4,13 +4,16 @@ use std::time::Duration;
 use anyhow::anyhow;
 
 use axum::{Form, Json, Router};
+use axum::body::HttpBody;
 use axum::http::HeaderMap;
 use axum::routing::post;
+use either::Either;
+use futures_util::{StreamExt, TryStreamExt};
 use reqwest::ClientBuilder;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use sqlx::mysql::MySqlPoolOptions;
-use sqlx::{Executor, MySqlPool};
+use sqlx::mysql::{MySqlPoolOptions, MySqlQueryResult, MySqlRow};
+use sqlx::{Error, Executor, MySqlPool};
 
 use crate::{AppState, template};
 use crate::controller::{HTML, JSON, render_fragment, S, Template};
@@ -120,27 +123,43 @@ async  fn query_mysql(url: &str, sql: &str)->anyhow::Result<Vec<Vec<String>>>{
         .connect(url).await?;
 
     let mut conn = db.acquire().await?;
-    let rows = conn.fetch_all(sql).await?;
     let mut  data = vec![];
-    if !rows.is_empty(){
-        let column_data = (&rows[0].columns()).iter().map(|column|column.name().to_string()).collect::<Vec<String>>();
-        data.push(column_data);
-    }
+    let mut column_handled = false;
+    // conn.fetch_all()
+    use futures_util::FutureExt;
+    let results : Vec<Either<MySqlQueryResult, MySqlRow>>= conn.fetch_many(sql).try_collect().boxed().await?;
+    for v in results {
+        match v{
+            Either::Left(r) => {
+                if !column_handled{
+                    data.push(vec!["Rows Affected".to_string()]);
+                    data.push(vec![r.rows_affected().to_string()]);
+                }
 
-    for row in &rows {
-        let mut row_data = vec![];
+            }
+            Either::Right(row) => {
+                if !column_handled{
+                    column_handled=true;
+                    let column_data = (&row.columns()).iter().map(|column|column.name().to_string()).collect::<Vec<String>>();
+                    data.push(column_data);
+                }
+                let mut row_data = vec![];
+                for i in 0..row.columns().len() {
+                    let column = row.column(i);
+                    let column_name = column.name();
+                    // println!("name >> {}", column_name);
+                    let val:String = row.try_get_unchecked(i).unwrap_or("NULL".to_string());
+                    // println!("value >> {:?}", val);
+                    row_data.push(val);
+                }
 
-        for i in 0..row.columns().len() {
-            let column = row.column(i);
-            let column_name = column.name();
-            // println!("name >> {}", column_name);
-            let val:String = row.try_get_unchecked(i).unwrap_or("NULL".to_string());
-            // println!("value >> {:?}", val);
-            row_data.push(val);
+                data.push(row_data);
+
+            }
         }
-
-        data.push(row_data);
     }
+
+
     Ok(data)
 }
 
