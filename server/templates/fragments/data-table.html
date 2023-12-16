@@ -18,7 +18,7 @@
             % for row in rows:
             <td>
                 % if link_table_detail:
-                <a href="javascript:;" onclick="checkTableDetail('{{row}}')">{{row.replace('\n', '<br>')}}</a>
+                <a href="javascript:;" onclick="checkTableDetail('{{row}}')">{{row}}</a>
                 % else:
                 {{row.replace('\n', '<br>')}}
                 % end
