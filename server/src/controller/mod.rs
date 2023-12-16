@@ -141,8 +141,14 @@ pub enum Template {
 #[macro_export]
 macro_rules! init_template {
     ($fragment: expr) => {
+        {
+            use crate::py_runner::TEMPLATES_DIR;
 
-        crate::controller::Template::StaticTemplate { name: $fragment, content: include_str!(crate::file_path!(concat!("/templates/",  $fragment))) }
+            let content = TEMPLATES_DIR.get_file($fragment).unwrap().contents_utf8().unwrap();
+            crate::controller::Template::StaticTemplate { name: $fragment, content: content }
+
+        }
+
     };
 }
 
@@ -152,10 +158,12 @@ macro_rules! init_template {
     ($fragment: expr) => {
         {
             use std::fs;
-            //for compiling time check file existed or not.
-           crate::controller::Template::StaticTemplate { name: $fragment, content: include_str!(crate::file_path!(concat!("/templates/",  $fragment))) };
+            use crate::py_runner::TEMPLATES_DIR;
 
-           crate::controller::Template::DynamicTemplate { name: $fragment.to_string(), content: fs::read_to_string(crate::file_path!(concat!("/templates/",  $fragment))).unwrap() }
+            //for compiling time check file existed or not.
+            include_str!(crate::file_path!(concat!("/templates/",  $fragment)));
+
+            crate::controller::Template::DynamicTemplate { name: $fragment.to_string(), content: fs::read_to_string(crate::file_path!(concat!("/templates/",  $fragment))).unwrap() }
 
         }
 

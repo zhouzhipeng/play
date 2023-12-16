@@ -361,16 +361,17 @@ def set_debug_mode(mode: bool):
     global  debug_mode
     debug_mode = mode
     print("simple_template >> set debug mode = "+ str(mode))
+
+import foo  # rust module.
 def include(file_name: str, **kwargs)->str:
-    # to prevent forgetting to call `cache_template`
-    if file_name not in cached_or_not:
-        raise Exception("template not found: "+ file_name+",  pls call cache_template firstly!")
     if debug_mode:
-        import foo
         clear_cache(file_name)
         content = foo.read_file(file_name)
     else:
-        content = global_cache[file_name]
+        if file_name in global_cache:
+            content = global_cache[file_name]
+        else:
+            content = foo.read_file(file_name)
 
     return render_tpl(content, file_name, kwargs)
 
