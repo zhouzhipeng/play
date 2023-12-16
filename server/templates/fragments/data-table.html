@@ -1,11 +1,7 @@
 <h4>{{sql}}</h4>
 
-<%
-link_table_detail= False
-if sql == "show tables":
-link_table_detail = True
-end
-%>
+% link_table_detail = True if sql == "show tables" else False
+
 
 % if items:
 <table>
