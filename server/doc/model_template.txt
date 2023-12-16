@@ -16,6 +16,8 @@ def judge_rust_type(db_type):
 		return "String"
 	elif 'text' in db_type:
 		return "String"
+	elif 'datetime' in db_type:
+		return "String"
 	end
 end
 
@@ -106,6 +108,12 @@ impl {{model}} {
         //todo: this is just a template code, write your own business.
         sqlx::query_as::<_, {{model}}>("SELECT * FROM {{table}} where {{columns[1]['name']}} = ?")
             .bind(&q.{{columns[1]['name']}})
+            .fetch_all(pool)
+            .await
+    }
+    pub async fn query_all(pool: &DBPool) -> Result<Vec<{{model}}>, Error> {
+        //todo: this is just a template code, write your own business.
+        sqlx::query_as::<_, {{model}}>("SELECT * FROM {{table}}")
             .fetch_all(pool)
             .await
     }

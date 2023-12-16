@@ -25,6 +25,7 @@ pub mod article;
 pub mod template_controller;
 pub mod function_controller;
 pub mod todo_controller;
+pub mod api_entry_controller;
 
 
 type R<T> = Result<T, AppError>;
@@ -54,6 +55,7 @@ pub fn routers(app_state: Arc<AppState>) -> Router {
         .merge(template_controller::init())
         .merge(function_controller::init())
         .merge(todo_controller::init())
+        .merge(api_entry_controller::init())
         //register your new controller here
         .with_state(app_state)
         .merge(static_controller::init())

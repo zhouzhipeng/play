@@ -31,6 +31,7 @@ macro_rules! file_path {
 macro_rules! check {
     ($($tt:tt)*) => {
         {
+            use anyhow::ensure;
             (||{
                 ensure!($($tt)*);
                 Ok(())
