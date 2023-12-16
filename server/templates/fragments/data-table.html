@@ -1,0 +1,37 @@
+<h4>{{sql}}</h4>
+
+<%
+link_table_detail= False
+if sql == "show tables":
+link_table_detail = True
+end
+%>
+
+% if items:
+<table>
+    <thead>
+    <tr>
+        % for column in items[0]:
+        <th>{{column}}</th>
+        % end
+    </tr>
+    </thead>
+    <tbody>
+        % for rows in items[1:]:
+        <tr>
+            % for row in rows:
+            <td>
+                % if link_table_detail:
+                <a href="javascript:;" onclick="checkTableDetail('{{row}}')">{{row.replace('\n', '<br>')}}</a>
+                % else:
+                {{row.replace('\n', '<br>')}}
+                % end
+            </td>
+            % end
+        </tr>
+        % end
+    </tbody>
+</table>
+%else:
+<h3>Not Data.</h3>
+%end

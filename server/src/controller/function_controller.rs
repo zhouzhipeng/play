@@ -102,10 +102,12 @@ struct RunSqlRequest {
 }
 
 async fn run_sql(s: S, Form(data): Form<RunSqlRequest>) -> HTML {
-    let data = query_mysql(&data.url, &data.sql).await?;
+    let sql = data.sql.trim();
+    let data = query_mysql(&data.url.trim(), sql).await?;
     println!("results >> {:?}", data);
 
-    template!(s, "fragments/sql_data.html", json!({
+    template!(s, "fragments/data-table.html", json!({
+        "sql": sql,
         "items" : data
     }))
 }
@@ -132,7 +134,7 @@ async  fn query_mysql(url: &str, sql: &str)->anyhow::Result<Vec<Vec<String>>>{
             let column = row.column(i);
             let column_name = column.name();
             // println!("name >> {}", column_name);
-            let val:String = row.try_get_unchecked(i)?;
+            let val:String = row.try_get_unchecked(i).unwrap_or("NULL".to_string());
             // println!("value >> {:?}", val);
             row_data.push(val);
         }

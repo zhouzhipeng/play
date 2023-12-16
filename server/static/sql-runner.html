@@ -172,7 +172,7 @@
 			border: solid 1px #DDEEEE;
 			border-collapse: collapse;
 			border-spacing: 0;
-			font: normal 13px Arial, sans-serif;
+			/*font: normal 13px Arial, sans-serif;*/
 		}
 		table thead th {
 			background-color: #DDEFEF;
@@ -200,24 +200,24 @@
     			<select multiple style="width:100%; height: 200px; color: rgb(170, 85, 0)" id="dsSelect">
     			    <option>mysql://root:@localhost:3306/mysql</option>
     			</select>
-    			<button onclick="showDsTextarea(this)">Edit</button>
-    			<input id="tableNameInput" type="text" placeholder="input table name"/>
-    			<button onclick="checkTableDetail()">Table Detail</button>
+    			<button onclick="showDsTextarea(this)"  class="btn btn-success">Edit Datasource</button>
+<!--    			<input id="tableNameInput" type="text" class="form-text" placeholder="input table name"/>-->
+<!--    			<button onclick="checkTableDetail()"  class="btn btn-success">Table Detail</button>-->
 
 			</div>
 			 
 			<div style="display:none;" id="dsTextDiv">
     			<textarea   wrap="off" style="width:100%; height: 200px; color: rgb(170, 85, 0)" id="dsTextarea">ttt</textarea>
-    			<button onclick="saveDsStr(this)">Save</button>
+    			<button onclick="saveDsStr(this)"   class="btn btn-success">Save</button>
 			</div>
 		 
 		   
 		    <script>
-		        async function checkTableDetail(){
-		            if(tableNameInput.value){ 
+		        async function checkTableDetail(table_name){
+		            if(table_name){
 		                resultLoading.style.display="block"
 	                   	let data = new URLSearchParams();
-            			data.append( "sql", "show create table `"+tableNameInput.value+"`");
+            			data.append( "sql", "show create table `"+table_name+"`");
             			data.append( "url", dsSelect.value);
 
             			let result = await (await fetch("/functions/run-sql",
@@ -233,7 +233,7 @@
             			autodivheight();
             			
             			data = new URLSearchParams();
-            			data.append( "sql", "select * from  `"+tableNameInput.value+"` limit 5");
+            			data.append( "sql", "select * from  `"+table_name+"` limit 5");
             			data.append( "url", dsSelect.value);
 
             			result = await (await fetch("/functions/run-sql",
