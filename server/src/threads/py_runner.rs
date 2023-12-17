@@ -89,6 +89,9 @@ pub async fn run(req_receiver: Receiver<TemplateData>) -> ! {
         set_var("PYTHONHOME", "output_dir"); //just to supress warning logs.
     }
 
+    #[cfg(not(feature = "use_embed_python"))]
+    info!("use system python!");
+
 
     //init
     pyo3::append_to_inittab!(foo);

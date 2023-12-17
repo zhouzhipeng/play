@@ -8,7 +8,7 @@ use axum::routing::{get, post};
 use serde::Deserialize;
 use serde_json::json;
 
-use crate::{AppState, check, template};
+use crate::{AppState, check, get_last_insert_id, template};
 use crate::controller::{HTML, S};
 use crate::tables::todo_item::{AddTodoItem, TodoItem, UpdateTodoItem};
 
@@ -71,7 +71,7 @@ async fn add_todo(s: S , Form(add_todo): Form<AddTodoReq>) -> HTML {
     check!(r.rows_affected()==1 , "insert error!");
 
 
-    let items = TodoItem::get_by_id(r.last_insert_rowid() as u32, &s.db).await?;
+    let items = TodoItem::get_by_id(get_last_insert_id!(r) as u32, &s.db).await?;
     check!(items.len()==1 , "get_by_id error!");
 
     template!(s, "todo/fragments/todo_item.html", json!({

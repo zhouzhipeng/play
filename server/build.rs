@@ -40,6 +40,7 @@ fn main() {
         copy_wasm_files();
 
         //generate python artifacts
+        #[cfg(feature = "use_embed_python")]
         build_python_artifacts();
     }
 

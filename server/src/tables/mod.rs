@@ -26,6 +26,25 @@ pub type DBPool = Pool<MySql>;
 #[cfg(ENV =  "prod")]
 pub type DBQueryResult = MySqlQueryResult;
 
+#[cfg(ENV =  "dev")]
+#[macro_export]
+macro_rules! get_last_insert_id {
+    ($t: expr) => {
+        $t.last_insert_rowid()
+    }
+}
+#[cfg(ENV =  "prod")]
+#[macro_export]
+macro_rules! get_last_insert_id {
+    ($t: expr) => {
+        {
+            $t.last_insert_id() as i64
+        }
+    }
+}
+
+
+
 #[cfg(ENV =   "dev")]
 pub async fn init_pool(config : &Config) -> DBPool {
 
