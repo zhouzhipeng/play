@@ -8,7 +8,7 @@ use axum::routing::get;
 use serde_json::json;
 
 use crate::AppState;
-use crate::controller::{R, S};
+use crate::{R, S};
 
 //remember to register 'init' in mod.rs
 pub fn init() -> Router<Arc<AppState>> {

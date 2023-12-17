@@ -13,7 +13,7 @@ use pyo3::prelude::*;
 use tracing::{error, info, warn};
 
 use crate::{file_path, TemplateData};
-use crate::controller::Template;
+use crate::Template;
 use shared::utils::parse_create_sql;
 
 

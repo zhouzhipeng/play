@@ -1,6 +1,6 @@
 use axum_test::TestServer;
 
-use play::controller::routers;
+use play::routers;
 use play::init_app_state;
 use play::tables::user::User;
 use shared::models::user::{AddUser, QueryUser, UpdateUser};

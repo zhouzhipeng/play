@@ -7,7 +7,7 @@ use axum::routing::get;
 use tracing::info;
 
 use crate::{AppState, CONFIG};
-use crate::controller::{R, S};
+use crate::{R, S};
 use shared::models::user::{ADD_USER, AddUser, QueryUser, UpdateUser, USER_LIST};
 use crate::tables::user::User;
 

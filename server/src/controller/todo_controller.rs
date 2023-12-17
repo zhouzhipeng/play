@@ -9,7 +9,7 @@ use serde::Deserialize;
 use serde_json::json;
 
 use crate::{AppState, check, get_last_insert_id, template};
-use crate::controller::{HTML, S};
+use crate::{HTML, S};
 use crate::tables::todo_item::{AddTodoItem, TodoItem, UpdateTodoItem};
 
 pub fn init() -> Router<Arc<AppState>> {

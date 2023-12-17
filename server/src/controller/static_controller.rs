@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use anyhow::anyhow;
 use axum::body;
 use axum::body::{Empty, Full};
@@ -9,11 +10,11 @@ use axum::routing::get;
 use include_dir::{Dir, include_dir};
 use tower_http::services::ServeDir;
 
-use crate::controller::AppError;
+use crate::{AppError, AppState, S};
 
 static STATIC_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/static");
 
-pub fn init() -> Router {
+pub fn init() -> Router<Arc<AppState>> {
     #[cfg(not(feature = "debug"))]
     {Router::new().route("/static/*path", get(static_path))}
 
@@ -22,7 +23,7 @@ pub fn init() -> Router {
 }
 
 
-async fn static_path(Path(path): Path<String>) -> impl IntoResponse {
+async fn static_path(s: S, Path(path): Path<String>) -> impl IntoResponse {
     let path = path.trim_start_matches('/');
     let mime_type = mime_guess::from_path(path).first_or_text_plain();
 

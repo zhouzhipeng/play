@@ -4,7 +4,7 @@ use async_channel::{Sender};
 use serde_json::Value;
 use tracing::error;
 
-use crate::controller::Template;
+use crate::Template;
 
 pub struct TemplateData {
     pub template: Template,
@@ -33,8 +33,8 @@ impl TemplateService {
         return match receiver.recv().await {
             Ok(s) => Ok(s),
             Err(e) => {
-                error!("receiv error : {:?}", e.to_string());
-                bail!("receiv error!")
+                error!("receive error : {:?}", e.to_string());
+                bail!("receive error!")
             }
         }
     }

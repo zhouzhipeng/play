@@ -8,7 +8,7 @@ use serde_json::json;
 use shared::constants::API_EXECUTE_SQL;
 
 use crate::{AppState, template};
-use crate::controller::{HTML, R, S};
+use crate::{HTML, R, S};
 use crate::tables::article::Article;
 
 pub fn init() -> Router<Arc<AppState>> {

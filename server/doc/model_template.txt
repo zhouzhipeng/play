@@ -117,14 +117,12 @@ pub async fn query_all(pool: &DBPool) -> Result<Vec<{{model}}>, Error> {
 mod tests {
     use crate::tables::init_test_pool;
 
-    // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
 
     #[tokio::test]
     async fn test_all() -> anyhow::Result<()> {
+        //the test pool is just a memory sqlite.
         let pool = init_test_pool().await;
-
-        todo!();
 
         //todo: uncomment below code and write your tests.
         /*

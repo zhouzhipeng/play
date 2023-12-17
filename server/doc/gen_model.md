@@ -1,13 +1,10 @@
-## how to use 
-[model_template.txt](model_template.txt)
-
-
-> visit `String Joiner` page
-
-1. copy model_template.txt content into input area.
-2. copy your 'create table' sql into top main input area.
-3. run and copy result.
 
 ## principle
 * you should always maintain both `db_mysql.sql` and `db_sqlite.sql` at the same time.
 * write unit tests always.
+
+## auto generate new model
+if you defined a new table ddl in [db_sqlite.sql](db_sqlite.sql) file,
+and `cargo build --features=debug` will generate a new {table}.rs file under
+`src/tables`, if u want to re-generate it , just delete the file and build again,
+but always remember to use `git` to control the versions.

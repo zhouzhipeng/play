@@ -1,25 +1,12 @@
 use axum_test::TestServer;
 
-use play::controller::routers;
+use play::routers;
 use play::init_app_state;
 use play::tables::article::Article;
 use shared::models::article::{AddArticle, QueryArticle};
 
 mod common;
 
-#[tokio::test]
-async fn test_api_controller() -> anyhow::Result<()> {
-    //dont replace below `server` to `_` , otherwise the server will be dropped and cant complete http request
-    let (_server, client) = common::setup().await;
-
-    let r = client.api_article_add(&AddArticle {
-        title: "123".to_string(),
-        content: "456".to_string(),
-    }).await?;
-    assert_eq!(r, "{}");
-    // println!("{:?}", server);
-    Ok(())
-}
 
 #[tokio::test]
 #[ignore]

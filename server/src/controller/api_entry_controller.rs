@@ -7,7 +7,7 @@ use serde::Deserialize;
 use serde_json::json;
 
 use crate::{AppState, check, template};
-use crate::controller::{HTML, JSON, R, S};
+use crate::{HTML, JSON, R, S};
 use crate::tables::api_entry::{ApiEntry, UpdateApiEntry};
 
 pub fn init() -> Router<Arc<AppState>> {

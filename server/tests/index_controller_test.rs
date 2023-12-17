@@ -1,7 +1,7 @@
 use anyhow::Context;
 use axum_test::TestServer;
 
-use play::controller::routers;
+use play::routers;
 use play::init_app_state;
 
 #[tokio::test]

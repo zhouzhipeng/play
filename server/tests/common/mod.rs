@@ -1,6 +1,6 @@
 use axum_test::{TestServer, TestServerConfig, Transport};
 use shared::models::{RequestClient};
-use play::controller::routers;
+use play::routers;
 use play::init_app_state;
 
 pub async fn setup() -> (TestServer, RequestClient) {

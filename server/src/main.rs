@@ -15,7 +15,7 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
 use play::{CONFIG, file_path, init_app_state, start_server};
-use play::controller::routers;
+use play::routers;
 
 
 

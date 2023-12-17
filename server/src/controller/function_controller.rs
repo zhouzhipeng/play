@@ -17,7 +17,7 @@ use sqlx::mysql::{MySqlPoolOptions, MySqlQueryResult, MySqlRow};
 use sqlx::{Error, Executor, MySqlPool};
 
 use crate::{AppState, check, template};
-use crate::controller::{HTML, JSON, render_fragment, S, Template};
+use crate::{HTML, JSON, render_fragment, S, Template};
 
 pub fn init() -> Router<Arc<AppState>> {
     Router::new()
