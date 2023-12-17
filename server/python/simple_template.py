@@ -341,7 +341,8 @@ def render_tpl_with_str_args(source: str, filename: str, str_args: str, use_cach
     if not use_cache:
         clear_cache(filename)
     r = render_tpl(source, filename, json.loads(str_args))
-
+    if not use_cache:
+        clear_cache(filename)
     return r
 
 
@@ -360,8 +361,9 @@ def set_debug_mode(mode: bool):
     debug_mode = mode
     print("simple_template >> set debug mode = "+ str(mode))
 
-import foo  # rust module.
+
 def include(file_name: str, **kwargs)->str:
+    import foo  # rust module.
     if debug_mode:
         clear_cache(file_name)
         content = foo.read_file(file_name)

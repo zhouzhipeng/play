@@ -1,38 +1,30 @@
 <%
-if not locals().get("s"):
-    s = '''
-        create table IF NOT EXISTS article(
-            id integer primary key,
-            title varchar(255) not null,
-            content text
-        );
-        '''
-end
-
 def judge_rust_type(db_type):
+	db_type  = db_type.lower()
 	if db_type=="integer":
-		return "i64"
+	    return "i64"
 	elif 'varchar' in db_type:
-		return "String"
+	    return "String"
 	elif 'text' in db_type:
-		return "String"
+	    return "String"
 	elif 'datetime' in db_type:
-		return "String"
+	    return "String"
 	end
 end
 
 
-data = f('parse_sql', create_sql=s)
-table= data['table']
+data = table_info
+table= data['table_name']
 # underscore --> camel
 model=''.join(x.capitalize() or '_' for x in table.split('_'))
-columns = data['cols']
-pk_type=judge_rust_type(columns[0]['type'])
+columns = data['columns']
+pk_type = judge_rust_type(columns[0]['ty'])
 pk_name = columns[0]['name']
 insert_col_names = ",".join(c['name']  for c in columns[1:])
 insert_col_qmark = ",".join("?"  for c in columns[1:])
 update_cols_qmark = ",".join(c['name']+"=?"  for c in columns[1:])
 %>
+
 use serde::{Deserialize, Serialize};
 use sqlx::{Error, FromRow};
 
@@ -40,82 +32,82 @@ use crate::tables::{DBPool, DBQueryResult};
 
 #[derive(Clone, FromRow, Debug, Serialize, Deserialize)]
 pub struct {{model}} {
-	%for c in columns:
-	pub {{c['name']}}: {{judge_rust_type(c['type'])}},
-	%end
+    %for c in columns:
+    pub {{c['name']}}: {{judge_rust_type(c['ty'])}},
+    %end
 }
 
 #[derive(Serialize,Deserialize)]
 pub struct Add{{model}} {
-	%for c in columns[1:]:
-	pub {{c['name']}}: {{judge_rust_type(c['type'])}},
-	%end
+    %for c in columns[1:]:
+    pub {{c['name']}}: {{judge_rust_type(c['ty'])}},
+    %end
 }
 
 #[derive(Serialize,Deserialize)]
 pub struct Update{{model}} {
-	%for c in columns[1:]:
-	pub {{c['name']}}: {{judge_rust_type(c['type'])}},
-	%end
+    %for c in columns[1:]:
+    pub {{c['name']}}: {{judge_rust_type(c['ty'])}},
+    %end
 }
 
 #[derive(Serialize,Deserialize)]
 pub struct Query{{model}} {
     %c =columns[1]
-	pub {{c['name']}}: {{judge_rust_type(c['type'])}},
+    pub {{c['name']}}: {{judge_rust_type(c['ty'])}},
 
 }
 
 #[derive(Serialize,Deserialize)]
 pub struct {{model}}Vo {
-	%for c in columns:
-	pub {{c['name']}}: {{judge_rust_type(c['type'])}},
-	%end
+    %for c in columns:
+    pub {{c['name']}}: {{judge_rust_type(c['ty'])}},
+    %end
 }
 
 
 impl {{model}} {
-    pub async fn insert(t: Add{{model}}, pool: &DBPool) -> Result<DBQueryResult, Error> {
-        //todo: this is just a template code, write your own business.
-        sqlx::query("INSERT INTO {{table}} ({{insert_col_names}}) VALUES ({{insert_col_qmark}})")
-        	%for c in columns[1:]:
-			.bind(&t.{{c['name']}})
-			%end
-            .execute(pool)
-            .await
-    }
+pub async fn insert(t: Add{{model}}, pool: &DBPool) -> Result<DBQueryResult, Error> {
+    //todo: this is just a template code, write your own business.
+    sqlx::query("INSERT INTO {{table}} ({{insert_col_names}}) VALUES ({{insert_col_qmark}})")
+    %for c in columns[1:]:
+    .bind(&t.{{c['name']}})
+    %end
+    .execute(pool)
+    .await
+}
 
-    pub async fn delete({{pk_name}}: {{pk_type}}, pool: &DBPool) -> Result<DBQueryResult, Error> {
-        //todo: this is just a template code, write your own business.
-        sqlx::query("DELETE from {{table}} WHERE {{pk_name}} =?")
-            .bind(&{{pk_name}})
-            .execute(pool)
-            .await
-    }
+pub async fn delete({{pk_name}}: {{pk_type}}, pool: &DBPool) -> Result<DBQueryResult, Error> {
+    //todo: this is just a template code, write your own business.
+    sqlx::query("DELETE from {{table}} WHERE {{pk_name}} =?")
+    .bind(&{{pk_name}})
+    .execute(pool)
+    .await
+}
 
-    pub async fn update({{pk_name}}: {{pk_type}}, t: Update{{model}}, pool: &DBPool) -> Result<DBQueryResult, Error> {
-        //todo: this is just a template code, write your own business.
-        sqlx::query("UPDATE {{table}} set {{update_cols_qmark}} WHERE {{pk_name}} =?")
-            %for c in columns[1:]:
-            .bind(&t.{{c['name']}})
-            %end
-            .bind(&{{pk_name}})
-            .execute(pool)
-            .await
-    }
+pub async fn update({{pk_name}}: {{pk_type}}, t: Update{{model}}, pool: &DBPool) -> Result<DBQueryResult, Error> {
+    //todo: this is just a template code, write your own business.
+    sqlx::query("UPDATE {{table}} set {{update_cols_qmark}} WHERE {{pk_name}} =?")
+    %for c in columns[1:]:
+    .bind(&t.{{c['name']}})
+    %end
+    .bind(&{{pk_name}})
+    .execute(pool)
+    .await
+}
 
-    pub async fn query(q: Query{{model}}, pool: &DBPool) -> Result<Vec<{{model}}>, Error> {
-        //todo: this is just a template code, write your own business.
-        sqlx::query_as::<_, {{model}}>("SELECT * FROM {{table}} where {{columns[1]['name']}} = ?")
-            .bind(&q.{{columns[1]['name']}})
-            .fetch_all(pool)
-            .await
-    }
-    pub async fn query_all(pool: &DBPool) -> Result<Vec<{{model}}>, Error> {
-        //todo: this is just a template code, write your own business.
-        sqlx::query_as::<_, {{model}}>("SELECT * FROM {{table}}")
-            .fetch_all(pool)
-            .await
+pub async fn query(q: Query{{model}}, pool: &DBPool) -> Result<Vec<{{model}}>, Error> {
+    //todo: this is just a template code, write your own business.
+    sqlx::query_as::<_, {{model}}>("SELECT * FROM {{table}} where {{columns[1]['name']}} = ?")
+    .bind(&q.{{columns[1]['name']}})
+    .fetch_all(pool)
+    .await
+}
+pub async fn query_all(pool: &DBPool) -> Result<Vec<{{model}}>, Error> {
+    //todo: this is just a template code, write your own business.
+    sqlx::query_as::<_, {{model}}>("SELECT * FROM {{table}}")
+    .fetch_all(pool)
+    .await
     }
 }
 
@@ -166,7 +158,7 @@ mod tests {
         }, &pool).await?;
         assert_eq!(rows.len(), 0);
 
-         */
+        */
 
 
         Ok(())

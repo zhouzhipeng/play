@@ -14,6 +14,7 @@ use tracing::{error, info, warn};
 
 use crate::{file_path, TemplateData};
 use crate::controller::Template;
+use shared::utils::parse_create_sql;
 
 
 macro_rules! include_py {
@@ -53,6 +54,12 @@ fn add_one(x: i64) -> i64 {
     x + 1
 }
 #[pyfunction]
+fn parse_create_sql_str(sql: String) -> String {
+    let info =parse_create_sql(&sql);
+    serde_json::to_string(&info).unwrap_or("parse failed.".to_string())
+}
+
+#[pyfunction]
 fn read_file(filename : String) -> String {
     // info!("read file {} from python call", filename);
 
@@ -68,6 +75,7 @@ fn read_file(filename : String) -> String {
 fn foo(_py: Python<'_>, foo_module: &PyModule) -> PyResult<()> {
     foo_module.add_function(wrap_pyfunction!(add_one, foo_module)?)?;
     foo_module.add_function(wrap_pyfunction!(read_file, foo_module)?)?;
+    foo_module.add_function(wrap_pyfunction!(parse_create_sql_str, foo_module)?)?;
     Ok(())
 }
 

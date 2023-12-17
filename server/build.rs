@@ -7,12 +7,16 @@ use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 
 use fs_extra::dir::CopyOptions;
+use pyo3::{Py, PyAny, PyResult, Python};
+use pyo3::prelude::PyModule;
 use pyoxidizerlib::environment::Environment;
 use pyoxidizerlib::projectmgmt;
+use serde_json::json;
 use walkdir::WalkDir;
 use wasm_pack::command::build::{BuildOptions, Target};
 use wasm_pack::command::run_wasm_pack;
 use zip_archive::Archiver;
+use shared::utils::parse_create_sql;
 
 
 const HOOKS_PATH: &str = "../.git/hooks";
@@ -42,6 +46,9 @@ fn main() {
         //generate python artifacts
         #[cfg(feature = "use_embed_python")]
         build_python_artifacts();
+
+        #[cfg(feature = "debug")]
+        gen_db_models_code();
     }
 
 
@@ -202,4 +209,49 @@ fn compress_directory(dir: &PathBuf, zip_file: &PathBuf) {
     archiver.set_thread_count(thread_count);
 
     archiver.archive().expect("compress error!");
+}
+
+fn gen_db_models_code(){
+
+    let sql = include_str!("doc/db_sqlite.sql");
+    let table_info = parse_create_sql(sql);
+    let ss = format!("table infos >> {:?}", table_info);
+
+    pyo3::prepare_freethreaded_python();
+    let py_app = include_str!("python/simple_template.py");
+    let model_template = include_str!("doc/model_template.txt");
+
+    Python::with_gil(|py| -> PyResult<Py<PyAny>> {
+        // let syspath: &PyList = py.import("sys")?.getattr("path")?.downcast()?;
+        // syspath.insert(0, &path)?;
+        let render_fn: Py<PyAny> = PyModule::from_code(py, py_app, "", "")?
+            .getattr("render_tpl_with_str_args")?
+            .into();
+        let set_debug_mode_fn: Py<PyAny> = PyModule::from_code(py, py_app, "", "")?
+            .getattr("set_debug_mode")?
+            .into();
+        set_debug_mode_fn.call1(py, (true,))?;
+
+        for info in table_info{
+            let args = (model_template, "<tmp>", json!({"table_info": info}).to_string(), false);
+            let r = render_fn.call1(py, args)?.to_string();
+            let dest_file = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/tables").join(format!("{}.rs", info.table_name));
+            let mod_rs = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/tables/mod.rs");
+            if !dest_file.exists(){
+                fs::write(&dest_file, r).expect(format!("create file failed! : {:?}", &dest_file).as_str());
+
+                //add to mod.rs
+                let mut mod_rs_content = fs::read_to_string(&mod_rs).expect("read tables/mod.rs failed!");
+                if !mod_rs_content.contains(format!("mod {}", info.table_name ).as_str() ){
+                    mod_rs_content = format!("{}\npub mod {};", mod_rs_content, info.table_name);
+                    fs::write(&mod_rs, mod_rs_content).expect("write tables/mod.rs failed");
+                }
+            }
+
+        }
+
+        Ok(render_fn)
+    }).expect("run python error!");
+
+
 }

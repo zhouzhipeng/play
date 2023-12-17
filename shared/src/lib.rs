@@ -9,4 +9,5 @@ pub trait MyTrait{
     fn bark(&self)->String;
 }
 
+#[cfg(feature = "macros")]
 pub use macros::*;
