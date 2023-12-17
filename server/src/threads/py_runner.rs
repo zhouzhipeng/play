@@ -87,6 +87,8 @@ pub async fn run(req_receiver: Receiver<TemplateData>) -> ! {
         zip_extract::extract(archive, "output_dir".as_ref(), false).unwrap();
         set_var("PYTHONPATH", "output_dir/stdlib");
         set_var("PYTHONHOME", "output_dir"); //just to supress warning logs.
+    }else{
+        info!("PYO3_CONFIG_FILE not set , use system python as fallback!");
     }
 
     #[cfg(not(feature = "use_embed_python"))]

@@ -110,7 +110,7 @@ struct RunSqlRequest {
 async fn run_sql(s: S, Form(data): Form<RunSqlRequest>) -> HTML {
     let sql = data.sql.trim();
     let data = query_mysql(&data.url.trim(), sql).await?;
-    println!("results >> {:?}", data);
+    // println!("results >> {:?}", data);
 
     template!(s, "fragments/data-table.html", json!({
         "sql": sql,
