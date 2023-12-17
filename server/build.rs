@@ -105,6 +105,16 @@ fn check_mod_files() {
                 if !mod_contents.contains(&expected) {
                     panic!("Error >> File {}.rs is not included in mod.rs", file_stem);
                 }
+
+                mod_contents  = mod_contents.replace(&expected, "");
+
+                if file_stem.ends_with("_controller"){
+                    if mod_contents.rfind(&file_stem).is_none(){
+                        panic!("Error >> you need to register controller: {}  in controller/mod.rs", file_stem);
+                    }
+                }
+
+
             }
         }
     }
