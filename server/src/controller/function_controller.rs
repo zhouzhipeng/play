@@ -6,6 +6,7 @@ use anyhow::anyhow;
 use axum::{Form, Json, Router};
 use axum::body::HttpBody;
 use axum::http::HeaderMap;
+use axum::response::Html;
 use axum::routing::post;
 use either::Either;
 use futures_util::{StreamExt, TryStreamExt};
@@ -15,7 +16,7 @@ use serde_json::{json, Value};
 use sqlx::mysql::{MySqlPoolOptions, MySqlQueryResult, MySqlRow};
 use sqlx::{Error, Executor, MySqlPool};
 
-use crate::{AppState, template};
+use crate::{AppState, check, template};
 use crate::controller::{HTML, JSON, render_fragment, S, Template};
 
 pub fn init() -> Router<Arc<AppState>> {
@@ -24,6 +25,8 @@ pub fn init() -> Router<Arc<AppState>> {
         .route("/functions/py-runner", post(py_runner))
         .route("/functions/run-sql", post(run_sql))
         .route("/functions/run-http-request", post(run_http_request))
+        .route("/functions/text-compare", post(text_compare))
+
 }
 
 #[derive(Deserialize)]
@@ -115,7 +118,40 @@ async fn run_sql(s: S, Form(data): Form<RunSqlRequest>) -> HTML {
     }))
 }
 
+#[derive(Deserialize,Serialize)]
+struct TextCompareReq{
+    text1: String,
+    text2: String,
+    #[serde(default="default_with_ajax")]
+    with_ajax: i32,
+}
+#[derive(Deserialize)]
+struct TextCompareRes{
+    comparison: Option<String>,
+    messageForUser: Option<String>
+}
+
+fn default_with_ajax()->i32{
+    1
+}
+
+async fn text_compare(s: S, Form(mut data): Form<TextCompareReq>) -> HTML {
+    let client = ClientBuilder::new().timeout(Duration::from_secs(3)).build()?;
+
+    data.text1 = str_joiner(s.clone(), Form(Data{ s: data.text1.to_string() })).await?.0;
+    data.text2 = str_joiner(s, Form(Data{ s: data.text2.to_string() })).await?.0;
+
+    let resp = client.post("https://text-compare.com/").form(&data).send().await?;
+    check!(resp.status().is_success(), "call https://text-compare.com/ failed.");
+    // info!("resp >> {}", resp.text().await?);
+    let res_body = resp.json::<TextCompareRes>().await?;
+    Ok(Html(res_body.comparison.unwrap_or("<h2>No Diff!</h2>".to_string())))
+    // Ok(Html("sfd".to_string()))
+}
+
 use sqlx::{Column, Row};
+use tracing::info;
+
 async  fn query_mysql(url: &str, sql: &str)->anyhow::Result<Vec<Vec<String>>>{
 
     let db = MySqlPoolOptions::new()

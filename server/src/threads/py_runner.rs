@@ -78,7 +78,9 @@ pub static TEMPLATES_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/templates"
 pub async fn run(req_receiver: Receiver<TemplateData>) -> ! {
     info!("py_runner start...");
 
+    #[cfg(feature = "use_embed_python")]
     if option_env!("PYO3_CONFIG_FILE").is_some() {
+        info!("use embed python!");
         //decompress stdlib.zip to output_dir
         let data = include_bytes!(file_path!("/python/build/stdlib.zip"));
         let archive = Cursor::new(data);

@@ -9,6 +9,7 @@ default=["dev"]
 dev=["sqlx","sqlx/sqlite","sqlx/mysql", "bb8-redis"]
 prod=["sqlx","sqlx/mysql", "bb8-redis"]#"bb8-redis-cluster" should be used, (for test now)
 debug=["tower-livereload","notify"]  # to active live reload
+use_embed_python=[]
 
 [build-dependencies]
 walkdir = "2"
@@ -65,5 +66,7 @@ regex = "1.10.2"
 fancy-regex = "0.12.0"
 async-trait = "0.1.74"
 pyo3 = { version = "0.20.0" }
-pulldown-cmark = "0.9.3"
+prettydiff = {git = "https://github.com/zhouzhipeng/prettydiff.git" }
+prettytable-rs = "0.10.0"
+structopt = "0.3.26"
 either = "1.9.0"
