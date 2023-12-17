@@ -141,6 +141,18 @@ async fn text_compare(s: S, Form(mut data): Form<TextCompareReq>) -> HTML {
     data.text1 = str_joiner(s.clone(), Form(Data{ s: data.text1.to_string() })).await?.0;
     data.text2 = str_joiner(s, Form(Data{ s: data.text2.to_string() })).await?.0;
 
+    //format json
+    if let Ok(val) = serde_json::from_str::<Value>(&data.text1){
+        if let Ok(val) = serde_json::to_string_pretty(&val){
+            data.text1 = val;
+        }
+    }
+    if let Ok(val) = serde_json::from_str::<Value>(&data.text2){
+        if let Ok(val) = serde_json::to_string_pretty(&val){
+            data.text2 = val;
+        }
+    }
+
     let resp = client.post("https://text-compare.com/").form(&data).send().await?;
     check!(resp.status().is_success(), "call https://text-compare.com/ failed.");
     // info!("resp >> {}", resp.text().await?);

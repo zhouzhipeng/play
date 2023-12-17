@@ -211,8 +211,8 @@ class BaseTemplate(object):
         self.settings = self.settings.copy()  # Copy from class variable
         self.settings.update(settings)  # Apply
 
-        if not self.source and not self.filename:
-            raise TemplateError('No template specified.')
+        # if not self.source and not self.filename:
+        #     raise TemplateError('No template specified.')
         self.prepare(**self.settings)
 
 
@@ -284,9 +284,6 @@ class SimpleTemplate(BaseTemplate):
 
     def code(self):
         source = self.source
-        if not source:
-            with open(self.filename, 'rb') as f:
-                source = f.read()
         try:
             source, encoding = touni(source), 'utf8'
         except UnicodeError:
