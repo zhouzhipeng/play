@@ -41,7 +41,7 @@ fn main() {
 
         //will trigger deadlock when build --release
         //copy wasm files from `client` crate
-        copy_wasm_files();
+        // copy_wasm_files();
 
         //generate python artifacts
         #[cfg(feature = "use_embed_python")]
