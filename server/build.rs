@@ -3,7 +3,7 @@ use std::fs;
 use std::fs::File;
 use std::io::Write;
 use std::io::prelude::*;
-use std::os::unix::fs::OpenOptionsExt;
+
 use std::path::{Path, PathBuf};
 
 use fs_extra::dir::CopyOptions;
@@ -29,13 +29,16 @@ fn main() {
     if Ok("release".to_owned()) != env::var("PROFILE") {
 
         //test code.
-        test();
+        // test();
+
 
         //generate git pre-commit file.
+        #[cfg(feature = "debug")]
         gen_pre_commit();
 
 
         //check if you forgot to add your new rust file into mod.rs
+        #[cfg(feature = "debug")]
         check_mod_files();
 
 
@@ -127,7 +130,7 @@ fn gen_pre_commit() {
         .create(true)
         .write(true)
         .truncate(true)
-        .mode(0o755)
+        // .mode(0o755)
         .open(format!("{}/pre-commit", HOOKS_PATH))
         .unwrap();
 
