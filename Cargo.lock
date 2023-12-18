@@ -3924,6 +3924,7 @@ dependencies = [
  "serde",
  "serde_json",
  "shared",
+ "sqlparser",
  "sqlx",
  "tokio",
  "toml 0.8.8",

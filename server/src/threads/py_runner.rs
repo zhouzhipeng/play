@@ -83,7 +83,7 @@ fn foo(_py: Python<'_>, foo_module: &PyModule) -> PyResult<()> {
 pub static TEMPLATES_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/templates");
 
 
-pub async fn run(req_receiver: Receiver<TemplateData>) -> ! {
+pub async fn run(req_receiver: Receiver<TemplateData>) {
     info!("py_runner start...");
 
     #[cfg(feature = "use_embed_python")]
@@ -113,6 +113,8 @@ pub async fn run(req_receiver: Receiver<TemplateData>) -> ! {
     let py_app = include_py!("simple_template.py");
 
     let py_render_fn = Python::with_gil(|py| -> PyResult<Py<PyAny>> {
+
+        info!("python version  : {:?}", py.version_info());
         // let syspath: &PyList = py.import("sys")?.getattr("path")?.downcast()?;
         // syspath.insert(0, &path)?;
         let render_fn: Py<PyAny> = PyModule::from_code(py, py_app, "", "")?
@@ -137,6 +139,10 @@ pub async fn run(req_receiver: Receiver<TemplateData>) -> ! {
         let data = match req_receiver.recv().await {
             Ok(s) => s,
             Err(e) => {
+                if req_receiver.is_closed(){
+                    error!("req_receiver channel closed, so exiting py_runner thread.");
+                    break
+                }
                 warn!("req_receiver.recv error : {}", e);
                 continue;
             }
@@ -164,16 +170,32 @@ pub async fn run(req_receiver: Receiver<TemplateData>) -> ! {
             //     .getattr("render_tpl_with_str_args")?
             //     .into();
             if run_code {
-                py.run(&content, None, None)?;
+                match py.run(&content, None, None){
+                    Ok(_) => {}
+                    Err(e) => {
+                        // e.display(py);
+                        let err_msg = format!("{}{}", e.traceback(py).unwrap().format()?, e);
+                        error!("python execution error >>\n  {}",err_msg);
+                        return Ok(err_msg)
+                    }
+                };
                 Ok("ok".to_string())
             } else {
                 let args = (&content, name, data.args.to_string(), use_cache);
-                let r = py_render_fn.call1(py, args)?.to_string();
+                let r = match py_render_fn.call1(py, args){
+                    Ok(s) => s.to_string(),
+                    Err(e) => {
+                        // e.display(py);
+                        let err_msg = format!("{}{}", e.traceback(py).unwrap().format()?, e);
+                        error!("python execution error >>\n  {}",err_msg);
+                        return Ok(err_msg)
+                    }
+                };
                 Ok(r)
             }
         }){
             Ok(s) => s,
-            Err(e) => e.to_string()
+            Err(e) => e.to_string(),
         };
 
         if data.response.is_closed() {

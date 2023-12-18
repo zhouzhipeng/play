@@ -13,6 +13,8 @@ use futures_util::{StreamExt, TryStreamExt};
 use reqwest::ClientBuilder;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use sqlparser::ast::Statement;
+use sqlparser::parser::Parser;
 use sqlx::mysql::{MySqlPoolOptions, MySqlQueryResult, MySqlRow};
 use sqlx::{Error, Executor, MySqlPool};
 
@@ -56,6 +58,7 @@ struct HttpRequestData {
     headers: String,
 }
 
+#[allow(non_snake_case)]
 #[derive(Serialize)]
 struct HttpResponseData {
     Body: String,
@@ -106,10 +109,20 @@ struct RunSqlRequest {
     url: String,
     sql: String,
 }
-
+use sqlparser::dialect::GenericDialect;
 async fn run_sql(s: S, Form(data): Form<RunSqlRequest>) -> HTML {
     let sql = data.sql.trim();
-    let data = query_mysql(&data.url.trim(), sql).await?;
+    //parse sql
+    let dialect = GenericDialect {}; // or AnsiDialect
+    let statements = Parser::parse_sql(&dialect, sql)?;
+    check!(statements.len()==1, "Err >> can only pass one sql statement!");
+
+    let is_query=match statements[0] {
+        Statement::Query(_) => true,
+        _=>false,
+    };
+
+    let data = query_mysql(&data.url.trim(), sql, is_query).await?;
     // println!("results >> {:?}", data);
 
     template!(s, "fragments/data-table.html", json!({
@@ -125,6 +138,8 @@ struct TextCompareReq{
     #[serde(default="default_with_ajax")]
     with_ajax: i32,
 }
+
+#[allow(non_snake_case)]
 #[derive(Deserialize)]
 struct TextCompareRes{
     comparison: Option<String>,
@@ -164,10 +179,11 @@ async fn text_compare(s: S, Form(mut data): Form<TextCompareReq>) -> HTML {
 use sqlx::{Column, Row};
 use tracing::info;
 
-async  fn query_mysql(url: &str, sql: &str)->anyhow::Result<Vec<Vec<String>>>{
+async  fn query_mysql(url: &str, sql: &str, is_query: bool) ->anyhow::Result<Vec<Vec<String>>>{
 
     let db = MySqlPoolOptions::new()
         .max_connections(1)
+        .acquire_timeout(Duration::from_secs(5))
         .connect(url).await?;
 
     let mut conn = db.acquire().await?;
@@ -179,7 +195,7 @@ async  fn query_mysql(url: &str, sql: &str)->anyhow::Result<Vec<Vec<String>>>{
     for v in results {
         match v{
             Either::Left(r) => {
-                if !column_handled{
+                if !column_handled && !is_query{
                     data.push(vec!["Rows Affected".to_string()]);
                     data.push(vec![r.rows_affected().to_string()]);
                 }
@@ -222,7 +238,7 @@ mod tests {
     async fn test_all() -> anyhow::Result<()> {
         let url = "mysql://root:@localhost:3306/mysql";
         let sql = "select * from article";
-        let data = query_mysql(url, sql).await?;
+        let data = query_mysql(url, sql, true).await?;
         println!("data >> {:?}", data);
         Ok(())
     }

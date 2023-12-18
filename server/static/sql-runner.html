@@ -316,11 +316,21 @@
                         }
 	            	    dsStr.split("\n").map(line=>{
 	            	        if(line.trim()){
-                            let newOption = document.createElement('option');
-                            newOption.value=line;
-                            newOption.text=line;
-                            newOption.onclick=onSelectOption;
-                            dsSelect.appendChild(newOption);
+								line = line.trim();
+								let arr = line.split("=");
+								var label = line;
+								var ds_str = line;
+								if(arr.length>1){
+									label = arr[0].trim();
+									ds_str = arr[1].trim();
+								}
+
+
+								let newOption = document.createElement('option');
+								newOption.value=ds_str;
+								newOption.text=label;
+								newOption.onclick=onSelectOption;
+								dsSelect.appendChild(newOption);
 	            	        }
                             
 	            	    })
