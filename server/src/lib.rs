@@ -135,6 +135,19 @@ macro_rules! register_routers {
     };
 }
 
+#[macro_export]
+macro_rules! method_router {
+    ($($m: ident : $u :literal-> $f: ident),*$(,)?) => {
+        pub fn init() -> axum::Router<std::sync::Arc<crate::AppState>> {
+            let mut router = axum::Router::new();
+            $(
+                router = router.route($u, axum::routing::$m($f));
+            )*
+            router
+        }
+    };
+}
+
 
 
 pub fn routers(app_state: Arc<AppState>) -> Router {

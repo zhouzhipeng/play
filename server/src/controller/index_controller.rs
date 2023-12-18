@@ -16,7 +16,6 @@ pub fn init() -> Router<Arc<AppState>> {
         .route("/", get(root))
         .route("/test-redis", get(redis_test))
         .route("/test", get(test))
-        .route(API_EXECUTE_SQL, get(execute_sql))
 }
 
 async fn root(s: S) -> HTML {
@@ -38,11 +37,5 @@ async fn redis_test(s: S) -> R<String> {
 async fn test(s: S) -> HTML {
     // template!(s, "test.html", json!({"name":"zzp"}))
     template!(s, "test.html", json!({"name":"zzp"}))
-}
-
-
-async fn execute_sql(s: S) -> R<String> {
-    let articles = Article::query_all(&s.db).await?;
-    Ok(serde_json::to_string(&articles)?)
 }
 

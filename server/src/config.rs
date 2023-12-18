@@ -34,8 +34,9 @@ pub fn init_config() -> Config {
         fs::write(&final_path, CONFIG).expect("write file error!");
     }
 
+
     let config_content = fs::read_to_string(&final_path).expect(format!("config file : {}  not existed!", file_path).as_str());
     let config: Config = toml::from_str(config_content.as_str()).unwrap();
-    info!("init config file : {}, content >>  {:?}", file_path,  config);
+    info!("using config file : \n{:?} , \n content >>  {:?}", fs::canonicalize(&final_path).unwrap(),  config);
     config
 }

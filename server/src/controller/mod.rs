@@ -5,6 +5,7 @@ mod ws_controller;
 mod function_controller;
 mod todo_controller;
 mod api_entry_controller;
+mod admin_controller;
 
 
 ///
@@ -17,5 +18,6 @@ crate::register_routers!(
         function_controller,
         todo_controller,
         api_entry_controller,
+        admin_controller,
     );
 

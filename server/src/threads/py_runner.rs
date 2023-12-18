@@ -114,7 +114,7 @@ pub async fn run(req_receiver: Receiver<TemplateData>) {
 
     let py_render_fn = Python::with_gil(|py| -> PyResult<Py<PyAny>> {
 
-        info!("python version  : {:?}", py.version_info());
+        info!("python version  : {}.{}.{}", py.version_info().major,py.version_info().minor,py.version_info().patch,);
         // let syspath: &PyList = py.import("sys")?.getattr("path")?.downcast()?;
         // syspath.insert(0, &path)?;
         let render_fn: Py<PyAny> = PyModule::from_code(py, py_app, "", "")?

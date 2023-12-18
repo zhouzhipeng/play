@@ -359,7 +359,7 @@ debug_mode=False
 def set_debug_mode(mode: bool):
     global  debug_mode
     debug_mode = mode
-    print("simple_template >> set debug mode = "+ str(mode))
+    # print("simple_template >> set debug mode = "+ str(mode))
 
 
 def include(file_name: str, **kwargs)->str:
