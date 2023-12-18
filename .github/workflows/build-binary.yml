@@ -60,6 +60,7 @@ jobs:
             OUT_FILE_NAME: play.exe
             ASSET_MIME: application/octet-stream
     steps:
+      - uses: actions/checkout@v3
       - uses: actions-rust-lang/setup-rust-toolchain@v1
       - name: Build play for ${{matrix.TARGET}}
         run: ${{matrix.CMD_BUILD}}
