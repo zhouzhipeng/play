@@ -42,5 +42,5 @@ async fn upgrade(s: S, Query(upgrade): Query<UpgradeRequest>) -> HTML {
     s.shutdown_handle.shutdown();
 
 
-    Ok(Html("upgrade ok. pls restart the app manually!".to_string()))
+    Ok(Html("upgrade ok. wait a second!".to_string()))
 }

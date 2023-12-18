@@ -117,7 +117,8 @@ pub async fn start_server(router: Router, app_state: Arc<AppState>) {
 
 
     //run after `handle` shutdown() being called.
-    tokio::time::sleep(Duration::from_secs(1)).await;
+    // tokio::time::sleep(Duration::from_secs(1)).await;
+    info!("shutdown self , and ready to pull a new app.");
     let mut cmd = Command::new(std::env::args().next().unwrap());
     cmd.args(std::env::args().skip(1));
     std::process::exit(cmd.status().unwrap().code().unwrap());
