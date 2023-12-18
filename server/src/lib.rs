@@ -1,4 +1,6 @@
+use std::net::{SocketAddr, TcpListener};
 use std::ops::Deref;
+use std::process::Command;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -61,6 +63,7 @@ pub struct AppState {
     pub template_service: TemplateService,
     pub db: DBPool,
     pub redis_service: RedisService,
+    pub shutdown_handle: Handle,
 }
 
 
@@ -77,6 +80,7 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> Arc<AppStat
         template_service: TemplateService::new(req_sender),
         db: if final_test_pool { tables::init_test_pool().await } else { tables::init_pool(&config).await },
         redis_service: RedisService::new(config.redis_uri.clone(), final_test_pool).await.unwrap(),
+        shutdown_handle:  Handle::new()
     });
 
 
@@ -91,17 +95,44 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> Arc<AppStat
     app_state
 }
 
+use axum_server::Handle;
+use tokio::time::sleep;
 
-pub async fn start_server(router: Router) {
+pub async fn start_server(router: Router, app_state: Arc<AppState>) {
     let server_port = CONFIG.server_port;
     info!("server start at  : http://127.0.0.1:{}", server_port);
+
+    // Spawn a task to shutdown server.
+    // tokio::spawn(shutdown(handle.clone()));
+
+
+    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+
     // run it with hyper on localhost:3000
-    axum::Server::bind(&format!("0.0.0.0:{}", server_port).parse().unwrap())
+    axum_server::bind(addr)
+        .handle(app_state.shutdown_handle.clone())
         .serve(router.into_make_service())
         .await
         .unwrap();
+
+
+    //run after `handle` shutdown() being called.
+    tokio::time::sleep(Duration::from_secs(1)).await;
+    let mut cmd = Command::new(std::env::args().next().unwrap());
+    cmd.args(std::env::args().skip(1));
+    std::process::exit(cmd.status().unwrap().code().unwrap());
+
 }
 
+async fn shutdown(handle: Handle) {
+    // Wait 20 seconds.
+    sleep(Duration::from_secs(3)).await;
+
+    println!("sending shutdown signal");
+
+    // Signal the server to shutdown using Handle.
+    handle.shutdown();
+}
 
 type R<T> = Result<T, AppError>;
 type S = State<Arc<AppState>>;

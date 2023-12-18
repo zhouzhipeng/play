@@ -2,12 +2,13 @@ use std::env::temp_dir;
 use std::fs::File;
 use std::io::Cursor;
 use std::process::Command;
+use std::time::Duration;
 
 use axum::extract::Query;
 use axum::response::Html;
 use serde::Deserialize;
 
-use crate::{HTML, method_router};
+use crate::{HTML, method_router, S, shutdown};
 
 method_router!(
     get : "/admin/upgrade" -> upgrade,
@@ -18,7 +19,7 @@ struct UpgradeRequest {
     url: String,
 }
 
-async fn upgrade(Query(upgrade): Query<UpgradeRequest>) -> HTML {
+async fn upgrade(s: S, Query(upgrade): Query<UpgradeRequest>) -> HTML {
     // Create a file inside of `std::env::temp_dir()`.
 
     println!("begin to download from url  : {}", &upgrade.url);
@@ -36,10 +37,9 @@ async fn upgrade(Query(upgrade): Query<UpgradeRequest>) -> HTML {
     std::fs::remove_file(&new_binary)?;
 
     println!("replaced ok. and ready to reboot self...");
-    //
-    // let mut cmd = Command::new(std::env::args().next().unwrap());
-    // cmd.args(std::env::args().skip(1));
-    // std::process::exit(cmd.status().unwrap().code().unwrap());
+
+
+    s.shutdown_handle.shutdown();
 
 
     Ok(Html("upgrade ok. pls restart the app manually!".to_string()))

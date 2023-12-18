@@ -50,7 +50,7 @@ async fn main() {
     info!("app state init ok.");
 
     #[allow(unused_mut)]
-    let  mut router = routers(app_state);
+    let  mut router = routers(app_state.clone());
     #[cfg(feature = "debug")]  //to make `watcher` live longer.
     let mut watcher;
     #[cfg(feature = "debug")]
@@ -86,7 +86,7 @@ async fn main() {
     #[cfg(feature = "debug")]
     info!("using debug mode, will auto reload templates and static pages.");
 
-    start_server( router).await;
+    start_server( router, app_state).await;
 
 
 
