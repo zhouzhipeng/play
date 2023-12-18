@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Operations!</title>
+</head>
+<body>
+
+<h2>Admin operations be careful!</h2>
+
+<form hx-get="/admin/upgrade" hx-target="#result">
+    <label>
+        upgrade url :
+        <input name="url" type="text" value="{{upgrade_url}}" placeholder="paste a valid http  download url"/>
+    </label>
+    <button type="submit">upgrade</button>
+    <p id="result"></p>
+</form>
+<hr/>
+<button type="button" hx-get="/admin/reboot">reboot</button>
+</body>
+</html>

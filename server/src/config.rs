@@ -11,6 +11,8 @@ pub struct Config {
     pub use_test_pool: bool,
     pub redis_uri: Vec<String>,
     pub database: Database,
+    #[serde(default)]
+    pub upgrade_url: String,
 
 }
 

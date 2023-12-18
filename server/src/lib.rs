@@ -102,11 +102,7 @@ pub async fn start_server(router: Router, app_state: Arc<AppState>) {
     let server_port = CONFIG.server_port;
     info!("server start at  : http://127.0.0.1:{}", server_port);
 
-    // Spawn a task to shutdown server.
-    // tokio::spawn(shutdown(handle.clone()));
-
-
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    let addr = SocketAddr::from(([127, 0, 0, 1], server_port as u16));
 
     // run it with hyper on localhost:3000
     axum_server::bind(addr)
@@ -123,16 +119,6 @@ pub async fn start_server(router: Router, app_state: Arc<AppState>) {
     cmd.args(std::env::args().skip(1));
     std::process::exit(cmd.status().unwrap().code().unwrap());
 
-}
-
-async fn shutdown(handle: Handle) {
-    // Wait 20 seconds.
-    sleep(Duration::from_secs(3)).await;
-
-    println!("sending shutdown signal");
-
-    // Signal the server to shutdown using Handle.
-    handle.shutdown();
 }
 
 type R<T> = Result<T, AppError>;

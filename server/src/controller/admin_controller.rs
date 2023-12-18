@@ -1,17 +1,19 @@
 use std::env::temp_dir;
 use std::fs::File;
 use std::io::Cursor;
-use std::process::Command;
-use std::time::Duration;
 
 use axum::extract::Query;
 use axum::response::Html;
+use reqwest::Url;
 use serde::Deserialize;
+use serde_json::json;
 
-use crate::{HTML, method_router, S, shutdown};
+use crate::{check, CONFIG, HTML, method_router, S, template};
 
 method_router!(
     get : "/admin/upgrade" -> upgrade,
+    get : "/admin/reboot" -> reboot,
+    get : "/admin/index" -> enter_admin_page,
 );
 
 #[derive(Deserialize)]
@@ -19,8 +21,16 @@ struct UpgradeRequest {
     url: String,
 }
 
+async fn enter_admin_page(s: S) -> HTML {
+    let config = &CONFIG;
+
+    template!(s, "frame.html", "fragments/admin.html", json!({
+        "upgrade_url" : &config.upgrade_url
+    }))
+}
+
 async fn upgrade(s: S, Query(upgrade): Query<UpgradeRequest>) -> HTML {
-    // Create a file inside of `std::env::temp_dir()`.
+    Url::parse(&upgrade.url)?;
 
     println!("begin to download from url  : {}", &upgrade.url);
 
@@ -42,5 +52,15 @@ async fn upgrade(s: S, Query(upgrade): Query<UpgradeRequest>) -> HTML {
     s.shutdown_handle.shutdown();
 
 
-    Ok(Html("upgrade ok. wait a second!".to_string()))
+    Ok(Html("upgrade ok.".to_string()))
+}
+
+async fn reboot(s: S) -> HTML {
+
+
+    println!("ready to reboot...");
+
+    s.shutdown_handle.shutdown();
+
+    Ok(Html("reboot ok.".to_string()))
 }
