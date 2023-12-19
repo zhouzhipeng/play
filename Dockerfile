@@ -7,7 +7,7 @@ WORKDIR /app
 COPY . .
 
 RUN source "$HOME/.cargo/env" && \
-    ./build_dev.sh
+    ./build.sh dev_embed
 
 
 FROM debian:12-slim

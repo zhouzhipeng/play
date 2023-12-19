@@ -41,18 +41,12 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
-            TARGET: ubuntu
-            CMD_BUILD: >
-              sudo apt-get install -y libssl-dev openssl &&
-              ./build.sh dev_embed && mkdir -p dist && cp target/release/play dist/play
-            OUT_FILE_NAME: play
-            ASSET_MIME: application/octet-stream
           - os: macos-latest
             TARGET: macos
             CMD_BUILD: >
-              bash build.sh dev_embed && mkdir -p dist && cp target/release/play dist/play
-            OUT_FILE_NAME: play
+              bash build.sh dev_embed && mkdir -p dist && cp target/release/play dist/play &&
+              mv dist/play dist/mac_play
+            OUT_FILE_NAME: mac_play
             ASSET_MIME: application/octet-stream
           - os: windows-latest
             TARGET: windows
@@ -87,4 +81,45 @@ jobs:
           asset_path: ./dist/${{ matrix.OUT_FILE_NAME}}
           asset_name: ${{ matrix.OUT_FILE_NAME}}
           asset_content_type: ${{ matrix.ASSET_MIME}}
-
+  buildDebian:
+    name: Build Debian packages
+    needs: createrelease
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build Docker Image
+        uses: docker/build-push-action@v2
+        with:
+          tags: tmp-image
+          push: false
+      - uses: shrink/actions-docker-extract@v1
+        id: extract
+        with:
+          image: tmp-image
+          path: /app/.
+      - name: Load Release URL File from release job
+        uses: actions/download-artifact@v1
+        with:
+          name: release_url
+      - name: Get Release File Name & Upload URL
+        id: get_release_info
+        shell: bash
+        run: |
+          value=`cat release_url/release_url.txt`
+          echo ::set-output name=upload_url::$value
+      - name: Zip files
+        id: zip_files
+        shell: bash
+        run: |
+          cd ${{ steps.extract.outputs.destination }} &&
+          cp  play ../debian_play
+      - name: Upload Release Asset tar
+        id: upload-release-asset-tar
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.get_release_info.outputs.upload_url }}
+          asset_path: ./debian_play
+          asset_name: debian_play
+          asset_content_type: application/octet-stream
