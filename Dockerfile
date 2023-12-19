@@ -7,10 +7,10 @@ WORKDIR /app
 COPY . .
 
 RUN source "$HOME/.cargo/env" && \
-    ./build.sh dev_embed
+    ./build.sh dev
 
 
-FROM debian:12-slim
+FROM python:slim
 WORKDIR /app
 
 COPY --from=BuildImage /app/target/release/play .

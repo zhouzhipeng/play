@@ -44,16 +44,17 @@ jobs:
           - os: macos-latest
             TARGET: macos
             CMD_BUILD: >
-              bash build.sh dev_embed && mkdir -p dist && cp target/release/play dist/play &&
-              mv dist/play dist/mac_play
-            OUT_FILE_NAME: mac_play
-            ASSET_MIME: application/octet-stream
+              bash build.sh dev && mkdir -p dist && cp target/release/play dist/play &&
+              cd dist && zip -r9 play_mac.zip play
+            OUT_FILE_NAME: play_mac.zip
+            ASSET_MIME: application/zip
           - os: windows-latest
             TARGET: windows
             CMD_BUILD: >
-              bash build.sh dev_embed && mkdir -p dist && cp target/release/play.exe dist/play.exe
-            OUT_FILE_NAME: play.exe
-            ASSET_MIME: application/octet-stream
+              bash build.sh dev_embed && mkdir -p dist && cp target/release/play.exe dist/play.exe &&
+              cd dist && powershell Compress-Archive  *.exe play_win.zip
+            OUT_FILE_NAME: play_win.zip
+            ASSET_MIME: application/zip
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -112,7 +113,7 @@ jobs:
         shell: bash
         run: |
           cd ${{ steps.extract.outputs.destination }} &&
-          cp  play ../debian_play
+          zip -r9 ../play_debian.zip play
       - name: Upload Release Asset tar
         id: upload-release-asset-tar
         uses: actions/upload-release-asset@v1
@@ -120,6 +121,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.get_release_info.outputs.upload_url }}
-          asset_path: ./debian_play
-          asset_name: debian_play
-          asset_content_type: application/octet-stream
+          asset_path: ./play_debian.zip
+          asset_name: play_debian.zip
+          asset_content_type: application/zip
