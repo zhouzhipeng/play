@@ -153,14 +153,14 @@ fn test() {
 fn build_python_artifacts() {
     let target_triple = current_platform::CURRENT_PLATFORM;
     let flavor = "standalone";
-    let python_version = "3.10";
+    let python_version = None; //default is 3.10
     let dest_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("python/build");
 
     projectmgmt::generate_python_embedding_artifacts(
         &Environment::new().unwrap(),
         target_triple,
         flavor,
-        Some(python_version),
+        python_version,
         &dest_path,
     ).expect("build python artifacts failed.");
 
