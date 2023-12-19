@@ -102,7 +102,7 @@ pub async fn start_server(router: Router, app_state: Arc<AppState>) {
     let server_port = CONFIG.server_port;
     info!("server start at  : http://127.0.0.1:{}", server_port);
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], server_port as u16));
+    let addr = SocketAddr::from(([0, 0, 0, 0], server_port as u16));
 
     // run it with hyper on localhost:3000
     axum_server::bind(addr)

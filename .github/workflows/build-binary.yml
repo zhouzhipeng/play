@@ -44,7 +44,9 @@ jobs:
           - os: macos-latest
             TARGET: macos
             CMD_BUILD: >
-              bash build.sh dev && mkdir -p dist && cp target/release/play dist/play &&
+              export SDKROOT=$(xcrun -sdk macosx --show-sdk-path) &&
+              export MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx --show-sdk-platform-version) &&
+              ./build.sh dev_embed_mac_arm && mkdir -p dist && cp target/release/play dist/play &&
               cd dist && zip -r9 play_mac.zip play
             OUT_FILE_NAME: play_mac.zip
             ASSET_MIME: application/zip
