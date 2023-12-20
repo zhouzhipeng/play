@@ -8,3 +8,4 @@ sqlite.db*
 .DS_Store
 pkg
 build
+artifacts

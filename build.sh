@@ -1,6 +1,6 @@
 #!/bin/bash
 
-usage() { echo "Usage: $0 < dev | dev_embed | prod | prod_embed | dev_embed_mac_arm | all >" 1>&2; exit 1; }
+usage() { echo "Usage: $0 < dev | dev_embed | prod | prod_embed | all >" 1>&2; exit 1; }
 
 # unless there are 1 argument, print the "usage" and exit
 [ ! $# -ge 1 ] && usage
@@ -23,18 +23,6 @@ dev_embed() {
     cargo build --release --features=use_embed_python
 
 }
-dev_embed_mac_arm() {
-    set -eux
-
-    rustup target add aarch64-apple-darwin
-
-    cargo clean
-    cargo build --target=aarch64-apple-darwin --features=use_embed_python
-    export PYO3_CONFIG_FILE=$(pwd)/server/python/build/pyo3-build-config-file.txt
-    cargo build --target=aarch64-apple-darwin --release --features=use_embed_python
-
-}
-
 
 prod() {
     set -eux
@@ -72,9 +60,6 @@ do
 
         dev_embed)
             dev_embed &
-            ;;
-        dev_embed_mac_arm)
-            dev_embed_mac_arm &
             ;;
 
         prod)

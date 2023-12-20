@@ -68,3 +68,9 @@ after that, run `cargo bench` then check the report html in `target/criterion/re
 # 10 thread, 20 connections, test 10 seconds.
 wrk -t 10  -c 20  -d 10  http://127.0.0.1:3000
 ```
+
+## use Dockerfile
+```bash
+docker buildx create --use --name mybuild
+docker buildx build --platform linux/amd64 .
+```

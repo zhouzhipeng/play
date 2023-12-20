@@ -1,23 +1,19 @@
 use std::env;
 use std::fs;
 use std::fs::File;
-use std::io::Write;
 use std::io::prelude::*;
-
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use fs_extra::dir::CopyOptions;
 use pyo3::{Py, PyAny, PyResult, Python};
 use pyo3::prelude::PyModule;
 use pyoxidizerlib::environment::Environment;
 use pyoxidizerlib::projectmgmt;
 use serde_json::json;
 use walkdir::WalkDir;
-use wasm_pack::command::build::{BuildOptions, Target};
-use wasm_pack::command::run_wasm_pack;
 use zip_archive::Archiver;
-use shared::utils::parse_create_sql;
 
+use shared::utils::parse_create_sql;
 
 const HOOKS_PATH: &str = "../.git/hooks";
 const PRE_COMMIT_HOOK: &str = "#!/bin/sh
@@ -40,11 +36,6 @@ fn main() {
         //check if you forgot to add your new rust file into mod.rs
         #[cfg(feature = "debug")]
         check_mod_files();
-
-
-        //will trigger deadlock when build --release
-        //copy wasm files from `client` crate
-        // copy_wasm_files();
 
         //generate python artifacts
         #[cfg(feature = "use_embed_python")]
@@ -74,22 +65,6 @@ fn main() {
 }
 
 
-fn copy_wasm_files() {
-    let client_path = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("wasm");
-    // let _ = fs::remove_dir_all(client_path.join("pkg"));
-    run_wasm_pack(wasm_pack::command::Command::Build(BuildOptions {
-        path: Some(client_path),
-        out_dir: "pkg".to_string(),
-        release: true,
-        target: Target::Web,
-        #[cfg(feature = "dev")]
-        extra_options: vec! {"--features".to_string(), "console_error_panic_hook".to_string()},
-        ..BuildOptions::default()
-    })).expect("wasm-pack failed");
-
-    let from_dir = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join(Path::new("wasm/pkg"));
-    fs_extra::dir::copy(from_dir, Path::new(env!("CARGO_MANIFEST_DIR")).join("static/wasm"), &CopyOptions::new().overwrite(true)).expect("copy wasm files failed!");
-}
 
 fn check_mod_files() {
     let walker = WalkDir::new("src").into_iter();

@@ -7,7 +7,6 @@ edition = "2021"
 dev=[]
 prod=[]
 
-wasm=["wasm-bindgen", "serde-wasm-bindgen"]
 utils=["zip-extract", "sqlparser"]
 
 [dependencies]
@@ -16,9 +15,6 @@ serde_json = "1.0.68"
 reqwest = { version = "0.11.22", features = ["json"] }
 anyhow = "1.0.75"
 
-# for client
-wasm-bindgen = { version = "0.2.88", optional = true }
-serde-wasm-bindgen = { version = "0.6.1", optional =true }
 
 # for server
 zip-extract = { version = "0.1.2", optional = true }
