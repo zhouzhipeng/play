@@ -31,10 +31,18 @@ async fn main() {
         // .with_target("rustpython_vm", LevelFilter::ERROR)
         .with_default(LevelFilter::INFO)
     ;
+
+    #[cfg(feature = "debug")]
+    let writer = io::stdout;
+    #[cfg(not(feature = "debug"))]
+    let file_appender = tracing_appender::rolling::never("output_dir", "play.log.txt");
+    #[cfg(not(feature = "debug"))]
+    let (writer, _guard) = tracing_appender::non_blocking(file_appender);
+
     tracing_subscriber::registry()
         .with(tracing_subscriber::fmt::layer().with_thread_names(true)
             .pretty()
-            .with_writer(io::stdout)
+            .with_writer(writer)
         )
         .with(filter)
         .init();

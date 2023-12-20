@@ -101,6 +101,7 @@ use tokio::time::sleep;
 pub async fn start_server(router: Router, app_state: Arc<AppState>) {
     let server_port = CONFIG.server_port;
     info!("server start at  : http://127.0.0.1:{}", server_port);
+    println!("server start at  : http://127.0.0.1:{}", server_port);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], server_port as u16));
 
@@ -115,11 +116,18 @@ pub async fn start_server(router: Router, app_state: Arc<AppState>) {
     //run after `handle` shutdown() being called.
     // tokio::time::sleep(Duration::from_secs(1)).await;
     info!("shutdown self , and ready to pull a new app.");
-    let mut cmd = Command::new(std::env::args().next().unwrap());
-    cmd.args(std::env::args().skip(1));
-    std::process::exit(cmd.status().unwrap().code().unwrap());
+    restart_app();
 
 }
+
+fn restart_app(){
+    Command::new(std::env::args().next().unwrap())
+        .args(std::env::args().skip(1))
+        .spawn()
+        .expect("Failed to restart the application");
+    std::process::exit(0);
+}
+
 
 type R<T> = Result<T, AppError>;
 type S = State<Arc<AppState>>;
