@@ -6,12 +6,13 @@ usage() { echo "Usage: $0 < dev | dev_embed | prod | prod_embed | all >" 1>&2; e
 [ ! $# -ge 1 ] && usage
 
 generate_python_artifacts(){
-  cd server/python
-  rm -rf build
-  cargo install pyoxidizer
-  pyoxidizer generate-python-embedding-artifacts build
+  set -eux
 
-  cd ../../
+  cd prebuild
+  cargo clean
+  cargo build
+
+  cd ..
 
   export PYO3_CONFIG_FILE=$(pwd)/server/python/build/pyo3-build-config-file.txt
 

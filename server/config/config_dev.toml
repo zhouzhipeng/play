@@ -1,6 +1,6 @@
 server_port = 3000
 redis_uri = ["redis://127.0.0.1"]
-upgrade_url = ""
+upgrade_url = "https://github.com/zhouzhipeng/play/releases/download/1.0/play"
 
 [database]
 url="sqlite://output_dir/sqlite.db"
