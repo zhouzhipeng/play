@@ -8,6 +8,7 @@ usage() { echo "Usage: $0 < dev | dev_embed | prod | prod_embed | all >" 1>&2; e
 generate_python_artifacts(){
   cd server/python
   rm -rf build
+  cargo install pyoxidizer
   pyoxidizer generate-python-embedding-artifacts build
 
   cd ../../

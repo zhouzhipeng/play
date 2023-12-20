@@ -7,8 +7,6 @@ use std::path::{Path, PathBuf};
 
 use pyo3::{Py, PyAny, PyResult, Python};
 use pyo3::prelude::PyModule;
-use pyoxidizerlib::environment::Environment;
-use pyoxidizerlib::projectmgmt;
 use serde_json::json;
 use walkdir::WalkDir;
 use zip_archive::Archiver;
