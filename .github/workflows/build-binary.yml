@@ -53,7 +53,7 @@ jobs:
             CMD_BUILD: >
               bash build.sh dev_embed && mkdir -p dist && cp target/release/play.exe dist/play.exe &&
               cp server/python/build/python310.dll dist/python310.dll &&
-              cd dist && powershell Compress-Archive  *.exe python310.dll  play_win.zip
+              cd dist && powershell Compress-Archive *  play_win.zip
             OUT_FILE_NAME: play_win.zip
             ASSET_MIME: application/zip
     steps:

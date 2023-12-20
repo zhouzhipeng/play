@@ -22,28 +22,26 @@ exec cargo test
 
 
 fn main() {
-    if Ok("release".to_owned()) != env::var("PROFILE") {
 
-        //test code.
-        // test();
-
-
-        //generate git pre-commit file.
-        #[cfg(feature = "debug")]
-        gen_pre_commit();
+    //test code.
+    // test();
 
 
-        //check if you forgot to add your new rust file into mod.rs
-        #[cfg(feature = "debug")]
-        check_mod_files();
+    //generate git pre-commit file.
+    #[cfg(feature = "debug")]
+    gen_pre_commit();
 
-        //generate python artifacts
-        #[cfg(feature = "use_embed_python")]
-        build_python_artifacts();
 
-        #[cfg(feature = "debug")]
-        gen_db_models_code();
-    }
+    //check if you forgot to add your new rust file into mod.rs
+    #[cfg(feature = "debug")]
+    check_mod_files();
+
+    //generate python artifacts
+    #[cfg(feature = "use_embed_python")]
+    build_python_artifacts();
+
+    #[cfg(feature = "debug")]
+    gen_db_models_code();
 
 
     //generate rustc args.
@@ -126,18 +124,18 @@ fn test() {
 }
 
 fn build_python_artifacts() {
-    let target_triple = current_platform::CURRENT_PLATFORM;
-    let flavor = "standalone";
-    let python_version = None; //default is 3.10
+    // let target_triple = current_platform::CURRENT_PLATFORM;
+    // let flavor = "standalone";
+    // let python_version = None; //default is 3.10
     let dest_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("python/build");
-
-    projectmgmt::generate_python_embedding_artifacts(
-        &Environment::new().unwrap(),
-        target_triple,
-        flavor,
-        python_version,
-        &dest_path,
-    ).expect("build python artifacts failed.");
+    //
+    // projectmgmt::generate_python_embedding_artifacts(
+    //     &Environment::new().unwrap(),
+    //     target_triple,
+    //     flavor,
+    //     python_version,
+    //     &dest_path,
+    // ).expect("build python artifacts failed.");
 
     //remove 'sqlite3' in config file.
     let match_str = "extra_build_script_line=cargo:rustc-link-lib=static=sqlite3\n";
