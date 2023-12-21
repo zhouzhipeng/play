@@ -1,10 +1,10 @@
-#[cfg(ENV =  "dev")]
+#[cfg(feature =  "dev")]
 use sqlx::{migrate::MigrateDatabase, Pool, Sqlite, SqlitePool};
-#[cfg(ENV =  "prod")]
+#[cfg(feature =  "prod")]
 use sqlx::mysql::{MySqlPoolOptions, MySqlQueryResult};
-#[cfg(ENV =  "prod")]
+#[cfg(feature =  "prod")]
 use sqlx::{migrate::MigrateDatabase, MySql, Pool};
-#[cfg(ENV =  "dev")]
+#[cfg(feature =  "dev")]
 use sqlx::sqlite::SqliteQueryResult;
 use tracing::info;
 use crate::config::Config;
@@ -16,24 +16,24 @@ pub mod todo_item;
 pub mod api_entry;
 
 
-#[cfg(ENV =  "dev")]
+#[cfg(feature =  "dev")]
 pub type DBPool = Pool<Sqlite>;
-#[cfg(ENV =  "dev")]
+#[cfg(feature =  "dev")]
 pub type DBQueryResult = SqliteQueryResult;
 
-#[cfg(ENV =  "prod")]
+#[cfg(feature =  "prod")]
 pub type DBPool = Pool<MySql>;
-#[cfg(ENV =  "prod")]
+#[cfg(feature =  "prod")]
 pub type DBQueryResult = MySqlQueryResult;
 
-#[cfg(ENV =  "dev")]
+#[cfg(feature =  "dev")]
 #[macro_export]
 macro_rules! get_last_insert_id {
     ($t: expr) => {
         $t.last_insert_rowid()
     }
 }
-#[cfg(ENV =  "prod")]
+#[cfg(feature =  "prod")]
 #[macro_export]
 macro_rules! get_last_insert_id {
     ($t: expr) => {
@@ -45,7 +45,7 @@ macro_rules! get_last_insert_id {
 
 
 
-#[cfg(ENV =   "dev")]
+#[cfg(feature =   "dev")]
 pub async fn init_pool(config : &Config) -> DBPool {
 
     let db_url: &str = config.database.url.as_str();
@@ -67,7 +67,7 @@ pub async fn init_pool(config : &Config) -> DBPool {
 }
 
 
-#[cfg(ENV =   "dev")]
+#[cfg(feature =   "dev")]
 pub async fn init_test_pool() -> DBPool {
     let db_test_url = ":memory:";
     let db = SqlitePool::connect(db_test_url).await.unwrap();
@@ -78,7 +78,7 @@ pub async fn init_test_pool() -> DBPool {
 
 
 
-#[cfg(ENV =   "prod")]
+#[cfg(feature =   "prod")]
 pub async fn init_pool(config : &Config) -> DBPool {
 
     let db_url: &str = config.database.url.as_str();
@@ -108,7 +108,7 @@ pub async fn init_pool(config : &Config) -> DBPool {
     db
 }
 
-#[cfg(ENV =   "prod")]
+#[cfg(feature =   "prod")]
 pub async fn init_test_pool() -> DBPool {
     const DB_URL: &str = "mysql://localhost:3306/test";
 

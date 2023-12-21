@@ -6,7 +6,7 @@ use bb8_redis::{
 };
 
 
-use crate::service::redis::redis_mock_service;
+use crate::redis_mock_service;
 use futures_util::StreamExt;
 use tracing::{error, info};
 
@@ -83,24 +83,24 @@ impl RedisService {
         }
     }
 
-    #[allow(dead_code)]
-    // This is the main bit here
-    fn initialise_subscriptions(&self) {
-        let pool = self.pool.as_ref().unwrap().clone();
-        tokio::task::spawn(async move {
-            info!("Started task");
-            let conn = bb8::Pool::dedicated_connection(&pool).await.unwrap();
-            let mut pubsub = conn.into_pubsub();
-            let subscribed = pubsub.subscribe("a").await;
-            info!("Subscribed Response: {:?}", subscribed);
-            while let Some(result) = pubsub.on_message().next().await {
-                let payload = result.get_payload::<String>().unwrap();
-
-                info!("<MSG>: {}", payload);
-
-            }
-        });
-    }
+    // #[allow(dead_code)]
+    // // This is the main bit here
+    // fn initialise_subscriptions(&self) {
+    //     let pool = self.pool.as_ref().unwrap().clone();
+    //     tokio::task::spawn(async move {
+    //         info!("Started task");
+    //         let conn = bb8::Pool::dedicated_connection(&pool).await.unwrap();
+    //         let mut pubsub = conn.into_pubsub();
+    //         let subscribed = pubsub.subscribe("a").await;
+    //         info!("Subscribed Response: {:?}", subscribed);
+    //         while let Some(result) = pubsub.on_message().next().await {
+    //             let payload = result.get_payload::<String>().unwrap();
+    //
+    //             info!("<MSG>: {}", payload);
+    //
+    //         }
+    //     });
+    // }
 }
 
 

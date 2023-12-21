@@ -70,9 +70,9 @@ checksum = "7079075b41f533b8c61d2a4d073c4676e1f8b249ff94a393b0595db304e0dd87"
 
 [[package]]
 name = "anyhow"
-version = "1.0.75"
+version = "1.0.76"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4668cab20f66d8d020e1fbc0ebe47217433c1b6c8f2040faf858554e394ace6"
+checksum = "59d2a3357dde987206219e78ecfbbb6e8dad06cbb65292758d3270e6254f7355"
 
 [[package]]
 name = "async-channel"
@@ -283,7 +283,7 @@ checksum = "cd456361ba8e4e7f5fe58e1697ce078a149c85ebce13bf9c6b483d3f566fc9c3"
 dependencies = [
  "async-trait",
  "bb8",
- "redis",
+ "redis 0.23.3",
 ]
 
 [[package]]
@@ -294,7 +294,7 @@ checksum = "b17eaed7bfc685625383a734745a35ed03df7cac0463b744c4b510a289043356"
 dependencies = [
  "async-trait",
  "bb8",
- "redis",
+ "redis 0.23.3",
  "redis_cluster_async",
 ]
 
@@ -1897,8 +1897,6 @@ dependencies = [
  "axum-macros",
  "axum-server",
  "axum-test",
- "bb8-redis",
- "bb8-redis-cluster",
  "criterion",
  "crossbeam-channel",
  "dashmap",
@@ -1913,6 +1911,7 @@ dependencies = [
  "mime_guess",
  "notify",
  "pyo3",
+ "redis 0.1.0",
  "redis-test",
  "regex",
  "reqwest",
@@ -2122,6 +2121,19 @@ dependencies = [
 
 [[package]]
 name = "redis"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bb8-redis",
+ "bb8-redis-cluster",
+ "dashmap",
+ "futures",
+ "futures-util",
+ "tracing",
+]
+
+[[package]]
+name = "redis"
 version = "0.23.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4f49cdc0bb3f412bf8e7d1bd90fe1d9eb10bc5c399ba90973c14662a27b3f8ba"
@@ -2147,7 +2159,7 @@ version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aba266ca48ae66978bf439fd2ac0d7a36a8635823754e2bc73afaf9d2fc25272"
 dependencies = [
- "redis",
+ "redis 0.23.3",
 ]
 
 [[package]]
@@ -2161,7 +2173,7 @@ dependencies = [
  "log",
  "pin-project-lite",
  "rand",
- "redis",
+ "redis 0.23.3",
  "tokio",
 ]
 
