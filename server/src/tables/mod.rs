@@ -53,7 +53,7 @@ pub async fn init_pool(config : &Config) -> DBPool {
     if !Sqlite::database_exists(db_url).await.unwrap_or(false) {
         info!("Creating database {}", db_url);
         match Sqlite::create_database(db_url).await {
-            Ok(_) => println!("Create db success"),
+            Ok(_) => info!("Create db success"),
             Err(error) => panic!("error: {}", error),
         }
     } else {
@@ -86,7 +86,7 @@ pub async fn init_pool(config : &Config) -> DBPool {
     if !MySql::database_exists(db_url).await.unwrap_or(false) {
         info!("Creating database {}", db_url);
         match MySql::create_database(db_url).await {
-            Ok(_) => println!("Create db success"),
+            Ok(_) => info!("Create db success"),
             Err(error) => panic!("error: {}", error),
         }
     }
@@ -118,7 +118,7 @@ pub async fn init_test_pool() -> DBPool {
     }
     info!("Creating database {}", DB_URL);
     match MySql::create_database(DB_URL).await {
-        Ok(_) => println!("Create db success"),
+        Ok(_) => info!("Create db success"),
         Err(error) => panic!("error: {}", error),
     }
 

@@ -16,7 +16,7 @@ use serde_json::{json, Value};
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
-use tracing::info;
+use tracing::{debug, info};
 
 use crate::config::Config;
 use crate::config::init_config;
@@ -100,8 +100,12 @@ use tokio::time::sleep;
 
 pub async fn start_server(router: Router, app_state: Arc<AppState>) {
     let server_port = CONFIG.server_port;
-    info!("server start at  : http://127.0.0.1:{}", server_port);
-    println!("server start at  : http://127.0.0.1:{}", server_port);
+    let local_url = format!("http://127.0.0.1:{}", server_port);
+    println!("server started at  : http://127.0.0.1:{}", server_port);
+
+    //check if port is already in using. if it is , call /shutdown firstly.
+    let shutdown_result = reqwest::get(&format!("{}/admin/shutdown", local_url)).await;
+    info!("shutdown_result >> {} , can be ignored.", shutdown_result.is_ok());
 
     let addr = SocketAddr::from(([0, 0, 0, 0], server_port as u16));
 
@@ -121,10 +125,13 @@ pub async fn start_server(router: Router, app_state: Arc<AppState>) {
 }
 
 fn restart_app(){
-    Command::new(std::env::args().next().unwrap())
-        .args(std::env::args().skip(1))
-        .spawn()
-        .expect("Failed to restart the application");
+    // let new_process = Command::new(std::env::args().next().unwrap())
+    //     .args(std::env::args().skip(1))
+    //     .spawn()
+    //     .expect("Failed to restart the application");
+    // new_process.
+
+    //issue: if parent process exit, the child process will exit too.
     std::process::exit(0);
 }
 

@@ -14,7 +14,7 @@ use crate::{check, CONFIG, HTML, method_router, S, template};
 
 method_router!(
     get : "/admin/upgrade" -> upgrade,
-    get : "/admin/reboot" -> reboot,
+    get : "/admin/shutdown" -> shutdown,
     get : "/admin/index" -> enter_admin_page,
 );
 
@@ -47,11 +47,8 @@ async fn upgrade_in_background(s: S, url: Url) ->anyhow::Result<()>{
     self_replace::self_replace(&new_binary)?;
     std::fs::remove_file(&new_binary)?;
 
-    info!("replaced ok. and ready to reboot self...");
+    info!("replaced ok.");
 
-
-    #[cfg(not(feature = "debug"))]
-    s.shutdown_handle.shutdown();
 
     Ok(())
 }
@@ -66,10 +63,10 @@ async fn upgrade(s: S, Query(upgrade): Query<UpgradeRequest>) -> HTML {
     });
 
 
-    Ok(Html("upgrade in background, pls wait and check for console logs.".to_string()))
+    Ok(Html("upgrading in background, pls wait and restart manually later.".to_string()))
 }
 
-async fn reboot(s: S) -> HTML {
+async fn shutdown(s: S) -> HTML {
 
 
     info!("ready to reboot...");
@@ -77,5 +74,5 @@ async fn reboot(s: S) -> HTML {
     #[cfg(not(feature = "debug"))]
     s.shutdown_handle.shutdown();
 
-    Ok(Html("reboot ok.".to_string()))
+    Ok(Html("shutdown ok.".to_string()))
 }
