@@ -107,13 +107,13 @@ fn test() {
 
 
 fn gen_db_models_code() {
-    let sql = include_str!("doc/db_sqlite.sql");
+    let sql = include_str!("../doc/db_sqlite.sql");
     let table_info = parse_create_sql(sql);
     let ss = format!("table infos >> {:?}", table_info);
 
     pyo3::prepare_freethreaded_python();
     let py_app = include_str!("python/simple_template.py");
-    let model_template = include_str!("doc/model_template.txt");
+    let model_template = include_str!("../doc/model_template.txt");
 
     Python::with_gil(|py| -> PyResult<Py<PyAny>> {
         // let syspath: &PyList = py.import("sys")?.getattr("path")?.downcast()?;

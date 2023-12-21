@@ -9,8 +9,7 @@ generate_python_artifacts(){
   set -eux
 
   cd prebuild
-  cargo clean
-  cargo build
+  cargo run
 
   cd ..
 
