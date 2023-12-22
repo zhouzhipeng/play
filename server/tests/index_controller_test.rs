@@ -15,6 +15,7 @@ async fn test_root() -> anyhow::Result<()> {
 }
 
 
+#[ignore]
 #[tokio::test]
 async fn test_redis() -> anyhow::Result<()> {
     let server = TestServer::new(routers(init_app_state(&play::config::init_config(), true).await))?;

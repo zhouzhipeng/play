@@ -1,6 +1,0 @@
-server_port = 3000
-redis_uri = ["redis://127.0.0.1"]
-upgrade_url = ""
-
-[database]
-url="mysql://root:@localhost:3306/play"

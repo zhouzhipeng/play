@@ -5,11 +5,11 @@ edition = "2021"
 
 
 [features]
-default=["dev"]
-dev=["sqlx","sqlx/sqlite","sqlx/mysql", "redis"]
-prod=["sqlx","sqlx/sqlite", "sqlx/mysql"]#"bb8-redis-cluster" should be used, (for test now)
+default=["use_sqlite"]
 debug=["tower-livereload","notify"]  # to active live reload
 use_embed_python=[]
+use_sqlite=[]
+use_mysql=[]
 
 [build-dependencies]
 walkdir = "2"
@@ -35,7 +35,7 @@ harness = false
 shared={path="../libs/shared", features = ["proc_macros", "utils"]}
 redis ={path="../libs/redis", optional = true}
 zip-extract = "0.1.2"
-sqlx = {version = "0.7.2",features = ["runtime-tokio-native-tls"],optional = true}
+sqlx = {version = "0.7.2",features = ["runtime-tokio-native-tls", "sqlite", "mysql"]}
 axum = { version = "0.6.20", features = ["headers", "http2", "ws","macros"] }
 axum-server = "0.5.1"
 axum-macros = "0.3.8"

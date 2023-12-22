@@ -31,7 +31,7 @@ async fn enter_admin_page(s: S) -> HTML {
     }))
 }
 
-async fn upgrade_in_background(s: S, url: Url) ->anyhow::Result<()>{
+async fn upgrade_in_background(url: Url) ->anyhow::Result<()>{
     info!("begin to download from url in background  : {}", url);
 
     // download file
@@ -58,7 +58,7 @@ async fn upgrade(s: S, Query(upgrade): Query<UpgradeRequest>) -> HTML {
 
 
     tokio::spawn(async move{
-        let r = upgrade_in_background(s, url).await;
+        let r = upgrade_in_background(url).await;
         info!("upgrade_in_background result >> {:?}", r);
     });
 
@@ -71,7 +71,6 @@ async fn shutdown(s: S) -> HTML {
 
     info!("ready to reboot...");
 
-    #[cfg(not(feature = "debug"))]
     s.shutdown_handle.shutdown();
 
     Ok(Html("shutdown ok.".to_string()))

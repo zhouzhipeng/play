@@ -17,7 +17,7 @@ pub fn init() -> Router<Arc<AppState>> {
         .route("/test-redis", get(redis_test))
         .route("/test", get(test))
 }
-
+// #[axum::debug_handler]
 async fn root(s: S) -> HTML {
     template!(s, "index.html", json!({}))
 }
@@ -28,7 +28,7 @@ async fn redis_test(s: S) -> R<String> {
     s.redis_service.set("testkey", "testval").await?;
     let val = s.redis_service.get("testkey").await?;
 
-    s.redis_service.publish("a", "test123").await?;
+    // s.redis_service.unwrap().publish("a", "test123").await?;
 
     Ok(val)
     // Ok("sdf".to_string())

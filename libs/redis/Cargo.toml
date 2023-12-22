@@ -17,3 +17,5 @@ anyhow = "1.0.76"
 futures = "0.3.29"
 futures-util = "0.3.29"
 tracing = "0.1"
+shared={path="../shared"}
+async-trait = "0.1.75"

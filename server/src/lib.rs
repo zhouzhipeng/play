@@ -1,14 +1,14 @@
-use std::net::{SocketAddr, TcpListener};
+use std::net::SocketAddr;
 use std::ops::Deref;
-use std::process::Command;
 use std::sync::Arc;
 use std::time::Duration;
 
-use axum::Json;
 use axum::extract::State;
 use axum::http::{Method, StatusCode};
+use axum::Json;
 use axum::response::{Html, IntoResponse, Response};
 use axum::Router;
+use axum_server::Handle;
 use hyper::HeaderMap;
 use lazy_static::lazy_static;
 use serde::Serialize;
@@ -16,12 +16,13 @@ use serde_json::{json, Value};
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
-use tracing::{debug, info};
+use tracing::info;
+
+use shared::redis_api::RedisAPI;
 
 use crate::config::Config;
 use crate::config::init_config;
 use crate::controller::app_routers;
-use crate::service::redis::RedisService;
 use crate::service::template_service::{TemplateData, TemplateService};
 use crate::tables::DBPool;
 use crate::threads::py_runner;
@@ -62,7 +63,7 @@ lazy_static! {
 pub struct AppState {
     pub template_service: TemplateService,
     pub db: DBPool,
-    pub redis_service: RedisService,
+    pub redis_service: Box<dyn RedisAPI+Send+Sync>,
     pub shutdown_handle: Handle,
 }
 
@@ -79,7 +80,10 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> Arc<AppStat
     let app_state = Arc::new(AppState {
         template_service: TemplateService::new(req_sender),
         db: if final_test_pool { tables::init_test_pool().await } else { tables::init_pool(&config).await },
-        redis_service: RedisService::new(config.redis_uri.clone(), final_test_pool).await.unwrap(),
+        #[cfg(feature = "redis")]
+        redis_service: Box::new( redis::redis_single_service::RedisService::new(config.redis_uri.clone(), final_test_pool).await.unwrap()),
+        #[cfg(not(feature = "redis"))]
+        redis_service: Box::new( crate::service::redis_fake_service::RedisFakeService::new(config.redis_uri.clone(), final_test_pool).await.unwrap()),
         shutdown_handle:  Handle::new()
     });
 
@@ -94,9 +98,6 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> Arc<AppStat
     // thread::Builder::new().name("py_runner_3".to_string()).spawn(move || { py_runner::run(req_receiver); });
     app_state
 }
-
-use axum_server::Handle;
-use tokio::time::sleep;
 
 pub async fn start_server(router: Router, app_state: Arc<AppState>) {
     let server_port = CONFIG.server_port;

@@ -37,37 +37,9 @@ pub struct {{model}} {
     %end
 }
 
-#[derive(Serialize,Deserialize)]
-pub struct Add{{model}} {
-    %for c in columns[1:]:
-    pub {{c['name']}}: {{judge_rust_type(c['ty'])}},
-    %end
-}
-
-#[derive(Serialize,Deserialize)]
-pub struct Update{{model}} {
-    %for c in columns[1:]:
-    pub {{c['name']}}: {{judge_rust_type(c['ty'])}},
-    %end
-}
-
-#[derive(Serialize,Deserialize)]
-pub struct Query{{model}} {
-    %c =columns[1]
-    pub {{c['name']}}: {{judge_rust_type(c['ty'])}},
-
-}
-
-#[derive(Serialize,Deserialize)]
-pub struct {{model}}Vo {
-    %for c in columns:
-    pub {{c['name']}}: {{judge_rust_type(c['ty'])}},
-    %end
-}
-
 
 impl {{model}} {
-pub async fn insert(t: Add{{model}}, pool: &DBPool) -> Result<DBQueryResult, Error> {
+pub async fn insert(t: {{model}}, pool: &DBPool) -> Result<DBQueryResult, Error> {
     //todo: this is just a template code, write your own business.
     sqlx::query("INSERT INTO {{table}} ({{insert_col_names}}) VALUES ({{insert_col_qmark}})")
     %for c in columns[1:]:
@@ -85,7 +57,7 @@ pub async fn delete({{pk_name}}: {{pk_type}}, pool: &DBPool) -> Result<DBQueryRe
     .await
 }
 
-pub async fn update({{pk_name}}: {{pk_type}}, t: Update{{model}}, pool: &DBPool) -> Result<DBQueryResult, Error> {
+pub async fn update({{pk_name}}: {{pk_type}}, t: {{model}}, pool: &DBPool) -> Result<DBQueryResult, Error> {
     //todo: this is just a template code, write your own business.
     sqlx::query("UPDATE {{table}} set {{update_cols_qmark}} WHERE {{pk_name}} =?")
     %for c in columns[1:]:
@@ -96,7 +68,7 @@ pub async fn update({{pk_name}}: {{pk_type}}, t: Update{{model}}, pool: &DBPool)
     .await
 }
 
-pub async fn query(q: Query{{model}}, pool: &DBPool) -> Result<Vec<{{model}}>, Error> {
+pub async fn query(q: {{model}}, pool: &DBPool) -> Result<Vec<{{model}}>, Error> {
     //todo: this is just a template code, write your own business.
     sqlx::query_as::<_, {{model}}>("SELECT * FROM {{table}} where {{columns[1]['name']}} = ?")
     .bind(&q.{{columns[1]['name']}})
@@ -126,24 +98,24 @@ mod tests {
 
         //todo: uncomment below code and write your tests.
         /*
-        let r = {{model}}::insert(Add{{model}} {
+        let r = {{model}}::insert({{model}} {
 
         }, &pool).await?;
 
         assert_eq!(r.rows_affected(), 1);
 
-        let rows = {{model}}::query(Query{{model}} {
+        let rows = {{model}}::query({{model}} {
 
         }, &pool).await?;
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].id, 1);
 
-        let r = {{model}}::update(1, Update{{model}} {
+        let r = {{model}}::update(1, {{model}} {
 
         }, &pool).await?;
         assert_eq!(r.rows_affected(), 1);
 
-        let rows = {{model}}::query(Query{{model}} {
+        let rows = {{model}}::query({{model}} {
 
         }, &pool).await?;
         assert_eq!(rows[0].id, 1);
@@ -151,7 +123,7 @@ mod tests {
         let  r = {{model}}::delete(1, &pool).await?;
         assert_eq!(r.rows_affected(),1);
 
-        let rows = {{model}}::query(Query{{model}} {
+        let rows = {{model}}::query({{model}} {
 
         }, &pool).await?;
         assert_eq!(rows.len(), 0);

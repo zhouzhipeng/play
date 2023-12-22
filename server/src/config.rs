@@ -21,16 +21,12 @@ pub struct Database {
     pub url: String,
 }
 
-#[cfg(feature = "dev")]
-const CONFIG: &str = include_str!(file_path!("/config/config_dev.toml"));
-#[cfg(feature = "prod")]
-const CONFIG: &str = include_str!(file_path!("/config/config_prod.toml"));
+
+const CONFIG: &str = include_str!(file_path!("/config.toml"));
 
 pub fn init_config() -> Config {
-    #[cfg(feature = "dev")]
-    let file_path = format!("config_dev.toml");
-    #[cfg(feature = "prod")]
-    let file_path = format!("config_prod.toml");
+
+    let file_path = format!("config.toml");
 
     let final_path = Path::new("output_dir").join(file_path.as_str());
 

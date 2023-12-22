@@ -37,7 +37,7 @@ prod() {
     set -eux
 
     cargo clean
-    cargo build  --release  --no-default-features --features=prod
+    cargo build  --release  --no-default-features --features=use_mysql
 }
 
 prod_embed() {
@@ -46,10 +46,12 @@ prod_embed() {
     pre_build
 
     cargo clean
-    cargo build  --release  --no-default-features --features=prod,use_embed_python
+    cargo build  --release  --no-default-features --features=use_mysql,use_embed_python
 }
 
 all(){
+  set -eux
+
   dev
   dev_embed
   prod
