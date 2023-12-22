@@ -26,7 +26,7 @@ struct UpgradeRequest {
 async fn enter_admin_page(s: S) -> HTML {
     let config = &CONFIG;
 
-    template!(s, "frame.html", "fragments/admin.html", json!({
+    template!(s, "frame.html"+"fragments/admin.html", json!({
         "upgrade_url" : &config.upgrade_url
     }))
 }

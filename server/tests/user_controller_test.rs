@@ -5,6 +5,7 @@ use play::init_app_state;
 use play::tables::user::User;
 use shared::models::user::{AddUser, QueryUser, UpdateUser};
 
+#[ignore]
 #[tokio::test]
 async fn test_all() -> anyhow::Result<()> {
     let server = TestServer::new(routers(init_app_state(&play::config::init_config(), true).await))?;

@@ -62,6 +62,8 @@ fn parse_create_sql_str(sql: String) -> String {
 #[pyfunction]
 fn read_file(filename : String) -> String {
     // info!("read file {} from python call", filename);
+    let mut filename = filename.clone();
+    filename.remove(0);
 
     #[cfg(feature = "debug")]
     let c = fs::read_to_string(format!("{}/templates/{}", env!("CARGO_MANIFEST_DIR"),filename)).unwrap_or(format!("Error : file not found :{}",format!("{}/templates/{}", env!("CARGO_MANIFEST_DIR"),filename)));
@@ -117,7 +119,7 @@ pub async fn run(req_receiver: Receiver<TemplateData>) {
         info!("python version  : {}.{}.{}", py.version_info().major,py.version_info().minor,py.version_info().patch,);
         // let syspath: &PyList = py.import("sys")?.getattr("path")?.downcast()?;
         // syspath.insert(0, &path)?;
-        let render_fn: Py<PyAny> = PyModule::from_code(py, py_app, "", "")?
+        let render_fn: Py<PyAny> = PyModule::from_code(py, py_app, "simple_template.py", "simple_template")?
             .getattr("render_tpl_with_str_args")?
             .into();
         // let cache_template_fn: Py<PyAny> = PyModule::from_code(py, py_app, "", "")?

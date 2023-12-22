@@ -24,7 +24,7 @@ pub fn init() -> Router<Arc<AppState>> {
 
 async fn todo_list(s: S) -> HTML {
     let items = TodoItem::query_all(&s.db).await?;
-    template!(s, "todo/index.html","todo/fragments/list.html", json!({
+    template!(s, "todo_item/index.html"+"todo_item/fragments/list.html", json!({
         "items": items
     }))
 }
@@ -51,7 +51,7 @@ async fn mark_done(Query(todoId): Query<TodoId>, s: S) -> HTML {
     check!(items.len()==1, format!("item {} not found.", todoId.id));
 
 
-    template!(s, "todo/fragments/todo_item.html", json!({
+    template!(s, "todo_item/fragments/todo_item.html", json!({
         "item": items[0]
     }))
 }
@@ -74,7 +74,7 @@ async fn add_todo(s: S , Form(add_todo): Form<AddTodoReq>) -> HTML {
     let items = TodoItem::get_by_id(get_last_insert_id!(r) as u32, &s.db).await?;
     check!(items.len()==1 , "get_by_id error!");
 
-    template!(s, "todo/fragments/todo_item.html", json!({
+    template!(s, "todo_item/fragments/todo_item.html", json!({
         "item": items[0]
     }))
 }

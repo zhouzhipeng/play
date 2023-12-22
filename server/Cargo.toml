@@ -33,7 +33,7 @@ harness = false
 
 [dependencies]
 shared={path="../libs/shared", features = ["proc_macros", "utils"]}
-redis ={path="../libs/redis", optional = true}
+redis ={package = "redis", path="../libs/redis", optional = true}
 zip-extract = "0.1.2"
 sqlx = {version = "0.7.2",features = ["runtime-tokio-native-tls", "sqlite", "mysql"]}
 axum = { version = "0.6.20", features = ["headers", "http2", "ws","macros"] }

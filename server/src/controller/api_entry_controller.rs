@@ -20,7 +20,7 @@ pub fn init() -> Router<Arc<AppState>> {
 
 async fn list(s: S) -> HTML {
     let items = ApiEntry::query_all(&s.db).await?;
-    template!(s, "api-manager.html", json!({
+    template!(s, "api_entry/api-manager.html", json!({
         "items": items
     }))
 }

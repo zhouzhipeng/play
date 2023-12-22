@@ -5,6 +5,6 @@
 
 <ul id="todoList">
     % for item in items:
-    {{include("todo/fragments/todo_item.html", item = item)}}
+    {{include("/todo_item/fragments/todo_item.html", item = item)}}
     %end
 </ul>

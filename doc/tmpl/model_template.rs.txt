@@ -30,7 +30,7 @@ use sqlx::{Error, FromRow};
 
 use crate::tables::{DBPool, DBQueryResult};
 
-#[derive(Clone, FromRow, Debug, Serialize, Deserialize)]
+#[derive(Clone, FromRow, Debug, Serialize, Deserialize, Default)]
 pub struct {{model}} {
     %for c in columns:
     pub {{c['name']}}: {{judge_rust_type(c['ty'])}},
@@ -39,7 +39,7 @@ pub struct {{model}} {
 
 
 impl {{model}} {
-pub async fn insert(t: {{model}}, pool: &DBPool) -> Result<DBQueryResult, Error> {
+pub async fn insert(t: &{{model}}, pool: &DBPool) -> Result<DBQueryResult, Error> {
     //todo: this is just a template code, write your own business.
     sqlx::query("INSERT INTO {{table}} ({{insert_col_names}}) VALUES ({{insert_col_qmark}})")
     %for c in columns[1:]:
@@ -57,7 +57,7 @@ pub async fn delete({{pk_name}}: {{pk_type}}, pool: &DBPool) -> Result<DBQueryRe
     .await
 }
 
-pub async fn update({{pk_name}}: {{pk_type}}, t: {{model}}, pool: &DBPool) -> Result<DBQueryResult, Error> {
+pub async fn update({{pk_name}}: {{pk_type}}, t: &{{model}}, pool: &DBPool) -> Result<DBQueryResult, Error> {
     //todo: this is just a template code, write your own business.
     sqlx::query("UPDATE {{table}} set {{update_cols_qmark}} WHERE {{pk_name}} =?")
     %for c in columns[1:]:
@@ -68,7 +68,7 @@ pub async fn update({{pk_name}}: {{pk_type}}, t: {{model}}, pool: &DBPool) -> Re
     .await
 }
 
-pub async fn query(q: {{model}}, pool: &DBPool) -> Result<Vec<{{model}}>, Error> {
+pub async fn query(q: &{{model}}, pool: &DBPool) -> Result<Vec<{{model}}>, Error> {
     //todo: this is just a template code, write your own business.
     sqlx::query_as::<_, {{model}}>("SELECT * FROM {{table}} where {{columns[1]['name']}} = ?")
     .bind(&q.{{columns[1]['name']}})
@@ -98,33 +98,32 @@ mod tests {
 
         //todo: uncomment below code and write your tests.
         /*
-        let r = {{model}}::insert({{model}} {
-
+        let r = {{model}}::insert(&{{model}} {
+             ..Default::default()
         }, &pool).await?;
 
         assert_eq!(r.rows_affected(), 1);
 
-        let rows = {{model}}::query({{model}} {
-
+        let rows = {{model}}::query(&{{model}} {
+            ..Default::default()
         }, &pool).await?;
         assert_eq!(rows.len(), 1);
-        assert_eq!(rows[0].id, 1);
 
-        let r = {{model}}::update(1, {{model}} {
-
+        let r = {{model}}::update(1, &{{model}} {
+            ..Default::default()
         }, &pool).await?;
         assert_eq!(r.rows_affected(), 1);
 
-        let rows = {{model}}::query({{model}} {
-
+        let rows = {{model}}::query(&{{model}} {
+            ..Default::default()
         }, &pool).await?;
         assert_eq!(rows[0].id, 1);
 
         let  r = {{model}}::delete(1, &pool).await?;
         assert_eq!(r.rows_affected(),1);
 
-        let rows = {{model}}::query({{model}} {
-
+        let rows = {{model}}::query(&{{model}} {
+            ..Default::default()
         }, &pool).await?;
         assert_eq!(rows.len(), 0);
 

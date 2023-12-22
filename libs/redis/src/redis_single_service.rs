@@ -15,8 +15,10 @@ pub struct RedisService {
     pool: RedisPool,
 }
 
-impl RedisService {
-    pub async fn new(redis_uri: Vec<String>, is_test: bool) -> anyhow::Result<Self> {
+
+#[async_trait]
+impl RedisAPI for RedisService {
+    async fn new(redis_uri: Vec<String>, is_test: bool) -> anyhow::Result<Self> {
         let manager = RedisConnectionManager::new(redis_uri.get(0).unwrap().as_str())?;
         let pool = bb8::Pool::builder()
             .connection_timeout(Duration::from_secs(1))
@@ -35,10 +37,6 @@ impl RedisService {
 
         Ok(r)
     }
-}
-
-#[async_trait]
-impl RedisAPI for RedisService {
     async fn set(&self, key: &str, val: &str) -> anyhow::Result<()> {
         let mut conn = self.pool.get().await?;
 

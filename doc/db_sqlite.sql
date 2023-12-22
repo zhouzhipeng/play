@@ -1,13 +1,3 @@
-CREATE TABLE IF NOT EXISTS users(
-    id INTEGER  PRIMARY KEY,
-    name VARCHAR(250) NOT NULL
-);
-
-create table IF NOT EXISTS article(
-    id integer primary key,
-    title varchar(255) not null,
-    content text
-);
 
 create table IF NOT EXISTS todo_item(
   id integer primary key AUTOINCREMENT,
@@ -35,5 +25,12 @@ CREATE TABLE IF NOT EXISTS api_entry (
 );
 
 
--- test
--- INSERT OR IGNORE INTO api_entry ('id','url','method','url_params','headers','body','updated') VALUES ('70','http://127.0.0.1/api/send-ws-msg','GET','UserId=123&Data=你好啊','','','2023-08-09 15:33:58');
+CREATE TABLE IF NOT EXISTS english_card (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ name VARCHAR,
+ phonetic VARCHAR,
+ meaning VARCHAR,
+ updated DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+

@@ -81,7 +81,7 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> Arc<AppStat
         template_service: TemplateService::new(req_sender),
         db: if final_test_pool { tables::init_test_pool().await } else { tables::init_pool(&config).await },
         #[cfg(feature = "redis")]
-        redis_service: Box::new( redis::redis_single_service::RedisService::new(config.redis_uri.clone(), final_test_pool).await.unwrap()),
+        redis_service: Box::new( redis::RedisService::new(config.redis_uri.clone(), final_test_pool).await.unwrap()),
         #[cfg(not(feature = "redis"))]
         redis_service: Box::new( crate::service::redis_fake_service::RedisFakeService::new(config.redis_uri.clone(), final_test_pool).await.unwrap()),
         shutdown_handle:  Handle::new()
@@ -298,7 +298,7 @@ macro_rules! init_template {
 
 #[macro_export]
 macro_rules! template {
-    ($s: ident, $fragment: expr, $json: expr) => {
+    ($s: ident, $fragment: literal, $json: expr) => {
         {
             let t = crate::init_template!($fragment);
             let content: axum::response::Html<String> = crate::render_fragment(&$s,t,  $json).await?;
@@ -306,7 +306,7 @@ macro_rules! template {
         }
 
     };
-    ($s: ident, $page: expr, $fragment: expr, $json:expr) => {
+    ($s: ident, $page: literal + $fragment: literal, $json:expr) => {
         {
             let page = crate::init_template!($page);
             let frag = crate::init_template!($fragment);

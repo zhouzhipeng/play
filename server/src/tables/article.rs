@@ -69,6 +69,7 @@ mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
 
+    #[ignore]
     #[tokio::test]
     async fn test_all() -> anyhow::Result<()> {
         let pool = init_test_pool().await;

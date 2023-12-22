@@ -79,6 +79,7 @@ async fn run_http_request(s: S, Form(data): Form<HttpRequestData>) -> JSON<HttpR
             let mut headers = HeaderMap::new();
             let json_data: Value = serde_json::from_str(&data.headers)?;
             headers.insert("Content-Type", json_data["Content-Type"].as_str().unwrap_or("").parse()?);
+            headers.insert("Hx-Request", "true".parse()?);
             client.post(&data.url).headers(headers).body(data.body).send().await?
         }
         "PUT" => {
