@@ -76,7 +76,7 @@ macro_rules! return_error {
 
 
 lazy_static! {
-    pub static ref CONFIG: Config = init_config();
+    pub static ref CONFIG: Config = init_config(false);
 }
 
 pub struct AppState {

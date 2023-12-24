@@ -8,7 +8,7 @@ use shared::models::user::{AddUser, QueryUser, UpdateUser};
 #[ignore]
 #[tokio::test]
 async fn test_all() -> anyhow::Result<()> {
-    let server = TestServer::new(routers(init_app_state(&play::config::init_config(), true).await))?;
+    let server = TestServer::new(routers(init_app_state(&play::config::init_config(true), true).await))?;
 
 
     let response = server.get("/add-user").add_query_params(AddUser {

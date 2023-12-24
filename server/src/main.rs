@@ -23,9 +23,6 @@ use play::routers;
 #[tokio::main]
 async fn main()->anyhow::Result<()> {
 
-    //init output_dir
-    fs::create_dir_all("output_dir").expect("Err: create output_dir failed.");
-
     // initialize tracing
     let filter = filter::Targets::new()
         // .with_target("rustpython_vm", LevelFilter::ERROR)
