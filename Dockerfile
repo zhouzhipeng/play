@@ -8,12 +8,13 @@ RUN cd openssl-1.1.1t && ./config && make install && ldconfig
 
 # install rust
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-RUN source "$HOME/.cargo/env"
+
 
 WORKDIR /app
 COPY . .
 
-RUN cargo dev_embed
+RUN source "$HOME/.cargo/env" && \
+    cargo dev_embed
 
 
 FROM debian:12-slim

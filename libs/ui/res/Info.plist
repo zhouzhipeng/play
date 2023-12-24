@@ -8,6 +8,7 @@
 	<string>icon.icns</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.zhouzhipeng.play</string>
+
   	<!-- avoid having a blurry icon and text -->
     <key>NSHighResolutionCapable</key>
     <string>True</string>

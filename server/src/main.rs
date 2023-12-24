@@ -1,4 +1,4 @@
-use std::{fs, io};
+use std::{env, fs, io, panic};
 use std::path::Path;
 use std::time::Duration;
 use axum::body::Body;
@@ -6,6 +6,7 @@ use axum::http::Request;
 
 
 use axum::Router;
+use directories::ProjectDirs;
 
 
 use tracing::info;
@@ -14,7 +15,8 @@ use tracing_subscriber::filter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
-use play::{CONFIG, file_path, init_app_state, start_server};
+use play::{DATA_DIR, file_path, init_app_state, start_server};
+use play::config::init_config;
 use play::routers;
 
 
@@ -22,6 +24,21 @@ use play::routers;
 
 #[tokio::main]
 async fn main()->anyhow::Result<()> {
+
+    let data_dir  = match ProjectDirs::from("com", "zhouzhipeng",  "play"){
+        None => env::var(DATA_DIR)?,
+        Some(s) => s.data_dir().to_str().unwrap().to_string(),
+    };
+
+    env::set_var(DATA_DIR, &data_dir);
+    println!("using data dir : {:?}", data_dir);
+
+    fs::create_dir_all(&data_dir).expect("create data dir failed.");
+
+    // Set the custom panic hook
+    panic::set_hook(Box::new(|panic_info| {
+        println!("panic occurred : {:?}", panic_info);
+    }));
 
     // initialize tracing
     let filter = filter::Targets::new()
@@ -32,7 +49,7 @@ async fn main()->anyhow::Result<()> {
     #[cfg(feature = "debug")]
     let writer = io::stdout;
     #[cfg(not(feature = "debug"))]
-    let file_appender = tracing_appender::rolling::never("output_dir", "play.log.txt");
+    let file_appender = tracing_appender::rolling::never(data_dir, "play.log.txt");
     #[cfg(not(feature = "debug"))]
     let (writer, _guard) = tracing_appender::non_blocking(file_appender);
 
@@ -46,12 +63,12 @@ async fn main()->anyhow::Result<()> {
 
     //init config
     // init config
-    let config = &CONFIG;
+    let config = init_config(false);
 
     let _server_port = config.server_port;
 
     //init app_state
-    let app_state = init_app_state(config, false).await;
+    let app_state = init_app_state(&config, false).await;
     info!("app state init ok.");
 
     info!("current path : {}", env!("CARGO_MANIFEST_DIR"));
@@ -95,12 +112,12 @@ async fn main()->anyhow::Result<()> {
     info!("using debug mode, will auto reload templates and static pages.");
 
     #[cfg(not(feature = "ui"))]
-    start_server( router, app_state).await;
+    start_server( &config, router, app_state).await;
 
     #[cfg(feature = "ui")]
     {
         tokio::spawn(async move{
-            start_server( router, app_state).await;
+            start_server( &config, router, app_state).await;
         });
 
         ui::start_window("http://127.0.0.1:3000")?;

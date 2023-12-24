@@ -10,7 +10,7 @@ use serde::Deserialize;
 use serde_json::json;
 use tracing::info;
 
-use crate::{check_if, CONFIG, HTML, method_router, S, template};
+use crate::{check_if, HTML, method_router, S, template};
 
 method_router!(
     get : "/admin/upgrade" -> upgrade,
@@ -24,10 +24,10 @@ struct UpgradeRequest {
 }
 
 async fn enter_admin_page(s: S) -> HTML {
-    let config = &CONFIG;
+    // let config = &CONFIG;
 
     template!(s, "frame.html"+"fragments/admin.html", json!({
-        "upgrade_url" : &config.upgrade_url
+        "upgrade_url" : ""
     }))
 }
 

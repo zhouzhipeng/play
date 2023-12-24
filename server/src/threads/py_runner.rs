@@ -1,7 +1,7 @@
 #![allow(warnings)]
 
 use std::env::set_var;
-use std::fs;
+use std::{env, fs};
 
 use std::io::Cursor;
 
@@ -12,7 +12,7 @@ use pyo3::prelude::*;
 
 use tracing::{error, info, warn};
 
-use crate::{file_path, TemplateData};
+use crate::{DATA_DIR, file_path, TemplateData};
 use crate::Template;
 use shared::utils::parse_create_sql;
 
@@ -91,12 +91,13 @@ pub async fn run(req_receiver: Receiver<TemplateData>) {
     #[cfg(feature = "use_embed_python")]
     if option_env!("PYO3_CONFIG_FILE").is_some() {
         info!("use embed python!");
+        let data_dir = env::var(DATA_DIR).unwrap();
         //decompress stdlib.zip to output_dir
         let data = include_bytes!(file_path!("/python/build/stdlib.zip"));
         let archive = Cursor::new(data);
-        zip_extract::extract(archive, "output_dir".as_ref(), false).unwrap();
-        set_var("PYTHONPATH", "output_dir/stdlib");
-        set_var("PYTHONHOME", "output_dir"); //just to supress warning logs.
+        zip_extract::extract(archive, &data_dir.as_ref(), false).unwrap();
+        set_var("PYTHONPATH", format!("{}/stdlib", data_dir));
+        set_var("PYTHONHOME", &data_dir); //just to supress warning logs.
     }else{
         info!("PYO3_CONFIG_FILE not set , use system python as fallback!");
     }

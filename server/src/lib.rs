@@ -34,6 +34,8 @@ pub mod service;
 pub mod config;
 
 
+pub const DATA_DIR: &str ="DATA_DIR";
+
 
 #[macro_export]
 macro_rules! file_path {
@@ -75,10 +77,6 @@ macro_rules! return_error {
 }
 
 
-lazy_static! {
-    pub static ref CONFIG: Config = init_config(false);
-}
-
 pub struct AppState {
     pub template_service: TemplateService,
     pub db: DBPool,
@@ -118,8 +116,8 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> Arc<AppStat
     app_state
 }
 
-pub async fn start_server(router: Router, app_state: Arc<AppState>)->anyhow::Result<()> {
-    let server_port = CONFIG.server_port;
+pub async fn start_server(config: &Config, router: Router, app_state: Arc<AppState>)->anyhow::Result<()> {
+    let server_port = config.server_port;
     let local_url = format!("http://127.0.0.1:{}", server_port);
     println!("server started at  : http://127.0.0.1:{}", server_port);
     info!("server started at  : http://127.0.0.1:{}", server_port);

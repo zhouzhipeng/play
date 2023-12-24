@@ -1,10 +1,10 @@
-use std::fs;
+use std::{env, fs};
 use std::path::Path;
 
 use serde::Deserialize;
 use tracing::info;
 
-use crate::file_path;
+use crate::{DATA_DIR, file_path};
 
 #[derive(Deserialize, Debug)]
 pub struct Config {
@@ -28,13 +28,12 @@ const CONFIG: &str = include_str!(file_path!("/config.toml"));
 
 pub fn init_config(use_memory: bool) -> Config {
     let config_content = if !use_memory {
-        //init output_dir
-        fs::create_dir_all("output_dir").expect("create output_dir failed!");
+
 
         let file_path = format!("config.toml");
 
 
-        let final_path = Path::new("output_dir").join(file_path.as_str());
+        let final_path = Path::new(env::var(DATA_DIR).unwrap().as_str()).join(file_path.as_str());
 
         info!("config path : {:?}", final_path);
 

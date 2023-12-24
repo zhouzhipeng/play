@@ -6,7 +6,7 @@ use axum::extract::{Path, Query};
 use axum::routing::get;
 use tracing::info;
 
-use crate::{AppState, CONFIG};
+use crate::{AppState};
 use crate::{R, S};
 use shared::models::user::{ADD_USER, AddUser, QueryUser, UpdateUser, USER_LIST};
 use crate::tables::user::User;
@@ -21,7 +21,6 @@ pub fn init() -> Router<Arc<AppState>> {
 
 async fn user_list(Query(q): Query<QueryUser>, state: S) -> R<Json<Vec<User>>> {
     let users = User::query(q, &state.db).await?;
-    info!("config : {:?}", *CONFIG);
 
     Ok(Json(users))
 }
