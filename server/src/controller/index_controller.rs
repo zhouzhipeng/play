@@ -1,25 +1,19 @@
-use std::sync::Arc;
-
-use axum::response::Html;
-use axum::Router;
-use axum::routing::get;
 use serde_json::json;
 
-use shared::constants::API_EXECUTE_SQL;
-
-use crate::{AppState, template};
+use crate::{method_router, template};
 use crate::{HTML, R, S};
-use crate::tables::article::Article;
 
-pub fn init() -> Router<Arc<AppState>> {
-    Router::new()
-        .route("/", get(root))
-        .route("/test-redis", get(redis_test))
-        .route("/test", get(test))
-}
+method_router!(
+    get : "/"-> root,
+    get : "/test-redis"-> redis_test,
+    get : "/test"-> test,
+);
+
 // #[axum::debug_handler]
 async fn root(s: S) -> HTML {
+    // return_error!("test");
     template!(s, "index.html", json!({}))
+
 }
 
 

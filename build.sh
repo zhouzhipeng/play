@@ -1,6 +1,6 @@
 #!/bin/bash
 
-usage() { echo "Usage: $0 < dev | dev_embed | prod | prod_embed | all >" 1>&2; exit 1; }
+usage() { echo "Usage: $0 < dev | dev_embed | dev_ui | prod | prod_embed | all >" 1>&2; exit 1; }
 
 # unless there are 1 argument, print the "usage" and exit
 [ ! $# -ge 1 ] && usage
@@ -30,6 +30,16 @@ dev_embed() {
 
     cargo clean
     cargo build --release --features=use_embed_python
+
+}
+
+dev_ui() {
+    set -eux
+
+    pre_build
+
+    cargo clean
+    cargo build --release --features=use_embed_python,ui
 
 }
 
@@ -70,6 +80,9 @@ do
 
         dev_embed)
             dev_embed &
+            ;;
+        dev_ui)
+            dev_ui &
             ;;
 
         prod)

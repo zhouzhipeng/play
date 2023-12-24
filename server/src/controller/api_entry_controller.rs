@@ -6,7 +6,7 @@ use axum::routing::{get, post};
 use serde::Deserialize;
 use serde_json::json;
 
-use crate::{AppState, check, template};
+use crate::{AppState, check_if, template};
 use crate::{HTML, JSON, R, S};
 use crate::tables::api_entry::{ApiEntry, UpdateApiEntry};
 
@@ -48,11 +48,11 @@ async fn save(s: S,Form(entry): Form<UpdateApiEntry>) -> R<String> {
             ApiEntry::update(id, entry, &s.db).await?
         }
     };
-    check!(r.rows_affected()==1, "update api entry error!");
+    check_if!(r.rows_affected()==1, "update api entry error!");
     Ok(r.rows_affected().to_string())
 }
 async fn delete(s: S ,Query(id): Query<Id>) -> R<String> {
     let r = ApiEntry::delete(id.id as i64, &s.db).await?;
-    check!(r.rows_affected()==1, "delete api entry error!");
+    check_if!(r.rows_affected()==1, "delete api entry error!");
     Ok(r.rows_affected().to_string())
 }

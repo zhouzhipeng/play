@@ -18,7 +18,7 @@ use sqlx::Executor;
 use sqlx::{Column, Row};
 use sqlx::mysql::{MySqlPoolOptions, MySqlQueryResult, MySqlRow};
 
-use crate::{check, method_router, template};
+use crate::{check_if, method_router, template};
 use crate::{HTML, JSON, render_fragment, S, Template};
 
 method_router!(
@@ -114,7 +114,7 @@ async fn run_sql(s: S, Form(data): Form<RunSqlRequest>) -> HTML {
     //parse sql
     let dialect = GenericDialect {}; // or AnsiDialect
     let statements = Parser::parse_sql(&dialect, sql)?;
-    check!(statements.len()==1, "Err >> can only pass one sql statement!");
+    check_if!(statements.len()==1, "Err >> can only pass one sql statement!");
 
     let is_query = match statements[0] {
         Statement::Query(_) => true,
@@ -168,7 +168,7 @@ async fn text_compare(s: S, Form(mut data): Form<TextCompareReq>) -> HTML {
     }
 
     let resp = client.post("https://text-compare.com/").form(&data).send().await?;
-    check!(resp.status().is_success(), "call https://text-compare.com/ failed.");
+    check_if!(resp.status().is_success(), "call https://text-compare.com/ failed.");
     // info!("resp >> {}", resp.text().await?);
     let res_body = resp.json::<TextCompareRes>().await?;
     Ok(Html(res_body.comparison.unwrap_or("<h2>No Diff!</h2>".to_string())))

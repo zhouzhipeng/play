@@ -44,14 +44,14 @@ jobs:
           - os: macos-latest
             TARGET: macos
             CMD_BUILD: >
-              ./build.sh dev_embed && mkdir -p dist && cp target/release/play dist/play &&
+              ./build.sh dev_ui && mkdir -p dist && cp target/release/play dist/play &&
               cd dist && zip -r9 play_mac_x86.zip play
             OUT_FILE_NAME: play_mac_x86.zip
             ASSET_MIME: application/zip
           - os: windows-latest
             TARGET: windows
             CMD_BUILD: >
-              bash build.sh dev_embed && mkdir -p dist && cp target/release/play.exe dist/play.exe &&
+              bash build.sh dev_ui && mkdir -p dist && cp target/release/play.exe dist/play.exe &&
               cp server/python/build/python310.dll dist/python310.dll &&
               cd dist && powershell Compress-Archive *  play_win.zip
             OUT_FILE_NAME: play_win.zip

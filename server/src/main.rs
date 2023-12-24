@@ -21,7 +21,7 @@ use play::routers;
 
 
 #[tokio::main]
-async fn main() {
+async fn main()->anyhow::Result<()> {
 
     //init output_dir
     fs::create_dir_all("output_dir").expect("Err: create output_dir failed.");
@@ -94,9 +94,22 @@ async fn main() {
     #[cfg(feature = "debug")]
     info!("using debug mode, will auto reload templates and static pages.");
 
+    #[cfg(not(feature = "ui"))]
     start_server( router, app_state).await;
 
+    #[cfg(feature = "ui")]
+    {
+        tokio::spawn(async move{
+            start_server( router, app_state).await;
+        });
 
+        ui::start_window("http://127.0.0.1:3000")?;
+
+    }
+
+
+
+    Ok(())
 
 }
 

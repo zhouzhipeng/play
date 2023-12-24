@@ -16,7 +16,7 @@ use serde_json::{json, Value};
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
-use tracing::info;
+use tracing::{error, info};
 
 use shared::redis_api::RedisAPI;
 
@@ -42,8 +42,11 @@ macro_rules! file_path {
     };
 }
 
+
+///
+/// a replacement of `ensure!` in anyhow
 #[macro_export]
-macro_rules! check {
+macro_rules! check_if {
     ($($tt:tt)*) => {
         {
             use anyhow::ensure;
@@ -52,6 +55,22 @@ macro_rules! check {
                 Ok(())
             })()?
         }
+    };
+}
+
+
+///
+/// a replacement for `bail!` in anyhow
+#[macro_export]
+macro_rules! return_error {
+    ($msg:literal $(,)?) => {
+        return Err(anyhow::anyhow!($msg).into())
+    };
+    ($err:expr $(,)?) => {
+        return Err(anyhow::anyhow!($err).into())
+    };
+    ($fmt:expr, $($arg:tt)*) => {
+        return Err(anyhow::anyhow!($fmt, $($arg)*).into())
     };
 }
 
@@ -99,10 +118,11 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> Arc<AppStat
     app_state
 }
 
-pub async fn start_server(router: Router, app_state: Arc<AppState>) {
+pub async fn start_server(router: Router, app_state: Arc<AppState>)->anyhow::Result<()> {
     let server_port = CONFIG.server_port;
     let local_url = format!("http://127.0.0.1:{}", server_port);
     println!("server started at  : http://127.0.0.1:{}", server_port);
+    info!("server started at  : http://127.0.0.1:{}", server_port);
 
     //check if port is already in using. if it is , call /shutdown firstly.
     let shutdown_result = reqwest::get(&format!("{}/admin/shutdown", local_url)).await;
@@ -114,18 +134,18 @@ pub async fn start_server(router: Router, app_state: Arc<AppState>) {
     axum_server::bind(addr)
         .handle(app_state.shutdown_handle.clone())
         .serve(router.into_make_service())
-        .await
-        .unwrap();
+        .await?;
 
 
     //run after `handle` shutdown() being called.
     // tokio::time::sleep(Duration::from_secs(1)).await;
     info!("shutdown self , and ready to pull a new app.");
-    restart_app();
+    shutdown_app();
 
+    Ok(())
 }
 
-fn restart_app(){
+fn shutdown_app(){
     // let new_process = Command::new(std::env::args().next().unwrap())
     //     .args(std::env::args().skip(1))
     //     .spawn()
@@ -206,6 +226,10 @@ pub struct AppError(anyhow::Error);
 // Tell axum how to convert `AppError` into a response.
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
+        #[cfg(feature = "debug")]
+        error!("{:?}", self.0);
+
+
         (
             StatusCode::INTERNAL_SERVER_ERROR,
             format!("Server Error: {}", self.0),
@@ -235,16 +259,6 @@ impl<E> From<E> for AppError
 }
 
 
-#[allow(dead_code)]
-fn should_return_json(header_map: &HeaderMap) -> bool {
-    let mut return_json = false;
-    if let Some(v) = header_map.get("accept") {
-        if v.to_str().unwrap().contains("json") {
-            return_json = true;
-        }
-    }
-    return_json
-}
 
 
 pub enum Template {
