@@ -19,7 +19,7 @@ pub fn init() -> Router<Arc<AppState>> {
     {Router::new().route("/static/*path", get(static_path))}
 
     #[cfg(feature = "debug")]
-    Router::new().nest_service("/static", ServeDir::new("static"))
+    Router::new().nest_service("/static", ServeDir::new(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("static")))
 }
 
 

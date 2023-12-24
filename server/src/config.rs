@@ -28,7 +28,8 @@ pub fn init_config() -> Config {
 
     let file_path = format!("config.toml");
 
-    let final_path = Path::new("output_dir").join(file_path.as_str());
+
+    let final_path = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("output_dir").join(file_path.as_str());
 
     if !final_path.exists(){
         //copy content to output dir.

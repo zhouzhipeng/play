@@ -11,19 +11,18 @@ A playground project writen in rust for fun.
 ## local debug
 the `debug` feature will activate live-reload mode for `static` and `templates` folders.
 ```bash
-cargo run  --features=debug
+cargo debug
 ```
 
 ## build python library
 ```bash
-cd prebuild
-cargo build
+cargo python
 ```
 
 
 ## build binary
 ```bash
-./build.sh 
+cargo dev
 ```
 
 ## running
@@ -68,3 +67,12 @@ wrk -t 10  -c 20  -d 10  http://127.0.0.1:3000
 ```bash
 gh release upload 1.0 play --clobber
 ```
+
+## how to use `tool` crate
+```bash
+use `cargo tool` to see how many operations we have
+```
+> and if you have new tool binaries , define it in  `[alias]` block of `.cargo/config.toml`
+
+## see all `cargo` alias commands.
+[config.toml](.cargo%2Fconfig.toml)

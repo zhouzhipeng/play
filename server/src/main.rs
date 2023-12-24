@@ -57,6 +57,8 @@ async fn main()->anyhow::Result<()> {
     let app_state = init_app_state(config, false).await;
     info!("app state init ok.");
 
+    info!("current path : {}", env!("CARGO_MANIFEST_DIR"));
+
     #[allow(unused_mut)]
     let  mut router = routers(app_state.clone());
     #[cfg(feature = "debug")]  //to make `watcher` live longer.
@@ -86,8 +88,9 @@ async fn main()->anyhow::Result<()> {
             info!("reloading...");
             reloader.reload()
         }).unwrap();
-        watcher.watch(Path::new("static"), notify::RecursiveMode::Recursive).unwrap();
-        watcher.watch(Path::new("templates"), notify::RecursiveMode::Recursive).unwrap();
+
+        watcher.watch(&Path::new(env!("CARGO_MANIFEST_DIR")).join("static"), notify::RecursiveMode::Recursive).unwrap();
+        watcher.watch(&Path::new(env!("CARGO_MANIFEST_DIR")).join("templates"), notify::RecursiveMode::Recursive).unwrap();
         router = router.layer(livereload);
     }
 

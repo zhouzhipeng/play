@@ -4,3 +4,14 @@ rustflags = ["-Awarnings"]  #keep it uncomment to make wasm build success
 
 [future-incompat-report]
 frequency = "never"
+
+
+
+[alias]
+tool = "run --package tool  --bin tool"
+pack = "run --package tool --bin pack_bundles"
+python = "run --package tool  --bin build_python_artifacts"
+dev_embed = "run --package tool  --bin dev_embed"
+dev_ui = "run --package tool  --bin dev_ui"
+dev = "build --package play --release"
+debug = "run --package play --bin play --features=debug"

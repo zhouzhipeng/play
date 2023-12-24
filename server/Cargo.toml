@@ -2,7 +2,14 @@
 name = "play"
 version = "0.1.0"
 edition = "2021"
+description = "a play tool using rust"
 
+[package.metadata.bundle]
+name = "play"  # Name of the bundled application
+identifier = "com.zhouzhipeng.play"  # Unique identifier (reverse-DNS style)
+icon = ["32x32.png", "128x128.png", "128x128@2x.png"]
+resources = [""]  # Additional resources directory
+category = "Developer Tool"
 
 [features]
 default=["use_sqlite"]
