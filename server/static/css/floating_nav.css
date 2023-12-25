@@ -1,0 +1,28 @@
+/* 浮动按钮的样式 */
+.floating-button {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    z-index: 1000;
+    background-color: #f2f2f2; /* 淡灰色背景 */
+    color: #0044cc; /* 深蓝色图标 */
+    border: none;
+    border-radius: 50%; /* 圆形按钮 */
+    padding: 15px;
+    width: 50px; /* 设置宽度 */
+    height: 50px; /* 设置高度 */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-decoration: none;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* 添加轻微阴影以增强视觉效果 */
+}
+
+.floating-button i {
+    font-size: 24px; /* 图标大小 */
+}
+
+/* 鼠标悬停时的样式 */
+.floating-button:hover {
+    background-color: #e6e6e6; /* 鼠标悬停时的深一点的灰色 */
+}

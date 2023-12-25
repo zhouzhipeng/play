@@ -1,18 +1,20 @@
+use std::env::set_var;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use pyoxidizerlib::environment::Environment;
 use pyoxidizerlib::projectmgmt;
 use zip_archive::Archiver;
 
-pub fn build_python_artifacts() {
+pub fn build_python_artifacts()->anyhow::Result<()> {
     let target_triple = current_platform::CURRENT_PLATFORM;
     let flavor = "standalone";
     let python_version = None; //default is 3.10
     let dest_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../server/python/build");
     //
     projectmgmt::generate_python_embedding_artifacts(
-        &Environment::new().unwrap(),
+        &Environment::new()?,
         target_triple,
         flavor,
         python_version,
@@ -22,17 +24,17 @@ pub fn build_python_artifacts() {
     //remove 'sqlite3' in config file.
     let match_str = "extra_build_script_line=cargo:rustc-link-lib=static=sqlite3\n";
     let config_path = dest_path.join("pyo3-build-config-file.txt");
-    let config_file = fs::read_to_string(&config_path).unwrap();
+    let config_file = fs::read_to_string(&config_path)?;
     if config_file.contains(match_str) {
         let config_file = config_file.replace(match_str, "");
-        fs::write(config_path, config_file).unwrap();
+        fs::write(config_path, config_file)?;
     }
 
     //find a folder begin with 'config-'
     let stdlib_dir = dest_path.join("stdlib");
 
-    for path in fs::read_dir(&stdlib_dir).unwrap() {
-        let path = path.unwrap().path();
+    for path in fs::read_dir(&stdlib_dir)? {
+        let path = path?.path();
         if path.is_dir() && path.file_name().unwrap().to_str().unwrap().starts_with("config-") {
             let _ = fs::remove_dir_all(path);
         }
@@ -87,6 +89,14 @@ pub fn build_python_artifacts() {
     // println!("cargo:rustc-env=PYO3_CONFIG_FILE={}","/Users/zhouzhipeng/RustroverProjects/play/server/python/build/pyo3-build-config-file.txt" );
 
     compress_directory(&dest_path.join("stdlib"), &dest_path);
+
+
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().to_str().unwrap();
+    println!("workspace root : {}", root);
+    set_var("PYO3_CONFIG_FILE", format!("{}/server/python/build/pyo3-build-config-file.txt", root));
+
+
+    Ok(())
 }
 
 fn compress_directory(dir: &PathBuf, zip_file: &PathBuf) {
@@ -102,4 +112,16 @@ fn compress_directory(dir: &PathBuf, zip_file: &PathBuf) {
     archiver.archive().expect("compress error!");
 
     println!("Done.")
+}
+
+
+pub fn build_dev(features: &str)->anyhow::Result<()>{
+    build_python_artifacts();
+
+    Command::new("cargo")
+        .args(["build","--package", "play","--release", &format!("--features={}",features)])
+        .spawn()?.wait()?;
+
+
+    Ok(())
 }

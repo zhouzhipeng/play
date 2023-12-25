@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <title>Text Compare</title>
+    <link rel=stylesheet href="/static/font-awesome/5.15.1/css/all.min.css">
+    <link rel=stylesheet href="/static/css/floating_nav.css">
+
     <style>
         /*! CSS Used from: Embedded */
         #titleHeader{margin:0;}
@@ -193,7 +196,10 @@
         @keyframes lds-dual-ring{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}
     </style>
 </head>
-<body>
+<!-- 浮动小球按钮 -->
+<a href="/" id="homeButton" class="floating-button">
+    <i class="fas fa-home"></i>
+</a>
 <body style="zoom: 1;">
 <div class="logo">
     <div class="logo_background"><h1 id="titleHeader"><a id="logo" href="/">Text Compare!</a></h1></div>
@@ -234,5 +240,5 @@
 
 <script src="/static/js/htmx.min.js"></script>
 </body>
-</body>
+
 </html>
