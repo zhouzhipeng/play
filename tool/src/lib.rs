@@ -116,7 +116,7 @@ fn compress_directory(dir: &PathBuf, zip_file: &PathBuf) {
 
 
 pub fn build_dev(features: &str)->anyhow::Result<()>{
-    build_python_artifacts();
+    build_python_artifacts()?;
 
     Command::new("cargo")
         .args(["build","--package", "play","--release", &format!("--features={}",features)])
