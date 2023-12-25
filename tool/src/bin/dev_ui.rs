@@ -19,7 +19,7 @@ fn run()->anyhow::Result<()>{
     let app_dir = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap()
         .join("target/release").join("play.app");
 
-    fs::remove_dir_all(&app_dir)?;
+    fs::remove_dir_all(&app_dir);
 
     let Contents_dir = app_dir.join("Contents");
     let Resources_dir = Contents_dir.join("Resources");
