@@ -82,6 +82,7 @@ pub struct AppState {
     pub db: DBPool,
     pub redis_service: Box<dyn RedisAPI+Send+Sync>,
     pub shutdown_handle: Handle,
+    pub config: Config,
 }
 
 
@@ -101,7 +102,8 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> Arc<AppStat
         redis_service: Box::new( redis::RedisService::new(config.redis_uri.clone(), final_test_pool).await.unwrap()),
         #[cfg(not(feature = "redis"))]
         redis_service: Box::new( crate::service::redis_fake_service::RedisFakeService::new(config.redis_uri.clone(), final_test_pool).await.unwrap()),
-        shutdown_handle:  Handle::new()
+        shutdown_handle:  Handle::new(),
+        config: config.clone(),
     });
 
 

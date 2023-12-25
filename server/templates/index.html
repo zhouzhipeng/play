@@ -10,28 +10,41 @@
 <body>
 {{include('/fragments/top.html')}}
 
-<h2>Page List</h2>
-<ul>
-    <li>
-        <a href="/static/str-joiner.html">String Joiner</a>
-    </li>
-    <li>
-        <a href="/static/py-runner.html">Python Runner</a>
-    </li>
-    <li>
-        <a href="/api-entry/list">API Manager</a>
-    </li>
-    <li>
-        <a href="/static/sql-runner.html">SQL Runner</a>
-    </li>
-    <li>
-        <a href="/static/text-compare.html">Text Compare</a>
-    </li>
 
-    <li>
-        <a href="/todo/list">Todo Manager</a>
-    </li>
-</ul>
+<div class="row">
+    <div class="col">
+
+        <h2>System Tools</h2>
+        <ul>
+            <li>
+                <a href="/static/str-joiner.html">String Joiner</a>
+            </li>
+            <li>
+                <a href="/static/py-runner.html">Python Runner</a>
+            </li>
+            <li>
+                <a href="/api-entry/list">API Manager</a>
+            </li>
+            <li>
+                <a href="/static/sql-runner.html">SQL Runner</a>
+            </li>
+            <li>
+                <a href="/static/text-compare.html">Text Compare</a>
+            </li>
+        </ul>
+
+    </div>
+    <div class="col">
+
+        <h2>Business Pages</h2>
+        <ul>
+            <li>
+                <a href="/todo/list">Todo Manager</a>
+            </li>
+        </ul>
+
+    </div>
+</div>
 
 </body>
 </html>

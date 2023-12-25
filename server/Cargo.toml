@@ -8,7 +8,7 @@ description = "a play tool using rust"
 
 [features]
 default=["use_sqlite"]
-debug=["tower-livereload","notify", "ui"]
+debug=["tower-livereload","notify"]
 use_embed_python=[]
 use_sqlite=[]
 use_mysql=[]

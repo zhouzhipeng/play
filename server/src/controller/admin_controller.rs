@@ -4,6 +4,7 @@ use std::io::Cursor;
 use std::time::Duration;
 
 use axum::extract::Query;
+use axum::Form;
 use axum::response::Html;
 use reqwest::{ClientBuilder, Url};
 use serde::Deserialize;
@@ -11,11 +12,13 @@ use serde_json::json;
 use tracing::info;
 
 use crate::{check_if, HTML, method_router, S, template};
+use crate::config::{get_config_path, read_config_file, save_config_file};
 
 method_router!(
     get : "/admin/upgrade" -> upgrade,
     get : "/admin/shutdown" -> shutdown,
     get : "/admin/index" -> enter_admin_page,
+    post : "/admin/save-config" -> save_config,
 );
 
 #[derive(Deserialize)]
@@ -23,11 +26,25 @@ struct UpgradeRequest {
     url: String,
 }
 
+#[derive(Deserialize)]
+struct SaveConfigReq{
+    new_content: String,
+}
+async fn save_config(s: S, Form(req): Form<SaveConfigReq>) -> HTML {
+    save_config_file(&req.new_content)?;
+    Ok(Html("save ok.".to_string()))
+}
+
+
 async fn enter_admin_page(s: S) -> HTML {
     // let config = &CONFIG;
+    let config_content = read_config_file()?;
+    let config_path = get_config_path()?;
 
     template!(s, "frame.html"+"fragments/admin.html", json!({
-        "upgrade_url" : ""
+        "upgrade_url" : "",
+        "config_content" : config_content,
+        "config_path" : config_path,
     }))
 }
 

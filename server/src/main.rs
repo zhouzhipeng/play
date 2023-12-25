@@ -75,7 +75,7 @@ async fn main()->anyhow::Result<()> {
     // init config
     let config = init_config(false);
 
-    let _server_port = config.server_port;
+    let server_port = config.server_port;
 
     //init app_state
     let app_state = init_app_state(&config, false).await;
@@ -105,7 +105,7 @@ async fn main()->anyhow::Result<()> {
         use notify::Watcher;
         info!("tower-livereload is enabled!");
         let  livereload = LiveReloadLayer::new();
-        let livereload = livereload.reload_interval(Duration::from_secs(3));
+        let livereload = livereload.reload_interval(Duration::from_secs(1));
         let livereload = livereload.request_predicate::<Body, NotHxRequest>(NotHxRequest {});
         let reloader = livereload.reloader();
         watcher = notify::recommended_watcher(move |_| {
@@ -130,7 +130,7 @@ async fn main()->anyhow::Result<()> {
             start_server( &config, router, app_state).await;
         });
 
-        ui::start_window("http://127.0.0.1:3000")?;
+        ui::start_window(&format!("http://127.0.0.1:{}",server_port))?;
 
     }
 
