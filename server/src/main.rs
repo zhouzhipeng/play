@@ -1,4 +1,5 @@
 use std::{env, fs, io, panic};
+use std::env::set_var;
 use std::path::Path;
 use std::time::Duration;
 use axum::body::Body;
@@ -24,6 +25,9 @@ use play::routers;
 
 #[tokio::main]
 async fn main()->anyhow::Result<()> {
+    #[cfg(feature = "debug")]
+    set_var("RUST_BACKTRACE","1");
+
     // Set the custom panic hook
     panic::set_hook(Box::new(|panic_info| {
         println!("panic occurred : {:?}", panic_info);
