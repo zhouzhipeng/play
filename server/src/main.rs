@@ -24,21 +24,27 @@ use play::routers;
 
 #[tokio::main]
 async fn main()->anyhow::Result<()> {
+    // Set the custom panic hook
+    panic::set_hook(Box::new(|panic_info| {
+        println!("panic occurred : {:?}", panic_info);
+    }));
 
+    #[cfg(not(feature = "debug"))]
     let data_dir  = match ProjectDirs::from("com", "zhouzhipeng",  "play"){
         None => env::var(DATA_DIR)?,
         Some(s) => s.data_dir().to_str().unwrap().to_string(),
     };
+
+    #[cfg(feature = "debug")]
+    let data_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("output_dir").as_path().to_str().unwrap().to_string();
+
 
     env::set_var(DATA_DIR, &data_dir);
     println!("using data dir : {:?}", data_dir);
 
     fs::create_dir_all(&data_dir).expect("create data dir failed.");
 
-    // Set the custom panic hook
-    panic::set_hook(Box::new(|panic_info| {
-        println!("panic occurred : {:?}", panic_info);
-    }));
+
 
     // initialize tracing
     let filter = filter::Targets::new()
