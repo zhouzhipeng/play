@@ -1,0 +1,20 @@
+<html>
+<head>
+
+</head>
+<body style="text-align: center; vertical-align: middle">
+<h1>loading...</h1>
+<script>
+    // access the pre-bundled global API functions
+    const { invoke } = window.__TAURI__.tauri
+
+    async function loadDynamicUrl() {
+        const url = await invoke('get_dynamic_url');
+        window.location.href = url;
+    }
+
+    loadDynamicUrl();
+
+</script>
+</body>
+</html>

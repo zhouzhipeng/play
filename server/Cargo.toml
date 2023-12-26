@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 description = "a play tool using rust"
 
+[package.metadata.packager]
+before-packaging-command = "cargo dev_ui"
 
 
 [features]

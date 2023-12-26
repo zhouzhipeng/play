@@ -120,13 +120,9 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> Arc<AppStat
 
 pub async fn start_server(config: &Config, router: Router, app_state: Arc<AppState>)->anyhow::Result<()> {
     let server_port = config.server_port;
-    let local_url = format!("http://127.0.0.1:{}", server_port);
+
     println!("server started at  : http://127.0.0.1:{}", server_port);
     info!("server started at  : http://127.0.0.1:{}", server_port);
-
-    //check if port is already in using. if it is , call /shutdown firstly.
-    let shutdown_result = reqwest::get(&format!("{}/admin/shutdown", local_url)).await;
-    info!("shutdown_result >> {} , can be ignored.", shutdown_result.is_ok());
 
     let addr = SocketAddr::from(([0, 0, 0, 0], server_port as u16));
 
@@ -143,6 +139,12 @@ pub async fn start_server(config: &Config, router: Router, app_state: Arc<AppSta
     shutdown_app();
 
     Ok(())
+}
+
+pub async fn shutdown_another_instance(local_url: &String) {
+//check if port is already in using. if it is , call /shutdown firstly.
+    let shutdown_result = reqwest::get(&format!("{}/admin/shutdown", local_url)).await;
+    info!("shutdown_result >> {} , can be ignored.", shutdown_result.is_ok());
 }
 
 fn shutdown_app(){

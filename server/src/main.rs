@@ -16,7 +16,7 @@ use tracing_subscriber::filter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
-use play::{DATA_DIR, file_path, init_app_state, start_server};
+use play::{DATA_DIR, file_path, init_app_state, shutdown_another_instance, start_server};
 use play::config::init_config;
 use play::routers;
 
@@ -117,6 +117,9 @@ async fn main()->anyhow::Result<()> {
         watcher.watch(&Path::new(env!("CARGO_MANIFEST_DIR")).join("templates"), notify::RecursiveMode::Recursive).unwrap();
         router = router.layer(livereload);
     }
+
+    let local_url = format!("http://127.0.0.1:{}", server_port);
+    shutdown_another_instance(&local_url).await;
 
     #[cfg(feature = "debug")]
     info!("using debug mode, will auto reload templates and static pages.");
