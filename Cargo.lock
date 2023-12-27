@@ -4967,6 +4967,7 @@ dependencies = [
  "mime_guess",
  "notify",
  "py_tpl",
+ "pyo3",
  "redis 0.1.0",
  "redis-test",
  "regex",
