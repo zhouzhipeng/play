@@ -4966,7 +4966,7 @@ dependencies = [
  "lazy_static",
  "mime_guess",
  "notify",
- "pyo3",
+ "py_tpl",
  "redis 0.1.0",
  "redis-test",
  "regex",
@@ -5127,6 +5127,21 @@ version = "0.1.0"
 dependencies = [
  "quote",
  "syn 2.0.41",
+]
+
+[[package]]
+name = "py_tpl"
+version = "0.1.0"
+dependencies = [
+ "async-channel",
+ "async-trait",
+ "include_dir",
+ "lazy_static",
+ "pyo3",
+ "serde_json",
+ "shared",
+ "tracing",
+ "zip-extract",
 ]
 
 [[package]]
@@ -6221,7 +6236,9 @@ name = "shared"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-channel",
  "async-trait",
+ "include_dir",
  "proc_macros",
  "reqwest",
  "serde",

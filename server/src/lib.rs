@@ -2,6 +2,7 @@ use std::net::SocketAddr;
 use std::ops::Deref;
 use std::sync::Arc;
 use std::time::Duration;
+use async_channel::Receiver;
 
 use axum::extract::State;
 use axum::http::{Method, StatusCode};
@@ -10,6 +11,7 @@ use axum::response::{Html, IntoResponse, Response};
 use axum::Router;
 use axum_server::Handle;
 use hyper::HeaderMap;
+use include_dir::{Dir, include_dir};
 use lazy_static::lazy_static;
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -19,30 +21,24 @@ use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::{error, info};
 
 use shared::redis_api::RedisAPI;
+use shared::tpl_engine_api::{Template, TemplateData, TplEngineAPI};
 
 use crate::config::Config;
 use crate::config::init_config;
 use crate::controller::app_routers;
-use crate::service::template_service::{TemplateData, TemplateService};
+use crate::service::template_service;
+use crate::service::template_service::{TemplateService};
 use crate::tables::DBPool;
-use crate::threads::py_runner;
+
 
 pub mod controller;
-pub mod threads;
 pub mod tables;
 pub mod service;
 pub mod config;
 
 
-pub const DATA_DIR: &str ="DATA_DIR";
 
 
-#[macro_export]
-macro_rules! file_path {
-    ($s:expr) => {
-        concat!(env!("CARGO_MANIFEST_DIR"),$s)
-    };
-}
 
 
 ///
@@ -107,15 +103,21 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> Arc<AppStat
     });
 
 
-    //run a thread to run python code.
-    info!("ready to spawn py_runner");
-    tokio::spawn(async move { py_runner::run(req_receiver).await; });
-    // let copy_receiver = req_receiver.clone();
-    // let copy_receiver2 = req_receiver.clone();
-    // thread::Builder::new().name("py_runner_1".to_string()).spawn(move || { py_runner::run(req_receiver); });
-    // thread::Builder::new().name("py_runner_2".to_string()).spawn(move || { py_runner::run(copy_receiver2); });
-    // thread::Builder::new().name("py_runner_3".to_string()).spawn(move || { py_runner::run(req_receiver); });
+    #[cfg(feature = "tpl")]
+    start_template_backend_thread(Box::new(tpl::TplEngine{}),req_receiver);
+    #[cfg(not(feature = "tpl"))]
+    start_template_backend_thread(Box::new(crate::service::tpl_fake_engine::FakeTplEngine{}),req_receiver);
+
+
+
+
     app_state
+}
+
+
+fn start_template_backend_thread(tpl_engine : Box<dyn TplEngineAPI+Send+Sync>, req_receiver: Receiver<TemplateData>){
+    info!("ready to spawn py_runner");
+    tokio::spawn(async move { tpl_engine.run_loop(req_receiver).await; });
 }
 
 pub async fn start_server(config: &Config, router: Router, app_state: Arc<AppState>)->anyhow::Result<()> {
@@ -263,20 +265,6 @@ impl<E> From<E> for AppError
 
 
 
-pub enum Template {
-    StaticTemplate {
-        name: &'static str,
-        content: &'static str,
-    },
-    DynamicTemplate {
-        name: String,
-        content: String,
-    },
-    PythonCode {
-        name: String,
-        content: String,
-    },
-}
 
 
 #[cfg(not(feature = "debug"))]
@@ -284,7 +272,10 @@ pub enum Template {
 macro_rules! init_template {
     ($fragment: expr) => {
         {
-            use crate::py_runner::TEMPLATES_DIR;
+            #[cfg(feature = "tpl")]
+            use tpl::TEMPLATES_DIR;
+            #[cfg(not(feature = "tpl"))]
+            use crate::service::tpl_fake_engine::TEMPLATES_DIR;
 
             let content = TEMPLATES_DIR.get_file($fragment).unwrap().contents_utf8().unwrap();
             crate::Template::StaticTemplate { name: $fragment, content: content }
@@ -300,12 +291,11 @@ macro_rules! init_template {
     ($fragment: expr) => {
         {
             use std::fs;
-            use crate::py_runner::TEMPLATES_DIR;
 
             //for compiling time check file existed or not.
-            include_str!(crate::file_path!(concat!("/templates/",  $fragment)));
+            include_str!(shared::file_path!(concat!("/templates/",  $fragment)));
 
-            crate::Template::DynamicTemplate { name: $fragment.to_string(), content: fs::read_to_string(crate::file_path!(concat!("/templates/",  $fragment))).unwrap() }
+            crate::Template::DynamicTemplate { name: $fragment.to_string(), content: fs::read_to_string(shared::file_path!(concat!("/templates/",  $fragment))).unwrap() }
 
         }
 

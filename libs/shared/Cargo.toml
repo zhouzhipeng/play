@@ -15,9 +15,10 @@ serde_json = "1.0.68"
 reqwest = { version = "0.11.22", features = ["json"] }
 anyhow = "1.0.75"
 async-trait = "0.1.75"
-
+async-channel = "2.1.1"
 # for server
 zip-extract = { version = "0.1.2", optional = true }
 
 proc_macros={path= "../proc_macros", optional = true}
 sqlparser = { version = "0.40.0", optional = true }
+include_dir = "0.7.3"

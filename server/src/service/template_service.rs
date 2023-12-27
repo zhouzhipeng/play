@@ -1,16 +1,13 @@
 
 use anyhow::bail;
-use async_channel::{Sender};
+use async_channel::{Receiver, RecvError, Sender};
+use async_trait::async_trait;
 use serde_json::Value;
 use tracing::error;
+use shared::tpl_engine_api::{TemplateData, TplEngineAPI};
 
 use crate::Template;
 
-pub struct TemplateData {
-    pub template: Template,
-    pub args: Value,
-    pub response: Sender<String>
-}
 
 pub struct TemplateService {
     req_sender: Sender<TemplateData>,
@@ -39,3 +36,4 @@ impl TemplateService {
         }
     }
 }
+

@@ -4,6 +4,7 @@ pub mod constants;
 #[cfg(feature = "utils")]
 pub mod utils;
 pub mod redis_api;
+pub mod tpl_engine_api;
 
 
 pub trait MyTrait{
@@ -12,3 +13,11 @@ pub trait MyTrait{
 
 #[cfg(feature = "proc_macros")]
 pub use proc_macros::*;
+
+
+#[macro_export]
+macro_rules! file_path {
+    ($s:expr) => {
+        concat!(env!("CARGO_MANIFEST_DIR"),$s)
+    };
+}

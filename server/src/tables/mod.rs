@@ -8,7 +8,7 @@ use sqlx::{migrate::MigrateDatabase, MySql, Pool};
 use sqlx::sqlite::SqliteQueryResult;
 use tracing::info;
 use crate::config::Config;
-use crate::file_path;
+use shared::file_path;
 
 pub mod user;
 pub mod article;

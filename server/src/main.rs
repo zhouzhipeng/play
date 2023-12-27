@@ -16,10 +16,10 @@ use tracing_subscriber::filter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
-use play::{DATA_DIR, file_path, init_app_state, shutdown_another_instance, start_server};
+use play::{init_app_state, shutdown_another_instance, start_server};
 use play::config::init_config;
 use play::routers;
-
+use shared::constants::DATA_DIR;
 
 
 

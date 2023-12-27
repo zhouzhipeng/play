@@ -5,7 +5,8 @@ use anyhow::anyhow;
 use serde::Deserialize;
 use tracing::info;
 
-use crate::{DATA_DIR, file_path};
+use shared::{ file_path};
+use shared::constants::DATA_DIR;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Config {
