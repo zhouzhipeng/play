@@ -3,10 +3,9 @@ A playground project writen in rust for fun.
 
 
 ## crates
-* prebuild : put your pre-build logic here.
-* shared :  models and some common functions should be put here (should be simple)
+* tool : put your pre-build logic here.
+* libs :  a bunch of useful crates.
 * server : a http server providing APIs and static files and templates.
-* server/python : for server side templates, we run a python interpreter inside rust.
 
 ## local debug
 the `debug` feature will activate live-reload mode for `static` and `templates` folders.

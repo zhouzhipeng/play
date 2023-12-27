@@ -52,7 +52,7 @@ jobs:
             TARGET: windows
             CMD_BUILD: >
               cargo dev_ui && mkdir -p dist && cp target/release/play.exe dist/play.exe &&
-              cp server/python/build/python310.dll dist/python310.dll &&
+              cp libs/py_tpl/python/build/python310.dll dist/python310.dll &&
               cd dist && powershell Compress-Archive *  play_win.zip
             OUT_FILE_NAME: play_win.zip
             ASSET_MIME: application/zip

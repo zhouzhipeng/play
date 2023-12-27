@@ -82,7 +82,7 @@ impl TplEngineAPI for PyRunner{
             info!("use embed python!");
             let data_dir = env::var(DATA_DIR).unwrap();
             //decompress stdlib.zip to output_dir
-            let data = include_bytes!(file_path!("/../../server/python/build/stdlib.zip"));
+            let data = include_bytes!(file_path!("/python/build/stdlib.zip"));
             let archive = Cursor::new(data);
             zip_extract::extract(archive, &data_dir.as_ref(), false).unwrap();
             set_var("PYTHONPATH", format!("{}/stdlib", data_dir));

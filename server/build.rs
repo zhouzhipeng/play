@@ -33,7 +33,6 @@ fn main() {
     println!("cargo:rerun-if-changed=templates");
     println!("cargo:rerun-if-changed=static");
     println!("cargo:rerun-if-changed=config");
-    println!("cargo:rerun-if-changed=python");
     println!("cargo:rerun-if-changed=doc");
 
 }
