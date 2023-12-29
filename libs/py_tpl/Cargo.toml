@@ -13,7 +13,7 @@ use_embed_python=[]
 shared={path="../shared"}
 
 pyo3 = { version = "0.20.0" }
-async-trait = "0.1.75"
+async-trait = {workspace=true}
 async-channel = "2.1.1"
 tracing = "0.1"
 include_dir = "0.7.3"

@@ -8,4 +8,4 @@ edition = "2021"
 pyoxidizer = "0.24.0"
 current_platform="0.2.0"
 zip_archive = "1.2.2"
-anyhow = "1.0.76"
+anyhow = { workspace=true }

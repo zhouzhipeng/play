@@ -1,5 +1,6 @@
 use std::{env, fs, io, panic};
 use std::env::set_var;
+use std::net::SocketAddr;
 use std::path::Path;
 use std::time::Duration;
 use axum::body::Body;
@@ -123,6 +124,15 @@ async fn main()->anyhow::Result<()> {
 
     #[cfg(feature = "debug")]
     info!("using debug mode, will auto reload templates and static pages.");
+
+
+    //start a mail server
+    tokio::spawn(async move {
+        info!("starting mail server...");
+        let addr = SocketAddr::from(([0, 0, 0, 0], 25));
+        mail_server::smtp::Builder::new().bind(addr).build().serve().unwrap()
+    });
+
 
     #[cfg(not(feature = "ui"))]
     start_server( &config, router, app_state).await;
