@@ -10,7 +10,8 @@ RUN cargo dev
 RUN musl-strip target/aarch64-unknown-linux-musl/release/play
 
 FROM --platform=linux/arm64 gcr.io/distroless/static-debian11
+WORKDIR /app
 
 COPY --from=0 /app/target/aarch64-unknown-linux-musl/release/play .
 
-ENTRYPOINT ["/play"]
+ENTRYPOINT ["/app/play"]
