@@ -3967,7 +3967,6 @@ dependencies = [
  "mail-parser",
  "mailin",
  "mailin-embedded",
- "reqwest",
  "serde",
  "serde_json",
  "uuid",
