@@ -2,7 +2,9 @@ use std::{env, fs, io, panic};
 use std::env::set_var;
 use std::net::SocketAddr;
 use std::path::Path;
+use std::sync::Arc;
 use std::time::Duration;
+use async_channel::RecvError;
 use axum::body::Body;
 use axum::http::Request;
 
@@ -11,15 +13,17 @@ use axum::Router;
 use directories::ProjectDirs;
 
 
-use tracing::info;
+use tracing::{error, info};
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::filter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
+use mail_server::models::message::Message;
 
-use play::{init_app_state, shutdown_another_instance, start_server};
+use play::{AppState, handle_email_message, init_app_state, shutdown_another_instance, start_server};
 use play::config::init_config;
 use play::routers;
+use play::tables::email_inbox::EmailInbox;
 use shared::constants::DATA_DIR;
 
 
@@ -127,20 +131,36 @@ async fn main()->anyhow::Result<()> {
 
 
     //start a mail server
+    let copy_appstate = app_state.clone();
     tokio::spawn(async move {
         info!("starting mail server...");
         let addr = SocketAddr::from(([0, 0, 0, 0], 25));
-        mail_server::smtp::Builder::new().bind(addr).build().serve().unwrap()
+        let (sever, rx) = mail_server::smtp::Builder::new().bind(addr).build();
+        tokio::spawn(async move {
+            loop{
+                //handle message
+                match rx.recv().await {
+                    Ok(msg) => {
+                        handle_email_message(&copy_appstate, &msg).await;
+                    }
+                    Err(e) => {
+                        error!("recv mail message error : {:?}", e);
+                    }
+                }
+            }
+
+        });
+        sever.serve().expect("create mail server failed!");
     });
 
 
     #[cfg(not(feature = "ui"))]
-    start_server( &config, router, app_state).await;
+    start_server( router, app_state).await;
 
     #[cfg(feature = "ui")]
     {
         tokio::spawn(async move{
-            start_server( &config, router, app_state).await;
+            start_server(router, app_state).await.expect("start api server failed!");
         });
 
         ui::start_window(&format!("http://127.0.0.1:{}",server_port))?;

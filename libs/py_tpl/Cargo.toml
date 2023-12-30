@@ -14,7 +14,7 @@ shared={path="../shared"}
 
 pyo3 = { version = "0.20.0" }
 async-trait = {workspace=true}
-async-channel = "2.1.1"
+async-channel = {workspace=true}
 tracing = "0.1"
 include_dir = "0.7.3"
 lazy_static = "1.4.0"

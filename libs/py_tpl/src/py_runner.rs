@@ -17,7 +17,7 @@ use shared::constants::DATA_DIR;
 use shared::file_path;
 
 use shared::tpl_engine_api::{Template, TemplateData, TplEngineAPI};
-use shared::utils::parse_create_sql;
+use shared::utils::{GenericDialect, parse_create_sql};
 
 
 macro_rules! include_py {
@@ -38,7 +38,7 @@ fn add_one(x: i64) -> i64 {
 }
 #[pyfunction]
 fn parse_create_sql_str(sql: String) -> PyResult<String> {
-    let info =parse_create_sql(&sql);
+    let info =parse_create_sql(&sql, GenericDialect{});
     Ok(serde_json::to_string(&info).unwrap())
 }
 

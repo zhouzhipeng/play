@@ -3959,6 +3959,7 @@ name = "mail_server"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-channel",
  "async-trait",
  "chrono",
  "futures",
@@ -5020,6 +5021,7 @@ dependencies = [
  "axum-macros",
  "axum-server",
  "axum-test",
+ "chrono",
  "criterion",
  "crossbeam-channel",
  "dashmap",
@@ -6314,6 +6316,7 @@ dependencies = [
  "anyhow",
  "async-channel",
  "async-trait",
+ "chrono",
  "include_dir",
  "proc_macros",
  "reqwest",

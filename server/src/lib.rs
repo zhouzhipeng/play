@@ -19,6 +19,8 @@ use tower_http::cors::{Any, CorsLayer};
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::{error, info};
+use mail_server::models::message::Message;
+use shared::current_timestamp;
 
 use shared::redis_api::RedisAPI;
 use shared::tpl_engine_api::{Template, TemplateData, TplEngineAPI};
@@ -29,6 +31,7 @@ use crate::controller::app_routers;
 use crate::service::template_service;
 use crate::service::template_service::{TemplateService};
 use crate::tables::DBPool;
+use crate::tables::email_inbox::EmailInbox;
 
 
 pub mod controller;
@@ -120,8 +123,9 @@ fn start_template_backend_thread(tpl_engine : Box<dyn TplEngineAPI+Send+Sync>, r
     tokio::spawn(async move { tpl_engine.run_loop(req_receiver).await; });
 }
 
-pub async fn start_server(config: &Config, router: Router, app_state: Arc<AppState>)->anyhow::Result<()> {
-    let server_port = config.server_port;
+pub async fn start_server(router: Router, app_state: Arc<AppState>)->anyhow::Result<()> {
+    let server_port = app_state.config.server_port;
+
 
     println!("server started at  : http://127.0.0.1:{}", server_port);
     info!("server started at  : http://127.0.0.1:{}", server_port);
@@ -345,3 +349,18 @@ async fn render_fragment(s: &S, fragment: Template, data: Value) -> R<Html<Strin
     Ok(Html(content))
 }
 
+pub async fn handle_email_message(copy_appstate: &Arc<AppState>, msg: &Message) {
+    let r = EmailInbox::insert(&EmailInbox {
+        from_mail: msg.sender.to_string(),
+        to_mail: msg.recipients.join(","),
+        send_date: msg.created_at.as_ref().unwrap_or(&String::from("")).to_string(),
+        subject: msg.subject.to_string(),
+        plain_content: msg.plain.as_ref().unwrap_or(&String::from("")).to_string(),
+        html_content: msg.html.as_ref().unwrap_or(&String::from("")).to_string(),
+        full_body: "<TODO>".to_string(),
+        attachments: "<TODO>".to_string(),
+        create_time: current_timestamp!(),
+        ..Default::default()
+    }, &copy_appstate.db).await;
+    info!("email insert result : {:?}", r);
+}

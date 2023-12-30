@@ -146,3 +146,4 @@ pub mod users;
 
 
 pub mod english_card;
+pub mod email_inbox;
