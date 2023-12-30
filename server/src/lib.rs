@@ -19,7 +19,7 @@ use tower_http::cors::{Any, CorsLayer};
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::{error, info};
-use mail_server::models::message::Message;
+
 use shared::current_timestamp;
 
 use shared::redis_api::RedisAPI;
@@ -349,7 +349,9 @@ async fn render_fragment(s: &S, fragment: Template, data: Value) -> R<Html<Strin
     Ok(Html(content))
 }
 
-pub async fn handle_email_message(copy_appstate: &Arc<AppState>, msg: &Message) {
+
+#[cfg(feature = "mail_server")]
+pub async fn handle_email_message(copy_appstate: &Arc<AppState>, msg: &mail_server::models::message::Message) {
     let r = EmailInbox::insert(&EmailInbox {
         from_mail: msg.sender.to_string(),
         to_mail: msg.recipients.join(","),

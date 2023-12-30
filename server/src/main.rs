@@ -2,31 +2,21 @@ use std::{env, fs, io, panic};
 use std::env::set_var;
 use std::net::SocketAddr;
 use std::path::Path;
-use std::sync::Arc;
 use std::time::Duration;
-use async_channel::RecvError;
+
 use axum::body::Body;
 use axum::http::Request;
-
-
-use axum::Router;
-use directories::ProjectDirs;
-
 
 use tracing::{error, info};
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::filter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use mail_server::models::message::Message;
 
-use play::{AppState, handle_email_message, init_app_state, shutdown_another_instance, start_server};
+use play::{ init_app_state, shutdown_another_instance, start_server};
 use play::config::init_config;
 use play::routers;
-use play::tables::email_inbox::EmailInbox;
 use shared::constants::DATA_DIR;
-
-
 
 #[tokio::main]
 async fn main()->anyhow::Result<()> {
@@ -35,11 +25,11 @@ async fn main()->anyhow::Result<()> {
 
     // Set the custom panic hook
     panic::set_hook(Box::new(|panic_info| {
-        println!("panic occurred : {:?}", panic_info);
+        error!("panic occurred : {:?}", panic_info);
     }));
 
     #[cfg(not(feature = "debug"))]
-    let data_dir  = match ProjectDirs::from("com", "zhouzhipeng",  "play"){
+    let data_dir  = match  directories::ProjectDirs::from("com", "zhouzhipeng",  "play"){
         None => env::var(DATA_DIR)?,
         Some(s) => s.data_dir().to_str().unwrap().to_string(),
     };
@@ -131,7 +121,9 @@ async fn main()->anyhow::Result<()> {
 
 
     //start a mail server
+    #[cfg(feature = "mail_server")]
     let copy_appstate = app_state.clone();
+    #[cfg(feature = "mail_server")]
     tokio::spawn(async move {
         info!("starting mail server...");
         let addr = SocketAddr::from(([0, 0, 0, 0], 25));
@@ -141,7 +133,7 @@ async fn main()->anyhow::Result<()> {
                 //handle message
                 match rx.recv().await {
                     Ok(msg) => {
-                        handle_email_message(&copy_appstate, &msg).await;
+                        play::handle_email_message(&copy_appstate, &msg).await;
                     }
                     Err(e) => {
                         error!("recv mail message error : {:?}", e);

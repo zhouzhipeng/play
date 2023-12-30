@@ -1,24 +1,18 @@
-FROM python:3.11 as BuildImage
-SHELL ["/bin/bash", "-c"]
+FROM --platform=linux/amd64  messense/rust-musl-cross:x86_64-musl
 
-# install openssl 1.1.1
-RUN wget https://www.openssl.org/source/openssl-1.1.1t.tar.gz
-RUN tar -zxf openssl-1.1.1t.tar.gz
-RUN cd openssl-1.1.1t && ./config && make install && ldconfig
-
-# install rust
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-
+USER root
 
 WORKDIR /app
 COPY . .
 
-RUN source "$HOME/.cargo/env" && \
-    cargo dev_embed
 
+RUN cargo dev_mail
 
-FROM debian:12-slim
+RUN musl-strip target/x86_64-unknown-linux-musl/release/play
+
+FROM --platform=linux/amd64  gcr.io/distroless/static-debian11
 WORKDIR /app
 
-COPY --from=BuildImage /app/target/release/play .
-CMD /app/play
+COPY --from=0 /app/target/x86_64-unknown-linux-musl/release/play .
+
+ENTRYPOINT ["/app/play"]

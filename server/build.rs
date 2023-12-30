@@ -12,7 +12,7 @@ use shared::utils::{parse_create_sql, SQLiteDialect};
 
 const HOOKS_PATH: &str = "../.git/hooks";
 const PRE_COMMIT_HOOK: &str = "#!/bin/sh
-exec cargo test
+exec cargo test --features=mail_server
 ";
 
 
