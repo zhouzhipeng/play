@@ -51,20 +51,21 @@ async fn main()->anyhow::Result<()> {
         .with_default(LevelFilter::INFO)
     ;
 
-    #[cfg(feature = "debug")]
-    let writer = io::stdout;
-    #[cfg(not(feature = "debug"))]
+
     let file_appender = tracing_appender::rolling::never(data_dir, "play.log.txt");
-    #[cfg(not(feature = "debug"))]
     let (writer, _guard) = tracing_appender::non_blocking(file_appender);
 
-    tracing_subscriber::registry()
+    let subscriber = tracing_subscriber::registry()
         .with(tracing_subscriber::fmt::layer().with_thread_names(true)
             .pretty()
             .with_writer(writer)
-        )
-        .with(filter)
-        .init();
+        );
+
+    #[cfg(feature = "debug")]
+    let subscriber = subscriber.with(tracing_subscriber::fmt::Layer::new()
+            .with_writer(std::io::stdout)); // Console output
+
+    subscriber.with(filter).init();
 
     //init config
     // init config

@@ -1,6 +1,8 @@
+use std::env;
 use std::env::temp_dir;
 use std::fs::File;
-use std::io::Cursor;
+use std::io::{BufRead, BufReader, Cursor};
+use std::path::Path;
 use std::time::Duration;
 
 use axum::extract::Query;
@@ -10,6 +12,7 @@ use reqwest::{ClientBuilder, Url};
 use serde::Deserialize;
 use serde_json::json;
 use tracing::info;
+use shared::constants::DATA_DIR;
 
 use crate::{check_if, HTML, method_router, S, template};
 use crate::config::{get_config_path, read_config_file, save_config_file};
@@ -19,6 +22,7 @@ method_router!(
     get : "/admin/shutdown" -> shutdown,
     get : "/admin/index" -> enter_admin_page,
     post : "/admin/save-config" -> save_config,
+    get : "/admin/logs" -> display_logs,
 );
 
 #[derive(Deserialize)]
@@ -29,6 +33,28 @@ struct UpgradeRequest {
 #[derive(Deserialize)]
 struct SaveConfigReq{
     new_content: String,
+}
+async fn display_logs(s: S) -> HTML {
+    let count= 100;
+    let file_path = Path::new(env::var(DATA_DIR)?.as_str()).join("play.log.txt");
+    let file = File::open(file_path)?;
+    let reader = BufReader::new(file);
+
+    let lines: Vec<String> = reader.lines()
+        .filter_map(Result::ok)
+        .collect();
+
+    let tail_lines:Vec<String> = lines.iter()
+        .rev()
+        .take(count)
+        .rev()
+        .cloned()
+        .collect();
+
+    let coverted_str = tail_lines.join("\n");
+    let converted = ansi_to_html::convert(&coverted_str).unwrap();
+
+    Ok(Html(converted))
 }
 async fn save_config(s: S, Form(req): Form<SaveConfigReq>) -> HTML {
     save_config_file(&req.new_content)?;

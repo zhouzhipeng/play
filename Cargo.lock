@@ -93,6 +93,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4b46cbb362ab8752921c97e041f5e366ee6297bd428a31275b9fcf1e380f7299"
 
 [[package]]
+name = "ansi-to-html"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d73c455ae09fa2223a75114789f30ad605e9e297f79537953523366c05995f5f"
+dependencies = [
+ "regex",
+ "thiserror",
+]
+
+[[package]]
 name = "anstream"
 version = "0.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5014,6 +5024,7 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 name = "play"
 version = "0.1.0"
 dependencies = [
+ "ansi-to-html",
  "anyhow",
  "async-channel",
  "async-trait",
