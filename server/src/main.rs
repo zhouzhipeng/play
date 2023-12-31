@@ -48,7 +48,7 @@ async fn main()->anyhow::Result<()> {
     // initialize tracing
     let filter = filter::Targets::new()
         // .with_target("rustpython_vm", LevelFilter::ERROR)
-        .with_default(LevelFilter::DEBUG)
+        .with_default(LevelFilter::TRACE)
     ;
 
 
