@@ -143,14 +143,15 @@ pub async fn start_server(router: Router, app_state: Arc<AppState>)->anyhow::Res
     let certs_path = Path::new(env::var(DATA_DIR)?.as_str()).join("certs");
 
 
+
     #[cfg(feature = "https")]
     https::start_https_server(&https::HttpsConfig{
-        domains: vec!["zhouzhipeng.com".to_string()],
-        email: vec!["admin@zhouzhipeng.com".to_string()],
+        domains: app_state.config.https_cert.domains.clone(),
+        email: app_state.config.https_cert.emails.clone(),
         cache_dir: certs_path.to_str().unwrap().to_string(),
         prod: true,
         http_port: server_port as u16,
-        https_port: 443,
+        https_port: app_state.config.https_cert.https_port,
     }, router).await;
 
 
