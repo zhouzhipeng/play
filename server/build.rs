@@ -4,9 +4,11 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::io::Write;
 use std::path::Path;
+use regex::Regex;
 
 use serde_json::json;
 use walkdir::WalkDir;
+use shared::current_timestamp;
 
 use shared::utils::{parse_create_sql, SQLiteDialect};
 
@@ -15,8 +17,11 @@ const PRE_COMMIT_HOOK: &str = "#!/bin/sh
 exec cargo test --features=mail_server
 ";
 
-
 fn main() {
+
+
+    println!("cargo:rustc-env=BUILT_TIME={}",current_timestamp!().to_string() );
+
     //generate git pre-commit file.
     #[cfg(feature = "debug")]
     gen_pre_commit();
@@ -162,4 +167,23 @@ fn gen_db_models_code() {
 
         Ok(render_fn)
     }).expect("run python error!");
+}
+
+fn increase_app_version()->anyhow::Result<()>{
+    let cargo_toml_path = "Cargo.toml";
+    let cargo_toml_contents = fs::read_to_string(cargo_toml_path)?;
+
+    let version_regex = Regex::new(r#"^version = "(\d+)\.(\d+)\.(\d+)"$"#).unwrap();
+    let new_contents = version_regex.replace(&cargo_toml_contents, |caps: &regex::Captures| {
+        let major: i32 = caps[1].parse().unwrap();
+        let minor: i32 = caps[2].parse().unwrap();
+        let mut patch: i32 = caps[3].parse().unwrap();
+        patch += 1; // Increment the patch version
+        format!("version = \"{}.{}.{}\"", major, minor, patch)
+    });
+
+    let mut file = fs::File::create(cargo_toml_path)?;
+    file.write_all(new_contents.as_bytes())?;
+    Ok(())
+
 }

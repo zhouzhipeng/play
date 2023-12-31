@@ -23,7 +23,7 @@ use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::{error, info};
 use shared::constants::DATA_DIR;
 
-use shared::current_timestamp;
+use shared::{current_timestamp, timestamp_to_date_str};
 
 use shared::redis_api::RedisAPI;
 use shared::tpl_engine_api::{Template, TemplateData, TplEngineAPI};
@@ -334,8 +334,10 @@ async fn render_page(s: &S, page: Template, fragment: Template, data: Value) -> 
 
     let content = s.template_service.render_template(fragment, data).await?;
 
+    let built_time = timestamp_to_date_str!(env!("BUILT_TIME").parse::<i64>()?);
 
     let final_data = json!({
+        "built_time": built_time,
         "title": title,
         "content": content
     });
@@ -367,3 +369,7 @@ pub async fn handle_email_message(copy_appstate: &Arc<AppState>, msg: &mail_serv
     }, &copy_appstate.db).await;
     info!("email insert result : {:?}", r);
 }
+
+
+// Include the generated-file as a seperate module
+
