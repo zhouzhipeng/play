@@ -109,12 +109,10 @@ async fn upgrade(s: S, Query(upgrade): Query<UpgradeRequest>) -> HTML {
     Ok(Html("upgrading in background, pls wait and restart manually later.".to_string()))
 }
 
-async fn shutdown(s: S) -> HTML {
-
+async fn shutdown() -> HTML {
 
     info!("ready to reboot...");
 
-    s.shutdown_handle.shutdown();
+    std::process::exit(0);
 
-    Ok(Html("shutdown ok.".to_string()))
 }

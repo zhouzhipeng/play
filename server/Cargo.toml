@@ -42,6 +42,7 @@ ui = {path = "../libs/ui", optional = true}
 redis ={package = "redis", path="../libs/redis", optional = true}
 tpl={package = "py_tpl", path = "../libs/py_tpl",optional = true}
 mail_server = {path="../libs/mail_server", optional = true}
+https = {path = "../libs/https", optional = true}
 
 # third parties
 zip-extract = "0.1.2"

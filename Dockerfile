@@ -6,7 +6,7 @@ WORKDIR /app
 COPY . .
 
 
-RUN cargo dev_mail
+RUN cargo dev_server
 
 RUN musl-strip target/x86_64-unknown-linux-musl/release/play
 

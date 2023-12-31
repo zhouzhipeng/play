@@ -1,5 +1,7 @@
+use std::env;
 use std::net::SocketAddr;
 use std::ops::Deref;
+use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 use async_channel::Receiver;
@@ -19,6 +21,7 @@ use tower_http::cors::{Any, CorsLayer};
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::{error, info};
+use shared::constants::DATA_DIR;
 
 use shared::current_timestamp;
 
@@ -80,7 +83,6 @@ pub struct AppState {
     pub template_service: TemplateService,
     pub db: DBPool,
     pub redis_service: Box<dyn RedisAPI+Send+Sync>,
-    pub shutdown_handle: Handle,
     pub config: Config,
 }
 
@@ -101,7 +103,6 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> Arc<AppStat
         redis_service: Box::new( redis::RedisService::new(config.redis_uri.clone(), final_test_pool).await.unwrap()),
         #[cfg(not(feature = "redis"))]
         redis_service: Box::new( crate::service::redis_fake_service::RedisFakeService::new(config.redis_uri.clone(), final_test_pool).await.unwrap()),
-        shutdown_handle:  Handle::new(),
         config: config.clone(),
     });
 
@@ -132,17 +133,27 @@ pub async fn start_server(router: Router, app_state: Arc<AppState>)->anyhow::Res
 
     let addr = SocketAddr::from(([0, 0, 0, 0], server_port as u16));
 
+    #[cfg(not(feature = "https"))]
     // run it with hyper on localhost:3000
     axum_server::bind(addr)
-        .handle(app_state.shutdown_handle.clone())
         .serve(router.into_make_service())
         .await?;
 
 
-    //run after `handle` shutdown() being called.
-    // tokio::time::sleep(Duration::from_secs(1)).await;
-    info!("shutdown self , and ready to pull a new app.");
-    shutdown_app();
+    let certs_path = Path::new(env::var(DATA_DIR)?.as_str()).join("certs");
+
+
+    #[cfg(feature = "https")]
+    https::start_https_server(&https::HttpsConfig{
+        domains: vec!["zhouzhipeng.com".to_string()],
+        email: vec!["admin@zhouzhipeng.com".to_string()],
+        cache_dir: certs_path.to_str().unwrap().to_string(),
+        prod: true,
+        http_port: server_port as u16,
+        https_port: 443,
+    }, router).await;
+
+
 
     Ok(())
 }
@@ -153,16 +164,7 @@ pub async fn shutdown_another_instance(local_url: &String) {
     info!("shutdown_result >> {} , can be ignored.", shutdown_result.is_ok());
 }
 
-fn shutdown_app(){
-    // let new_process = Command::new(std::env::args().next().unwrap())
-    //     .args(std::env::args().skip(1))
-    //     .spawn()
-    //     .expect("Failed to restart the application");
-    // new_process.
 
-    //issue: if parent process exit, the child process will exit too.
-    std::process::exit(0);
-}
 
 
 type R<T> = Result<T, AppError>;
