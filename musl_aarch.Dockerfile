@@ -5,7 +5,7 @@ USER root
 WORKDIR /app
 COPY . .
 
-RUN cargo dev
+RUN cargo dev_server
 
 RUN musl-strip target/aarch64-unknown-linux-musl/release/play
 

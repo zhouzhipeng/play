@@ -3,26 +3,20 @@ use std::env::set_var;
 use std::net::SocketAddr;
 use std::path::Path;
 use std::time::Duration;
+
 use axum::body::Body;
 use axum::http::Request;
 
-
-use axum::Router;
-use directories::ProjectDirs;
-
-
-use tracing::info;
+use tracing::{error, info};
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::filter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
-use play::{init_app_state, shutdown_another_instance, start_server};
+use play::{ init_app_state, shutdown_another_instance, start_server};
 use play::config::init_config;
 use play::routers;
 use shared::constants::DATA_DIR;
-
-
 
 #[tokio::main]
 async fn main()->anyhow::Result<()> {
@@ -31,11 +25,11 @@ async fn main()->anyhow::Result<()> {
 
     // Set the custom panic hook
     panic::set_hook(Box::new(|panic_info| {
-        println!("panic occurred : {:?}", panic_info);
+        error!("panic occurred : {:?}", panic_info);
     }));
 
     #[cfg(not(feature = "debug"))]
-    let data_dir  = match ProjectDirs::from("com", "zhouzhipeng",  "play"){
+    let data_dir  = match  directories::ProjectDirs::from("com", "zhouzhipeng",  "play"){
         None => env::var(DATA_DIR)?,
         Some(s) => s.data_dir().to_str().unwrap().to_string(),
     };
@@ -57,20 +51,21 @@ async fn main()->anyhow::Result<()> {
         .with_default(LevelFilter::INFO)
     ;
 
-    #[cfg(feature = "debug")]
-    let writer = io::stdout;
-    #[cfg(not(feature = "debug"))]
+
     let file_appender = tracing_appender::rolling::never(data_dir, "play.log.txt");
-    #[cfg(not(feature = "debug"))]
     let (writer, _guard) = tracing_appender::non_blocking(file_appender);
 
-    tracing_subscriber::registry()
+    let subscriber = tracing_subscriber::registry()
         .with(tracing_subscriber::fmt::layer().with_thread_names(true)
             .pretty()
             .with_writer(writer)
-        )
-        .with(filter)
-        .init();
+        );
+
+    #[cfg(feature = "debug")]
+    let subscriber = subscriber.with(tracing_subscriber::fmt::Layer::new()
+            .with_writer(std::io::stdout)); // Console output
+
+    subscriber.with(filter).init();
 
     //init config
     // init config
@@ -127,20 +122,38 @@ async fn main()->anyhow::Result<()> {
 
 
     //start a mail server
+    #[cfg(feature = "mail_server")]
+    let copy_appstate = app_state.clone();
+    #[cfg(feature = "mail_server")]
     tokio::spawn(async move {
         info!("starting mail server...");
         let addr = SocketAddr::from(([0, 0, 0, 0], 25));
-        mail_server::smtp::Builder::new().bind(addr).build().serve().unwrap()
+        let (sever, rx) = mail_server::smtp::Builder::new().bind(addr).build();
+        tokio::spawn(async move {
+            loop{
+                //handle message
+                match rx.recv().await {
+                    Ok(msg) => {
+                        play::handle_email_message(&copy_appstate, &msg).await;
+                    }
+                    Err(e) => {
+                        error!("recv mail message error : {:?}", e);
+                    }
+                }
+            }
+
+        });
+        sever.serve().expect("create mail server failed!");
     });
 
 
     #[cfg(not(feature = "ui"))]
-    start_server( &config, router, app_state).await;
+    start_server( router, app_state).await;
 
     #[cfg(feature = "ui")]
     {
         tokio::spawn(async move{
-            start_server( &config, router, app_state).await;
+            start_server(router, app_state).await.expect("start api server failed!");
         });
 
         ui::start_window(&format!("http://127.0.0.1:{}",server_port))?;

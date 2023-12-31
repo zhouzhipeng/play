@@ -78,3 +78,10 @@ use `cargo tool` to see how many operations we have
 
 ## build rust app into static linux executables
 https://github.com/rust-cross/rust-musl-cross
+
+
+## ports
+```bash
+3000 :  api server
+25 : mail receive server
+```

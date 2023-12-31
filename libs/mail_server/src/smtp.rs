@@ -2,6 +2,7 @@ use std::io;
 use std::net::SocketAddr;
 
 use anyhow::Result;
+use async_channel::{Receiver, Sender};
 use log::info;
 use mailin::AuthMechanism;
 use mailin_embedded::{Handler, SslConfig};
@@ -22,6 +23,7 @@ pub struct Builder {
     ssl_config: SslConfig,
     socket: Option<SocketAddr>,
     auth: bool,
+
 }
 
 impl Default for Builder {
@@ -32,6 +34,7 @@ impl Default for Builder {
 
 impl Builder {
     pub fn new() -> Self {
+
         Builder {
             ssl_config: SslConfig::None,
             socket: None,
@@ -60,9 +63,11 @@ impl Builder {
         self
     }
 
-    pub fn build(self) -> Server {
+    pub fn build(self) -> (Server, Receiver<Message>) {
+        let (tx, rx) = async_channel::unbounded();
         let handler = MyHandler {
             data: vec![],
+            tx,
         };
         let mut server = mailin_embedded::Server::new(handler);
 
@@ -76,15 +81,16 @@ impl Builder {
             server.with_auth(AuthMechanism::Plain);
         }
 
-        println!("listening on smtp://{}", self.socket.unwrap());
+        info!("listening on smtp://{}", self.socket.unwrap());
 
-        Server(server)
+        (Server(server), rx)
     }
 }
 
 #[derive(Clone)]
 pub struct MyHandler {
     pub data: Vec<u8>,
+    tx: Sender<Message>
 }
 
 impl Handler for MyHandler {
@@ -97,7 +103,8 @@ impl Handler for MyHandler {
     fn data_end(&mut self) -> mailin_embedded::Response {
         let message = Message::from(&self.data).unwrap();
 
-        info!("message>> {:?}", message);
+        // info!("message>> {:?}", message);
+        self.tx.send_blocking(message).unwrap();
 
         mailin_embedded::response::OK
     }

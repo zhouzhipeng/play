@@ -2,7 +2,7 @@ use serde_json::json;
 use crate::{HTML, method_router, S, template};
 
 method_router!(
-    get : "/{{table_name}}/list"-> list,
+    get : "/{{table_name.replace("_","-")}}/list"-> list,
 );
 
 async fn list(s: S) ->HTML{

@@ -21,3 +21,10 @@ macro_rules! file_path {
         concat!(env!("CARGO_MANIFEST_DIR"),$s)
     };
 }
+
+#[macro_export]
+macro_rules! current_timestamp {
+    () => {{
+        chrono::Utc::now().timestamp_millis()
+    }};
+}

@@ -8,11 +8,11 @@ use std::path::Path;
 use serde_json::json;
 use walkdir::WalkDir;
 
-use shared::utils::parse_create_sql;
+use shared::utils::{parse_create_sql, SQLiteDialect};
 
 const HOOKS_PATH: &str = "../.git/hooks";
 const PRE_COMMIT_HOOK: &str = "#!/bin/sh
-exec cargo test
+exec cargo test --features=mail_server
 ";
 
 
@@ -103,7 +103,7 @@ fn gen_db_models_code() {
     use pyo3::prelude::PyModule;
 
     let sql = include_str!("../doc/db_sqlite.sql");
-    let table_info = parse_create_sql(sql);
+    let table_info = parse_create_sql(sql,SQLiteDialect{});
     let ss = format!("table infos >> {:?}", table_info);
 
     pyo3::prepare_freethreaded_python();

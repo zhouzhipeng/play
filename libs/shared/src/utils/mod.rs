@@ -1,6 +1,6 @@
 use serde::Serialize;
 use sqlparser::ast::{ColumnOption, Statement, TableConstraint};
-use sqlparser::dialect::GenericDialect;
+pub use sqlparser::dialect::*;
 use sqlparser::parser::Parser;
 
 #[derive(Debug, Serialize)]
@@ -16,8 +16,8 @@ pub struct TableInfo {
     pub columns: Vec<TableColumn>,
 }
 
-pub fn parse_create_sql(sql: &str) -> Vec<TableInfo> {
-    let dialect = GenericDialect {}; // or AnsiDialect
+pub fn parse_create_sql<T: Dialect>(sql: &str, dialect: T) -> Vec<TableInfo>{
+
     let mut table_list = vec![];
 
     let ast = Parser::parse_sql(&dialect, sql).unwrap();
