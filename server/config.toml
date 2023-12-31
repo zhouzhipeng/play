@@ -5,4 +5,7 @@ upgrade_url = "https://github.com/zhouzhipeng/play/releases/download/1.0/play"
 [database]
 url=":memory:"
 
-
+[https_cert]
+https_port=443
+domains = ["xx.xx.com"]
+emails = ["xx@xx.com"]

@@ -17,9 +17,17 @@ pub struct Config {
     pub database: Database,
     #[serde(default)]
     pub upgrade_url: String,
-
+    #[serde(default)]
+    pub https_cert: HttpsCert,
 }
 
+#[derive(Deserialize, Debug, Clone, Default)]
+pub struct HttpsCert {
+    pub https_port: u16,
+    pub domains: Vec<String>,
+    pub emails: Vec<String>,
+
+}
 #[derive(Deserialize, Debug, Clone)]
 pub struct Database {
     pub url: String,

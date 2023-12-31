@@ -35,7 +35,7 @@ struct SaveConfigReq{
     new_content: String,
 }
 async fn display_logs(s: S) -> HTML {
-    let count= 100;
+    let count= 50;
     let file_path = Path::new(env::var(DATA_DIR)?.as_str()).join("play.log.txt");
     let file = File::open(file_path)?;
     let reader = BufReader::new(file);
@@ -67,8 +67,10 @@ async fn enter_admin_page(s: S) -> HTML {
     let config_content = read_config_file()?;
     let config_path = get_config_path()?;
 
+
     template!(s, "frame.html"+"fragments/admin.html", json!({
-        "upgrade_url" : "",
+        "title": "admin console",
+        "upgrade_url" : &s.config.upgrade_url,
         "config_content" : config_content,
         "config_path" : config_path,
     }))
