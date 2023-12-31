@@ -9,10 +9,9 @@ set -eux
 
 cd /root
 
-rm -rf play*
+rm -rf play
 
-wget https://github.com/zhouzhipeng/play/releases/download/latest/play_linux
-mv play_linux play
+curl -o play https://github.com/zhouzhipeng/play/releases/download/latest/play_linux
 chmod +x play
 
 # register service

@@ -85,3 +85,8 @@ https://github.com/rust-cross/rust-musl-cross
 3000 :  api server
 25 : mail receive server
 ```
+
+## install as linux service
+```bash
+curl -sSL https://raw.githubusercontent.com/zhouzhipeng/play/main/scripts/install_service.sh | sudo bash
+```
