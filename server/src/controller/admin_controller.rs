@@ -35,7 +35,7 @@ struct SaveConfigReq{
     new_content: String,
 }
 async fn display_logs(s: S) -> HTML {
-    let count= 100;
+    let count= 50;
     let file_path = Path::new(env::var(DATA_DIR)?.as_str()).join("play.log.txt");
     let file = File::open(file_path)?;
     let reader = BufReader::new(file);
