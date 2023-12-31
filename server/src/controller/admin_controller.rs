@@ -69,7 +69,7 @@ async fn enter_admin_page(s: S) -> HTML {
 
 
     template!(s, "frame.html"+"fragments/admin.html", json!({
-        "title": "admin console",
+        "title": "admin panel",
         "upgrade_url" : &s.config.upgrade_url,
         "config_content" : config_content,
         "config_path" : config_path,
