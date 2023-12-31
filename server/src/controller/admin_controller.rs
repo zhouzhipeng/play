@@ -27,7 +27,7 @@ method_router!(
 
 #[derive(Deserialize)]
 struct UpgradeRequest {
-    url: String,
+    url: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -92,14 +92,18 @@ async fn upgrade_in_background(url: Url) ->anyhow::Result<()>{
     self_replace::self_replace(&new_binary)?;
     std::fs::remove_file(&new_binary)?;
 
-    info!("replaced ok.");
+    info!("replaced ok. and ready to shutdown self");
+
+    shutdown().await;
 
 
     Ok(())
 }
 
 async fn upgrade(s: S, Query(upgrade): Query<UpgradeRequest>) -> HTML {
-    let url = Url::parse(&upgrade.url)?;
+    info!("begin upgrade...");
+
+    let url = Url::parse(&upgrade.url.as_ref().unwrap_or(&s.config.upgrade_url))?;
 
 
     tokio::spawn(async move{

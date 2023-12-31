@@ -140,3 +140,8 @@ jobs:
           asset_path: ./play_linux
           asset_name: play_linux
           asset_content_type: application/x-binary
+      - name: Trigger Upgrade
+        uses: fjogeleit/http-request-action@v1
+        with:
+          url: 'https://zhouzhipeng.com/admin/upgrade'
+          method: 'GET'
