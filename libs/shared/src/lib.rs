@@ -25,6 +25,14 @@ macro_rules! file_path {
 #[macro_export]
 macro_rules! current_timestamp {
     () => {{
+
         chrono::Utc::now().timestamp_millis()
+    }};
+}
+#[macro_export]
+macro_rules! timestamp_to_date_str {
+    ($s: expr) => {{
+        use chrono::TimeZone;
+        chrono::Utc.timestamp_millis_opt($s).unwrap().format("%Y-%m-%d %H:%M:%S").to_string()
     }};
 }

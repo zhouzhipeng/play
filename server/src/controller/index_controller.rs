@@ -1,6 +1,8 @@
+use chrono::{TimeZone, Utc};
 use serde_json::json;
+use shared::timestamp_to_date_str;
 
-use crate::{method_router, template};
+use crate::{ method_router, template};
 use crate::{HTML, R, S};
 
 method_router!(
@@ -11,8 +13,11 @@ method_router!(
 
 // #[axum::debug_handler]
 async fn root(s: S) -> HTML {
+    let built_time = timestamp_to_date_str!(env!("BUILT_TIME").parse::<i64>()?);
     // return_error!("test");
-    template!(s, "index.html", json!({}))
+    template!(s, "index.html", json!({
+        "built_time": built_time
+    }))
 
 }
 
@@ -32,4 +37,5 @@ async fn test(s: S) -> HTML {
     // template!(s, "test.html", json!({"name":"zzp"}))
     template!(s, "test.html", json!({"name":"zzp"}))
 }
+
 

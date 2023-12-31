@@ -12,6 +12,7 @@
 <body>
 {{include('/fragments/top.html')}}
 {{content}}
+{{include('/fragments/bottom.html', built_time=built_time)}}
 
 <script src="/static/js/htmx.min.js"></script>
 </body>

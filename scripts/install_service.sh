@@ -23,7 +23,7 @@ After=network.target
 [Service]
 Type=simple
 Restart=always
-RestartSec=3
+RestartSec=1
 ExecStart=/root/play
 
 [Install]
