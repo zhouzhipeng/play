@@ -68,7 +68,7 @@ macro_rules! check_if {
 #[macro_export]
 macro_rules! return_error {
     ($msg:literal $(,)?) => {
-        return Err(anyhow::anyhow!($msg).into())
+        return Err(anyhow::anyhow!($msg).into());
     };
     ($err:expr $(,)?) => {
         return Err(anyhow::anyhow!($err).into())
@@ -82,7 +82,7 @@ macro_rules! return_error {
 pub struct AppState {
     pub template_service: TemplateService,
     pub db: DBPool,
-    pub redis_service: Box<dyn RedisAPI+Send+Sync>,
+    pub redis_service: Box<dyn RedisAPI + Send + Sync>,
     pub config: Config,
 }
 
@@ -100,31 +100,29 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> Arc<AppStat
         template_service: TemplateService::new(req_sender),
         db: if final_test_pool { tables::init_test_pool().await } else { tables::init_pool(&config).await },
         #[cfg(feature = "redis")]
-        redis_service: Box::new( redis::RedisService::new(config.redis_uri.clone(), final_test_pool).await.unwrap()),
+        redis_service: Box::new(redis::RedisService::new(config.redis_uri.clone(), final_test_pool).await.unwrap()),
         #[cfg(not(feature = "redis"))]
-        redis_service: Box::new( crate::service::redis_fake_service::RedisFakeService::new(config.redis_uri.clone(), final_test_pool).await.unwrap()),
+        redis_service: Box::new(crate::service::redis_fake_service::RedisFakeService::new(config.redis_uri.clone(), final_test_pool).await.unwrap()),
         config: config.clone(),
     });
 
 
     #[cfg(feature = "tpl")]
-    start_template_backend_thread(Box::new(tpl::TplEngine{}),req_receiver);
+    start_template_backend_thread(Box::new(tpl::TplEngine {}), req_receiver);
     #[cfg(not(feature = "tpl"))]
-    start_template_backend_thread(Box::new(crate::service::tpl_fake_engine::FakeTplEngine{}),req_receiver);
-
-
+    start_template_backend_thread(Box::new(crate::service::tpl_fake_engine::FakeTplEngine {}), req_receiver);
 
 
     app_state
 }
 
 
-fn start_template_backend_thread(tpl_engine : Box<dyn TplEngineAPI+Send+Sync>, req_receiver: Receiver<TemplateData>){
+fn start_template_backend_thread(tpl_engine: Box<dyn TplEngineAPI + Send + Sync>, req_receiver: Receiver<TemplateData>) {
     info!("ready to spawn py_runner");
     tokio::spawn(async move { tpl_engine.run_loop(req_receiver).await; });
 }
 
-pub async fn start_server(router: Router, app_state: Arc<AppState>)->anyhow::Result<()> {
+pub async fn start_server(router: Router, app_state: Arc<AppState>) -> anyhow::Result<()> {
     let server_port = app_state.config.server_port;
 
 
@@ -143,9 +141,8 @@ pub async fn start_server(router: Router, app_state: Arc<AppState>)->anyhow::Res
     let certs_path = Path::new(env::var(DATA_DIR)?.as_str()).join("certs");
 
 
-
     #[cfg(feature = "https")]
-    https::start_https_server(&https::HttpsConfig{
+    https::start_https_server(&https::HttpsConfig {
         domains: app_state.config.https_cert.domains.clone(),
         email: app_state.config.https_cert.emails.clone(),
         cache_dir: certs_path.to_str().unwrap().to_string(),
@@ -153,7 +150,6 @@ pub async fn start_server(router: Router, app_state: Arc<AppState>)->anyhow::Res
         http_port: server_port as u16,
         https_port: app_state.config.https_cert.https_port,
     }, router).await;
-
 
 
     Ok(())
@@ -164,8 +160,6 @@ pub async fn shutdown_another_instance(local_url: &String) {
     let shutdown_result = reqwest::get(&format!("{}/admin/shutdown", local_url)).await;
     info!("shutdown_result >> {} , can be ignored.", shutdown_result.is_ok());
 }
-
-
 
 
 type R<T> = Result<T, AppError>;
@@ -335,10 +329,14 @@ macro_rules! template {
 
 
 async fn render_page(s: &S, page: Template, fragment: Template, data: Value) -> R<Html<String>> {
+    let title = if let Some(title) = data["title"].as_str() { title } else { "<no title>" };
+    let title = title.to_string();
+
     let content = s.template_service.render_template(fragment, data).await?;
 
 
     let final_data = json!({
+        "title": title,
         "content": content
     });
 

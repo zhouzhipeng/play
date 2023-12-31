@@ -67,8 +67,10 @@ async fn enter_admin_page(s: S) -> HTML {
     let config_content = read_config_file()?;
     let config_path = get_config_path()?;
 
+
     template!(s, "frame.html"+"fragments/admin.html", json!({
-        "upgrade_url" : "",
+        "title": "admin console",
+        "upgrade_url" : &s.config.upgrade_url,
         "config_content" : config_content,
         "config_path" : config_path,
     }))
