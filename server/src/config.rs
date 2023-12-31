@@ -10,6 +10,8 @@ use shared::constants::DATA_DIR;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Config {
+    #[serde(default)]
+    pub log_level: String,
     pub server_port: u32,
     #[serde(default)]
     pub use_test_pool: bool,

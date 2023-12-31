@@ -100,13 +100,13 @@ impl Handler for MyHandler {
         Ok(())
     }
 
-    fn data_end(&mut self) -> mailin_embedded::Response {
+    fn data_end(&mut self) -> Response {
         let message = Message::from(&self.data).unwrap();
 
-        // info!("message>> {:?}", message);
+        info!("email in >> {}", message.subject);
         self.tx.send_blocking(message).unwrap();
 
-        mailin_embedded::response::OK
+        response::OK
     }
 
     fn auth_plain(

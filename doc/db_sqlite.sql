@@ -48,8 +48,8 @@ CREATE TABLE IF NOT EXISTS email_inbox
     attachments   VARCHAR,
     create_time   INTEGER
 );
-
-insert into email_inbox(from_mail, to_mail, send_date, subject, plain_content, html_content, full_body, attachments, create_time)
-values ('aa@qq.com', 'bb@cc.com,111@cc.com', '10:11', 'test111', 'test html content', 'test html content', '', '',1703918268267);
-insert into email_inbox(from_mail, to_mail, send_date, subject, plain_content, html_content, full_body, attachments, create_time)
-values ('aa@qq.com', 'bb@cc.com,111@cc.com', '10:11', 'test111', 'test html content', 'test html content', '', '',1703918268267)
+--
+-- insert into email_inbox(from_mail, to_mail, send_date, subject, plain_content, html_content, full_body, attachments, create_time)
+-- values ('aa@qq.com', 'bb@cc.com,111@cc.com', '10:11', 'test111', 'test html content', 'test html content', '', '',1703918268267);
+-- insert into email_inbox(from_mail, to_mail, send_date, subject, plain_content, html_content, full_body, attachments, create_time)
+-- values ('aa@qq.com', 'bb@cc.com,111@cc.com', '10:11', 'test111', 'test html content', 'test html content', '', '',1703918268267)
