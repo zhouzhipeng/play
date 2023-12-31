@@ -11,7 +11,7 @@ cd /root
 
 rm -rf play
 
-curl -o play https://github.com/zhouzhipeng/play/releases/download/latest/play_linux
+curl -o play -SL https://github.com/zhouzhipeng/play/releases/download/latest/play_linux
 chmod +x play
 
 # register service
