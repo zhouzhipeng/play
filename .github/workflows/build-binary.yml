@@ -98,7 +98,6 @@ jobs:
         with:
           tags: tmp-image
           push: false
-          file: "musl_x86.Dockerfile"
       - uses: shrink/actions-docker-extract@v1
         id: extract
         with:
