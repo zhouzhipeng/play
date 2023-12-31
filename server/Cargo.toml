@@ -70,7 +70,7 @@ tower-http = { version = "0.4.0", features = ["fs", "trace","timeout", "cors"] }
 futures = "0.3.29"
 futures-util = "0.3.29"
 dashmap = "5.5.3"
-reqwest = { workspace=true, features= ["blocking", "rustls"] }
+reqwest = { workspace=true, features= ["blocking"] }
 async-channel = {workspace=true}
 regex = "1.10.2"
 fancy-regex = "0.12.0"
