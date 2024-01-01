@@ -4262,7 +4262,7 @@ dependencies = [
  "http-body 0.4.6",
  "log",
  "mail-parser",
- "mailin 0.6.3 (git+https://github.com/zhouzhipeng/mailin.git)",
+ "mailin",
  "mailin-embedded",
  "serde",
  "serde_json",
@@ -4272,20 +4272,7 @@ dependencies = [
 [[package]]
 name = "mailin"
 version = "0.6.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d685cc697caba9c320fd0be79835c49af79009fccf05e13200d988b07a24b429"
-dependencies = [
- "base64-compat",
- "either",
- "log",
- "nom 7.1.3",
- "ternop",
-]
-
-[[package]]
-name = "mailin"
-version = "0.6.3"
-source = "git+https://github.com/zhouzhipeng/mailin.git#2bffdaa5f53b7854f23fd75d4ce83d3437d3b1d1"
+source = "git+https://github.com/zhouzhipeng/mailin.git#000ed9b89b5b1846ca8783858968740944e68f8c"
 dependencies = [
  "base64-compat",
  "either",
@@ -4297,13 +4284,12 @@ dependencies = [
 [[package]]
 name = "mailin-embedded"
 version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6634158f75ac027395ebf07b9a947e4164aed76e051bdc894ed94f6ff442157a"
+source = "git+https://github.com/zhouzhipeng/mailin.git#000ed9b89b5b1846ca8783858968740944e68f8c"
 dependencies = [
  "bufstream-fresh",
  "cfg-if",
  "log",
- "mailin 0.6.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mailin",
  "rustls 0.21.10",
  "rustls-pemfile",
  "scoped_threadpool",

@@ -7,7 +7,7 @@ edition = "2021"
 async-trait = {workspace=true}
 serde = {workspace = true}
 serde_json = {workspace = true}
-mailin-embedded = "0.8.1"
+mailin-embedded = {git = "https://github.com/zhouzhipeng/mailin.git"}
 mailin = {git = "https://github.com/zhouzhipeng/mailin.git"}
 chrono = { workspace = true }
 futures = "0.3.28"
