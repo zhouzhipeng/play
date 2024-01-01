@@ -42,7 +42,6 @@
 
 </head>
 <body>
-% import os
 
 <div class="container">
     %for d in items:
@@ -52,8 +51,8 @@
 
         % if d.attachments:
         % for file_path in d.attachments.split(","):
-        % file_name = os.path.basename(file_path)
-        % file_url = '/files'+file_path[len(os.getenv('BASE_DIR')):]
+        % file_name = ''
+        % file_url = ''
         <a href="{{file_url}}"  download >{{file_name}}</a>
         %end
         %end
