@@ -77,9 +77,9 @@ impl Builder {
             .with_addr(self.socket.unwrap())
             .unwrap();
 
-        if self.auth {
-            server.with_auth(AuthMechanism::Plain);
-        }
+        // if self.auth {
+        //     server.with_auth(AuthMechanism::Plain);
+        // }
 
         info!("listening on smtp://{}", self.socket.unwrap());
 
