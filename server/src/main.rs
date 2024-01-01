@@ -123,12 +123,14 @@ async fn main()->anyhow::Result<()> {
 
     //start a mail server
     #[cfg(feature = "mail_server")]
-    let copy_appstate = app_state.clone();
-    #[cfg(feature = "mail_server")]
-    tokio::spawn(async move {
+    {
+        let copy_appstate = app_state.clone();
         info!("starting mail server...");
         let addr = SocketAddr::from(([0, 0, 0, 0], 25));
         let (sever, rx) = mail_server::smtp::Builder::new().bind(addr).build();
+        tokio::spawn(async move {
+            sever.serve().expect("create mail server failed!");
+        });
         tokio::spawn(async move {
             loop{
                 //handle message
@@ -144,8 +146,8 @@ async fn main()->anyhow::Result<()> {
             }
 
         });
-        sever.serve().expect("create mail server failed!");
-    });
+    }
+
 
 
     #[cfg(not(feature = "ui"))]
