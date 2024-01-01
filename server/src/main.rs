@@ -48,11 +48,11 @@ async fn main()->anyhow::Result<()> {
     // initialize tracing
     let filter = filter::Targets::new()
         // .with_target("rustpython_vm", LevelFilter::ERROR)
-        .with_default(LevelFilter::TRACE)
+        .with_default(LevelFilter::INFO)
     ;
 
 
-    let file_appender = tracing_appender::rolling::never(data_dir, "play.log.txt");
+    let file_appender = tracing_appender::rolling::daily(data_dir, "play.log.txt");
     let (writer, _guard) = tracing_appender::non_blocking(file_appender);
 
     let subscriber = tracing_subscriber::registry()
