@@ -46,9 +46,12 @@ impl Message {
 
         let sender = {
             if let HeaderValue::Address(addr) = message.from() {
+                let name =  if let Some(n)= &addr.name{
+                    n.to_string()
+                }else{"".to_string()};
                 format!(
                     "{} {}",
-                    addr.name.as_ref().context("parse sender name")?,
+                    name,
                     addr.address.as_ref().context("parse sender address")?
                 )
             } else {

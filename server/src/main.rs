@@ -132,6 +132,7 @@ async fn main()->anyhow::Result<()> {
         tokio::spawn(async move {
             loop{
                 //handle message
+                info!("ready to handle message");
                 match rx.recv().await {
                     Ok(msg) => {
                         play::handle_email_message(&copy_appstate, &msg).await;
