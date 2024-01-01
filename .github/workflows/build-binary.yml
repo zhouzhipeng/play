@@ -145,7 +145,7 @@ jobs:
         with:
           url: 'https://zhouzhipeng.com/admin/upgrade'
           method: 'GET'
-      - name: Trigger Upgrade
+      - name: Send Push
         uses: fjogeleit/http-request-action@v1
         with:
           url: 'https://api.day.app/pTyPrycAjp36tGRSAUgfiU/github-action/done'
