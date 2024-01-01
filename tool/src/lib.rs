@@ -70,7 +70,6 @@ pub fn build_python_artifacts()->anyhow::Result<()> {
         "tarfile.py",
         "ctypes",
         "ensurepip",
-        "html",
         "http",
         "lib-dynload",
         "zoneinfo",

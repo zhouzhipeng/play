@@ -42,7 +42,7 @@
 
 </head>
 <body>
-
+% from html import escape
 <div class="container">
     %for d in items:
     <div style="margin-bottom: 20px">
@@ -60,7 +60,7 @@
         % content  = d.html_content if d.html_content else d.plain_content
 
 
-        <iframe class="detail" srcdoc="{{content}}">
+        <iframe class="detail" srcdoc="{{escape(content)}}">
 
         </iframe>
         <button onclick="this.previousSibling.previousSibling.style.height='1000px'">More</button>
