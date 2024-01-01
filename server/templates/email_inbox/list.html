@@ -44,6 +44,7 @@
 <body>
 % from html import escape
 <div class="container">
+    <button hx-get="/email-inbox/delete-all">Delete All</button>
     %for d in items:
     <div style="margin-bottom: 20px">
         <h2 class="subject">{{d.subject}}</h2>

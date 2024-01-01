@@ -74,7 +74,7 @@ pub async fn query(q: &EmailInbox, pool: &DBPool) -> Result<Vec<EmailInbox>, Err
     .await
 }
 pub async fn query_all(pool: &DBPool) -> Result<Vec<EmailInbox>, Error> {
-    sqlx::query_as::<_, EmailInbox>("SELECT * FROM email_inbox order by id desc")
+    sqlx::query_as::<_, EmailInbox>("SELECT * FROM email_inbox order by id desc limit 20")
     .fetch_all(pool)
     .await
     }
