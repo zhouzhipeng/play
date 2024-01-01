@@ -8,6 +8,7 @@ use std::time::Duration;
 use axum::extract::Query;
 use axum::Form;
 use axum::response::Html;
+use chrono::Local;
 use reqwest::{ClientBuilder, Url};
 use serde::Deserialize;
 use serde_json::json;
@@ -18,9 +19,9 @@ use crate::{check_if, HTML, method_router, S, template};
 use crate::config::{get_config_path, read_config_file, save_config_file};
 
 method_router!(
+    get : "/admin/index" -> enter_admin_page,
     get : "/admin/upgrade" -> upgrade,
     get : "/admin/shutdown" -> shutdown,
-    get : "/admin/index" -> enter_admin_page,
     post : "/admin/save-config" -> save_config,
     get : "/admin/logs" -> display_logs,
 );
@@ -36,7 +37,12 @@ struct SaveConfigReq{
 }
 async fn display_logs(s: S) -> HTML {
     let count= 50;
-    let file_path = Path::new(env::var(DATA_DIR)?.as_str()).join("play.log.txt");
+    // Get the current local date
+    let now = Local::now();
+
+    // Format the date as a string
+    let date_string = now.format("%Y-%m-%d").to_string();
+    let file_path = Path::new(env::var(DATA_DIR)?.as_str()).join(format!("play.log.txt.{}", date_string));
     let file = File::open(file_path)?;
     let reader = BufReader::new(file);
 
