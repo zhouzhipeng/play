@@ -5373,6 +5373,7 @@ dependencies = [
  "tracing-appender",
  "tracing-subscriber",
  "ui",
+ "urlencoding",
  "walkdir",
  "zip-extract",
 ]

@@ -355,6 +355,12 @@ async fn render_fragment(s: &S, fragment: Template, data: Value) -> R<Html<Strin
 
 #[cfg(feature = "mail_server")]
 pub async fn handle_email_message(copy_appstate: &Arc<AppState>, msg: &mail_server::models::message::Message) {
+    //delete all if email count > 100
+    if EmailInbox::count(&copy_appstate.db).await.unwrap_or_default() >= 100{
+        info!("delete emails");
+        EmailInbox::delete_all(&copy_appstate.db).await;
+    }
+
     let r = EmailInbox::insert(&EmailInbox {
         from_mail: msg.sender.to_string(),
         to_mail: msg.recipients.join(","),
@@ -368,8 +374,23 @@ pub async fn handle_email_message(copy_appstate: &Arc<AppState>, msg: &mail_serv
         ..Default::default()
     }, &copy_appstate.db).await;
     info!("email insert result : {:?}", r);
+
+    //send push
+    let sender= urlencoding::encode(&msg.sender).into_owned();
+    let title= urlencoding::encode(&msg.subject).into_owned();
+    reqwest::get(format!("https://api.day.app/pTyPrycAjp36tGRSAUgfiU/{}/{}", sender, title)).await;
 }
 
 
 // Include the generated-file as a seperate module
+#[cfg(test)]
+mod test {
+    use super::*;
 
+    #[tokio::test]
+    async fn test_send_push() {
+        let sender= urlencoding::encode("aa@bb.com").into_owned();
+        let title= urlencoding::encode("sdf sdfs  👋 ").into_owned();
+        reqwest::get(format!("https://api.day.app/pTyPrycAjp36tGRSAUgfiU/{}/{}", sender, title)).await;
+    }
+}
