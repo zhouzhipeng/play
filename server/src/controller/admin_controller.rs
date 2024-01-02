@@ -19,7 +19,7 @@ use crate::{check_if, HTML, method_router, S, template};
 use crate::config::{get_config_path, read_config_file, save_config_file};
 
 method_router!(
-    get : "/admin/index" -> enter_admin_page,
+    get : "/admin" -> enter_admin_page,
     get : "/admin/upgrade" -> upgrade,
     get : "/admin/shutdown" -> shutdown,
     post : "/admin/save-config" -> save_config,
