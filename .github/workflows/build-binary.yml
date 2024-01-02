@@ -150,4 +150,4 @@ jobs:
         with:
           url: 'https://api.day.app/pTyPrycAjp36tGRSAUgfiU/github-action/done'
           method: 'GET'
-	  contentType: 'application/x-www-form-urlencoded'
+          contentType: 'application/x-www-form-urlencoded'
