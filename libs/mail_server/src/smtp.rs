@@ -150,11 +150,43 @@ impl Handler for MyHandler {
 #[cfg(test)]
 mod test {
     use std::str::FromStr;
+
+
     use super::*;
 
     #[test]
     fn test_ip_addr_to_string() {
         let r = IpAddr::from_str("127.0.0.1").unwrap().to_string();
         println!("ip : {}", r);
+    }
+
+    #[ignore]
+    #[tokio::test]
+    async fn test_send_email() -> anyhow::Result<()>{
+        use lettre::{Message, AsyncSmtpTransport, AsyncTransport, message::Mailbox};
+        use lettre::Tokio1Executor;
+        // 使用Mailbox::new来创建邮件地址
+        let from = Mailbox::new(None, "admin@zhouzhipeng.com".parse()?);
+        let to = Mailbox::new(None, "823143047@qq.com".parse()?);
+
+        // 创建邮件
+        let email = Message::builder()
+            .from(from)
+            .to(to)
+            .subject("Local Email Test")
+            .body("This is a test email from Rust using a local mail server!".to_string())
+            .unwrap();
+
+        // 创建SMTP传输，指向本地邮件服务器
+        let mailer = AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous("mail.zhouzhipeng.com").build();
+
+        //todo: https://docs.rs/mailstrom/latest/mailstrom/
+        // 异步发送邮件
+        match mailer.send(email).await {
+            Ok(_) => println!("Email sent successfully!"),
+            Err(e) => println!("Could not send email: {:?}", e),
+        }
+
+        Ok(())
     }
 }
