@@ -44,11 +44,24 @@ async fn main()->anyhow::Result<()> {
     fs::create_dir_all(&data_dir).expect("create data dir failed.");
 
 
+    // init config
+    let config = init_config(false);
+
+
+    let log_level = match config.log_level.as_str(){
+        "TRACE"=> LevelFilter::TRACE,
+        "DEBUG"=> LevelFilter::DEBUG,
+        "INFO"=> LevelFilter::INFO,
+        "ERROR"=> LevelFilter::ERROR,
+        _=> LevelFilter::INFO,
+    };
+
+
 
     // initialize tracing
     let filter = filter::Targets::new()
         // .with_target("rustpython_vm", LevelFilter::ERROR)
-        .with_default(LevelFilter::INFO)
+        .with_default(log_level)
     ;
 
 
@@ -61,15 +74,18 @@ async fn main()->anyhow::Result<()> {
             .with_writer(writer)
         );
 
+
+
+
     #[cfg(feature = "debug")]
     let subscriber = subscriber.with(tracing_subscriber::fmt::Layer::new()
             .with_writer(std::io::stdout)); // Console output
 
     subscriber.with(filter).init();
 
+    info!("using log level : {}", log_level);
+
     //init config
-    // init config
-    let config = init_config(false);
 
     let server_port = config.server_port;
 
@@ -126,8 +142,8 @@ async fn main()->anyhow::Result<()> {
     {
         let copy_appstate = app_state.clone();
         info!("starting mail server...");
-        let addr = SocketAddr::from(([0, 0, 0, 0], 25));
-        let (sever, rx) = mail_server::smtp::Builder::new().bind(addr).build();
+        let addr = SocketAddr::from(([0, 0, 0, 0], config.email_server_config.port));
+        let (sever, rx) = mail_server::smtp::Builder::new().bind(addr).build(config.email_server_config.black_keywords.clone());
         tokio::spawn(async move {
             sever.serve().expect("create mail server failed!");
         });

@@ -1,6 +1,7 @@
 server_port = 3000
 redis_uri = ["redis://127.0.0.1"]
 upgrade_url = "https://github.com/zhouzhipeng/play/releases/download/1.0/play"
+log_level = "DEBUG"
 
 [database]
 url=":memory:"
@@ -9,3 +10,7 @@ url=":memory:"
 https_port=443
 domains = ["xx.xx.com"]
 emails = ["xx@xx.com"]
+
+[email_server_config]
+port = 25
+black_keywords = [""]
