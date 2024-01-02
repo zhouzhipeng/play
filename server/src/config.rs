@@ -10,7 +10,7 @@ use shared::constants::DATA_DIR;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Config {
-    #[serde(default)]
+    #[serde(default="default_log_level")]
     pub log_level: String,
     pub server_port: u32,
     #[serde(default)]
@@ -21,6 +21,12 @@ pub struct Config {
     pub upgrade_url: String,
     #[serde(default)]
     pub https_cert: HttpsCert,
+    #[serde(default)]
+    pub email_server_config: EmailServerConfig,
+}
+
+fn default_log_level()->String{
+    "INFO".to_string()
 }
 
 #[derive(Deserialize, Debug, Clone, Default)]
@@ -30,6 +36,18 @@ pub struct HttpsCert {
     pub emails: Vec<String>,
 
 }
+#[derive(Deserialize, Debug, Clone, Default)]
+pub struct EmailServerConfig {
+    #[serde(default="default_email_server_port")]
+    pub port: u16,
+    pub black_keywords: Vec<String>,
+}
+
+fn default_email_server_port()->u16{
+    25
+}
+
+
 #[derive(Deserialize, Debug, Clone)]
 pub struct Database {
     pub url: String,
@@ -74,7 +92,7 @@ pub fn init_config(use_memory: bool) -> Config {
         let file_path = format!("config.toml");
         let final_path = Path::new(env::var(DATA_DIR).unwrap().as_str()).join(file_path.as_str());
 
-        info!("config path : {:?}", final_path);
+        println!("config path : {:?}", final_path);
 
         if !final_path.exists() {
             //copy content to output dir.
@@ -87,6 +105,6 @@ pub fn init_config(use_memory: bool) -> Config {
         CONFIG.to_string()
     };
     let  config: Config = toml::from_str(&config_content).unwrap();
-    info!("using config file  content >>  {:?}",  config);
+    println!("using config file  content >>  {:?}",  config);
     config
 }

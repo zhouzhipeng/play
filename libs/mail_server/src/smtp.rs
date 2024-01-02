@@ -1,5 +1,5 @@
 use std::io;
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 
 use anyhow::Result;
 use async_channel::{Receiver, Sender};
@@ -63,11 +63,12 @@ impl Builder {
         self
     }
 
-    pub fn build(self) -> (Server, Receiver<Message>) {
+    pub fn build(self, black_keywords: Vec<String>) -> (Server, Receiver<Message>) {
         let (tx, rx) = async_channel::unbounded();
         let handler = MyHandler {
             data: vec![],
             tx,
+            black_keywords
         };
         let mut server = mailin_embedded::Server::new(handler);
 
@@ -90,10 +91,37 @@ impl Builder {
 #[derive(Clone)]
 pub struct MyHandler {
     pub data: Vec<u8>,
-    tx: Sender<Message>
+    tx: Sender<Message>,
+    black_keywords: Vec<String>
 }
 
 impl Handler for MyHandler {
+    fn helo(&mut self, _ip: IpAddr, _domain: &str) -> Response {
+        info!("email in helo >> ip : {:?}, domain : {:?}", _ip, _domain);
+
+        for keyword in &self.black_keywords {
+            if _ip.to_string().contains(keyword){
+                return response::BLOCKED_IP
+            }
+            if _domain.contains(keyword){
+                return response::BLOCKED_IP
+            }
+        }
+
+
+        response::OK
+    }
+
+    fn mail(&mut self, _ip: IpAddr, _domain: &str, _from: &str) -> Response {
+        for keyword in &self.black_keywords {
+            if _from.contains(keyword){
+                return response::BLOCKED_IP
+            }
+        }
+
+        response::OK
+    }
+
     fn data(&mut self, buf: &[u8]) -> io::Result<()> {
         self.data.append(&mut buf.to_owned());
 
@@ -116,5 +144,17 @@ impl Handler for MyHandler {
         password: &str,
     ) -> Response {
         response::AUTH_OK
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::str::FromStr;
+    use super::*;
+
+    #[test]
+    fn test_ip_addr_to_string() {
+        let r = IpAddr::from_str("127.0.0.1").unwrap().to_string();
+        println!("ip : {}", r);
     }
 }
