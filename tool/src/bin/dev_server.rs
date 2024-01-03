@@ -12,6 +12,8 @@ fn main() {
 
 }
 fn run()->anyhow::Result<()>{
-    build_dev("use_embed_python,mail_server,https")?;
+    // build_dev("use_embed_python,mail_server,https")?;
+    //todo: https certs have problems
+    build_dev("use_embed_python,mail_server")?;
     Ok(())
 }
