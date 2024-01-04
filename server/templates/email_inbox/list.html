@@ -44,6 +44,7 @@
 <body>
 % from html import escape
 <div class="container">
+    <p>count :  {{count}}</p>
     <button hx-get="/email-inbox/delete-all">Delete All</button>
     %for d in items:
     <div style="margin-bottom: 20px">

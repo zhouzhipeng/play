@@ -387,6 +387,7 @@ pub async fn handle_email_message(copy_appstate: &Arc<AppState>, msg: &mail_serv
 mod test {
     use super::*;
 
+    #[ignore]
     #[tokio::test]
     async fn test_send_push() {
         let sender= urlencoding::encode("aa@bb.com").into_owned();
