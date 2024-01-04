@@ -149,6 +149,7 @@ pub async fn start_server(router: Router, app_state: Arc<AppState>) -> anyhow::R
         prod: true,
         http_port: server_port as u16,
         https_port: app_state.config.https_cert.https_port,
+        auto_redirect:app_state.config.https_cert.auto_redirect,
     }, router).await;
 
 

@@ -32,6 +32,8 @@ fn default_log_level()->String{
 #[derive(Deserialize, Debug, Clone, Default)]
 pub struct HttpsCert {
     pub https_port: u16,
+    #[serde(default)]
+    pub auto_redirect : bool,
     pub domains: Vec<String>,
     pub emails: Vec<String>,
 

@@ -18,6 +18,7 @@ pub struct HttpsConfig{
     pub prod: bool,
     pub http_port: u16,
     pub https_port: u16,
+    pub auto_redirect : bool,
 }
 
 pub async fn start_https_server(config : &HttpsConfig, app: Router){
@@ -38,8 +39,19 @@ pub async fn start_https_server(config : &HttpsConfig, app: Router){
         }
     });
 
-    //spawn a second server to redirect http requests to this server
-    tokio::spawn(redirect_http_to_https(Ports{ http: config.http_port, https: config.https_port }));
+    if config.auto_redirect{
+        //spawn a second server to redirect http requests to this server
+        tokio::spawn(redirect_http_to_https(Ports{ http: config.http_port, https: config.https_port }));
+    }else{
+        //listen 80 port too.
+        let app_clone = app.clone();
+        let http_port = config.http_port;
+        tokio::spawn(async move{
+            let addr = SocketAddr::from(([0, 0, 0, 0], http_port));
+            axum_server::bind(addr).serve(app_clone.into_make_service()).await.unwrap();
+        });
+    }
+
 
 
     let addr = SocketAddr::from(([0, 0, 0, 0], config.https_port));
