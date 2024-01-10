@@ -9,11 +9,10 @@ before-packaging-command = "cargo dev_ui"
 
 
 [features]
-default=["use_sqlite"]
+default=[]
 debug=["tower-livereload","notify", "tpl", "tpl/debug", "pyo3"]
 use_embed_python=["tpl", "tpl/use_embed_python"]
-use_sqlite=[]
-use_mysql=[]
+#use_mysql=[]
 
 [build-dependencies]
 walkdir = "2"
