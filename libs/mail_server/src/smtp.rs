@@ -132,7 +132,17 @@ impl Handler for MyHandler {
     fn data_end(&mut self) -> Response {
         let message = Message::from(&self.data).unwrap();
 
-        info!("email in >> {}", message.subject);
+        info!("email in >> subject : {}, sender : {}", message.subject, message.sender);
+
+        for keyword in &self.black_keywords {
+            if message.subject.contains(keyword){
+                return response::BLOCKED_IP
+            }
+            if message.sender.contains(keyword){
+                return response::BLOCKED_IP
+            }
+        }
+
         self.tx.send_blocking(message).unwrap();
 
         response::OK
