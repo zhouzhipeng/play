@@ -11,6 +11,12 @@ jobs:
     name: Create Release
     runs-on: ubuntu-latest
     steps:
+      - name: Send Push
+        uses: fjogeleit/http-request-action@v1
+        with:
+          url: 'https://api.day.app/pTyPrycAjp36tGRSAUgfiU/github-action/start'
+          method: 'GET'
+          contentType: 'application/x-www-form-urlencoded'
       - name: Create Release
         id: create_release
         uses: "marvinpinto/action-automatic-releases@latest"

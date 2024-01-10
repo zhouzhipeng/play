@@ -113,6 +113,7 @@ impl Handler for MyHandler {
     }
 
     fn mail(&mut self, _ip: IpAddr, _domain: &str, _from: &str) -> Response {
+        info!("email in helo >> ip : {:?}, domain : {:?} , _from: {}", _ip, _domain, _from);
         for keyword in &self.black_keywords {
             if _from.contains(keyword){
                 return response::BLOCKED_IP
@@ -155,6 +156,7 @@ mod test {
     #[test]
     fn test_ip_addr_to_string() {
         let r = IpAddr::from_str("127.0.0.1").unwrap().to_string();
+        assert_eq!("4a94d0f30@b013853be.jp".contains(".jp"), true);
         println!("ip : {}", r);
     }
 }
