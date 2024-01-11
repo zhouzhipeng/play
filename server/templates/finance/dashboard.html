@@ -76,12 +76,18 @@
                 <tr>
                     <th>Symbol</th>
                     <th>Price</th>
+                    <th>Change</th>
+                    <th>Previous Close</th>
+                    <th>Last Trading Day</th>
                 </tr>
                 % for item in stock_items:
-                % stock_price_map[item.symbol] = item.price
+                % stock_price_map[item.symbol] = item.price.price
                 <tr>
                     <td>{{item.symbol}}</td>
-                    <td>{{item.price}}</td>
+                    <td>{{item.price.price}}</td>
+                    <td>{{item.price.change_percent}}</td>
+                    <td>{{item.price.previous_close}}</td>
+                    <td>{{item.price.last_trading_day}}</td>
                 </tr>
 
                 %end
