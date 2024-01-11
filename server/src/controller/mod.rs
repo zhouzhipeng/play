@@ -8,6 +8,7 @@ mod api_entry_controller;
 mod admin_controller;
 mod english_card_controller;
 mod email_inbox_controller;
+mod finance_controller;
 
 
 ///
@@ -23,5 +24,6 @@ crate::register_routers!(
         admin_controller,
         english_card_controller,
         email_inbox_controller,
+        finance_controller,
     );
 

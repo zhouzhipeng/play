@@ -58,6 +58,7 @@ impl Builder {
         self
     }
 
+
     pub fn bind(mut self, socket: SocketAddr) -> Self {
         self.socket = Some(socket);
         self
