@@ -1,59 +1,72 @@
 use anyhow::Context;
 use axum::http::header;
 use chrono::TimeZone;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tracing::info;
 
 use crate::{method_router, template};
 use crate::{HTML, S};
-
+//
 method_router!(
     get : "/finance/dashboard"-> dashboard,
 );
+
+fn get_random(start: usize, end: usize)->usize{
+    let mut rng = rand::thread_rng();
+    let rand_range = rng.gen_range(start..end); // random number between 0 and 9
+    rand_range
+}
+
+
 
 // #[axum::debug_handler]
 async fn dashboard(s: S) -> HTML {
     // return_error!("test");
 
-    //query currency rate
-    let mut r1 = query_currency_rate("USD", "CNY").await?;
-    let r2 = query_currency_rate("HKD", "CNY").await?;
-    let r3 = query_currency_rate("USD", "HKD").await?;
-    r1.extend(r2);
-    r1.extend(r3);
+    //query currency rate in parallel
+    let mut handles = vec![];
+    for (source, target) in [("USD", "CNY"),("HKD", "CNY"),("USD", "HKD")]{
+        handles.push(tokio::spawn(async {
+            query_currency_rate(source, target).await
+        }));
+    }
+
+
+    let mut total_rates:Vec<RateInfo> = vec![];
+    for handle in handles{
+        total_rates.extend(handle.await??);
+    }
 
 
     //query stock prices
-    let aapl_price = query_stock_price("AAPL", &s.config.finance.alphavantage_apikey).await?;
-    let nvda_price = query_stock_price("NVDA", &s.config.finance.alphavantage_apikey).await?;
-
-    let stock_items = json!([
-            {
-                "symbol": "AAPL",
-                "price" : aapl_price
-            },
-            {
-                "symbol": "NVDA",
-                "price" : nvda_price
+    // use  a random apikey
+    let mut handles = vec![];
+    for symbol in ["AAPL","NVDA"]{
+        let copy_keys = s.config.finance.alphavantage_apikeys.clone();
+        handles.push(tokio::spawn(async move{
+            let rand_range =get_random(0, copy_keys.len());
+            info!("random >> {}", rand_range);
+            let price = query_stock_price(symbol, &copy_keys[rand_range]).await.unwrap_or("0".to_string());
+            StockItem{
+                symbol: symbol.to_string(),
+                price,
             }
-    ]);
+        }));
+    }
 
-    let portfolio_items = json!([
-            {
-                "symbol": "AAPL",
-                "quantity" : 5,
-                "price" : "187.094"
-            },
-            {
-                "symbol": "NVDA",
-                "quantity" : 4,
-                "price" : "423.393"
-            }
-    ]);
+    let mut stock_items = vec![];
+    for handle in handles{
+        stock_items.push(handle.await?);
+    }
+
+
+
+    let portfolio_items = &s.config.finance.portfolio_holdings;
 
     template!(s, "finance/dashboard.html", json!({
-        "items":r1,
+        "items":total_rates,
         "stock_items": stock_items,
         "portfolio_items": portfolio_items
     }))
@@ -67,13 +80,18 @@ struct RateInfo{
     target : String,
     time : String,
 }
+#[derive(Serialize, Deserialize, Debug)]
+struct StockItem{
+    symbol: String,
+    price : String,
+}
 
 async fn query_stock_price(symbol: &str, apikey: &str)->anyhow::Result<String>{
     let data: Value =reqwest::get(format!("https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={}&apikey={}", symbol, apikey)).await?
         .json().await?;
     info!("data >> {:?}", data);
     if data.get("Information").is_some(){
-        return Ok("error".to_string())
+        return Ok("0".to_string())
     }
     let previous_close_price = data.get("Global Quote").context("key error")?.get("05. price").context("key error")?.as_str().context("key error")?.to_string();
 
@@ -121,6 +139,14 @@ mod test {
         let res = query_currency_rate("USD", "CNY").await?;
         println!("{:?}", res);
 
+        Ok(())
+    }
+    #[tokio::test]
+   async fn test_random()->anyhow::Result<()> {
+        // use  a random apikey
+        let mut rng = rand::thread_rng();
+        let rand_range = rng.gen_range(0..10); // random number between 0 and 9
+        println!("random > > {}", rand_range);
         Ok(())
     }
 
