@@ -1,7 +1,9 @@
+use anyhow::Context;
 use axum::http::header;
 use chrono::TimeZone;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{json, Value};
+use tracing::info;
 
 use crate::{method_router, template};
 use crate::{HTML, S};
@@ -13,14 +15,47 @@ method_router!(
 // #[axum::debug_handler]
 async fn dashboard(s: S) -> HTML {
     // return_error!("test");
+
+    //query currency rate
     let mut r1 = query_currency_rate("USD", "CNY").await?;
     let r2 = query_currency_rate("HKD", "CNY").await?;
     let r3 = query_currency_rate("USD", "HKD").await?;
     r1.extend(r2);
     r1.extend(r3);
 
+
+    //query stock prices
+    let aapl_price = query_stock_price("AAPL", &s.config.finance.alphavantage_apikey).await?;
+    let nvda_price = query_stock_price("NVDA", &s.config.finance.alphavantage_apikey).await?;
+
+    let stock_items = json!([
+            {
+                "symbol": "AAPL",
+                "price" : aapl_price
+            },
+            {
+                "symbol": "NVDA",
+                "price" : nvda_price
+            }
+    ]);
+
+    let portfolio_items = json!([
+            {
+                "symbol": "AAPL",
+                "quantity" : 5,
+                "price" : "187.094"
+            },
+            {
+                "symbol": "NVDA",
+                "quantity" : 4,
+                "price" : "423.393"
+            }
+    ]);
+
     template!(s, "finance/dashboard.html", json!({
-        "items":r1
+        "items":r1,
+        "stock_items": stock_items,
+        "portfolio_items": portfolio_items
     }))
 
 }
@@ -33,6 +68,17 @@ struct RateInfo{
     time : String,
 }
 
+async fn query_stock_price(symbol: &str, apikey: &str)->anyhow::Result<String>{
+    let data: Value =reqwest::get(format!("https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={}&apikey={}", symbol, apikey)).await?
+        .json().await?;
+    info!("data >> {:?}", data);
+    if data.get("Information").is_some(){
+        return Ok("error".to_string())
+    }
+    let previous_close_price = data.get("Global Quote").context("key error")?.get("05. price").context("key error")?.as_str().context("key error")?.to_string();
+
+    Ok(previous_close_price)
+}
 async fn query_currency_rate(source: &str, target: &str) ->anyhow::Result<Vec<RateInfo>>{
     let mut headers = header::HeaderMap::new();
     headers.insert("authority", "api.wise.com".parse().unwrap());
@@ -74,6 +120,15 @@ mod test {
 
         let res = query_currency_rate("USD", "CNY").await?;
         println!("{:?}", res);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+   async fn test_query_stock_price()->anyhow::Result<()> {
+
+        let res = query_stock_price("AAPL", "demo").await?;
+        println!("{}", res);
 
         Ok(())
     }

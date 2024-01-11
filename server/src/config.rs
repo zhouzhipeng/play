@@ -23,6 +23,8 @@ pub struct Config {
     pub https_cert: HttpsCert,
     #[serde(default)]
     pub email_server_config: EmailServerConfig,
+    #[serde(default)]
+    pub finance: Finance,
 }
 
 fn default_log_level()->String{
@@ -37,6 +39,11 @@ pub struct HttpsCert {
     pub domains: Vec<String>,
     pub emails: Vec<String>,
 
+}
+#[derive(Deserialize, Debug, Clone, Default)]
+pub struct Finance {
+    #[serde(default)]
+    pub alphavantage_apikey: String,
 }
 #[derive(Deserialize, Debug, Clone, Default)]
 pub struct EmailServerConfig {
