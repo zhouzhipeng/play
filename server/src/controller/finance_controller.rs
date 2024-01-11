@@ -48,7 +48,7 @@ async fn dashboard(s: S) -> HTML {
         handles.push(tokio::spawn(async move{
             let rand_range =get_random(0, copy_keys.len());
             info!("random >> {}", rand_range);
-            let price = query_stock_price(symbol, &copy_keys[rand_range]).await.unwrap_or("0".to_string());
+            let price = query_stock_price(symbol, &copy_keys[rand_range]).await.unwrap_or(GlobalQuote::default());
             StockItem{
                 symbol: symbol.to_string(),
                 price,
@@ -83,19 +83,50 @@ struct RateInfo{
 #[derive(Serialize, Deserialize, Debug)]
 struct StockItem{
     symbol: String,
+    price : GlobalQuote,
+}
+#[derive(Serialize, Deserialize, Debug)]
+struct GlobalQuote{
+    change_percent: String,
     price : String,
+    previous_close : String,
+    last_trading_day : String,
 }
 
-async fn query_stock_price(symbol: &str, apikey: &str)->anyhow::Result<String>{
-    let data: Value =reqwest::get(format!("https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={}&apikey={}", symbol, apikey)).await?
+impl Default for GlobalQuote{
+    fn default() -> Self {
+        GlobalQuote{
+            change_percent: "0%".to_string(),
+            price: "0".to_string(),
+            previous_close: "".to_string(),
+            last_trading_day: "".to_string(),
+        }
+    }
+}
+
+async fn query_stock_price(symbol: &str, apikey: &str)->anyhow::Result<GlobalQuote>{
+    #[cfg(feature = "debug")]
+    let url = "https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=300135.SHZ&apikey=demo";
+    #[cfg(not(feature = "debug"))]
+    let url = format!("https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={}&apikey={}", symbol, apikey).to_string();
+
+    let data: Value =reqwest::get(url).await?
         .json().await?;
     info!("data >> {:?}", data);
     if data.get("Information").is_some(){
-        return Ok("0".to_string())
+        return Ok(GlobalQuote::default())
     }
-    let previous_close_price = data.get("Global Quote").context("key error")?.get("05. price").context("key error")?.as_str().context("key error")?.to_string();
+    let price = data.get("Global Quote").context("key error")?.get("05. price").context("key error")?.as_str().context("key error")?.to_string();
+    let change_percent = data.get("Global Quote").context("key error")?.get("10. change percent").context("key error")?.as_str().context("key error")?.to_string();
+    let last_trading_day = data.get("Global Quote").context("key error")?.get("07. latest trading day").context("key error")?.as_str().context("key error")?.to_string();
+    let previous_close = data.get("Global Quote").context("key error")?.get("08. previous close").context("key error")?.as_str().context("key error")?.to_string();
 
-    Ok(previous_close_price)
+    Ok(GlobalQuote{
+        change_percent,
+        price,
+        previous_close,
+        last_trading_day,
+    })
 }
 async fn query_currency_rate(source: &str, target: &str) ->anyhow::Result<Vec<RateInfo>>{
     let mut headers = header::HeaderMap::new();
@@ -154,7 +185,7 @@ mod test {
    async fn test_query_stock_price()->anyhow::Result<()> {
 
         let res = query_stock_price("AAPL", "demo").await?;
-        println!("{}", res);
+        println!("{:?}", res);
 
         Ok(())
     }
