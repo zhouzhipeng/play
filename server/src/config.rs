@@ -2,7 +2,7 @@ use std::{env, fs};
 use std::path::Path;
 use anyhow::anyhow;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tracing::info;
 
 use shared::{ file_path};
@@ -43,7 +43,20 @@ pub struct HttpsCert {
 #[derive(Deserialize, Debug, Clone, Default)]
 pub struct Finance {
     #[serde(default)]
-    pub alphavantage_apikey: String,
+    pub alphavantage_apikeys: Vec<String>,
+    #[serde(default)]
+    pub portfolio_holdings: Vec<PortfolioItem>,
+}
+#[derive(Deserialize,Serialize, Debug, Clone, Default)]
+pub struct PortfolioItem {
+    #[serde(default)]
+    pub symbol: String,
+    #[serde(default)]
+    pub quantity: f64,
+    #[serde(default)]
+    pub price: f64,
+    #[serde(default)]
+    pub tag: String,
 }
 #[derive(Deserialize, Debug, Clone, Default)]
 pub struct EmailServerConfig {

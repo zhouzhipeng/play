@@ -5355,6 +5355,7 @@ dependencies = [
  "notify",
  "py_tpl",
  "pyo3",
+ "rand 0.8.5",
  "redis 0.1.0",
  "redis-test",
  "regex",
