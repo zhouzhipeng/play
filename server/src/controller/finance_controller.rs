@@ -19,7 +19,10 @@ fn get_random(start: usize, end: usize)->usize{
     rand_range
 }
 
-
+fn get_random_api_key(keys: &Vec<String>)->String{
+    let rand_range =get_random(0, keys.len());
+    keys[rand_range].to_string()
+}
 
 // #[axum::debug_handler]
 async fn dashboard(s: S) -> HTML {
@@ -39,6 +42,10 @@ async fn dashboard(s: S) -> HTML {
         total_rates.extend(handle.await??);
     }
 
+    //query stock market status
+    let market_status = query_market_status( &get_random_api_key(&s.config.finance.alphavantage_apikeys)).await?;
+    let us_stock_status = &market_status.iter().filter(|m|m.region=="United States").next().context("us stock not found")?.current_status;
+    let hk_stock_status = &market_status.iter().filter(|m|m.region=="Hong Kong").next().context("hk stock not found")?.current_status;
 
     //query stock prices
     // use  a random apikey
@@ -68,7 +75,9 @@ async fn dashboard(s: S) -> HTML {
     template!(s, "finance/dashboard.html", json!({
         "items":total_rates,
         "stock_items": stock_items,
-        "portfolio_items": portfolio_items
+        "portfolio_items": portfolio_items,
+        "us_stock_status": us_stock_status,
+        "hk_stock_status": hk_stock_status,
     }))
 
 }
@@ -91,6 +100,18 @@ struct GlobalQuote{
     price : String,
     previous_close : String,
     last_trading_day : String,
+}
+#[derive(Serialize, Deserialize, Debug)]
+struct MarketStatus{
+    market_type: String,
+    region : String,
+    primary_exchanges : String,
+    current_status : String,
+}
+#[derive(Serialize, Deserialize, Debug)]
+struct FullMarketStatus{
+    endpoint: String,
+    markets : Vec<MarketStatus>,
 }
 
 impl Default for GlobalQuote{
@@ -127,6 +148,15 @@ async fn query_stock_price(symbol: &str, apikey: &str)->anyhow::Result<GlobalQuo
         previous_close,
         last_trading_day,
     })
+}
+
+async fn query_market_status(apikey: &str)->anyhow::Result<Vec<MarketStatus>>{
+
+    let url = format!("https://www.alphavantage.co/query?function=MARKET_STATUS&apikey={}", apikey).to_string();
+
+    let data:FullMarketStatus =reqwest::get(url).await?
+        .json().await?;
+    Ok(data.markets)
 }
 async fn query_currency_rate(source: &str, target: &str) ->anyhow::Result<Vec<RateInfo>>{
     let mut headers = header::HeaderMap::new();
