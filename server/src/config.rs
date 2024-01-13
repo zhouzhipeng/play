@@ -45,19 +45,32 @@ pub struct Finance {
     #[serde(default)]
     pub alphavantage_apikeys: Vec<String>,
     #[serde(default)]
-    pub portfolio_holdings: Vec<PortfolioItem>,
+    pub portfolio: Vec<PortfolioItem>,
 }
 #[derive(Deserialize,Serialize, Debug, Clone, Default)]
 pub struct PortfolioItem {
     #[serde(default)]
     pub symbol: String,
     #[serde(default)]
+    pub name: String,
+    #[serde(default)]
     pub quantity: f64,
     #[serde(default)]
     pub price: f64,
     #[serde(default)]
     pub tag: String,
+    #[serde(default)]
+    pub market: PortfolioMarket,
 }
+
+#[derive(Deserialize,Serialize, Debug, Clone, Default,PartialEq)]
+pub enum PortfolioMarket {
+    #[default]
+    US_STOCK,
+    HK_STOCK,
+    CRYPTO
+}
+
 #[derive(Deserialize, Debug, Clone, Default)]
 pub struct EmailServerConfig {
     #[serde(default="default_email_server_port")]
