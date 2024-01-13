@@ -80,7 +80,6 @@
                     <th>Price</th>
                     <th>Change</th>
                     <th>Previous Close</th>
-                    <th>Last Trading Day</th>
                 </tr>
                 % for item in stock_items:
                 % stock_price_map[item.symbol] = item.price.price
@@ -90,6 +89,8 @@
                     <a href="https://finance.yahoo.com/quote/{{item.symbol}}?p={{item.symbol}}&.tsrc=fin-srch" target="_blank">{{item.symbol}}</a>
                     %elif  item.market == "HK_STOCK":
                     <a href="https://www.hkex.com.hk/Market-Data/Securities-Prices/Equities/Equities-Quote?sym={{item.symbol}}&sc_lang=en" target="_blank">{{item.symbol}}</a>
+                    %elif  item.market == "CRYPTO":
+                    <a href="https://www.binance.com/en/trade/{{item.symbol}}?type=spot" target="_blank">{{item.symbol}}</a>
                     %else:
                     {{item.symbol}}
                     % end
@@ -98,7 +99,6 @@
                     <td>{{item.price.price}}</td>
                     <td>{{item.price.change_percent}}</td>
                     <td>{{item.price.previous_close}}</td>
-                    <td>{{item.price.last_trading_day}}</td>
                 </tr>
 
                 %end

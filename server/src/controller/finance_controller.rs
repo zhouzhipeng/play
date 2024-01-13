@@ -89,6 +89,25 @@ async fn dashboard(s: S) -> HTML {
         }));
     }
 
+    //query crypto
+    let crypto_symbols: Vec<String> = s.config.finance.portfolio.iter().filter(|p|p.market==PortfolioMarket::CRYPTO).map(|p|p.symbol.to_string()).collect();
+    for symbol in crypto_symbols{
+        handles.push(tokio::spawn(async move{
+            let price = query_crypto_price(&symbol).await.map(|a|GlobalQuote{
+                change_percent: format!("{}%", a.priceChangePercent),
+                price: a.lastPrice.to_string(),
+                previous_close: a.prevClosePrice.to_string(),
+                last_trading_day: "".to_string(),
+            }).unwrap_or(GlobalQuote::default());
+            StockItem{
+                symbol: symbol.to_string(),
+                market: PortfolioMarket::CRYPTO,
+                price,
+            }
+        }));
+    }
+
+
     let mut stock_items = vec![];
     for handle in handles{
         stock_items.push(handle.await?);
@@ -241,12 +260,36 @@ async fn query_hk_stock(symbol: &str) -> anyhow::Result<HKStockQuote>{
 }
 
 
+#[derive(Serialize, Deserialize, Debug)]
+struct CryptoQuote{
+    symbol: String,
+    lastPrice: String,
+    priceChange: String,
+    priceChangePercent: String,
+    prevClosePrice: String,
+}
+async fn query_crypto_price(symbol: &str) -> anyhow::Result<CryptoQuote>{
+    // 使用 reqwest 发送 HTTP GET 请求
+    let ret = reqwest::get(format!("https://api.binance.com/api/v3/ticker/24hr?symbol={}", symbol)).await?.json().await?;
+
+    Ok(ret)
+}
+
+
 
 #[ignore]
 #[cfg(test)]
 mod test {
     use super::*;
 
+    #[tokio::test]
+   async fn test_query_crypto_price()->anyhow::Result<()> {
+
+        let res = query_crypto_price("BTCUSDT").await?;
+        println!("{:?}", res);
+
+        Ok(())
+    }
     #[tokio::test]
    async fn test_query_rate()->anyhow::Result<()> {
 
