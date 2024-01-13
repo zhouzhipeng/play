@@ -83,3 +83,4 @@ directories = "5.0.1"
 chrono = {workspace=true}
 ansi-to-html = "0.2.1"
 rand = "0.8.5"
+scraper = "0.18.1"

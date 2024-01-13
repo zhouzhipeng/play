@@ -71,11 +71,13 @@
 
         <!-- Stock Information Section -->
         <div class="section">
-            <h2 class="section-title">Stocks</h2>
+            <h2 class="section-title">Markets</h2>
             <span>US : {{us_stock_status}} | HK : {{hk_stock_status}}</span>
+            <a href="https://www.hkex.com.hk/Market-Data/Securities-Prices/Equities/Equities-Quote?sym=2477&sc_lang=en" target="_blank">HKEK</a>
             <table>
                 <tr>
                     <th>Symbol</th>
+                    <th>Market</th>
                     <th>Price</th>
                     <th>Change</th>
                     <th>Previous Close</th>
@@ -85,6 +87,7 @@
                 % stock_price_map[item.symbol] = item.price.price
                 <tr>
                     <td>{{item.symbol}}</td>
+                    <td>{{item.market}}</td>
                     <td>{{item.price.price}}</td>
                     <td>{{item.price.change_percent}}</td>
                     <td>{{item.price.previous_close}}</td>
@@ -102,6 +105,7 @@
             <table>
                 <tr>
                     <th>Symbol</th>
+                    <th>Name</th>
                     <th>Quantity</th>
                     <th>Entry Price</th>
                     <th>Current Price</th>
@@ -118,36 +122,24 @@
                 % total_return = total_return+ current_price * item.quantity
                 <tr>
                     <td>{{item.symbol}}</td>
+                    <td>{{item.name}}</td>
                     <td>{{item.quantity}}</td>
                     <td>{{item.tag}}{{item.price}}</td>
                     <td>{{item.tag}}{{current_price}}</td>
-                    <td>{{item.tag}}{{item.price * item.quantity}}</td>
+                    <td>{{item.tag}}{{round(item.price * item.quantity,2)}}</td>
                     <td>
-                        {{item.tag}}{{current_price * item.quantity}}
+                        {{item.tag}}{{round(current_price * item.quantity,2)}}
                         (
                         %if current_price > item.price:
                         +
                         %end
-                        {{current_price * item.quantity - item.price * item.quantity}}
+                        {{round(current_price * item.quantity - item.price * item.quantity,2)}}
                         )
                     </td>
                 </tr>
 
                 %end
 
-                <tr>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td>
-                        {{item.tag}}{{total_invest}}
-                    </td>
-                    <td>
-                        {{item.tag}}{{total_return}}
-                        ({{total_return - total_invest}})
-                    </td>
-                </tr>
 
             </table>
         </div>

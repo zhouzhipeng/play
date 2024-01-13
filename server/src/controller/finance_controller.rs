@@ -2,12 +2,14 @@ use anyhow::Context;
 use axum::http::header;
 use chrono::TimeZone;
 use rand::Rng;
+use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tracing::info;
 
 use crate::{method_router, template};
 use crate::{HTML, S};
+use crate::config::PortfolioMarket;
 //
 method_router!(
     get : "/finance/dashboard"-> dashboard,
@@ -43,21 +45,44 @@ async fn dashboard(s: S) -> HTML {
     }
 
     //query stock market status
-    let market_status = query_market_status( &get_random_api_key(&s.config.finance.alphavantage_apikeys)).await?;
-    let us_stock_status = &market_status.iter().filter(|m|m.region=="United States").next().context("us stock not found")?.current_status;
-    let hk_stock_status = &market_status.iter().filter(|m|m.region=="Hong Kong").next().context("hk stock not found")?.current_status;
+    let market_status = query_market_status( &get_random_api_key(&s.config.finance.alphavantage_apikeys)).await.unwrap_or_default();
+    let default_market = MarketStatus::default();
+    let us_stock_status = &market_status.iter().filter(|m|m.region=="United States").next().unwrap_or(&default_market).current_status;
+    let hk_stock_status = &market_status.iter().filter(|m|m.region=="Hong Kong").next().unwrap_or(&default_market).current_status;
+
+
+    let us_stock_symbols: Vec<String> = s.config.finance.portfolio.iter().filter(|p|p.market==PortfolioMarket::US_STOCK).map(|p|p.symbol.to_string()).collect();
 
     //query stock prices
     // use  a random apikey
     let mut handles = vec![];
-    for symbol in ["AAPL","NVDA"]{
+    for symbol in us_stock_symbols{
         let copy_keys = s.config.finance.alphavantage_apikeys.clone();
         handles.push(tokio::spawn(async move{
             let rand_range =get_random(0, copy_keys.len());
             info!("random >> {}", rand_range);
-            let price = query_stock_price(symbol, &copy_keys[rand_range]).await.unwrap_or(GlobalQuote::default());
+            let price = query_stock_price(&symbol, &copy_keys[rand_range]).await.unwrap_or(GlobalQuote::default());
             StockItem{
                 symbol: symbol.to_string(),
+                market: PortfolioMarket::US_STOCK,
+                price,
+            }
+        }));
+    }
+
+    //query hk stocks
+    let hk_stock_symbols: Vec<String> = s.config.finance.portfolio.iter().filter(|p|p.market==PortfolioMarket::HK_STOCK).map(|p|p.symbol.to_string()).collect();
+    for symbol in hk_stock_symbols{
+        handles.push(tokio::spawn(async move{
+            let price =     query_hk_stock(&symbol).await.map(|a|GlobalQuote{
+                change_percent: "".to_string(),
+                price: a.data.quote.bd.to_string(),
+                previous_close: "".to_string(),
+                last_trading_day: "".to_string(),
+            }).unwrap_or(GlobalQuote::default());
+            StockItem{
+                symbol: symbol.to_string(),
+                market: PortfolioMarket::HK_STOCK,
                 price,
             }
         }));
@@ -69,8 +94,7 @@ async fn dashboard(s: S) -> HTML {
     }
 
 
-
-    let portfolio_items = &s.config.finance.portfolio_holdings;
+    let portfolio_items = &s.config.finance.portfolio;
 
     template!(s, "finance/dashboard.html", json!({
         "items":total_rates,
@@ -92,6 +116,7 @@ struct RateInfo{
 #[derive(Serialize, Deserialize, Debug)]
 struct StockItem{
     symbol: String,
+    market: PortfolioMarket,
     price : GlobalQuote,
 }
 #[derive(Serialize, Deserialize, Debug)]
@@ -101,7 +126,7 @@ struct GlobalQuote{
     previous_close : String,
     last_trading_day : String,
 }
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 struct MarketStatus{
     market_type: String,
     region : String,
@@ -189,7 +214,34 @@ async fn query_currency_rate(source: &str, target: &str) ->anyhow::Result<Vec<Ra
 }
 
 
+#[derive(Serialize, Deserialize, Debug)]
+struct HKStockQuote{
+    data: HKStockQuoteData,
+}
+#[derive(Serialize, Deserialize, Debug)]
+struct HKStockQuoteData{
+    quote: HKStockQuoteDataInner,
+}
+#[derive(Serialize, Deserialize, Debug)]
+struct HKStockQuoteDataInner{
+    //price
+    bd: String,
+    //trading status
+    trdstatus: String,
+}
 
+async fn query_hk_stock(symbol: &str) -> anyhow::Result<HKStockQuote>{
+    // 使用 reqwest 发送 HTTP GET 请求
+    let resp = reqwest::get(format!("https://www1.hkex.com.hk/hkexwidget/data/getequityquote?sym={}&token=evLtsLsBNAUVTPxtGqVeG0DJLIA6ivA4kZkv3eennl4nfIaNHGtmuSxsiK2yOcX4&lang=eng&qid=1705105507584&callback=_&_=1705105505592", symbol)).await?.text().await?;
+    let json_str = &resp[2..resp.len()-1];
+    println!("{:?}", json_str);
+
+    Ok(serde_json::from_str::<HKStockQuote>(json_str)?)
+}
+
+
+
+#[ignore]
 #[cfg(test)]
 mod test {
     use super::*;
@@ -215,6 +267,18 @@ mod test {
    async fn test_query_stock_price()->anyhow::Result<()> {
 
         let res = query_stock_price("AAPL", "demo").await?;
+        println!("{:?}", res);
+
+
+
+        Ok(())
+    }
+
+
+    #[tokio::test]
+   async fn test_query_hk_stock()->anyhow::Result<()> {
+
+        let res = query_hk_stock("2477").await?;
         println!("{:?}", res);
 
         Ok(())
