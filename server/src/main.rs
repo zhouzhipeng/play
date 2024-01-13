@@ -9,6 +9,7 @@ use axum::http::Request;
 
 use tracing::{error, info};
 use tracing::level_filters::LevelFilter;
+use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::filter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -65,7 +66,14 @@ async fn main()->anyhow::Result<()> {
     ;
 
 
-    let file_appender = tracing_appender::rolling::daily(data_dir, "play.log.txt");
+    let file_appender = RollingFileAppender::builder()
+        .rotation(Rotation::DAILY) // rotate log files once every hour
+        .filename_prefix("play") // log file names will be prefixed with `myapp.`
+        .filename_suffix("log") // log file names will be suffixed with `.log`
+        .max_log_files(10)
+        .build(data_dir) // try to build an appender that stores log files in `/var/log`
+        .expect("initializing rolling file appender failed");
+
     let (writer, _guard) = tracing_appender::non_blocking(file_appender);
 
     let subscriber = tracing_subscriber::registry()

@@ -45,7 +45,10 @@ pub struct Finance {
     #[serde(default)]
     pub alphavantage_apikeys: Vec<String>,
     #[serde(default)]
+    pub rate: Vec<RateItem>,
+    #[serde(default)]
     pub portfolio: Vec<PortfolioItem>,
+
 }
 #[derive(Deserialize,Serialize, Debug, Clone, Default)]
 pub struct PortfolioItem {
@@ -61,6 +64,13 @@ pub struct PortfolioItem {
     pub tag: String,
     #[serde(default)]
     pub market: PortfolioMarket,
+}
+#[derive(Deserialize,Serialize, Debug, Clone, Default)]
+pub struct RateItem {
+    #[serde(default)]
+    pub source: String,
+    #[serde(default)]
+    pub target: String,
 }
 
 #[derive(Deserialize,Serialize, Debug, Clone, Default,PartialEq)]
