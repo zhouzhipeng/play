@@ -41,6 +41,7 @@ pub mod controller;
 pub mod tables;
 pub mod service;
 pub mod config;
+pub mod layer;
 
 
 
