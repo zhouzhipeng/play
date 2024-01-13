@@ -84,3 +84,7 @@ chrono = {workspace=true}
 ansi-to-html = "0.2.1"
 rand = "0.8.5"
 scraper = "0.18.1"
+tower = "0.4.13"
+http-body = "0.4.6"
+http = "0.2.11"
+moka = { version = "0.12.3", features = ["future"] }
