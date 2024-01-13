@@ -222,7 +222,7 @@ pub fn routers(app_state: Arc<AppState>) -> Router {
         .with_state(app_state)
         // logging so we can see whats going on
         .layer(TraceLayer::new_for_http().make_span_with(DefaultMakeSpan::default().include_headers(true)))
-        .layer(TimeoutLayer::new(Duration::from_secs(3)))
+        .layer(TimeoutLayer::new(Duration::from_secs(10)))
         .layer(cors)
 }
 
