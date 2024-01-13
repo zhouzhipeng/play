@@ -73,7 +73,6 @@
         <div class="section">
             <h2 class="section-title">Markets</h2>
             <span>US : {{us_stock_status}} | HK : {{hk_stock_status}}</span>
-            <a href="https://www.hkex.com.hk/Market-Data/Securities-Prices/Equities/Equities-Quote?sym=2477&sc_lang=en" target="_blank">HKEK</a>
             <table>
                 <tr>
                     <th>Symbol</th>
@@ -86,7 +85,15 @@
                 % for item in stock_items:
                 % stock_price_map[item.symbol] = item.price.price
                 <tr>
-                    <td>{{item.symbol}}</td>
+                    <td>
+                    % if item.market == "US_STOCK":
+                    <a href="https://finance.yahoo.com/quote/{{item.symbol}}?p={{item.symbol}}&.tsrc=fin-srch" target="_blank">{{item.symbol}}</a>
+                    %elif  item.market == "HK_STOCK":
+                    <a href="https://www.hkex.com.hk/Market-Data/Securities-Prices/Equities/Equities-Quote?sym={{item.symbol}}&sc_lang=en" target="_blank">{{item.symbol}}</a>
+                    %else:
+                    {{item.symbol}}
+                    % end
+                   </td>
                     <td>{{item.market}}</td>
                     <td>{{item.price.price}}</td>
                     <td>{{item.price.change_percent}}</td>

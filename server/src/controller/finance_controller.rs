@@ -32,9 +32,10 @@ async fn dashboard(s: S) -> HTML {
 
     //query currency rate in parallel
     let mut handles = vec![];
-    for (source, target) in [("USD", "CNY"),("HKD", "CNY"),("USD", "HKD")]{
-        handles.push(tokio::spawn(async {
-            query_currency_rate(source, target).await
+    for rate in &s.config.finance.rate{
+        let copy_rate = rate.clone();
+        handles.push(tokio::spawn(async move {
+            query_currency_rate(&copy_rate.source, &copy_rate.target).await
         }));
     }
 
