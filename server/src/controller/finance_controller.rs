@@ -2,6 +2,7 @@ use anyhow::Context;
 use axum::http::header;
 use chrono::TimeZone;
 use rand::Rng;
+use regex::Regex;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -73,9 +74,11 @@ async fn dashboard(s: S) -> HTML {
 
     //query hk stocks
     let hk_stock_symbols: Vec<String> = s.config.finance.portfolio.iter().filter(|p|p.market==PortfolioMarket::HK_STOCK).map(|p|p.symbol.to_string()).collect();
+    let token = query_hk_page_token().await?;
     for symbol in hk_stock_symbols{
+        let cp_token = token.clone();
         handles.push(tokio::spawn(async move{
-            let price =     query_hk_stock(&symbol).await.map(|a|GlobalQuote{
+            let price =     query_hk_stock(&symbol, &cp_token).await.map(|a|GlobalQuote{
                 change_percent: format!("{}%", a.data.quote.pc),
                 price: a.data.quote.bd.to_string(),
                 previous_close: a.data.quote.hc.to_string(),
@@ -254,11 +257,23 @@ struct HKStockQuoteDataInner{
     trdstatus: String,
 }
 
-async fn query_hk_stock(symbol: &str) -> anyhow::Result<HKStockQuote>{
+async fn query_hk_page_token() -> anyhow::Result<String>{
+
+    //get token from page source
+    let page_html = reqwest::get("https://www.hkex.com.hk/Market-Data/Securities-Prices/Equities/Equities-Quote?sym=2477&sc_lang=en").await?.text().await?;
+    // info!("page_html >> {}", page_html);
+    // let document = Html::parse_document(&page_html);
+    // let selector = Selector::parse("h1.foo").unwrap();
+    let re = Regex::new(r#""ev.{62,100}""#).unwrap();
+    // let token = re.captures(&page_html).unwrap().get(0).unwrap().as_str();
+    let token = re.find(&page_html).unwrap().as_str().replace(r#"""#, "");
+    Ok(token)
+}
+async fn query_hk_stock(symbol: &str, token: &str) -> anyhow::Result<HKStockQuote>{
     // 使用 reqwest 发送 HTTP GET 请求
-    let resp = reqwest::get(format!("https://www1.hkex.com.hk/hkexwidget/data/getequityquote?sym={}&token=evLtsLsBNAUVTPxtGqVeG0DJLIA6ivA4kZkv3eennl4nfIaNHGtmuSxsiK2yOcX4&lang=eng&qid=1705105507584&callback=_&_=1705105505592", symbol)).await?.text().await?;
+    let resp = reqwest::get(format!("https://www1.hkex.com.hk/hkexwidget/data/getequityquote?sym={}&token={}&lang=eng&qid=1705105507584&callback=_&_=1705105505592", symbol,token)).await?.text().await?;
     let json_str = &resp[2..resp.len()-1];
-    println!("{:?}", json_str);
+    info!("query_hk_stock  resp >> {:?}", json_str);
 
     Ok(serde_json::from_str::<HKStockQuote>(json_str)?)
 }
@@ -281,11 +296,12 @@ async fn query_crypto_price(symbol: &str) -> anyhow::Result<CryptoQuote>{
 
 
 
-#[ignore]
+
 #[cfg(test)]
 mod test {
     use super::*;
 
+    #[ignore]
     #[tokio::test]
    async fn test_query_crypto_price()->anyhow::Result<()> {
 
@@ -294,6 +310,8 @@ mod test {
 
         Ok(())
     }
+
+    #[ignore]
     #[tokio::test]
    async fn test_query_rate()->anyhow::Result<()> {
 
@@ -302,6 +320,8 @@ mod test {
 
         Ok(())
     }
+
+    #[ignore]
     #[tokio::test]
    async fn test_random()->anyhow::Result<()> {
         // use  a random apikey
@@ -311,6 +331,8 @@ mod test {
         Ok(())
     }
 
+
+    #[ignore]
     #[tokio::test]
    async fn test_query_stock_price()->anyhow::Result<()> {
 
@@ -323,11 +345,26 @@ mod test {
     }
 
 
+    #[ignore]
     #[tokio::test]
    async fn test_query_hk_stock()->anyhow::Result<()> {
 
-        let res = query_hk_stock("2477").await?;
+        let token = query_hk_page_token().await?;
+        let res = query_hk_stock("2477",&token).await?;
         println!("{:?}", res);
+
+        Ok(())
+    }
+    #[ignore]
+    #[tokio::test]
+   async fn test_regex()->anyhow::Result<()> {
+        let ss = r#"
+                 return "evLtsLsBNAUVTPxtGqVeG2H85NZFkD5sb7jQnB3RkH6AxuYpvbi%2bnu7vN1y0XAln";
+        "#;
+
+        let re = Regex::new(r#""ev.{62,64}""#).unwrap();
+        let token = re.find(&ss).unwrap().as_str().replace(r#"""#, "");
+        println!("token  = {}", token);
 
         Ok(())
     }
