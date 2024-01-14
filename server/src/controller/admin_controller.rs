@@ -42,7 +42,7 @@ async fn display_logs(s: S) -> HTML {
 
     // Format the date as a string
     let date_string = now.format("%Y-%m-%d").to_string();
-    let file_path = Path::new(env::var(DATA_DIR)?.as_str()).join(format!("play.log.txt.{}", date_string));
+    let file_path = Path::new(env::var(DATA_DIR)?.as_str()).join(format!("play.{}.log", date_string));
     let file = File::open(file_path)?;
     let reader = BufReader::new(file);
 
