@@ -76,7 +76,7 @@ async fn dashboard(s: S) -> HTML {
     for symbol in hk_stock_symbols{
         handles.push(tokio::spawn(async move{
             let price =     query_hk_stock(&symbol).await.map(|a|GlobalQuote{
-                change_percent: a.data.quote.pc.to_string(),
+                change_percent: format!("{}%", a.data.quote.pc),
                 price: a.data.quote.bd.to_string(),
                 previous_close: a.data.quote.hc.to_string(),
                 last_trading_day: "".to_string(),
