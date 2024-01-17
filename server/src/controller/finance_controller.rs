@@ -59,11 +59,11 @@ async fn dashboard(s: S) -> HTML {
     // use  a random apikey
     let mut handles = vec![];
     for symbol in us_stock_symbols{
-        let copy_keys = s.config.finance.alphavantage_apikeys.clone();
+        // let copy_keys = s.config.finance.alphavantage_apikeys.clone();
         handles.push(tokio::spawn(async move{
-            let rand_range =get_random(0, copy_keys.len());
-            info!("random >> {}", rand_range);
-            let price = query_stock_price(&symbol, &copy_keys[rand_range]).await.unwrap_or(GlobalQuote::default());
+            // let rand_range =get_random(0, copy_keys.len());
+            // info!("random >> {}", rand_range);
+            let price = query_us_stock_price(&symbol, "").await.unwrap_or(GlobalQuote::default());
             StockItem{
                 symbol: symbol.to_string(),
                 market: PortfolioMarket::US_STOCK,
@@ -137,6 +137,23 @@ struct RateInfo{
     time : String,
 }
 #[derive(Serialize, Deserialize, Debug)]
+struct YahooChartResp{
+    chart : YahooChartRespChart
+}
+#[derive(Serialize, Deserialize, Debug)]
+struct YahooChartRespChart{
+    result : Vec<YahooChartRespChartResult>
+}
+#[derive(Serialize, Deserialize, Debug)]
+struct YahooChartRespChartResult{
+    meta : YahooChartRespChartResultMeta
+}
+#[derive(Serialize, Deserialize, Debug)]
+struct YahooChartRespChartResultMeta{
+    regularMarketPrice : f64,
+    previousClose : f64,
+}
+#[derive(Serialize, Deserialize, Debug)]
 struct StockItem{
     symbol: String,
     market: PortfolioMarket,
@@ -195,6 +212,40 @@ async fn query_stock_price(symbol: &str, apikey: &str)->anyhow::Result<GlobalQuo
         price,
         previous_close,
         last_trading_day,
+    })
+}
+async fn query_us_stock_price(symbol: &str, apikey: &str)->anyhow::Result<GlobalQuote>{
+    let mut headers = header::HeaderMap::new();
+    headers.insert("authority", "query1.finance.yahoo.com".parse().unwrap());
+    headers.insert("accept", "*/*".parse().unwrap());
+    headers.insert("accept-language", "zh-CN,zh;q=0.9,en;q=0.8".parse().unwrap());
+    headers.insert("cache-control", "no-cache".parse().unwrap());
+    headers.insert("origin", "https://finance.yahoo.com".parse().unwrap());
+    headers.insert("pragma", "no-cache".parse().unwrap());
+    headers.insert("referer", "https://finance.yahoo.com/quote/YANG?p=YANG&.tsrc=fin-srch".parse().unwrap());
+    headers.insert("sec-ch-ua", "\"Not_A Brand\";v=\"8\", \"Chromium\";v=\"120\", \"Google Chrome\";v=\"120\"".parse().unwrap());
+    headers.insert("sec-ch-ua-mobile", "?0".parse().unwrap());
+    headers.insert("sec-ch-ua-platform", "\"macOS\"".parse().unwrap());
+    headers.insert("sec-fetch-dest", "empty".parse().unwrap());
+    headers.insert("sec-fetch-mode", "cors".parse().unwrap());
+    headers.insert("sec-fetch-site", "same-site".parse().unwrap());
+    headers.insert("user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36".parse().unwrap());
+
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+    let res:YahooChartResp = client.get(format!("https://query1.finance.yahoo.com/v8/finance/chart/{}?region=US&lang=en-US&includePrePost=false&interval=2m&useYfid=true&range=1d&corsDomain=finance.yahoo.com&.tsrc=finance", symbol))
+        .headers(headers)
+        .send().await?
+        .json().await?;
+    println!("{:?}", res);
+    let data = &res.chart.result[0].meta;
+    Ok(GlobalQuote{
+        change_percent: format!("{:.2}%", (data.regularMarketPrice/data.previousClose-1.0)*100.0),
+        price: data.regularMarketPrice.to_string(),
+        previous_close: data.previousClose.to_string(),
+        last_trading_day: "".to_string(),
     })
 }
 
@@ -366,6 +417,13 @@ mod test {
         let token = re.find(&ss).unwrap().as_str().replace(r#"""#, "");
         println!("token  = {}", token);
 
+        Ok(())
+    }
+    #[ignore]
+    #[tokio::test]
+   async fn test_query_us_stock()->anyhow::Result<()> {
+        let data = query_us_stock_price("AAPL","").await?;
+        println!("{:?}", data);
         Ok(())
     }
 }
