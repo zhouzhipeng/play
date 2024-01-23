@@ -127,6 +127,10 @@
                 % total_return = 0
                 % for item in portfolio_items:
 
+                % if item.quantity==0:
+                % continue
+                %end
+
                 % current_price = float(stock_price_map[item.symbol])
                 % total_invest = total_invest+ (item.price * item.quantity / float(rate_map['USDHKD'])  if item.tag=="HK$" else item.price * item.quantity)
                 % total_return = total_return+ (current_price * item.quantity / float(rate_map['USDHKD'])  if item.tag=="HK$" else current_price * item.quantity)
@@ -159,7 +163,14 @@
                     <td></td>
                     <td></td>
                     <td>${{total_invest}}</td>
-                    <td>${{total_return}}</td>
+                    <td>${{total_return}}
+                        (
+                        %if total_return > total_invest:
+                        +
+                        %end
+                        ${{ round(total_return - total_invest,2)}}
+                        )
+                    </td>
                 </tr>
 
 
