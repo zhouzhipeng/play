@@ -150,6 +150,10 @@
                         +
                         %end
                         {{round(current_price * item.quantity - item.price * item.quantity,2)}}
+
+                        /
+                        {{round((current_price * item.quantity - item.price * item.quantity) / (item.price * item.quantity) * 100 ,2)}}%
+
                         )
                     </td>
                 </tr>
@@ -169,6 +173,9 @@
                         +
                         %end
                         ${{ round(total_return - total_invest,2)}}
+
+                        /
+                        {{round((total_return - total_invest) /total_invest *100, 2 )}}%
                         )
                     </td>
                 </tr>
