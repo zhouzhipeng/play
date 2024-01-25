@@ -57,6 +57,8 @@ pub struct PortfolioItem {
     #[serde(default)]
     pub name: String,
     #[serde(default)]
+    pub orders: Vec<(f64/*quantity*/, f64/*price*/, String/*date*/)>,
+    #[serde(default)]
     pub quantity: f64,
     #[serde(default)]
     pub price: f64,
@@ -64,6 +66,15 @@ pub struct PortfolioItem {
     pub tag: String,
     #[serde(default)]
     pub market: PortfolioMarket,
+    #[serde(default)]
+    pub positions: Vec<PortfolioItemPosition>,
+}
+#[derive(Deserialize,Serialize, Debug, Clone, Default)]
+pub struct PortfolioItemPosition {
+    #[serde(default)]
+    pub quantity: f64,
+    #[serde(default)]
+    pub price: f64,
 }
 #[derive(Deserialize,Serialize, Debug, Clone, Default)]
 pub struct RateItem {
