@@ -10,7 +10,7 @@ use tracing::info;
 
 use crate::{method_router, template};
 use crate::{HTML, S};
-use crate::config::PortfolioMarket;
+use crate::config::{PortfolioItemPosition, PortfolioMarket};
 //
 method_router!(
     get : "/finance/dashboard"-> dashboard,
@@ -117,7 +117,79 @@ async fn dashboard(s: S) -> HTML {
     }
 
 
-    let portfolio_items = &s.config.finance.portfolio;
+    let mut portfolio_items = s.config.finance.portfolio.clone();
+
+    for item in portfolio_items.iter_mut() {
+
+        if item.orders.len()>0{
+            let mut qty = 0.;
+            let mut avg_price = 0.;
+            let mut total_value =0. ;
+
+            let mut buy_list = vec![];
+            let mut sell_list = vec![];
+
+            for (quantity, price , date ) in &item.orders {
+
+                if *quantity >0.{
+                    buy_list.push(PortfolioItemPosition{
+                        quantity: *quantity,
+                        price: *price,
+                    })
+                }else{
+                    sell_list.push(PortfolioItemPosition{
+                        quantity: -*quantity,
+                        price: *price,
+                    })
+                }
+            }
+
+
+
+
+            //calculate positions
+            buy_list.sort_by(|a, b| a.price.partial_cmp(&b.price).unwrap());
+            for sell_item in sell_list.iter_mut() {
+                let mut i =0;
+                let mut to_remove = vec![];
+                for buy_item in buy_list.iter_mut() {
+                    if sell_item.quantity < buy_item.quantity{
+                        buy_item.quantity = buy_item.quantity - sell_item.quantity;
+                        break;
+
+                    }else if sell_item.quantity == buy_item.quantity{
+                        //remove
+                        to_remove.push(i);
+                        break;
+                    }else{
+                        //remove
+                        to_remove.push(i);
+                        sell_item.quantity= sell_item.quantity  - buy_item.quantity;
+
+                    }
+
+                    i=i+1;
+                }
+
+                //remove items in buy list
+                for i in to_remove {
+                    buy_list.remove(i);
+                }
+            }
+
+            item.positions = buy_list;
+
+            //re-calculate avg price
+            for buy_item in &item.positions {
+                total_value  = total_value + buy_item.quantity * buy_item.price;
+                qty = qty + buy_item.quantity;
+            }
+            avg_price = total_value / qty;
+
+            item.quantity = qty;
+            item.price = avg_price;
+        }
+    }
 
     template!(s, "finance/dashboard.html", json!({
         "items":total_rates,

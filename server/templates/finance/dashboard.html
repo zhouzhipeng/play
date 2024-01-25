@@ -6,6 +6,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Financial Information Dashboard</title>
     <style>
+        .collapsible {
+            cursor: pointer;
+            text-decoration: underline;
+            color: #e805bb;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+    <style>
         body {
             font-family: Arial, sans-serif;
             margin: 0;
@@ -120,7 +131,7 @@
                     <th>Entry Price</th>
                     <th>Current Price</th>
                     <th>Total Invest</th>
-                    <th>Total Return</th>
+                    <th>Unrealized PnL</th>
                 </tr>
 
                 % total_invest = 0
@@ -139,8 +150,8 @@
                 <tr>
                     <td>{{item.symbol}}</td>
                     <td>{{item.name}}</td>
-                    <td>{{item.quantity}}</td>
-                    <td>{{item.tag}}{{item.price}}</td>
+                    <td class="collapsible">{{round(item.quantity,2)}}</td>
+                    <td>{{item.tag}}{{round(item.price,2)}}</td>
                     <td>{{item.tag}}{{current_price}}</td>
                     <td>{{item.tag}}{{round(item.price * item.quantity,2)}}</td>
                     <td>
@@ -157,6 +168,50 @@
                         )
                     </td>
                 </tr>
+                <tr class="hidden">
+                    <td colspan="7">
+                        <h4>Positions</h4>
+                        <table>
+                            <tr>
+                                <th>Quantity</th>
+                                <th>Price</th>
+                                <th>Unrealized PnL</th>
+                            </tr>
+                            % for position in item.positions:
+                            <tr>
+                                <td>{{round(position.quantity,2)}}</td>
+                                <td>{{position.price}}</td>
+                                <td>
+                                    %if current_price > position.price:
+                                    +
+                                    %end
+                                    {{round(current_price * position.quantity - position.price * position.quantity,2)}}
+
+                                    /
+                                    {{round((current_price - position.price ) / (position.price ) * 100 ,2)}}%
+
+                                </td>
+                            </tr>
+                            % end
+                        </table>
+                        <h4>Orders</h4>
+                        <table>
+                            <tr>
+                                <th>quantity</th>
+                                <th>price</th>
+                                <th>date</th>
+                            </tr>
+                            % for qty, price, date in item.orders:
+                            <tr>
+                                <td>{{qty}}</td>
+                                <td>{{price}}</td>
+                                <td>{{date}}</td>
+                            </tr>
+                            % end
+                        </table>
+                    </td>
+
+                </tr>
 
                 %end
 
@@ -172,7 +227,7 @@
                         %if total_return > total_invest:
                         +
                         %end
-                        ${{ round(total_return - total_invest,2)}}
+                        {{ round(total_return - total_invest,2)}}
 
                         /
                         {{round((total_return - total_invest) /total_invest *100, 2 )}}%
@@ -203,5 +258,20 @@
 <!--            </table>-->
 <!--        </div>-->
     </div>
+
+<script>
+
+        document.querySelectorAll('.collapsible').forEach(function(element) {
+        element.addEventListener('click', function () {
+            var nextElement = this.parentNode.nextElementSibling;
+            if (nextElement.classList.contains('hidden')) {
+                nextElement.classList.remove('hidden');
+            } else {
+                nextElement.classList.add('hidden');
+            }
+        });
+    });
+</script>
+    </script>
 </body>
 </html>
