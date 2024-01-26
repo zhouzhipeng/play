@@ -358,7 +358,7 @@ async fn render_fragment(s: &S, fragment: Template, data: Value) -> R<Html<Strin
 #[cfg(feature = "mail_server")]
 pub async fn handle_email_message(copy_appstate: &Arc<AppState>, msg: &mail_server::models::message::Message) {
     //delete all if email count > 100
-    if EmailInbox::count(&copy_appstate.db).await.unwrap_or_default() >= 100{
+    if EmailInbox::count(&copy_appstate.db).await.unwrap_or_default() >= 50{
         info!("delete emails");
         EmailInbox::delete_all(&copy_appstate.db).await;
     }
