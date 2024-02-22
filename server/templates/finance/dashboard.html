@@ -96,7 +96,7 @@
                     <th>Previous Close</th>
                 </tr>
                 % for item in stock_items:
-                % stock_price_map[item.symbol] = item.price.price
+                % stock_price_map[item.symbol] = item.price.price if item.price.price!="" else "0"
                 <tr>
                     <td>
                     % if item.market == "US_STOCK":
