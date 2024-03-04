@@ -12,6 +12,7 @@ use axum::Json;
 use axum::response::{Html, IntoResponse, Response};
 use axum::Router;
 use axum_server::Handle;
+use either::Either;
 use hyper::HeaderMap;
 use include_dir::{Dir, include_dir};
 use lazy_static::lazy_static;
@@ -183,6 +184,7 @@ type S = State<Arc<AppState>>;
 
 type HTML = Result<Html<String>, AppError>;
 type JSON<T> = Result<Json<T>, AppError>;
+
 
 
 #[derive(Serialize)]
