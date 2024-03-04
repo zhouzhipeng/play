@@ -12,6 +12,7 @@ use axum::Json;
 use axum::response::{Html, IntoResponse, Response};
 use axum::Router;
 use axum_server::Handle;
+use either::Either;
 use hyper::HeaderMap;
 use include_dir::{Dir, include_dir};
 use lazy_static::lazy_static;
@@ -77,6 +78,18 @@ macro_rules! return_error {
     };
     ($fmt:expr, $($arg:tt)*) => {
         return Err(anyhow::anyhow!($fmt, $($arg)*).into())
+    };
+}
+#[macro_export]
+macro_rules! app_error {
+    ($msg:literal $(,)?) => {
+        anyhow::anyhow!($msg).into()
+    };
+    ($err:expr $(,)?) => {
+        anyhow::anyhow!($err).into()
+    };
+    ($fmt:expr, $($arg:tt)*) => {
+        anyhow::anyhow!($fmt, $($arg)*).into()
     };
 }
 
@@ -171,6 +184,7 @@ type S = State<Arc<AppState>>;
 
 type HTML = Result<Html<String>, AppError>;
 type JSON<T> = Result<Json<T>, AppError>;
+
 
 
 #[derive(Serialize)]
