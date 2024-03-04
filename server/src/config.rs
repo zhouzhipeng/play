@@ -25,7 +25,16 @@ pub struct Config {
     pub email_server_config: EmailServerConfig,
     #[serde(default)]
     pub finance: Finance,
+    #[serde(default)]
+    pub shortlinks: Vec<ShortLink>,
 }
+
+#[derive(Deserialize, Debug, Clone, Default)]
+pub struct ShortLink {
+    pub from: String,
+    pub to: String,
+}
+
 
 fn default_log_level()->String{
     "INFO".to_string()
@@ -40,6 +49,7 @@ pub struct HttpsCert {
     pub emails: Vec<String>,
 
 }
+
 #[derive(Deserialize, Debug, Clone, Default)]
 pub struct Finance {
     #[serde(default)]
