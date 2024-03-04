@@ -76,6 +76,12 @@ use `cargo tool` to see how many operations we have
 ## see all `cargo` alias commands.
 [config.toml](.cargo%2Fconfig.toml)
 
+
+## build mac m binary
+```bash
+cargo dev_ui
+```
+
 ## build rust app into static linux executables
 https://github.com/rust-cross/rust-musl-cross
 

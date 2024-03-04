@@ -1,6 +1,6 @@
 use std::{env, fs, io, panic};
 use std::env::set_var;
-use std::net::SocketAddr;
+use std::net::{SocketAddr, TcpListener};
 use std::path::Path;
 use std::time::Duration;
 
@@ -138,8 +138,13 @@ async fn main()->anyhow::Result<()> {
         router = router.layer(livereload);
     }
 
-    let local_url = format!("http://127.0.0.1:{}", server_port);
-    shutdown_another_instance(&local_url).await;
+
+    if  !local_port_available( server_port as u16) {
+        let local_url = format!("http://127.0.0.1:{}", server_port);
+        shutdown_another_instance(&local_url).await;
+    }
+
+
 
     #[cfg(feature = "debug")]
     info!("using debug mode, will auto reload templates and static pages.");
@@ -193,3 +198,11 @@ async fn main()->anyhow::Result<()> {
 
 }
 
+
+
+pub fn local_port_available(port: u16) -> bool {
+    match TcpListener::bind(("0.0.0.0", port)) {
+        Ok(_) => true,
+        Err(_) => false,
+    }
+}

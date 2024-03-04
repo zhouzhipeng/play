@@ -17,6 +17,7 @@ use include_dir::{Dir, include_dir};
 use lazy_static::lazy_static;
 use serde::Serialize;
 use serde_json::{json, Value};
+use tokio::time::sleep;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
@@ -161,6 +162,7 @@ pub async fn shutdown_another_instance(local_url: &String) {
 //check if port is already in using. if it is , call /shutdown firstly.
     let shutdown_result = reqwest::get(&format!("{}/admin/shutdown", local_url)).await;
     info!("shutdown_result >> {} , can be ignored.", shutdown_result.is_ok());
+    sleep(Duration::from_micros(200)).await;
 }
 
 
