@@ -79,6 +79,18 @@ macro_rules! return_error {
         return Err(anyhow::anyhow!($fmt, $($arg)*).into())
     };
 }
+#[macro_export]
+macro_rules! app_error {
+    ($msg:literal $(,)?) => {
+        anyhow::anyhow!($msg).into()
+    };
+    ($err:expr $(,)?) => {
+        anyhow::anyhow!($err).into()
+    };
+    ($fmt:expr, $($arg:tt)*) => {
+        anyhow::anyhow!($fmt, $($arg)*).into()
+    };
+}
 
 
 pub struct AppState {

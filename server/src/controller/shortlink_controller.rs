@@ -1,5 +1,8 @@
+use anyhow::anyhow;
 use axum::extract::Path;
-use crate::{method_router, S};
+use axum::response::{IntoResponse, Redirect};
+use either::Either;
+use crate::{app_error, AppError, method_router, return_error, S};
 use crate::R;
 
 method_router!(
@@ -10,9 +13,15 @@ async fn vpn() -> R<String> {
     let res = reqwest::get("https://bit.ly/cmwowork").await?.text().await?;
     Ok(res)
 }
-async fn link(s: S, name : Path<(String,)>) -> R<String> {
+async fn link(s: S, Path((name,)) : Path<(String,)>) -> R<Either<String, Redirect>> {
+    let shortlink = s.config.shortlinks.iter().find(|c|c.from==name).ok_or::<AppError>(app_error!("404 , link not found."))?;
     // s.config.finance
-    let res = reqwest::get("https://bit.ly/cmwowork").await?.text().await?;
-    Ok(res)
+    if !shortlink.jump{
+        let res = reqwest::get("https://bit.ly/cmwowork").await?.text().await?;
+        Ok(Either::Left(res))
+    }else{
+        Ok(Either::Right(Redirect::temporary(&shortlink.to)))
+    }
+
 }
 

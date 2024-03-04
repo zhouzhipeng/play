@@ -33,6 +33,7 @@ pub struct Config {
 pub struct ShortLink {
     pub from: String,
     pub to: String,
+    pub jump: bool,
 }
 
 
