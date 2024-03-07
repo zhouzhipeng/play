@@ -40,6 +40,7 @@ harness = false
 # from libs
 shared={path="../libs/shared", features = ["proc_macros", "utils"]}
 ui = {path = "../libs/ui", optional = true}
+job = {path = "../libs/job", optional = true}
 redis ={package = "redis", path="../libs/redis", optional = true}
 tpl={package = "py_tpl", path = "../libs/py_tpl",optional = true}
 mail_server = {path="../libs/mail_server", optional = true}

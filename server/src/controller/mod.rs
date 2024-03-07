@@ -10,6 +10,7 @@ mod english_card_controller;
 mod email_inbox_controller;
 mod finance_controller;
 mod shortlink_controller;
+mod job_controller;
 
 
 ///
@@ -27,5 +28,6 @@ crate::register_routers!(
         email_inbox_controller,
         finance_controller,
         shortlink_controller,
+        job_controller,
     );
 

@@ -1,41 +1,59 @@
 use std::time::Duration;
+
+use log::info;
+use reqwest::Client;
 use tokio_cron_scheduler::{Job, JobScheduler};
 
-async fn run_job_scheduler() -> anyhow::Result<JobsSchedulerLocked> {
-    let mut sched = JobScheduler::new().await?;
-
-    // Add async job
-    sched.add(
-        Job::new_async("1/7 * * * * *", |uuid, mut l| {
-            Box::pin(async move {
-                println!("I run async every 7 seconds");
-
-                // Query the next execution time for this job
-                let next_tick = l.next_tick_for_job(uuid).await;
-                match next_tick {
-                    Ok(Some(ts)) => println!("Next time for 7s job is {:?}", ts),
-                    _ => println!("Could not get next tick for 7s job"),
-                }
-            })
-        })?
-    ).await?;
-
-    sched.start().await?;
-
-    Ok(sched)
+#[derive(Clone)]
+pub struct JobConfig{
+    pub name: String,
+    pub cron: String,
+    pub url: String
 }
 
 
-#[ignore]
-#[tokio::test]
-async fn test_all() -> anyhow::Result<()> {
-    let task = tokio::spawn(run_job_scheduler());
+pub async fn run_job_scheduler(job_configs : Vec<JobConfig>) -> anyhow::Result<()> {
+    let mut sched = JobScheduler::new().await?;
 
-    // task.await.expect("failed");
+    for config in job_configs {
+        // Add async job
+        let cron = config.cron.to_string();
+        sched.add(
+            Job::new_async(cron.as_str(), move |uuid, mut l| {
+                let copy_config = config.clone();
+                Box::pin(async move {
+                    info!("job execute finished : {:?}", execute_job(&copy_config).await);
+                    // Query the next execution time for this job
+                    let next_tick = l.next_tick_for_job(uuid).await;
+                    match next_tick {
+                        Ok(Some(ts)) => info!("Next time for {} job is {:?}", copy_config.name, ts),
+                        _ => info!("Could not get next tick for  job: {}", copy_config.name),
+                    }
+                })
+            })?
+        ).await?;
+    }
 
 
-    // Wait while the jobs run
-    tokio::time::sleep(Duration::from_secs(100)).await;
+    sched.start().await?;
+
+    Ok(())
+}
+
+
+async fn execute_job(config: &JobConfig)->anyhow::Result<()>{
+    info!("ready to invoke job : {},  url :{}", config.name, config.url);
+
+    let client = Client::builder()
+        .timeout(Duration::from_secs(5))
+        .build()?;
+
+    // Use the client to make a GET request
+    let res = client.get(&config.url)
+        .send()
+        .await?.text().await?;;
+    info!("invoke job : {} completed ,  res :{}",config.name, res);
+
 
     Ok(())
 }
