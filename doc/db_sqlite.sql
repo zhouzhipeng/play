@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS email_inbox
     attachments   VARCHAR,
     create_time   INTEGER
 );
-CREATE TABLE IF NOT EXISTS common_data_meta
+CREATE TABLE IF NOT EXISTS general_data_meta
 (
     id            INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     name     VARCHAR,
@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS common_data_meta
     created    DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated    DATETIME DEFAULT CURRENT_TIMESTAMP
 );
-CREATE TABLE IF NOT EXISTS common_data
+CREATE TABLE IF NOT EXISTS general_data
 (
     id            INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     meta_id     INTEGER,
