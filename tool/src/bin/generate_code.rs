@@ -91,8 +91,8 @@ fn gen_db_models_code() {
                 let mod_rs = Path::new(env!("CARGO_MANIFEST_DIR")).join("../server/src/controller/mod.rs");
                 let mut mod_rs_content = fs::read_to_string(&mod_rs).expect("read controller/mod.rs failed!");
                 if !mod_rs_content.contains(format!("mod {}_controller;", info.table_name).as_str()) {
-                    mod_rs_content = mod_rs_content.replace("//PLACEHOLDER:CONTROLLER_MOD", &format!("\npub mod {}_controller;\n//PLACEHOLDER:CONTROLLER_MOD\n", info.table_name));
-                    mod_rs_content = mod_rs_content.replace("//PLACEHOLDER:CONTROLLER_REGISTER", &format!("\n{}_controller,\n//PLACEHOLDER:CONTROLLER_MOD\n", info.table_name));
+                    mod_rs_content = mod_rs_content.replace("//PLACEHOLDER:CONTROLLER_MOD", &format!("\nmod {}_controller;\n//PLACEHOLDER:CONTROLLER_MOD\n", info.table_name));
+                    mod_rs_content = mod_rs_content.replace("//PLACEHOLDER:CONTROLLER_REGISTER", &format!("{}_controller,\n//PLACEHOLDER:CONTROLLER_MOD\n", info.table_name));
                     fs::write(&mod_rs, mod_rs_content).expect("write controller/mod.rs failed");
                 }
             }
