@@ -92,7 +92,7 @@ fn gen_db_models_code() {
                 let mut mod_rs_content = fs::read_to_string(&mod_rs).expect("read controller/mod.rs failed!");
                 if !mod_rs_content.contains(format!("mod {}_controller;", info.table_name).as_str()) {
                     mod_rs_content = mod_rs_content.replace("//PLACEHOLDER:CONTROLLER_MOD", &format!("\nmod {}_controller;\n//PLACEHOLDER:CONTROLLER_MOD\n", info.table_name));
-                    mod_rs_content = mod_rs_content.replace("//PLACEHOLDER:CONTROLLER_REGISTER", &format!("{}_controller,\n//PLACEHOLDER:CONTROLLER_MOD\n", info.table_name));
+                    mod_rs_content = mod_rs_content.replace("//PLACEHOLDER:CONTROLLER_REGISTER", &format!("{}_controller,\n//PLACEHOLDER:CONTROLLER_REGISTER\n", info.table_name));
                     fs::write(&mod_rs, mod_rs_content).expect("write controller/mod.rs failed");
                 }
             }
