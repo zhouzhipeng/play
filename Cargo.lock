@@ -5461,7 +5461,6 @@ dependencies = [
  "moka",
  "notify",
  "py_tpl",
- "pyo3",
  "rand 0.8.5",
  "redis 0.1.0",
  "redis-test",
@@ -8229,7 +8228,10 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "current_platform",
+ "pyo3",
  "pyoxidizer",
+ "serde_json",
+ "shared",
  "zip_archive",
 ]
 

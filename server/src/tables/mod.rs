@@ -1,39 +1,45 @@
-#[cfg(not(feature =  "use_mysql"))]
+#[cfg(not(feature = "use_mysql"))]
 use sqlx::{migrate::MigrateDatabase, Pool, Sqlite, SqlitePool};
-#[cfg(feature =  "use_mysql")]
-use sqlx::mysql::{MySqlPoolOptions, MySqlQueryResult};
-#[cfg(feature =  "use_mysql")]
+#[cfg(feature = "use_mysql")]
 use sqlx::{migrate::MigrateDatabase, MySql, Pool};
-#[cfg(not(feature =  "use_mysql"))]
+#[cfg(feature = "use_mysql")]
+use sqlx::mysql::{MySqlPoolOptions, MySqlQueryResult};
+#[cfg(not(feature = "use_mysql"))]
 use sqlx::sqlite::SqliteQueryResult;
 use tracing::{info, warn};
-use crate::config::Config;
+
 use shared::file_path;
+
+use crate::config::Config;
 
 pub mod user;
 pub mod article;
 pub mod todo_item;
 pub mod api_entry;
+pub mod users;
+pub mod english_card;
+pub mod email_inbox;
 
+//PLACEHOLDER:TABLE_MOD
 
-#[cfg(not(feature =  "use_mysql"))]
+#[cfg(not(feature = "use_mysql"))]
 pub type DBPool = Pool<Sqlite>;
-#[cfg(not(feature =  "use_mysql"))]
+#[cfg(not(feature = "use_mysql"))]
 pub type DBQueryResult = SqliteQueryResult;
 
-#[cfg(feature =  "use_mysql")]
+#[cfg(feature = "use_mysql")]
 pub type DBPool = Pool<MySql>;
-#[cfg(feature =  "use_mysql")]
+#[cfg(feature = "use_mysql")]
 pub type DBQueryResult = MySqlQueryResult;
 
-#[cfg(not(feature =  "use_mysql"))]
+#[cfg(not(feature = "use_mysql"))]
 #[macro_export]
 macro_rules! get_last_insert_id {
     ($t: expr) => {
         $t.last_insert_rowid()
     }
 }
-#[cfg(feature =  "use_mysql")]
+#[cfg(feature = "use_mysql")]
 #[macro_export]
 macro_rules! get_last_insert_id {
     ($t: expr) => {
@@ -45,9 +51,8 @@ macro_rules! get_last_insert_id {
 
 
 
-#[cfg(not(feature =  "use_mysql"))]
-pub async fn init_pool(config : &Config) -> DBPool {
-
+#[cfg(not(feature = "use_mysql"))]
+pub async fn init_pool(config: &Config) -> DBPool {
     let db_url: &str = config.database.url.as_str();
 
     if !Sqlite::database_exists(db_url).await.unwrap_or(false) {
@@ -67,7 +72,7 @@ pub async fn init_pool(config : &Config) -> DBPool {
 }
 
 
-#[cfg(not(feature =  "use_mysql"))]
+#[cfg(not(feature = "use_mysql"))]
 pub async fn init_test_pool() -> DBPool {
     let db_test_url = ":memory:";
     let db = SqlitePool::connect(db_test_url).await.unwrap();
@@ -77,10 +82,8 @@ pub async fn init_test_pool() -> DBPool {
 }
 
 
-
-#[cfg(feature =   "use_mysql")]
-pub async fn init_pool(config : &Config) -> DBPool {
-
+#[cfg(feature = "use_mysql")]
+pub async fn init_pool(config: &Config) -> DBPool {
     let db_url: &str = config.database.url.as_str();
 
     if !MySql::database_exists(db_url).await.unwrap_or(false) {
@@ -95,20 +98,19 @@ pub async fn init_pool(config : &Config) -> DBPool {
         .max_connections(5)
         .connect(db_url).await.unwrap();
 
-    for s in include_str!(file_path!("/../doc/db_mysql.sql")).split(";"){
-        if s.trim().is_empty(){
-            continue
+    for s in include_str!(file_path!("/../doc/db_mysql.sql")).split(";") {
+        if s.trim().is_empty() {
+            continue;
         }
         let result = sqlx::query(s).execute(&db).await.unwrap();
         // info!("Create  table result: {:?}", result);
     };
 
 
-
     db
 }
 
-#[cfg(feature =   "use_mysql")]
+#[cfg(feature = "use_mysql")]
 pub async fn init_test_pool() -> DBPool {
     const DB_URL: &str = "mysql://localhost:3306/test";
 
@@ -127,23 +129,15 @@ pub async fn init_test_pool() -> DBPool {
         .max_connections(5)
         .connect(DB_URL).await.unwrap();
 
-    for s in include_str!(file_path!("/../doc/db_mysql.sql")).split(";"){
-        if s.trim().is_empty(){
-            continue
+    for s in include_str!(file_path!("/../doc/db_mysql.sql")).split(";") {
+        if s.trim().is_empty() {
+            continue;
         }
         let result = sqlx::query(s).execute(&db).await.unwrap();
         info!("Create  table result: {:?}", result);
     };
 
 
-
     db
 }
 
-
-
-pub mod users;
-
-
-pub mod english_card;
-pub mod email_inbox;

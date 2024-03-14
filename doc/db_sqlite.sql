@@ -48,6 +48,22 @@ CREATE TABLE IF NOT EXISTS email_inbox
     attachments   VARCHAR,
     create_time   INTEGER
 );
+CREATE TABLE IF NOT EXISTS common_data_meta
+(
+    id            INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    name     VARCHAR,
+    desc       VARCHAR,
+    created    DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated    DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS common_data
+(
+    id            INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    meta_id     INTEGER,
+    data       text,
+    created    DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated    DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 --
 -- insert into email_inbox(from_mail, to_mail, send_date, subject, plain_content, html_content, full_body, attachments, create_time)
 -- values ('aa@qq.com', 'bb@cc.com,111@cc.com', '10:11', 'test111', 'test html content', 'test html content', '', '',1703918268267);
