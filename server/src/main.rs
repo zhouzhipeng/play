@@ -14,6 +14,7 @@ use tracing_subscriber::filter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
+
 use play::{ init_app_state, shutdown_another_instance, start_server};
 use play::config::init_config;
 use play::routers;
@@ -176,6 +177,14 @@ async fn main()->anyhow::Result<()> {
 
         });
     }
+
+    //start job scheduler
+    #[cfg(feature = "job")]
+    tokio::spawn(job::run_job_scheduler(config.local_jobs.iter().map(|c|job::JobConfig{
+        name: c.name.to_string(),
+        cron: c.cron.to_string(),
+        url: format!("http://127.0.0.1:{}{}", config.server_port, c.uri),
+    }).collect()));
 
 
 

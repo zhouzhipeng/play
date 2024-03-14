@@ -197,12 +197,20 @@
                         <h4>Orders</h4>
                         <table>
                             <tr>
+                                <th>op</th>
                                 <th>quantity</th>
                                 <th>price</th>
                                 <th>date</th>
                             </tr>
                             % for qty, price, date in item.orders:
                             <tr>
+                                % if int(qty) > 0 :
+                                <td>BUY</td>
+                                %else:
+                                <td>SELL</td>
+                                %end
+
+
                                 <td>{{qty}}</td>
                                 <td>{{price}}</td>
                                 <td>{{date}}</td>
