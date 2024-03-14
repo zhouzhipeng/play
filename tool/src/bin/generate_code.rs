@@ -78,13 +78,23 @@ fn gen_db_models_code() {
                 //add to mod.rs
                 let mut mod_rs_content = fs::read_to_string(&mod_rs).expect("read tables/mod.rs failed!");
                 if !mod_rs_content.contains(format!("mod {};", info.table_name).as_str()) {
-                    mod_rs_content = format!("{}\npub mod {};", mod_rs_content, info.table_name);
+                    mod_rs_content = mod_rs_content.replace("//PLACEHOLDER:TABLE_MOD", &format!("\npub mod {};\n//PLACEHOLDER:TABLE_MOD\n", info.table_name));
                     fs::write(&mod_rs, mod_rs_content).expect("write tables/mod.rs failed");
                 }
             }
 
             if !controller_dest_file.exists(){
                 fs::write(&controller_dest_file, controller_content).expect(format!("create file failed! : {:?}", &controller_dest_file).as_str());
+
+
+                //add to mod.rs
+                let mod_rs = Path::new(env!("CARGO_MANIFEST_DIR")).join("../server/src/controller/mod.rs");
+                let mut mod_rs_content = fs::read_to_string(&mod_rs).expect("read controller/mod.rs failed!");
+                if !mod_rs_content.contains(format!("mod {}_controller;", info.table_name).as_str()) {
+                    mod_rs_content = mod_rs_content.replace("//PLACEHOLDER:CONTROLLER_MOD", &format!("\npub mod {}_controller;\n//PLACEHOLDER:CONTROLLER_MOD\n", info.table_name));
+                    mod_rs_content = mod_rs_content.replace("//PLACEHOLDER:CONTROLLER_REGISTER", &format!("\n{}_controller,\n//PLACEHOLDER:CONTROLLER_MOD\n", info.table_name));
+                    fs::write(&mod_rs, mod_rs_content).expect("write controller/mod.rs failed");
+                }
             }
 
             let template_dir  = Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("../server/templates/{}", info.table_name));
