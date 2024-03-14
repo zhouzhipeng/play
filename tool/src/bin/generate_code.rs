@@ -15,7 +15,7 @@ fn main() {
             if !stdout.is_empty(){
                 println!("Git Status Output:\n{}", stdout);
 
-                if !stdout.contains("No changes to commit"){
+                if !stdout.contains("working tree clean"){
                     eprintln!("Err : pls commit your changes before run `cargo generate`");
                 }else{
                     gen_db_models_code();
