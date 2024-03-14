@@ -69,9 +69,9 @@ fn gen_db_models_code() {
             let args = (controller_template, "<tmp>", json!({"table_name": info.table_name}).to_string(), false);
             let controller_content = render_fn.call1(py, args)?.to_string();
 
-            let dest_file = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/tables").join(format!("{}.rs", info.table_name));
-            let controller_dest_file = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/controller").join(format!("{}_controller.rs", info.table_name));
-            let mod_rs = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/tables/mod.rs");
+            let dest_file = Path::new(env!("CARGO_MANIFEST_DIR")).join("../server/src/tables").join(format!("{}.rs", info.table_name));
+            let controller_dest_file = Path::new(env!("CARGO_MANIFEST_DIR")).join("../server/src/controller").join(format!("{}_controller.rs", info.table_name));
+            let mod_rs = Path::new(env!("CARGO_MANIFEST_DIR")).join("../server/src/tables/mod.rs");
             if !dest_file.exists() {
                 fs::write(&dest_file, model_content).expect(format!("create file failed! : {:?}", &dest_file).as_str());
 
@@ -87,7 +87,7 @@ fn gen_db_models_code() {
                 fs::write(&controller_dest_file, controller_content).expect(format!("create file failed! : {:?}", &controller_dest_file).as_str());
             }
 
-            let template_dir  = Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("templates/{}", info.table_name));
+            let template_dir  = Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("../server/templates/{}", info.table_name));
             if !template_dir.exists(){
                 fs::create_dir(&template_dir).expect(&format!("create dir :{:?} failed", template_dir));
                 let template = include_str!("../../../doc/tmpl/list_template.html.txt");
