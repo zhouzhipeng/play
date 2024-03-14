@@ -204,7 +204,7 @@
                             </tr>
                             % for qty, price, date in item.orders:
                             <tr>
-                                % if int(qty) >= 0 :
+                                % if float(qty) >= 0 :
                                 <td>BUY</td>
                                 %else:
                                 <td>SELL</td>
