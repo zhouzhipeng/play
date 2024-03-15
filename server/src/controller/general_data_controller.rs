@@ -5,7 +5,7 @@ use axum::Json;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{check_if, JSON, method_router, R, return_error, S};
+use crate::{check, JSON, method_router, R, return_error, S};
 use crate::tables::general_data::GeneralData;
 
 method_router!(
@@ -29,8 +29,8 @@ struct InsertDataReq {
 
 async fn insert_data(s: S, Path(cat): Path<String>, body: String) -> JSON<MsgResp> {
     //validation
-    check_if!(!vec!["data","get","update","delete","list", "query"].contains(&cat.as_str()));
-    check_if!(serde_json::from_str::<Value>(&body).is_ok());
+    check!(!vec!["data","get","update","delete","list", "query"].contains(&cat.as_str()));
+    check!(serde_json::from_str::<Value>(&body).is_ok());
 
     let data = GeneralData {
         cat,
@@ -38,7 +38,7 @@ async fn insert_data(s: S, Path(cat): Path<String>, body: String) -> JSON<MsgRes
         ..GeneralData::default()
     };
     let id = GeneralData::insert(&data, &s.db).await?.rows_affected();
-    check_if!(id==1);
+    check!(id==1);
 
     Ok(Json(MsgResp { msg: "ok".to_string() }))
 }
@@ -60,7 +60,7 @@ async fn list_data(s: S, Path(cat): Path<String>) -> R<String> {
 }
 
 async fn query_data(s: S, Path(cat): Path<String>, Query(params): Query<HashMap<String, String>>) -> R<String> {
-    check_if!(params.len()==1);
+    check!(params.len()==1);
     for (k, v) in params {
         let data = GeneralData::query_json(&cat, &k, &v, &s.db).await?;
         let mut final_data = data.iter().map(|d| d.data.to_string())
@@ -88,7 +88,7 @@ async fn get_data(s: S, Path(data_id): Path<u32>) -> R<String> {
 }
 
 async fn update_data(s: S, Path(data_id): Path<u32>, Query(params): Query<HashMap<String, String>>) -> JSON<MsgResp> {
-    check_if!(params.len()==1);
+    check!(params.len()==1);
     for (k, v) in params {
         let data = GeneralData::update_json(data_id, &k, &v, &s.db).await?;
         return Ok(Json(MsgResp { msg: "update ok".to_string() }));

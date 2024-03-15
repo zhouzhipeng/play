@@ -8,7 +8,7 @@ use axum::routing::{get, post};
 use serde::Deserialize;
 use serde_json::json;
 
-use crate::{AppState, check_if, get_last_insert_id, template};
+use crate::{AppState, check, get_last_insert_id, template};
 use crate::{HTML, S};
 use crate::tables::todo_item::{AddTodoItem, TodoItem, UpdateTodoItem};
 
@@ -37,18 +37,18 @@ struct TodoId {
 
 async fn delete(Query(todoId): Query<TodoId>, s: S) -> HTML {
     let items = TodoItem::delete(todoId.id as i64, &s.db).await?;
-    check_if!(items.rows_affected()==1, format!("item {} delete failed.", todoId.id));
+    check!(items.rows_affected()==1, format!("item {} delete failed.", todoId.id));
     Ok(Html("".to_string()))
 }
 async fn mark_done(Query(todoId): Query<TodoId>, s: S) -> HTML {
     let items = TodoItem::get_by_id(todoId.id, &s.db).await?;
-    check_if!(items.len()==1, format!("item {} not found.", todoId.id));
+    check!(items.len()==1, format!("item {} not found.", todoId.id));
 
     let update_result = TodoItem::update(todoId.id, UpdateTodoItem { title: (&items[0].title).to_string(), status: "DONE".to_string() }, &s.db).await?;
-    check_if!(update_result.rows_affected()==1, format!("todo item : {} update failed!", todoId.id));
+    check!(update_result.rows_affected()==1, format!("todo item : {} update failed!", todoId.id));
 
     let items = TodoItem::get_by_id(todoId.id, &s.db).await?;
-    check_if!(items.len()==1, format!("item {} not found.", todoId.id));
+    check!(items.len()==1, format!("item {} not found.", todoId.id));
 
 
     template!(s, "todo_item/todo_item.html", json!({
@@ -68,11 +68,11 @@ async fn add_todo(s: S , Form(add_todo): Form<AddTodoReq>) -> HTML {
         status: "TODO".to_string(),
     }, &s.db).await?;
 
-    check_if!(r.rows_affected()==1 , "insert error!");
+    check!(r.rows_affected()==1 , "insert error!");
 
 
     let items = TodoItem::get_by_id(get_last_insert_id!(r) as u32, &s.db).await?;
-    check_if!(items.len()==1 , "get_by_id error!");
+    check!(items.len()==1 , "get_by_id error!");
 
     template!(s, "todo_item/todo_item.html", json!({
         "item": items[0]

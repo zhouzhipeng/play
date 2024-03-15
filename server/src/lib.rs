@@ -53,7 +53,7 @@ pub mod layer;
 ///
 /// a replacement of `ensure!` in anyhow
 #[macro_export]
-macro_rules! check_if {
+macro_rules! check {
     ($($tt:tt)*) => {
         {
             use anyhow::ensure;
