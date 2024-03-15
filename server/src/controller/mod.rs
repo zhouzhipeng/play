@@ -12,7 +12,13 @@ mod finance_controller;
 mod shortlink_controller;
 mod job_controller;
 
+
+mod general_data_meta_controller;
+
+mod general_data_controller;
 //PLACEHOLDER:CONTROLLER_MOD
+
+
 
 ///
 /// register your controllers here.
@@ -30,6 +36,10 @@ crate::register_routers!(
         finance_controller,
         shortlink_controller,
         job_controller,
-        //PLACEHOLDER:CONTROLLER_REGISTER
+        general_data_meta_controller,
+general_data_controller,
+//PLACEHOLDER:CONTROLLER_REGISTER
+
+
     );
 

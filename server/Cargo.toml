@@ -47,7 +47,7 @@ https = {path = "../libs/https", optional = true}
 
 # third parties
 zip-extract = "0.1.2"
-sqlx = {workspace=true,features = ["sqlite", "mysql"]}
+sqlx = {workspace=true,features = ["sqlite", "mysql", "chrono"]}
 axum = { version = "0.6.20", features = ["headers", "http2", "ws","macros","tracing"] }
 axum-server = "0.5.1"
 axum-macros = "0.3.8"

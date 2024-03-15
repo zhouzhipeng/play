@@ -20,7 +20,13 @@ pub mod users;
 pub mod english_card;
 pub mod email_inbox;
 
+
+pub mod general_data_meta;
+
+pub mod general_data;
 //PLACEHOLDER:TABLE_MOD
+
+
 
 #[cfg(not(feature = "use_mysql"))]
 pub type DBPool = Pool<Sqlite>;

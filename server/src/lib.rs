@@ -64,6 +64,18 @@ macro_rules! check_if {
         }
     };
 }
+#[macro_export]
+macro_rules! mock_state {
+    ()=>{
+       axum::extract::State(crate::init_app_state(&crate::config::init_config(true), true).await)
+    };
+}
+#[macro_export]
+macro_rules! mock_server {
+    ()=>{
+        axum_test::TestServer::new(play::routers(play::init_app_state(&play::config::init_config(true), true).await))?;
+    };
+}
 
 
 ///
