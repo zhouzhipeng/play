@@ -40,22 +40,33 @@ async fn insert_data(s: S, Path(meta_id): Path<u32>, body: String) -> JSON<MsgRe
     Ok(Json(MsgResp { msg: "ok".to_string() }))
 }
 
-async fn list_data(s: S, Path(meta_id): Path<u32>) -> JSON<Vec<GeneralData>> {
+async fn list_data(s: S, Path(meta_id): Path<u32>) -> R<String> {
     let q = GeneralData {
         meta_id,
         ..GeneralData::default()
     };
     let data = GeneralData::query(&q, &s.db).await?;
+    let mut final_data = data.iter().map(|d|d.data.to_string())
+        .collect::<Vec<_>>()
+        .join(",");
 
-    Ok(Json(data))
+    final_data = format!("[{}]", final_data);
+
+
+    Ok(final_data)
 }
+
 async fn query_data(s: S, Path(meta_id): Path<u32>,Query(params): Query<HashMap<String, String>> ) -> R<String> {
     check_if!(params.len()==1);
     for (k, v) in params {
         let data = GeneralData::query_json(meta_id,&k, &v, &s.db).await?;
-        // data.iter().map(|d|d.data)
-        // return Ok(Json(data));
-        return Ok("".to_string());
+        let mut final_data = data.iter().map(|d|d.data.to_string())
+            .collect::<Vec<_>>()
+            .join(",");
+
+        final_data = format!("[{}]", final_data);
+
+        return Ok(final_data);
     }
 
     return_error!("unknown error")
