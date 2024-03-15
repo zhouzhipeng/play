@@ -1,4 +1,3 @@
-
 use serde::{Deserialize, Serialize};
 use sqlx::{Error, FromRow};
 
@@ -7,7 +6,7 @@ use crate::tables::{DBPool, DBQueryResult};
 #[derive(Clone, FromRow, Debug, Serialize, Deserialize, Default)]
 pub struct GeneralData {
     pub id: u32,
-    pub meta_id: u32,
+    pub cat: String,
     pub data: String,
     pub created: chrono::NaiveDateTime,
     pub updated: chrono::NaiveDateTime,
@@ -15,55 +14,49 @@ pub struct GeneralData {
 
 
 impl GeneralData {
-pub async fn insert(t: &GeneralData, pool: &DBPool) -> Result<DBQueryResult, Error> {
-    sqlx::query("INSERT INTO general_data (meta_id,data) VALUES (?,?)")
-    .bind(&t.meta_id)
-    .bind(&t.data)
-    .execute(pool)
-    .await
-}
+    pub async fn insert(t: &GeneralData, pool: &DBPool) -> Result<DBQueryResult, Error> {
+        sqlx::query("INSERT INTO general_data (cat,data) VALUES (?,?)")
+            .bind(&t.cat)
+            .bind(&t.data)
+            .execute(pool)
+            .await
+    }
 
-pub async fn delete(id: i64, pool: &DBPool) -> Result<DBQueryResult, Error> {
-    //todo: this is just a template code, write your own business.
-    sqlx::query("DELETE from general_data WHERE id =?")
-    .bind(&id)
-    .execute(pool)
-    .await
-}
+    pub async fn delete(id: u32, pool: &DBPool) -> Result<DBQueryResult, Error> {
+        sqlx::query("DELETE from general_data WHERE id =?")
+            .bind(&id)
+            .execute(pool)
+            .await
+    }
 
-pub async fn update(id: i64, t: &GeneralData, pool: &DBPool) -> Result<DBQueryResult, Error> {
-    //todo: this is just a template code, write your own business.
-    sqlx::query("UPDATE general_data set meta_id=?,data=?,created=?,updated=? WHERE id =?")
-    .bind(&t.meta_id)
-    .bind(&t.data)
-    .bind(&t.created)
-    .bind(&t.updated)
-    .bind(&id)
-    .execute(pool)
-    .await
-}
 
-pub async fn query(q: &GeneralData, pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
-    sqlx::query_as::<_, GeneralData>("SELECT * FROM general_data where meta_id = ?")
-    .bind(&q.meta_id)
-    .fetch_all(pool)
-    .await
-}
-pub async fn query_json(meta_id: u32, query_field: &str, query_val: &str,  pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
-    sqlx::query_as::<_, GeneralData>(format!("SELECT * FROM general_data where meta_id = ? and json_extract(data, '$.{}') = ?", query_field).as_str())
-    .bind(meta_id)
-    .bind(query_val)
-    .fetch_all(pool)
-    .await
-}
-pub async fn query_all(pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
-    //todo: this is just a template code, write your own business.
-    sqlx::query_as::<_, GeneralData>("SELECT * FROM general_data")
-    .fetch_all(pool)
-    .await
+    pub async fn query(q: &GeneralData, pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
+        sqlx::query_as::<_, GeneralData>("SELECT * FROM general_data where cat = ?")
+            .bind(&q.cat)
+            .fetch_all(pool)
+            .await
+    }
+    pub async fn query_json(cat: &str, query_field: &str, query_val: &str, pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
+        sqlx::query_as::<_, GeneralData>(format!("SELECT * FROM general_data where cat = ? and json_extract(data, '$.{}') = ?", query_field).as_str())
+            .bind(cat)
+            .bind(query_val)
+            .fetch_all(pool)
+            .await
+    }
+    pub async fn get_one(data_id: u32, pool: &DBPool) -> Result<Option<GeneralData>, Error> {
+        sqlx::query_as::<_, GeneralData>("SELECT * FROM general_data where id = ? ")
+            .bind(data_id)
+            .fetch_optional(pool)
+            .await
+    }
+    pub async fn update_json(data_id: u32, query_field: &str, query_val: &str, pool: &DBPool) -> Result<DBQueryResult, Error> {
+        sqlx::query(format!("update  general_data set data = json_set(data, '$.{}', ?) where id = ?", query_field).as_str())
+            .bind(query_val)
+            .bind(data_id)
+            .execute(pool)
+            .await
     }
 }
-
 
 
 #[cfg(test)]
