@@ -19,7 +19,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/mode/multiplex.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
 
-
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/css/css.min.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -643,7 +644,7 @@
 
     CodeMirror.defineMode("htmlWithPython", function(config) {
         return CodeMirror.multiplexingMode(
-            CodeMirror.getMode(config, "text/html"), // 主模式是HTML
+            CodeMirror.getMode(config, "htmlmixed"), // 主模式是HTML
             {open: "<%", close: "%>", mode: CodeMirror.getMode(config, "text/x-python"), delimStyle: "python-delimiter"}, // Python代码块
             {open: "%", close: "", mode: CodeMirror.getMode(config, "text/x-python"), delimStyle: "python-delimiter"}, // Python代码块
             {open: "{{", close: "}}", mode: CodeMirror.getMode(config, "text/x-python"), delimStyle: "python-delimiter"}, // Python代码块
