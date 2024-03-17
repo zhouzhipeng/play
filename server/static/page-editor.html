@@ -475,7 +475,9 @@
 
     </style>
 </head>
-<body>
+<body style="
+    overflow: hidden;
+">
 <div class="sidebar">
     <div class="search-box">
         <input type="text" id="search-input" placeholder="过滤标题...">
@@ -587,7 +589,7 @@
     <span id="delete-icon" class="fas fa-trash" style="cursor: pointer; float: right;"></span>
 
 </div>
-<div class="container" id="container">
+<div class="container" id="container" style="margin-top: 3px">
 
     <div class="code-editor">
         <div id="htmlCodeEditor" style="height: 100%"></div> <!-- CodeMirror will attach here -->
