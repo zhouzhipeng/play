@@ -590,7 +590,7 @@
     <span id="delete-icon" class="fas fa-trash" style="cursor: pointer; float: right;"></span>
 
 </div>
-<div class="container" id="container" style="margin-top: 3px">
+<div class="container" id="container" style="margin-top: 16px">
 
     <div class="code-editor">
         <div id="htmlCodeEditor" style="height: 100%"></div> <!-- CodeMirror will attach here -->
@@ -701,15 +701,18 @@
         textChanged =true;
         if (changeObj.origin === '+input' && changeObj.text[0] === '<') {
             beginAutocomplte =true;
-        }
+        }else if (beginAutocomplte && changeObj.origin === '+input') {
+            if( changeObj.text[0] === '%'){
+                beginAutocomplte =false;
+                var cursor = instance.getCursor();
+                // 在当前光标位置插入 '%>'
+                instance.replaceRange('\n\n%>', cursor);
+                // 将光标移到 '<%' 和 '%>' 之间
+                instance.setCursor({line: cursor.line+1, ch: cursor.ch});
 
-        if (beginAutocomplte && changeObj.origin === '+input' && changeObj.text[0] === '%') {
-            beginAutocomplte =false;
-            var cursor = instance.getCursor();
-            // 在当前光标位置插入 '%>'
-            instance.replaceRange('\n\n%>', cursor);
-            // 将光标移到 '<%' 和 '%>' 之间
-            instance.setCursor({line: cursor.line+1, ch: cursor.ch});
+            }else{
+                beginAutocomplte =false;
+            }
 
         }
 
