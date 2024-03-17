@@ -17,6 +17,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/mode/multiplex.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
 
 
     <style>
@@ -37,6 +38,7 @@
         .save-btn, .search-input {
             padding: 8px;
             margin-right: 10px;
+            margin-left: 50px;
         }
         .container {
             display: flex;
@@ -230,10 +232,9 @@
         }
 
         #title-input {
-            width: 100%;
-            padding: 8px;
-            margin-bottom: 10px;
-            box-sizing: border-box; /* 输入框的宽度包括内边距和边框 */
+            margin-left: 10px;
+            font-size: 20px;
+            display: none; /* 默认隐藏输入框 */
         }
 
         .toggle-sidebar {
@@ -274,21 +275,29 @@
             background-color: #fff;
             z-index: 500;
             border-right: 1px solid #ddd;
-            padding: 10px 0; /* 添加顶部和底部的内边距 */
+            /*padding: 10px 0; !* 添加顶部和底部的内边距 *!*/
         }
 
+        /* 调整搜索框容器的样式 */
         .search-box {
-            padding: 10px; /* 根据需要调整内边距 */
+            display: flex; /* 使用 Flexbox 布局 */
+            justify-content: center; /* 水平居中对齐 */
+            align-items: center; /* 垂直居中对齐 */
+            /*padding-bottom: 10px; !* 根据需要添加内边距 *!*/
+            border-bottom: 1px solid #ddd; /* 如果需要，添加底部边界线 */
+            height: 49px;
         }
 
+        /* 调整搜索输入框的样式 */
         .search-box input {
-            width: calc(100% - 20px); /* 减去内边距的宽度 */
-            padding: 8px;
-            /*margin-bottom: 20px; !* 在搜索框和列表之间添加一些间距 *!*/
-            box-sizing: border-box;
-            border: 1px solid #ddd; /* 添加边框 */
-            border-radius: 4px; /* 添加边框圆角 */
+            /*width: 80%; !* 控制宽度，根据需要调整 *!*/
+            padding: 8px; /* 添加足够的内边距使其易于点击 */
+            margin: 0; /* 移除外边距 */
+            box-sizing: border-box; /* 确保宽度包含内边距和边框 */
+            border: 1px solid #ccc; /* 添加边框，视觉上更加清晰 */
+            border-radius: 5px; /* 添加圆角，根据需要调整 */
         }
+
 
         .titles {
             list-style: none;
@@ -351,14 +360,205 @@
             color: white; /* 改变文字颜色以确保可读性 */
         }
 
+
+        #title-display {
+            font-size: 20px; /* 调整大小以匹配您的设计 */
+            margin-right: 10px; /* 确保标签和图标之间有间距 */
+        }
+
+        #edit-icon {
+            margin-left: 5px;
+            font-size: 16px; /* 调整图标大小 */
+        }
+
+        #title-input {
+            margin-left: 10px;
+            font-size: 20px; /* 与标题显示相同的字体大小 */
+            display: none; /* 默认隐藏输入框 */
+        }
+
+        #url-display {
+            font-size: 20px;
+            margin-right: 10px; /* 确保与图标有足够的间距 */
+        }
+
+        #edit-url-icon {
+            margin-left: 5px;
+            font-size: 16px;
+        }
+
+        #url-input {
+            margin-left: 10px;
+            font-size: 20px;
+            display: none; /* 默认隐藏输入框 */
+        }
+
+        #title-display {
+            font-size: 20px;
+            margin-right: 10px; /* 增加与编辑图标的右边距 */
+        }
+
+        #edit-title-icon {
+            margin-right: 50px; /* 增加与URL标签的右边距 */
+        }
+
+        #url-display {
+            font-size: 20px;
+            margin-right: 10px; /* 如有必要，确保与编辑图标有足够的间距 */
+        }
+
+        /* 如果您想要更大的间距，可以调整上面的 margin-right 值 */
+
+
+        #save-icon {
+            font-size: 24px; /* 调整图标大小 */
+            color: #007bff; /* 设置图标为蓝色 */
+            cursor: pointer;
+            margin-left: 20px; /* 增加左边距，根据需要调整此值 */
+        }
+
+        #save-icon:hover {
+            color: #0056b3; /* 鼠标悬停时的颜色 */
+        }
+
+
+        .save-ok {
+            font-size: 20px; /* 调整“OK”字样的大小 */
+            color: #007bff; /* 与图标相同的蓝色 */
+            display: none; /* 默认不显示 */
+            margin-left: 10px; /* 与图标之间的间距 */
+        }
+
+        #delete-icon {
+            font-size: 20px; /* 或根据需要调整大小 */
+            color: #dc3545; /* 设置图标颜色，这里使用了Bootstrap的危险颜色 */
+            margin-left: auto; /* 在flex布局下推到右侧 */
+        }
+
+        #delete-icon:hover {
+            color: #c82333; /* 鼠标悬停时颜色加深 */
+        }
+
+        #last-modified-time {
+            margin-left: 20px;
+            margin-right: 20px; /* 在标签和删除图标之间添加适当的间距 */
+            font-size: 16px; /* 根据需要调整字体大小 */
+            color: #666; /* 根据需要调整字体颜色 */
+            white-space: nowrap; /* 确保时间不会换行 */
+        }
+
+
+        .search-box {
+            position: -webkit-sticky; /* 为了兼容性考虑 */
+            position: sticky;
+            top: 0; /* 吸顶位置，0 表示顶部 */
+            background-color: white; /* 确保搜索框背景不透明 */
+            z-index: 10; /* 确保它在其他滚动内容上方 */
+            padding: 10px; /* 根据需要调整内边距 */
+            border-bottom: 1px solid #ccc; /* 添加底部边界以区分搜索框和列表项 */
+        }
+
+        .sidebar {
+            overflow-y: auto; /* 允许滚动 */
+            height: 100vh; /* 或其他根据您的布局需求设定的高度 */
+        }
+
+        .toolbar {
+            position: -webkit-sticky; /* Safari 浏览器兼容 */
+            position: sticky;
+            top: 0; /* 顶部固定 */
+            z-index: 1000; /* 确保工具栏在其他内容上方 */
+            background-color: white; /* 设置一个背景色以防背后内容透视显示 */
+            border-bottom: 1px solid #ccc; /* 添加边界线，如果需要的话 */
+        }
+
+
     </style>
 </head>
 <body>
 <div class="sidebar">
     <div class="search-box">
-        <input type="text" id="search-input" placeholder="搜索标题...">
+        <input type="text" id="search-input" placeholder="过滤标题...">
     </div>
     <ul class="titles">
+        <li>标题1</li>
+        <li>标题2</li>
+        <li>标题3</li>
+        <li>标题1</li>
+        <li>标题2</li>
+        <li>标题3</li>
+        <li>标题1</li>
+        <li>标题2</li>
+        <li>标题3</li>
+        <li>标题1</li>
+        <li>标题2</li>
+        <li>标题3</li>
+        <li>标题1</li>
+        <li>标题2</li>
+        <li>标题3</li>
+        <li>标题1</li>
+        <li>标题2</li>
+        <li>标题3</li>
+        <li>标题1</li>
+        <li>标题2</li>
+        <li>标题3</li>
+        <li>标题1</li>
+        <li>标题2</li>
+        <li>标题3</li>
+        <li>标题1</li>
+        <li>标题2</li>
+        <li>标题3</li>
+        <li>标题1</li>
+        <li>标题2</li>
+        <li>标题3</li>
+        <li>标题1</li>
+        <li>标题2</li>
+        <li>标题3</li>
+        <li>标题1</li>
+        <li>标题2</li>
+        <li>标题3</li>
+        <li>标题1</li>
+        <li>标题2</li>
+        <li>标题3</li>
+        <li>标题1</li>
+        <li>标题2</li>
+        <li>标题3</li>
+        <li>标题1</li>
+        <li>标题2</li>
+        <li>标题3</li>
+        <li>标题1</li>
+        <li>标题2</li>
+        <li>标题3</li>
+        <li>标题1</li>
+        <li>标题2</li>
+        <li>标题3</li>
+        <li>标题1</li>
+        <li>标题2</li>
+        <li>标题3</li>
+        <li>标题1</li>
+        <li>标题2</li>
+        <li>标题3</li>
+        <li>标题1</li>
+        <li>标题2</li>
+        <li>标题3</li>
+        <li>标题1</li>
+        <li>标题2</li>
+        <li>标题3</li>
+        <li>标题1</li>
+        <li>标题2</li>
+        <li>标题3</li>
+        <li>标题1</li>
+        <li>标题2</li>
+        <li>标题3</li>
+        <li>标题1</li>
+        <li>标题2</li>
+        <li>标题3</li>
+        <li>标题1</li>
+        <li>标题2</li>
+        <li>标题3</li>
+        <li>标题1</li>
+        <li>标题2</li>
+        <li>标题3</li>
         <li>标题1</li>
         <li>标题2</li>
         <li>标题3</li>
@@ -371,8 +571,21 @@
 </div>
 
 <div class="toolbar">
-    <input type="text" id="title-input" placeholder="标题">
-    <button class="save-btn" onclick="saveCode()">Save</button>
+    <span id="title-display">未知标题</span>
+    <span id="edit-title-icon" style="cursor: pointer;">✎</span>
+    <input type="text" id="title-input" placeholder="编辑标题..." style="display: none;">
+
+    <span id="url-display">未知URL</span>
+    <span id="edit-url-icon" style="cursor: pointer;">✎</span>
+    <input type="text" id="url-input" placeholder="编辑URL..." style="display: none;">
+
+    <span id="save-icon" class="fa fa-save"></span>
+    <span class="save-ok" id="save-ok">OK</span>
+
+    <span id="last-modified-time">最后修改: 2024-3-18 00:16:00</span>
+
+    <span id="delete-icon" class="fas fa-trash" style="cursor: pointer; float: right;"></span>
+
 </div>
 <div class="container" id="container">
 
@@ -598,6 +811,8 @@
 
             // 给被点击的条目添加高亮样式
             this.classList.add('active');
+
+            document.getElementById("title-display").textContent=this.textContent;
             // 获取并设置对应标题的内容到编辑器
             editor.setValue(titleContentMap[this.textContent] || '未找到内容');
         });
@@ -647,6 +862,97 @@
                 title.style.display = "none";
             }
         });
+    });
+</script>
+<script>
+    document.getElementById('edit-title-icon').addEventListener('click', function() {
+        toggleEdit('title');
+    });
+
+    document.getElementById('edit-url-icon').addEventListener('click', function() {
+        toggleEdit('url');
+    });
+
+    function toggleEdit(type) {
+        const display = document.getElementById(`${type}-display`);
+        const input = document.getElementById(`${type}-input`);
+        const icon = document.getElementById(`edit-${type}-icon`);
+
+        if (input.style.display === 'none') {
+            display.style.display = 'none';
+            icon.style.display = 'none';
+            input.style.display = 'block';
+            input.value = display.textContent;
+            input.focus();
+        } else {
+            updateField(type);
+        }
+    }
+
+    function updateField(type) {
+        const input = document.getElementById(`${type}-input`);
+        const display = document.getElementById(`${type}-display`);
+
+        if (input.value.trim() !== '') {
+            display.textContent = input.value.trim();
+        }
+        input.style.display = 'none';
+        display.style.display = 'block';
+        document.getElementById(`edit-${type}-icon`).style.display = 'block';
+    }
+    function dontUpdateField(type) {
+        const input = document.getElementById(`${type}-input`);
+        const display = document.getElementById(`${type}-display`);
+
+        input.style.display = 'none';
+        display.style.display = 'block';
+        document.getElementById(`edit-${type}-icon`).style.display = 'block';
+    }
+
+    document.getElementById('title-input').addEventListener('blur', function() {
+        dontUpdateField('title');
+    });
+
+    document.getElementById('url-input').addEventListener('blur', function() {
+        dontUpdateField('url');
+    });
+
+    // document.querySelectorAll('.toolbar input').forEach(input => {
+    //     input.addEventListener('keypress', function(event) {
+    //         if (event.key === 'Enter') {
+    //             //save
+    //             console.log("save title")
+    //         }
+    //     });
+    // });
+</script>
+<script>
+    document.getElementById('save-icon').addEventListener('click', function() {
+        // 执行保存操作
+        console.log('内容保存了！');
+        // 显示OK字样
+        const saveOk = document.getElementById('save-ok');
+        saveOk.style.display = 'inline';
+
+        // 两秒后自动消失
+        setTimeout(() => {
+            saveOk.style.display = 'none';
+        }, 2000);
+    });
+</script>
+
+<script>
+    document.getElementById('delete-icon').addEventListener('click', function() {
+        // 弹出二次确认框
+        var result = confirm('确定要删除吗？');
+        if (result) {
+            // 如果用户点击“确定”，则执行删除操作
+            console.log('已删除');
+            // 在这里添加您的删除逻辑
+        } else {
+            // 如果用户点击“取消”，则不执行任何操作
+            console.log('取消删除');
+        }
     });
 </script>
 
