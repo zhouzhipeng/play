@@ -517,10 +517,11 @@
 
     <div class="code-editor">
         <div id="htmlCodeEditor" style="height: 100%"></div> <!-- CodeMirror will attach here -->
-        <div class="draggable" onmousedown="startResizing(event)"></div>
+<!--        <div class="draggable" onmousedown="startResizing(event)"></div>-->
+<!--        <div class="draggable"></div>-->
     </div>
 <!--    <div class="preview" id="htmlPreview"></div>-->
-    <div class="preview-area">
+    <div class="preview">
         <!-- 其他可能的内容 -->
         <iframe id="preview-iframe" style="width: 100%; height: 100%; border: none;"></iframe>
     </div>
@@ -531,6 +532,7 @@
     let startX, startWidth;
 
     function startResizing(e) {
+        e.preventDefault();
         startX = e.clientX;
         startWidth = document.querySelector('.code-editor').offsetWidth;
         document.addEventListener('mousemove', resize, false);
@@ -538,22 +540,23 @@
     }
 
     function resize(e) {
+        e.preventDefault();
         const codeEditor = document.querySelector('.code-editor');
+        const previewArea = document.querySelector('.preview');
+        const previewIframe = document.getElementById('preview-iframe');
         const containerWidth = document.getElementById('container').offsetWidth;
-        const newWidth = startWidth + e.clientX - startX;
+
+        const newWidth = Math.max(startWidth + e.clientX - startX, 0); // 防止宽度为负
+        const newPreviewWidth = Math.max(containerWidth - newWidth, 0); // 同样防止负值
+
         codeEditor.style.width = newWidth + 'px';
-        document.querySelector('.preview').style.width = containerWidth - newWidth + 'px';
+        previewArea.style.width = newPreviewWidth + 'px';
+        previewIframe.style.width = newPreviewWidth + 'px'; // 确保iframe响应调整
     }
 
     function stopResizing() {
         document.removeEventListener('mousemove', resize, false);
         document.removeEventListener('mouseup', stopResizing, false);
-    }
-
-
-    function saveCode() {
-        // Implement save functionality here
-        alert('Code saved! (Placeholder function)');
     }
 
     // 定义复制当前行的函数
@@ -606,7 +609,8 @@
         autoCloseTags: true,
         matchBrackets: true,
         autoCloseBrackets: true,
-        lineWrapping: true,
+        // scrollbarStyle: 'overlay', // 或者 'null' 根据您的需要设置
+        lineWrapping: false,
         viewportMargin: Infinity, // Ensures the entire document is always rendered
         hintOptions: {autoHint: true},
 
