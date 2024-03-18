@@ -34,7 +34,7 @@ struct UpdateDataTextReq {
 
 async fn insert_data(s: S, Path(cat): Path<String>, body: String) -> JSON<MsgResp> {
     //validation
-    check!(!vec!["data","get","update","delete","list", "query"].contains(&cat.as_str()));
+    check!(!vec!["id", "data","get","update","delete","list", "query"].contains(&cat.as_str()));
     // check!(serde_json::from_str::<Value>(&body).is_ok());
 
     let data = GeneralData {
@@ -101,8 +101,8 @@ async fn update_field(s: S, Path(data_id): Path<u32>, Query(params): Query<HashM
 
     return_error!("unknown error")
 }
-async fn update_data(s: S, Path(data_id): Path<u32>, Query(data): Query<UpdateDataTextReq>) -> JSON<MsgResp> {
-        let data = GeneralData::update_text(data_id, &data.data, &s.db).await?;
+async fn update_data(s: S, Path(data_id): Path<u32>, body: String) -> JSON<MsgResp> {
+        let data = GeneralData::update_text(data_id, &body, &s.db).await?;
         return Ok(Json(MsgResp { msg: "update ok".to_string() }));
 }
 

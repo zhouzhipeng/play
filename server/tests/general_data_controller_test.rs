@@ -9,7 +9,7 @@ async fn integration_test() -> anyhow::Result<()> {
 
     //insert json
     let resp = server.post("/data/foo/insert").text(r#"
-    {"name":"zzp"}
+    {"name":"zzp", "title": "t1", "url":"/xx", "content": "123"}
     "#).await;
     resp.assert_status_ok();
 
@@ -44,8 +44,8 @@ async fn integration_test() -> anyhow::Result<()> {
     // //query list
     let resp = server.get("/data/foo/list").await;
     resp.assert_status_ok();
-    let data = resp.json::<Vec<GeneralData>>();
-    println!("list data : {:?}", data);
+    let data = resp.text();
+    println!("list data : {}", data);
     let resp = server.get("/data/bar/list").await;
     resp.assert_status_ok();
     let data = resp.json::<Vec<GeneralData>>();

@@ -495,7 +495,7 @@
     <span>&laquo;</span> <!-- 使用左箭头作为折叠图标，您可以替换为任何图标 -->
 </div>
 
-<div class="toolbar">
+<div class="toolbar" style="    height: 49px;">
     <span id="title-display">未知标题</span>
     <span id="edit-title-icon" style="cursor: pointer;">✎</span>
     <input type="text" id="title-input" placeholder="编辑标题..." style="display: none;">
@@ -505,9 +505,9 @@
     <input type="text" id="url-input" placeholder="编辑URL..." style="display: none;">
 
     <span id="save-icon" class="fa fa-save"></span>
-    <span class="save-ok" id="save-ok">OK</span>
+    <span id="save-result" class="save-ok"></span> <!-- 用于显示保存结果的标签 -->
 
-    <span id="last-modified-time">最后修改: 2024-3-18 00:16:00</span>
+    <span id="last-modified-time"></span>
 
     <span id="delete-icon" class="fas fa-trash" style="cursor: pointer; float: right;"></span>
 
@@ -842,11 +842,11 @@
     }
 
     document.getElementById('title-input').addEventListener('blur', function() {
-        dontUpdateField('title');
+        updateField('title');
     });
 
     document.getElementById('url-input').addEventListener('blur', function() {
-        dontUpdateField('url');
+        updateField('url');
     });
 
     document.querySelectorAll('.toolbar input').forEach(input => {
@@ -860,83 +860,129 @@
         });
     });
 </script>
-<script>
-    document.getElementById('save-icon').addEventListener('click', function() {
-        // 执行保存操作
-        console.log('内容保存了！');
-        // 显示OK字样
-        const saveOk = document.getElementById('save-ok');
-        saveOk.style.display = 'inline';
 
-        // 两秒后自动消失
-        setTimeout(() => {
-            saveOk.style.display = 'none';
-        }, 2000);
-    });
-</script>
 
 <script>
-    document.getElementById('delete-icon').addEventListener('click', function() {
-        // 弹出二次确认框
-        var result = confirm('确定要删除吗？');
-        if (result) {
-            // 如果用户点击“确定”，则执行删除操作
-            console.log('已删除');
-            // 在这里添加您的删除逻辑
+    //删除按钮操作
+    document.getElementById('delete-icon').addEventListener('click', async function() {
+        // 确认是否删除
+        const isConfirmed = confirm('确定要删除吗？');
+        if (isConfirmed) {
+            // 用户确认删除，执行删除操作
+            try {
+                const response = await fetch(`/data/delete/${currentSelectedId}`, {
+                    method: 'DELETE', // 使用DELETE方法
+                });
+                if (response.ok) {
+                    console.log('删除成功');
+                    // 删除成功，重新加载页面
+                    location.reload();
+                } else {
+                    // 删除失败，打印错误信息
+                    console.error('删除失败:', response.statusText);
+                    alert('删除失败: ' + response.statusText); // 提示用户
+                }
+            } catch (error) {
+                console.error('删除过程中发生错误:', error);
+                alert('删除异常: ' + error.message); // 提示用户
+            }
         } else {
-            // 如果用户点击“取消”，则不执行任何操作
-            console.log('取消删除');
+            // 用户取消删除操作
+            console.log('删除操作已取消');
         }
     });
+
 </script>
 
 <script>
-    // 假设的列表数据
-    const listData = [
-        { title: "项目1", id: 1 },
-        { title: "项目2", id: 2 },
-        { title: "项目3", id: 3 },
-        // 更多数据...
-    ];
+    let currentSelectedId = null; // 用于存储当前选中的列表项ID
 
-    // 加载列表数据到侧边栏
-    // 加载列表数据到侧边栏
-    function loadListData() {
-        const listElement = document.getElementById('titles-list');
-        listElement.innerHTML = ''; // 清空当前列表
+    // 定义用于加载列表数据和更新编辑区的函数
+    async function loadListData() {
+        try {
+            // 发送请求获取数据
+            const response = await fetch('/data/pages/list');
+            if (!response.ok) {
+                throw new Error('数据加载失败');
+            }
+            const listData = await response.json(); // 解析JSON数据
 
-        // 遍历数据数组，为每一项创建一个列表项
-        listData.forEach(item => {
-            const listItem = document.createElement('li');
-            listItem.textContent = item.title; // 设置列表项的文本
-            listItem.setAttribute('data-id', item.id); // 可以设置数据ID等属性
-            listItem.classList.add('title-item'); // 添加样式类，如果需要的话
+            // 获取列表元素
+            const listElement = document.getElementById('titles-list');
+            listElement.innerHTML = ''; // 清空当前列表
 
-            // 添加点击事件监听器
-            listItem.addEventListener('click', function() {
-                // 移除先前所有项的高亮样式
-                document.querySelectorAll('.titles li').forEach(el => {
-                    el.classList.remove('active-item');
+            // 遍历数据数组，为每一项创建一个列表项
+            listData.forEach(item => {
+                // 反序列化data字段为JSON对象
+                const itemData = JSON.parse(item.data);
+
+                // 创建列表项
+                const listItem = document.createElement('li');
+                listItem.textContent = itemData.title; // 设置列表项的文本为title字段
+                listItem.classList.add('title-item'); // 添加样式类
+                listItem.setAttribute('data-id', item.id); // 设置数据ID属性
+
+                // 为列表项添加点击事件监听器
+                listItem.addEventListener('click', () => {
+                    // 更新当前选中的条目ID
+                    currentSelectedId = item.id;
+                    // 移除先前所有项的高亮样式
+                    document.querySelectorAll('.titles li').forEach(el => {
+                        el.classList.remove('active-item');
+                    });
+
+                    // 给当前点击的列表项添加高亮样式
+                    listItem.classList.add('active-item');
+
+                    updateEditor(itemData, item.updated); // 点击时更新编辑器和相关字段
                 });
 
-                // 给当前点击的列表项添加高亮样式
-                listItem.classList.add('active-item');
-
-                // 在这里可以添加其他点击项目时要执行的操作
-                console.log(`项目 ${item.id} 被点击`);
+                listElement.appendChild(listItem); // 将列表项添加到列表中
             });
-
-            listElement.appendChild(listItem); // 将列表项添加到列表中
-        });
+        } catch (error) {
+            console.error('加载列表数据时发生错误:', error);
+        }
     }
 
+    // 定义一个根据ID高亮列表项的函数
+    function highlightListItem(id) {
+        // 首先移除所有项的高亮样式
+        document.querySelectorAll('.titles li').forEach(el => {
+            el.classList.remove('active-item');
+        });
 
-    // 在页面加载完成后加载数据
+        // 根据存储的ID找到对应的列表项并添加高亮样式
+        const itemToHighlight = document.querySelector(`.titles li[data-id="${id}"]`);
+        if (itemToHighlight) {
+            itemToHighlight.classList.add('active-item');
+        }
+    }
+
+    // 定义用于更新编辑器和相关字段的函数
+    function updateEditor(itemData, updated) {
+        document.getElementById('title-display').textContent = itemData.title; // 更新标题
+        document.getElementById('url-display').textContent = itemData.url; // 更新URL
+        editor.setValue(hexDecode(itemData.content)); // 更新内容（假设您的编辑器实例名为editor）
+        document.getElementById('last-modified-time').textContent = `最后修改时间: ${updated}`; // 更新最后修改时间
+    }
+
+    // 定义一个用于HEX解码的辅助函数
+    function hexDecode(hexStr) {
+        var str = '';
+        for (var i = 0; i < hexStr.length; i += 2) {
+            str += String.fromCharCode(parseInt(hexStr.substr(i, 2), 16));
+        }
+        return str;
+    }
+
+    // 加载列表数据
     document.addEventListener('DOMContentLoaded', loadListData);
 
 </script>
 
 <script>
+    const saveResultElement = document.getElementById('save-result'); // 获取显示结果的元素
+
     async function saveData() {
         // 获取标题、URL和代码编辑器内容
         const title = document.getElementById('title-display').textContent;
@@ -956,9 +1002,11 @@
         };
 
         try {
+            let url = currentSelectedId ?`/data/update-data/${currentSelectedId}` :'/data/pages/insert';
+            let method = currentSelectedId ? "PUT":"POST";
             // 发送保存请求
-            const response = await fetch('/data/pages/insert', {
-                method: 'POST',
+            const response = await fetch(url, {
+                method: method,
                 headers: {
                     'Content-Type': 'application/json'
                 },
@@ -969,9 +1017,31 @@
             if (response.ok) {
                 console.log('数据保存成功');
                 // 这里可以添加更多成功保存后的操作
+
+                // 更新显示结果的元素
+                saveResultElement.textContent = 'OK';
+                saveResultElement.style.display = 'inline'; // 确保结果可见
+
+                // 隐藏结果信息后一段时间
+                setTimeout(() => {
+                    saveResultElement.style.display = 'none';
+                }, 2000); // 2秒后隐藏
+
+                // 数据保存成功后，重新加载列表数据
+                await loadListData();
+
+                // 如果之前有选中的列表项，重新高亮显示
+                if (currentSelectedId) {
+                    highlightListItem(currentSelectedId);
+                }
             } else {
+                // 处理保存失败的情况
                 console.error('保存失败:', response.statusText);
-                // 这里可以添加错误处理逻辑
+                saveResultElement.textContent = '保存失败'; // 更新保存结果
+                saveResultElement.style.display = 'inline';
+                setTimeout(() => {
+                    saveResultElement.style.display = 'none';
+                }, 2000); // 2秒后隐藏
             }
         } catch (error) {
             console.error('保存过程中发生错误:', error);
