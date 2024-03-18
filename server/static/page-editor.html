@@ -500,7 +500,8 @@
     <span id="edit-title-icon" style="cursor: pointer;">✎</span>
     <input type="text" id="title-input" placeholder="编辑标题..." style="display: none;">
 
-    <span id="url-display">未知URL</span>
+    <a id="url-display" href="/pages/xx" target="_blank">/xx</a>
+
     <span id="edit-url-icon" style="cursor: pointer;">✎</span>
     <input type="text" id="url-input" placeholder="编辑URL..." style="display: none;">
 
@@ -961,9 +962,14 @@
     // 定义用于更新编辑器和相关字段的函数
     function updateEditor(itemData, updated) {
         document.getElementById('title-display').textContent = itemData.title; // 更新标题
-        document.getElementById('url-display').textContent = itemData.url; // 更新URL
         editor.setValue(hexDecode(itemData.content)); // 更新内容（假设您的编辑器实例名为editor）
         document.getElementById('last-modified-time').textContent = `最后修改时间: ${updated}`; // 更新最后修改时间
+
+        // 更新URL链接和文本
+        const urlElement = document.getElementById('url-display');
+        urlElement.href = "/pages"+ itemData.url; // 设置超链接的地址
+        urlElement.textContent = itemData.url; // 设置超链接的文本，也可以设置为更友好的描述
+
     }
 
     // 定义一个用于HEX解码的辅助函数
