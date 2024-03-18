@@ -53,7 +53,7 @@ pub mod layer;
 ///
 /// a replacement of `ensure!` in anyhow
 #[macro_export]
-macro_rules! check_if {
+macro_rules! check {
     ($($tt:tt)*) => {
         {
             use anyhow::ensure;
@@ -62,6 +62,18 @@ macro_rules! check_if {
                 Ok(())
             })()?
         }
+    };
+}
+#[macro_export]
+macro_rules! mock_state {
+    ()=>{
+       axum::extract::State(crate::init_app_state(&crate::config::init_config(true), true).await)
+    };
+}
+#[macro_export]
+macro_rules! mock_server {
+    ()=>{
+        axum_test::TestServer::new(play::routers(play::init_app_state(&play::config::init_config(true), true).await))?;
     };
 }
 
@@ -244,6 +256,7 @@ pub fn routers(app_state: Arc<AppState>) -> Router {
 }
 
 // Make our own error that wraps `anyhow::Error`.
+#[derive(Debug)]
 pub struct AppError(anyhow::Error);
 
 // Tell axum how to convert `AppError` into a response.

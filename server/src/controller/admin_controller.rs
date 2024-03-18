@@ -15,7 +15,7 @@ use serde_json::json;
 use tracing::info;
 use shared::constants::DATA_DIR;
 
-use crate::{check_if, HTML, method_router, S, template};
+use crate::{check, HTML, method_router, S, template};
 use crate::config::{get_config_path, read_config_file, save_config_file};
 
 method_router!(

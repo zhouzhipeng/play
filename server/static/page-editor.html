@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Split View HTML Editor with Code Hints</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/hint/show-hint.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/xml/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/htmlmixed/htmlmixed.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/hint/show-hint.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/hint/xml-hint.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/hint/html-hint.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/edit/closebrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/edit/closetag.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/mode/overlay.min.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/mode/multiplex.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/css/css.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body, html {
+            height: 100%;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+        .toolbar {
+            background-color: #f1f1f1;
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+        }
+        .save-btn, .search-input {
+            padding: 8px;
+            margin-right: 10px;
+            margin-left: 50px;
+        }
+        .container {
+            display: flex;
+            height: calc(100% - 40px);
+        }
+        .code-editor, .preview {
+            overflow: auto;
+            height: 100%;
+        }
+        .code-editor {
+            width: 50%; /* Default width */
+            height: 100%;
+            position: relative; /* For resizable handle */
+        }
+        .preview {
+            background-color: #fff;
+            width: 50%;
+            overflow: auto;
+            font-size: 18px; /* Adjust the font size as needed */
+
+        }
+        .draggable {
+            background-color: #ccc;
+            width: 5px;
+            cursor: ew-resize;
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+        }
+        .CodeMirror {
+            border: 1px solid #eee;
+            height: 100%;
+            width: 100%;
+            font-size: 16px; /* Adjust the font size as needed */
+
+        }
+
+        /* 增加光标的可见性 */
+        .CodeMirror-cursor {
+            border-left: 2px solid black; /* 使光标更宽并更明显 */
+            border-right: none;
+            color: red; /* 也可以设置一个明显的颜色 */
+            background-color: yellow; /* 可以设置背景色增加可见性 */
+        }
+
+        /* 当编辑器失去焦点时也显示光标（可选）*/
+        .CodeMirror div.CodeMirror-cursors {
+            visibility: visible;
+        }
+
+
+        /* 定义特殊标签的样式 */
+        .cm-special-string { color: purple; font-weight: bold; }
+        .cm-python-delimiter { font-style: italic; }
+
+
+        /* 关键字 */
+        .cm-s-default .cm-keyword {
+            color: #708;
+        }
+
+        /* 字符串 */
+        .cm-s-default .cm-string {
+            color: #a22;
+        }
+
+        /* 类和函数名 */
+        .cm-s-default .cm-def {
+            color: #00f;
+        }
+
+        /* 变量和属性 */
+        .cm-s-default .cm-variable {
+            color: #002b88;
+        }
+
+        /* 注释 */
+        .cm-s-default .cm-comment {
+            color: #a50;
+        }
+
+        /* 内置 */
+        .cm-s-default .cm-builtin {
+            color: #30a;
+        }
+
+        /* 数字 */
+        .cm-s-default .cm-number {
+            color: #164;
+        }
+
+
+        .search-results {
+            border: 1px solid #ccc;
+            position: absolute;
+            top: 50px; /* Adjust based on your layout */
+            width: 180px; /* Match the width of your search input */
+            display: none; /* Hide the box by default */
+            z-index: 100;
+        }
+
+        .search-results div {
+            padding: 5px;
+            cursor: pointer;
+        }
+
+        .search-results div:hover {
+            background-color: #f0f0f0;
+        }
+
+
+        /* 工具栏样式 */
+        .toolbar {
+            background-color: #f8f9fa; /* 设置工具栏背景颜色 */
+            padding: 10px 16px; /* 设置内边距 */
+            display: flex; /* 使用flex布局 */
+            align-items: center; /* 垂直居中对齐工具栏项 */
+            border-bottom: 1px solid #e0e0e0; /* 在工具栏底部添加边界线 */
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* 添加轻微的阴影 */
+        }
+
+        /* 搜索输入框样式 */
+        .toolbar .search-input {
+            padding: 8px 12px; /* 设置填充 */
+            border: 1px solid #ddd; /* 设置边界 */
+            border-radius: 20px; /* 设置边框圆角 */
+            margin-right: 8px; /* 设置右边距 */
+            width: 200px; /* 设置宽度 */
+            outline: none; /* 移除焦点轮廓 */
+        }
+
+        .toolbar .search-input:focus {
+            border-color: #80bdff; /* 输入框聚焦时改变边界颜色 */
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25); /* 添加聚焦时的阴影 */
+        }
+
+        /* 保存按钮样式 */
+        .toolbar .save-btn {
+            padding: 6px 12px; /* 设置填充 */
+            background-color: #007bff; /* 设置背景颜色 */
+            color: white; /* 设置文字颜色 */
+            border: none; /* 移除边界 */
+            border-radius: 4px; /* 设置边框圆角 */
+            cursor: pointer; /* 设置鼠标样式 */
+        }
+
+        .toolbar .save-btn:hover {
+            background-color: #0056b3; /* 鼠标悬停时改变背景颜色 */
+        }
+
+        /* 基础布局样式 */
+        .sidebar {
+            width: 200px;
+            border-right: 1px solid #ddd;
+            height: 100vh; /* 视口高度 */
+            overflow-y: auto; /* 添加滚动条 */
+            float: left;
+        }
+
+        .toolbar {
+            margin-left: 200px; /* 与侧边栏宽度一致 */
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #ddd;
+        }
+
+        /* 标题列表样式 */
+        .titles {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .titles li {
+            padding: 10px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        /*.titles li:hover {*/
+        /*    background-color: #f0f0f0;*/
+        /*}*/
+
+        /* 编辑器和输入框样式 */
+        .code-editor {
+            margin-left: 200px; /* 与侧边栏宽度一致 */
+            /*width: calc(100% - 200px); !* 减去侧边栏宽度 *!*/
+            height: calc(100vh - 42px); /* 调整高度 */
+            resize: none; /* 禁止调整大小 */
+        }
+
+        #title-input {
+            margin-left: 10px;
+            font-size: 20px;
+            display: none; /* 默认隐藏输入框 */
+        }
+
+        .toggle-sidebar {
+            position: absolute; /* 调整为你的页面布局 */
+            top: 50%; /* 根据需要调整 */
+            left: 200px; /* 侧边栏宽度，根据需要调整 */
+            transform: translateY(-50%);
+            cursor: pointer;
+            background-color: #f8f9fa; /* 背景颜色，提高可见性 */
+            padding: 5px; /* 调整大小，确保可以看见 */
+            z-index: 1000; /* 确保它在最前面 */
+            font-size: 20px; /* 增大图标字体大小 */
+            width: 30px; /* 调整宽度 */
+            height: 30px; /* 调整高度 */
+            text-align: center; /* 确保图标居中 */
+
+        }
+
+        .collapsed {
+            width: 0;
+            overflow: hidden; /* 折叠侧边栏时隐藏内容 */
+        }
+
+        /* 根据侧边栏状态调整编辑器和工具栏的边距 */
+        .collapsed + .toggle-sidebar {
+            left: 0;
+        }
+        .collapsed ~ .toolbar, .collapsed ~ #code-editor {
+            margin-left: 20px; /* 当侧边栏折叠时调整左边距 */
+        }
+
+        .sidebar {
+            position: fixed;
+            left: 0;
+            width: 200px;
+            bottom: 0;
+            overflow-y: auto;
+            background-color: #fff;
+            z-index: 500;
+            border-right: 1px solid #ddd;
+            /*padding: 10px 0; !* 添加顶部和底部的内边距 *!*/
+        }
+
+        /* 调整搜索框容器的样式 */
+        .search-box {
+            display: flex; /* 使用 Flexbox 布局 */
+            justify-content: center; /* 水平居中对齐 */
+            align-items: center; /* 垂直居中对齐 */
+            /*padding-bottom: 10px; !* 根据需要添加内边距 *!*/
+            border-bottom: 1px solid #ddd; /* 如果需要，添加底部边界线 */
+            height: 49px;
+        }
+
+        /* 调整搜索输入框的样式 */
+        .search-box input {
+            /*width: 80%; !* 控制宽度，根据需要调整 *!*/
+            padding: 8px; /* 添加足够的内边距使其易于点击 */
+            margin: 0; /* 移除外边距 */
+            box-sizing: border-box; /* 确保宽度包含内边距和边框 */
+            border: 1px solid #ccc; /* 添加边框，视觉上更加清晰 */
+            border-radius: 5px; /* 添加圆角，根据需要调整 */
+        }
+
+
+        .titles {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .titles li {
+            padding: 10px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+
+
+        /* 侧边栏样式 */
+        .sidebar {
+            position: fixed;
+            left: 0;
+            width: 200px; /* 或其他宽度，根据需要调整 */
+            bottom: 0;
+            overflow-y: auto;
+            /*transition: all 0.3s; !* 平滑过渡效果 *!*/
+        }
+
+        /* 侧边栏折叠时的样式 */
+        .sidebar.collapsed {
+            width: 0; /* 改变宽度来折叠侧边栏 */
+            overflow-x: hidden; /* 防止内容溢出 */
+        }
+
+        /* 调整折叠按钮的位置 */
+        .toggle-sidebar {
+            position: fixed;
+            top: 50%; /* 居中 */
+            left: 200px; /* 与侧边栏宽度相同 */
+            transform: translateY(-50%); /* 确保垂直居中 */
+            cursor: pointer;
+            /* 其他样式 */
+        }
+
+        /* 当侧边栏折叠时调整按钮位置 */
+        .sidebar.collapsed + .toggle-sidebar {
+            left: 0; /* 移动按钮到页面边缘 */
+        }
+
+
+        /* 左侧列表条目的基本样式 */
+        .titles li {
+            padding: 10px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        /* 被点击条目的高亮样式 */
+        .titles li.active {
+            background-color: #007bff; /* 选择一个高亮颜色 */
+            color: white; /* 改变文字颜色以确保可读性 */
+        }
+
+
+        #title-display {
+            font-size: 20px; /* 调整大小以匹配您的设计 */
+            margin-right: 10px; /* 确保标签和图标之间有间距 */
+        }
+
+        #edit-icon {
+            margin-left: 5px;
+            font-size: 16px; /* 调整图标大小 */
+        }
+
+        #title-input {
+            margin-left: 10px;
+            font-size: 20px; /* 与标题显示相同的字体大小 */
+            display: none; /* 默认隐藏输入框 */
+        }
+
+        #url-display {
+            font-size: 20px;
+            margin-right: 10px; /* 确保与图标有足够的间距 */
+        }
+
+        #edit-url-icon {
+            margin-left: 5px;
+            font-size: 16px;
+        }
+
+        #url-input {
+            margin-left: 10px;
+            font-size: 20px;
+            display: none; /* 默认隐藏输入框 */
+        }
+
+        #title-display {
+            font-size: 20px;
+            margin-right: 10px; /* 增加与编辑图标的右边距 */
+        }
+
+        #edit-title-icon {
+            margin-right: 50px; /* 增加与URL标签的右边距 */
+        }
+
+        #url-display {
+            font-size: 20px;
+            margin-right: 10px; /* 如有必要，确保与编辑图标有足够的间距 */
+        }
+
+        /* 如果您想要更大的间距，可以调整上面的 margin-right 值 */
+
+
+        #save-icon {
+            font-size: 24px; /* 调整图标大小 */
+            color: #007bff; /* 设置图标为蓝色 */
+            cursor: pointer;
+            margin-left: 20px; /* 增加左边距，根据需要调整此值 */
+        }
+
+        #save-icon:hover {
+            color: #0056b3; /* 鼠标悬停时的颜色 */
+        }
+
+
+        .save-ok {
+            font-size: 20px; /* 调整“OK”字样的大小 */
+            color: #007bff; /* 与图标相同的蓝色 */
+            display: none; /* 默认不显示 */
+            margin-left: 10px; /* 与图标之间的间距 */
+        }
+
+        #delete-icon {
+            font-size: 20px; /* 或根据需要调整大小 */
+            color: #dc3545; /* 设置图标颜色，这里使用了Bootstrap的危险颜色 */
+            margin-left: auto; /* 在flex布局下推到右侧 */
+        }
+
+        #delete-icon:hover {
+            color: #c82333; /* 鼠标悬停时颜色加深 */
+        }
+
+        #last-modified-time {
+            margin-left: 20px;
+            margin-right: 20px; /* 在标签和删除图标之间添加适当的间距 */
+            font-size: 16px; /* 根据需要调整字体大小 */
+            color: #666; /* 根据需要调整字体颜色 */
+            white-space: nowrap; /* 确保时间不会换行 */
+        }
+
+
+        .search-box {
+            position: -webkit-sticky; /* 为了兼容性考虑 */
+            position: sticky;
+            top: 0; /* 吸顶位置，0 表示顶部 */
+            background-color: white; /* 确保搜索框背景不透明 */
+            z-index: 10; /* 确保它在其他滚动内容上方 */
+            padding: 10px; /* 根据需要调整内边距 */
+            border-bottom: 1px solid #ccc; /* 添加底部边界以区分搜索框和列表项 */
+        }
+
+        .sidebar {
+            overflow-y: auto; /* 允许滚动 */
+            height: 100vh; /* 或其他根据您的布局需求设定的高度 */
+        }
+
+        .toolbar {
+            position: -webkit-sticky; /* Safari 浏览器兼容 */
+            position: sticky;
+            top: 0; /* 顶部固定 */
+            z-index: 1000; /* 确保工具栏在其他内容上方 */
+            background-color: white; /* 设置一个背景色以防背后内容透视显示 */
+            border-bottom: 1px solid #ccc; /* 添加边界线，如果需要的话 */
+        }
+
+        .active-item {
+            background-color: #007bff; /* 高亮颜色，您可以根据需要调整 */
+            color: white; /* 文字颜色，确保高亮项易于阅读 */
+        }
+
+
+    </style>
+</head>
+<body style="
+    overflow: hidden;
+">
+<div class="sidebar">
+    <div class="search-box">
+        <input type="text" id="search-input" placeholder="过滤标题...">
+    </div>
+    <ul class="titles" id="titles-list">
+        <!-- 列表项将通过JavaScript动态加载 -->
+    </ul>
+</div>
+
+<div class="toggle-sidebar" onclick="toggleSidebar()">
+    <span>&laquo;</span> <!-- 使用左箭头作为折叠图标，您可以替换为任何图标 -->
+</div>
+
+<div class="toolbar" style="    height: 49px;">
+    <span id="title-display">未知标题</span>
+    <span id="edit-title-icon" style="cursor: pointer;">✎</span>
+    <input type="text" id="title-input" placeholder="编辑标题..." style="display: none;">
+
+    <span id="url-display">未知URL</span>
+    <span id="edit-url-icon" style="cursor: pointer;">✎</span>
+    <input type="text" id="url-input" placeholder="编辑URL..." style="display: none;">
+
+    <span id="save-icon" class="fa fa-save"></span>
+    <span id="save-result" class="save-ok"></span> <!-- 用于显示保存结果的标签 -->
+
+    <span id="last-modified-time"></span>
+
+    <span id="delete-icon" class="fas fa-trash" style="cursor: pointer; float: right;"></span>
+
+</div>
+<div class="container" id="container" style="margin-top: 16px">
+
+    <div class="code-editor">
+        <div id="htmlCodeEditor" style="height: 100%"></div> <!-- CodeMirror will attach here -->
+        <div class="draggable" onmousedown="startResizing(event)"></div>
+    </div>
+    <div class="preview" id="htmlPreview"></div>
+</div>
+
+<script>
+    let startX, startWidth;
+
+    function startResizing(e) {
+        startX = e.clientX;
+        startWidth = document.querySelector('.code-editor').offsetWidth;
+        document.addEventListener('mousemove', resize, false);
+        document.addEventListener('mouseup', stopResizing, false);
+    }
+
+    function resize(e) {
+        const codeEditor = document.querySelector('.code-editor');
+        const containerWidth = document.getElementById('container').offsetWidth;
+        const newWidth = startWidth + e.clientX - startX;
+        codeEditor.style.width = newWidth + 'px';
+        document.querySelector('.preview').style.width = containerWidth - newWidth + 'px';
+    }
+
+    function stopResizing() {
+        document.removeEventListener('mousemove', resize, false);
+        document.removeEventListener('mouseup', stopResizing, false);
+    }
+
+
+    function saveCode() {
+        // Implement save functionality here
+        alert('Code saved! (Placeholder function)');
+    }
+
+    // 定义复制当前行的函数
+    function duplicateLine(cm) {
+        // 获取当前光标所在的行
+        var cursor = cm.getCursor();
+        // 获取当前行的内容
+        var lineContent = cm.getLine(cursor.line);
+        // 插入当前行内容到下一行
+        cm.replaceRange(lineContent + "\n", { line: cursor.line + 1, ch: 0 });
+    }
+
+
+
+
+
+    CodeMirror.defineMode("htmlWithPython", function(config) {
+        return CodeMirror.multiplexingMode(
+            CodeMirror.getMode(config, "htmlmixed"), // 主模式是HTML
+            {open: "<%", close: "%>", mode: CodeMirror.getMode(config, "text/x-python"), delimStyle: "python-delimiter"}, // Python代码块
+            {open: "%", close: "", mode: CodeMirror.getMode(config, "text/x-python"), delimStyle: "python-delimiter"}, // Python代码块
+            {open: "{{", close: "}}", mode: CodeMirror.getMode(config, "text/x-python"), delimStyle: "python-delimiter"}, // Python代码块
+            // 添加更多嵌入模式
+        );
+    });
+
+    // 获取CodeMirror实例，假设你已经创建了editor
+    // var editor = CodeMirror.fromTextArea(document.getElementById('myTextarea'), {mode: 'text/html'});
+
+    // 将自定义覆盖应用到现有的模式上
+    CodeMirror.defineMode("myOverlay", function(config, parserConfig) {
+        return CodeMirror.overlayMode(CodeMirror.getMode(config, parserConfig.backdrop || "htmlWithPython"),      {token: function(stream, state) {
+            // 正则表达式匹配 <special> 或 </special>
+            var re = /({{)|(}})|(%>)|%|(<%)|(end)/;
+            if (stream.match(re)) {
+                // 返回自定义样式
+                return "special-string";
+            }
+            while (stream.next() != null && !stream.match(re, false)) {}
+            return null;
+        }});
+    });
+
+
+    var editor = CodeMirror(document.getElementById('htmlCodeEditor'), {
+        mode: "myOverlay",
+        backdrop: "htmlWithPython",
+        theme: 'default',
+        lineNumbers: true,
+        autoCloseTags: true,
+        matchBrackets: true,
+        autoCloseBrackets: true,
+        lineWrapping: true,
+        viewportMargin: Infinity, // Ensures the entire document is always rendered
+        hintOptions: {autoHint: true},
+
+    });
+
+    editor.on("inputRead", function(cm, change) {
+         if (change.origin === "+input"
+             && change.text[0]!=="%"
+             && change.text[0]!==":"
+             && change.text[0]!==";"
+             && !cm.state.completionActive && !/\s/.test(change.text[0])) {
+            CodeMirror.commands.autocomplete(cm, null, {completeSingle: false});
+        }
+    });
+
+    // editor.on("change", function() {
+    //     document.getElementById("htmlPreview").innerHTML = editor.getValue();
+    // });
+
+    var beginAutocomplte=false;
+
+    var textChanged =false;
+    editor.on('change', function(instance, changeObj) {
+        textChanged =true;
+        if (changeObj.origin === '+input' && changeObj.text[0] === '<') {
+            beginAutocomplte =true;
+        }else if (beginAutocomplte && changeObj.origin === '+input') {
+            if( changeObj.text[0] === '%'){
+                beginAutocomplte =false;
+                var cursor = instance.getCursor();
+                // 在当前光标位置插入 '%>'
+                instance.replaceRange('\n\n%>', cursor);
+                // 将光标移到 '<%' 和 '%>' 之间
+                instance.setCursor({line: cursor.line+1, ch: cursor.ch});
+
+            }else{
+                beginAutocomplte =false;
+            }
+
+        }
+
+        // document.getElementById("htmlPreview").innerHTML = editor.getValue();
+    });
+
+    // 添加自定义命令并重新绑定 Ctrl-D / Cmd-D
+    editor.addKeyMap({
+        'Ctrl-D': function(cm) { duplicateLine(cm); },
+        'Cmd-D': function(cm) { duplicateLine(cm); },
+        'Shift-Ctrl-D': false,  // 可以尝试禁用原有的绑定，如果有的话
+        'Shift-Cmd-D': false    // 同上，针对 Mac 用户
+    });
+
+
+
+    var shouldCallGenerate=true
+    function generate_preview_page(){
+        if(!editor.getValue()){
+            return;
+        }
+        shouldCallGenerate=false
+        let data = new URLSearchParams();
+        data.append( "s", editor.getValue());
+
+        try {
+            fetch("/functions/str-joiner",
+                {
+                    method: "POST",
+                    body: data,
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    }
+                }).then(res=>res.text())
+                .then(result=>{
+                    document.getElementById("htmlPreview").innerHTML = result;
+                    shouldCallGenerate=true
+                    textChanged =false;
+                })
+
+        }catch (e) {
+            console.error(e);
+        }
+    }
+
+
+    //auto refresh preview page
+    setInterval(()=>{
+        if(textChanged && shouldCallGenerate){
+            generate_preview_page()
+        }
+
+    }, 1000)
+
+    //
+    // // 处理搜索逻辑
+    // document.getElementById('search-input').addEventListener('input', function() {
+    //     var query = this.value;
+    //     if (!query) {
+    //         document.getElementById('search-results').style.display = 'none';
+    //         return;
+    //     }
+    //
+    //     // 这里使用 fetch 发起 API 调用，您可能需要根据您的 API 调整 URL 和参数
+    //     fetch('/data/pages/query?title=' + encodeURIComponent(query))
+    //         .then(response => response.json())
+    //         .then(data => {
+    //             var resultsBox = document.getElementById('search-results');
+    //             resultsBox.innerHTML = ''; // 清空当前结果
+    //             data.forEach(item => {
+    //                 var div = document.createElement('div');
+    //                 div.textContent = item.title; // 假设返回的结果有一个 'title'
+    //                 div.addEventListener('click', function() {
+    //                     editor.setValue(item.content); // 假设结果有 'content'
+    //                     resultsBox.style.display = 'none'; // 隐藏结果列表
+    //                 });
+    //                 resultsBox.appendChild(div);
+    //             });
+    //             resultsBox.style.display = 'block'; // 显示结果
+    //         });
+    // });
+
+</script>
+<script>
+    // 获取所有标题元素
+    const titles = document.querySelectorAll('.titles li');
+    // 为每个标题添加点击事件
+    titles.forEach(title => {
+        title.addEventListener('click', function() {
+            // 假设每个标题对应的内容存储在某处，这里用一个简单的映射作为示例
+            const titleContentMap = {
+                '标题1': '这是标题1的内容...',
+                '标题2': '这是标题2的内容...',
+                '标题3': '这是标题3的内容...',
+                // 添加更多标题与内容的映射
+            };
+
+            // 移除之前所有条目的高亮样式
+            document.querySelectorAll('.titles li.active').forEach(activeItem => {
+                activeItem.classList.remove('active');
+            });
+
+            // 给被点击的条目添加高亮样式
+            this.classList.add('active');
+
+            document.getElementById("title-display").textContent=this.textContent;
+            // 获取并设置对应标题的内容到编辑器
+            editor.setValue(titleContentMap[this.textContent] || '未找到内容');
+        });
+    });
+
+    function toggleSidebar() {
+        const sidebar = document.querySelector('.sidebar');
+        sidebar.classList.toggle('collapsed');
+        const toggleIcon = document.querySelector('.toggle-sidebar span');
+        // 更新图标或文本等，根据实际情况
+        if (sidebar.classList.contains('collapsed')) {
+            toggleIcon.innerHTML = '&raquo;'; // 或其他表示展开的图标
+        } else {
+            toggleIcon.innerHTML = '&laquo;'; // 或其他表示折叠的图标
+        }
+
+        // 可选：根据侧边栏状态调整编辑器宽度等
+        const editor = document.querySelector('.code-editor');
+        const toolbar = document.querySelector('.toolbar');
+        if (sidebar.classList.contains('collapsed')) {
+            // 把编辑器宽度调整为全屏
+            editor.style.marginLeft = "0px";
+            toolbar.style.marginLeft = "0px";
+        } else {
+            // 还原编辑器的宽度，减去侧边栏的宽度
+            editor.style.marginLeft = "200px";
+            toolbar.style.marginLeft = "200px";
+        }
+
+        // 调整完大小后刷新CodeMirror实例
+        window.editor.refresh();
+
+    }
+
+
+</script>
+<script>
+    document.getElementById('search-input').addEventListener('input', function() {
+        const filter = this.value.toUpperCase();
+        const titles = document.querySelectorAll('.titles li');
+
+        titles.forEach(title => {
+            const text = title.textContent || title.innerText;
+            if (text.toUpperCase().indexOf(filter) > -1) {
+                title.style.display = "";
+            } else {
+                title.style.display = "none";
+            }
+        });
+    });
+</script>
+<script>
+    document.getElementById('edit-title-icon').addEventListener('click', function() {
+        toggleEdit('title');
+    });
+
+    document.getElementById('edit-url-icon').addEventListener('click', function() {
+        toggleEdit('url');
+    });
+
+    function toggleEdit(type) {
+        const display = document.getElementById(`${type}-display`);
+        const input = document.getElementById(`${type}-input`);
+        const icon = document.getElementById(`edit-${type}-icon`);
+
+        if (input.style.display === 'none') {
+            display.style.display = 'none';
+            icon.style.display = 'none';
+            input.style.display = 'block';
+            input.value = display.textContent;
+            input.focus();
+        } else {
+            updateField(type);
+        }
+    }
+
+    function updateField(type) {
+        const input = document.getElementById(`${type}-input`);
+        const display = document.getElementById(`${type}-display`);
+
+        if (input.value.trim() !== '') {
+            display.textContent = input.value.trim();
+        }
+        input.style.display = 'none';
+        display.style.display = 'block';
+        document.getElementById(`edit-${type}-icon`).style.display = 'block';
+    }
+    function dontUpdateField(type) {
+        const input = document.getElementById(`${type}-input`);
+        const display = document.getElementById(`${type}-display`);
+
+        input.style.display = 'none';
+        display.style.display = 'block';
+        document.getElementById(`edit-${type}-icon`).style.display = 'block';
+    }
+
+    document.getElementById('title-input').addEventListener('blur', function() {
+        updateField('title');
+    });
+
+    document.getElementById('url-input').addEventListener('blur', function() {
+        updateField('url');
+    });
+
+    document.querySelectorAll('.toolbar input').forEach(input => {
+        input.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                //save
+                // console.log("save title")
+                updateField('title');
+                updateField('url');
+            }
+        });
+    });
+</script>
+
+
+<script>
+    //删除按钮操作
+    document.getElementById('delete-icon').addEventListener('click', async function() {
+        // 确认是否删除
+        const isConfirmed = confirm('确定要删除吗？');
+        if (isConfirmed) {
+            // 用户确认删除，执行删除操作
+            try {
+                const response = await fetch(`/data/delete/${currentSelectedId}`, {
+                    method: 'DELETE', // 使用DELETE方法
+                });
+                if (response.ok) {
+                    console.log('删除成功');
+                    // 删除成功，重新加载页面
+                    location.reload();
+                } else {
+                    // 删除失败，打印错误信息
+                    console.error('删除失败:', response.statusText);
+                    alert('删除失败: ' + response.statusText); // 提示用户
+                }
+            } catch (error) {
+                console.error('删除过程中发生错误:', error);
+                alert('删除异常: ' + error.message); // 提示用户
+            }
+        } else {
+            // 用户取消删除操作
+            console.log('删除操作已取消');
+        }
+    });
+
+</script>
+
+<script>
+    let currentSelectedId = null; // 用于存储当前选中的列表项ID
+
+    // 定义用于加载列表数据和更新编辑区的函数
+    async function loadListData() {
+        try {
+            // 发送请求获取数据
+            const response = await fetch('/data/pages/list');
+            if (!response.ok) {
+                throw new Error('数据加载失败');
+            }
+            const listData = await response.json(); // 解析JSON数据
+
+            // 获取列表元素
+            const listElement = document.getElementById('titles-list');
+            listElement.innerHTML = ''; // 清空当前列表
+
+            // 遍历数据数组，为每一项创建一个列表项
+            listData.forEach(item => {
+                // 反序列化data字段为JSON对象
+                const itemData = JSON.parse(item.data);
+
+                // 创建列表项
+                const listItem = document.createElement('li');
+                listItem.textContent = itemData.title; // 设置列表项的文本为title字段
+                listItem.classList.add('title-item'); // 添加样式类
+                listItem.setAttribute('data-id', item.id); // 设置数据ID属性
+
+                // 为列表项添加点击事件监听器
+                listItem.addEventListener('click', () => {
+                    // 更新当前选中的条目ID
+                    currentSelectedId = item.id;
+                    // 移除先前所有项的高亮样式
+                    document.querySelectorAll('.titles li').forEach(el => {
+                        el.classList.remove('active-item');
+                    });
+
+                    // 给当前点击的列表项添加高亮样式
+                    listItem.classList.add('active-item');
+
+                    updateEditor(itemData, item.updated); // 点击时更新编辑器和相关字段
+                });
+
+                listElement.appendChild(listItem); // 将列表项添加到列表中
+            });
+        } catch (error) {
+            console.error('加载列表数据时发生错误:', error);
+        }
+    }
+
+    // 定义一个根据ID高亮列表项的函数
+    function highlightListItem(id) {
+        // 首先移除所有项的高亮样式
+        document.querySelectorAll('.titles li').forEach(el => {
+            el.classList.remove('active-item');
+        });
+
+        // 根据存储的ID找到对应的列表项并添加高亮样式
+        const itemToHighlight = document.querySelector(`.titles li[data-id="${id}"]`);
+        if (itemToHighlight) {
+            itemToHighlight.classList.add('active-item');
+        }
+    }
+
+    // 定义用于更新编辑器和相关字段的函数
+    function updateEditor(itemData, updated) {
+        document.getElementById('title-display').textContent = itemData.title; // 更新标题
+        document.getElementById('url-display').textContent = itemData.url; // 更新URL
+        editor.setValue(hexDecode(itemData.content)); // 更新内容（假设您的编辑器实例名为editor）
+        document.getElementById('last-modified-time').textContent = `最后修改时间: ${updated}`; // 更新最后修改时间
+    }
+
+    // 定义一个用于HEX解码的辅助函数
+    function hexDecode(hexStr) {
+        var str = '';
+        for (var i = 0; i < hexStr.length; i += 2) {
+            str += String.fromCharCode(parseInt(hexStr.substr(i, 2), 16));
+        }
+        return str;
+    }
+
+    // 加载列表数据
+    document.addEventListener('DOMContentLoaded', loadListData);
+
+</script>
+
+<script>
+    const saveResultElement = document.getElementById('save-result'); // 获取显示结果的元素
+
+    async function saveData() {
+        // 获取标题、URL和代码编辑器内容
+        const title = document.getElementById('title-display').textContent;
+        const url = document.getElementById('url-display').textContent;
+        const codeContent = editor.getValue(); // 假设您的CodeMirror实例变量名为editor
+
+        // 将代码内容转换为HEX编码
+        const hexContent = [...codeContent].map((c) => {
+            return c.charCodeAt(0).toString(16).padStart(2, '0');
+        }).join('');
+
+        // 构造请求的body
+        const requestBody = {
+            title: title,
+            url: url,
+            content: hexContent
+        };
+
+        try {
+            let url = currentSelectedId ?`/data/update-data/${currentSelectedId}` :'/data/pages/insert';
+            let method = currentSelectedId ? "PUT":"POST";
+            // 发送保存请求
+            const response = await fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            // 检查响应状态
+            if (response.ok) {
+                console.log('数据保存成功');
+                // 这里可以添加更多成功保存后的操作
+
+                // 更新显示结果的元素
+                saveResultElement.textContent = 'OK';
+                saveResultElement.style.display = 'inline'; // 确保结果可见
+
+                // 隐藏结果信息后一段时间
+                setTimeout(() => {
+                    saveResultElement.style.display = 'none';
+                }, 2000); // 2秒后隐藏
+
+                // 数据保存成功后，重新加载列表数据
+                await loadListData();
+
+                // 如果之前有选中的列表项，重新高亮显示
+                if (currentSelectedId) {
+                    highlightListItem(currentSelectedId);
+                }
+            } else {
+                // 处理保存失败的情况
+                console.error('保存失败:', response.statusText);
+                saveResultElement.textContent = '保存失败'; // 更新保存结果
+                saveResultElement.style.display = 'inline';
+                setTimeout(() => {
+                    saveResultElement.style.display = 'none';
+                }, 2000); // 2秒后隐藏
+            }
+        } catch (error) {
+            console.error('保存过程中发生错误:', error);
+            // 这里可以添加错误处理逻辑
+        }
+    }
+
+    document.getElementById('save-icon').addEventListener('click', saveData);
+
+</script>
+</body>
+</html>
