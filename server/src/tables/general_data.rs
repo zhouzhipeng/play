@@ -30,9 +30,9 @@ impl GeneralData {
     }
 
 
-    pub async fn query(q: &GeneralData, pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
+    pub async fn query(cat: &str, pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
         sqlx::query_as::<_, GeneralData>("SELECT * FROM general_data where cat = ?")
-            .bind(&q.cat)
+            .bind(cat)
             .fetch_all(pool)
             .await
     }
@@ -43,10 +43,10 @@ impl GeneralData {
             .fetch_all(pool)
             .await
     }
-    pub async fn get_one(data_id: u32, pool: &DBPool) -> Result<Option<GeneralData>, Error> {
+    pub async fn query_by_id(data_id: u32, pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
         sqlx::query_as::<_, GeneralData>("SELECT * FROM general_data where id = ? ")
             .bind(data_id)
-            .fetch_optional(pool)
+            .fetch_all(pool)
             .await
     }
     pub async fn update_json(data_id: u32, query_field: &str, query_val: &str, pool: &DBPool) -> Result<DBQueryResult, Error> {
@@ -60,6 +60,13 @@ impl GeneralData {
         sqlx::query("update  general_data set data = ?, updated=CURRENT_TIMESTAMP where id = ?")
             .bind(data)
             .bind(data_id)
+            .execute(pool)
+            .await
+    }
+    pub async fn update_text_global(cat: &str,data : &str, pool: &DBPool) -> Result<DBQueryResult, Error> {
+        sqlx::query("update  general_data set data = ?, updated=CURRENT_TIMESTAMP where cat = ?")
+            .bind(data)
+            .bind(cat)
             .execute(pool)
             .await
     }
