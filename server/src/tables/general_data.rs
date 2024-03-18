@@ -50,8 +50,15 @@ impl GeneralData {
             .await
     }
     pub async fn update_json(data_id: u32, query_field: &str, query_val: &str, pool: &DBPool) -> Result<DBQueryResult, Error> {
-        sqlx::query(format!("update  general_data set data = json_set(data, '$.{}', ?) where id = ?", query_field).as_str())
+        sqlx::query(format!("update  general_data set data = json_set(data, '$.{}', ?), updated=CURRENT_TIMESTAMP where id = ?", query_field).as_str())
             .bind(query_val)
+            .bind(data_id)
+            .execute(pool)
+            .await
+    }
+    pub async fn update_text(data_id: u32,data : &str, pool: &DBPool) -> Result<DBQueryResult, Error> {
+        sqlx::query("update  general_data set data = ?, updated=CURRENT_TIMESTAMP where id = ?")
+            .bind(data)
             .bind(data_id)
             .execute(pool)
             .await

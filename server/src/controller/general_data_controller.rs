@@ -13,7 +13,8 @@ method_router!(
     get : "/data/:cat/list"-> list_data,
     get : "/data/:cat/query"-> query_data,
     get : "/data/get/:data_id"-> get_data,
-    put : "/data/update/:data_id"-> update_data,
+    put : "/data/update-field/:data_id"-> update_field,
+    put : "/data/update-data/:data_id"-> update_data,
     delete : "/data/delete/:data_id"-> delete_data,
 );
 
@@ -26,11 +27,15 @@ struct MsgResp {
 struct InsertDataReq {
     msg: String,
 }
+#[derive(Deserialize)]
+struct UpdateDataTextReq {
+    data: String,
+}
 
 async fn insert_data(s: S, Path(cat): Path<String>, body: String) -> JSON<MsgResp> {
     //validation
     check!(!vec!["data","get","update","delete","list", "query"].contains(&cat.as_str()));
-    check!(serde_json::from_str::<Value>(&body).is_ok());
+    // check!(serde_json::from_str::<Value>(&body).is_ok());
 
     let data = GeneralData {
         cat,
@@ -43,51 +48,51 @@ async fn insert_data(s: S, Path(cat): Path<String>, body: String) -> JSON<MsgRes
     Ok(Json(MsgResp { msg: "ok".to_string() }))
 }
 
-async fn list_data(s: S, Path(cat): Path<String>) -> R<String> {
+async fn list_data(s: S, Path(cat): Path<String>) -> JSON<Vec<GeneralData>> {
     let q = GeneralData {
         cat,
         ..GeneralData::default()
     };
     let data = GeneralData::query(&q, &s.db).await?;
-    let mut final_data = data.iter().map(|d| d.data.to_string())
-        .collect::<Vec<_>>()
-        .join(",");
+    // let mut final_data = data.iter().map(|d| d.data.to_string())
+    //     .collect::<Vec<_>>()
+    //     .join(",");
+    //
+    // final_data = format!("[{}]", final_data);
 
-    final_data = format!("[{}]", final_data);
 
-
-    Ok(final_data)
+    Ok(Json(data))
 }
 
-async fn query_data(s: S, Path(cat): Path<String>, Query(params): Query<HashMap<String, String>>) -> R<String> {
+async fn query_data(s: S, Path(cat): Path<String>, Query(params): Query<HashMap<String, String>>) ->JSON<Vec<GeneralData>> {
     check!(params.len()==1);
     for (k, v) in params {
         let data = GeneralData::query_json(&cat, &k, &v, &s.db).await?;
-        let mut final_data = data.iter().map(|d| d.data.to_string())
-            .collect::<Vec<_>>()
-            .join(",");
+        // let mut final_data = data.iter().map(|d| d.data.to_string())
+        //     .collect::<Vec<_>>()
+        //     .join(",");
+        //
+        // final_data = format!("[{}]", final_data);
 
-        final_data = format!("[{}]", final_data);
-
-        return Ok(final_data);
+        return Ok(Json(data));
     }
 
     return_error!("unknown error")
 }
 
-async fn get_data(s: S, Path(data_id): Path<u32>) -> R<String> {
+async fn get_data(s: S, Path(data_id): Path<u32>) -> JSON<Option<GeneralData>> {
     let data = GeneralData::get_one(data_id, &s.db).await?;
     match data {
         None => {
-            Ok("".to_string())
+            Ok(Json(None))
         }
         Some(s) => {
-            Ok(s.data)
+            Ok(Json(Some(s)))
         }
     }
 }
 
-async fn update_data(s: S, Path(data_id): Path<u32>, Query(params): Query<HashMap<String, String>>) -> JSON<MsgResp> {
+async fn update_field(s: S, Path(data_id): Path<u32>, Query(params): Query<HashMap<String, String>>) -> JSON<MsgResp> {
     check!(params.len()==1);
     for (k, v) in params {
         let data = GeneralData::update_json(data_id, &k, &v, &s.db).await?;
@@ -95,6 +100,10 @@ async fn update_data(s: S, Path(data_id): Path<u32>, Query(params): Query<HashMa
     }
 
     return_error!("unknown error")
+}
+async fn update_data(s: S, Path(data_id): Path<u32>, Query(data): Query<UpdateDataTextReq>) -> JSON<MsgResp> {
+        let data = GeneralData::update_text(data_id, &data.data, &s.db).await?;
+        return Ok(Json(MsgResp { msg: "update ok".to_string() }));
 }
 
 async fn delete_data(s: S, Path(data_id): Path<u32>) -> JSON<MsgResp> {

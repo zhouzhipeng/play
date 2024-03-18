@@ -220,9 +220,9 @@
             border-bottom: 1px solid #f0f0f0;
         }
 
-        .titles li:hover {
-            background-color: #f0f0f0;
-        }
+        /*.titles li:hover {*/
+        /*    background-color: #f0f0f0;*/
+        /*}*/
 
         /* 编辑器和输入框样式 */
         .code-editor {
@@ -312,9 +312,7 @@
             border-bottom: 1px solid #f0f0f0;
         }
 
-        .titles li:hover {
-            background-color: #f0f0f0;
-        }
+
 
         /* 侧边栏样式 */
         .sidebar {
@@ -473,6 +471,11 @@
             border-bottom: 1px solid #ccc; /* 添加边界线，如果需要的话 */
         }
 
+        .active-item {
+            background-color: #007bff; /* 高亮颜色，您可以根据需要调整 */
+            color: white; /* 文字颜色，确保高亮项易于阅读 */
+        }
+
 
     </style>
 </head>
@@ -483,89 +486,8 @@
     <div class="search-box">
         <input type="text" id="search-input" placeholder="过滤标题...">
     </div>
-    <ul class="titles">
-        <li>标题1</li>
-        <li>标题2</li>
-        <li>标题3</li>
-        <li>标题1</li>
-        <li>标题2</li>
-        <li>标题3</li>
-        <li>标题1</li>
-        <li>标题2</li>
-        <li>标题3</li>
-        <li>标题1</li>
-        <li>标题2</li>
-        <li>标题3</li>
-        <li>标题1</li>
-        <li>标题2</li>
-        <li>标题3</li>
-        <li>标题1</li>
-        <li>标题2</li>
-        <li>标题3</li>
-        <li>标题1</li>
-        <li>标题2</li>
-        <li>标题3</li>
-        <li>标题1</li>
-        <li>标题2</li>
-        <li>标题3</li>
-        <li>标题1</li>
-        <li>标题2</li>
-        <li>标题3</li>
-        <li>标题1</li>
-        <li>标题2</li>
-        <li>标题3</li>
-        <li>标题1</li>
-        <li>标题2</li>
-        <li>标题3</li>
-        <li>标题1</li>
-        <li>标题2</li>
-        <li>标题3</li>
-        <li>标题1</li>
-        <li>标题2</li>
-        <li>标题3</li>
-        <li>标题1</li>
-        <li>标题2</li>
-        <li>标题3</li>
-        <li>标题1</li>
-        <li>标题2</li>
-        <li>标题3</li>
-        <li>标题1</li>
-        <li>标题2</li>
-        <li>标题3</li>
-        <li>标题1</li>
-        <li>标题2</li>
-        <li>标题3</li>
-        <li>标题1</li>
-        <li>标题2</li>
-        <li>标题3</li>
-        <li>标题1</li>
-        <li>标题2</li>
-        <li>标题3</li>
-        <li>标题1</li>
-        <li>标题2</li>
-        <li>标题3</li>
-        <li>标题1</li>
-        <li>标题2</li>
-        <li>标题3</li>
-        <li>标题1</li>
-        <li>标题2</li>
-        <li>标题3</li>
-        <li>标题1</li>
-        <li>标题2</li>
-        <li>标题3</li>
-        <li>标题1</li>
-        <li>标题2</li>
-        <li>标题3</li>
-        <li>标题1</li>
-        <li>标题2</li>
-        <li>标题3</li>
-        <li>标题1</li>
-        <li>标题2</li>
-        <li>标题3</li>
-        <li>标题1</li>
-        <li>标题2</li>
-        <li>标题3</li>
-        <!-- 添加更多标题 -->
+    <ul class="titles" id="titles-list">
+        <!-- 列表项将通过JavaScript动态加载 -->
     </ul>
 </div>
 
@@ -927,14 +849,16 @@
         dontUpdateField('url');
     });
 
-    // document.querySelectorAll('.toolbar input').forEach(input => {
-    //     input.addEventListener('keypress', function(event) {
-    //         if (event.key === 'Enter') {
-    //             //save
-    //             console.log("save title")
-    //         }
-    //     });
-    // });
+    document.querySelectorAll('.toolbar input').forEach(input => {
+        input.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                //save
+                // console.log("save title")
+                updateField('title');
+                updateField('url');
+            }
+        });
+    });
 </script>
 <script>
     document.getElementById('save-icon').addEventListener('click', function() {
@@ -966,5 +890,97 @@
     });
 </script>
 
+<script>
+    // 假设的列表数据
+    const listData = [
+        { title: "项目1", id: 1 },
+        { title: "项目2", id: 2 },
+        { title: "项目3", id: 3 },
+        // 更多数据...
+    ];
+
+    // 加载列表数据到侧边栏
+    // 加载列表数据到侧边栏
+    function loadListData() {
+        const listElement = document.getElementById('titles-list');
+        listElement.innerHTML = ''; // 清空当前列表
+
+        // 遍历数据数组，为每一项创建一个列表项
+        listData.forEach(item => {
+            const listItem = document.createElement('li');
+            listItem.textContent = item.title; // 设置列表项的文本
+            listItem.setAttribute('data-id', item.id); // 可以设置数据ID等属性
+            listItem.classList.add('title-item'); // 添加样式类，如果需要的话
+
+            // 添加点击事件监听器
+            listItem.addEventListener('click', function() {
+                // 移除先前所有项的高亮样式
+                document.querySelectorAll('.titles li').forEach(el => {
+                    el.classList.remove('active-item');
+                });
+
+                // 给当前点击的列表项添加高亮样式
+                listItem.classList.add('active-item');
+
+                // 在这里可以添加其他点击项目时要执行的操作
+                console.log(`项目 ${item.id} 被点击`);
+            });
+
+            listElement.appendChild(listItem); // 将列表项添加到列表中
+        });
+    }
+
+
+    // 在页面加载完成后加载数据
+    document.addEventListener('DOMContentLoaded', loadListData);
+
+</script>
+
+<script>
+    async function saveData() {
+        // 获取标题、URL和代码编辑器内容
+        const title = document.getElementById('title-display').textContent;
+        const url = document.getElementById('url-display').textContent;
+        const codeContent = editor.getValue(); // 假设您的CodeMirror实例变量名为editor
+
+        // 将代码内容转换为HEX编码
+        const hexContent = [...codeContent].map((c) => {
+            return c.charCodeAt(0).toString(16).padStart(2, '0');
+        }).join('');
+
+        // 构造请求的body
+        const requestBody = {
+            title: title,
+            url: url,
+            content: hexContent
+        };
+
+        try {
+            // 发送保存请求
+            const response = await fetch('/data/pages/insert', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            // 检查响应状态
+            if (response.ok) {
+                console.log('数据保存成功');
+                // 这里可以添加更多成功保存后的操作
+            } else {
+                console.error('保存失败:', response.statusText);
+                // 这里可以添加错误处理逻辑
+            }
+        } catch (error) {
+            console.error('保存过程中发生错误:', error);
+            // 这里可以添加错误处理逻辑
+        }
+    }
+
+    document.getElementById('save-icon').addEventListener('click', saveData);
+
+</script>
 </body>
 </html>
