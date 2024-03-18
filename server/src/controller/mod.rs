@@ -14,6 +14,7 @@ mod job_controller;
 
 
 mod general_data_controller;
+mod pages_controller;
 //PLACEHOLDER:CONTROLLER_MOD
 
 
@@ -35,6 +36,7 @@ crate::register_routers!(
         shortlink_controller,
         job_controller,
         general_data_controller,
+        pages_controller,
         //PLACEHOLDER:CONTROLLER_REGISTER
 
 

@@ -413,6 +413,25 @@ pub async fn handle_email_message(copy_appstate: &Arc<AppState>, msg: &mail_serv
 }
 
 
+
+// Define a macro to convert a hex string literal to a Rust string
+#[macro_export]
+macro_rules! hex_to_string {
+    ($hex_literal:expr) => {{
+        let mut chars = $hex_literal.chars();
+        let mut string = String::with_capacity($hex_literal.len() / 2);
+
+        while let (Some(high), Some(low)) = (chars.next(), chars.next()) {
+            let high_val = high.to_digit(16).unwrap_or(0);
+            let low_val = low.to_digit(16).unwrap_or(0);
+            string.push(char::from((high_val << 4 | low_val) as u8));
+        }
+
+        string
+    }};
+}
+
+
 // Include the generated-file as a seperate module
 #[cfg(test)]
 mod test {
@@ -426,3 +445,5 @@ mod test {
         reqwest::get(format!("https://api.day.app/pTyPrycAjp36tGRSAUgfiU/{}/{}", sender, title)).await;
     }
 }
+
+
