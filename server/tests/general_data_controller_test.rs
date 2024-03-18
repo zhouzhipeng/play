@@ -102,12 +102,18 @@ async fn global_cat_test() -> anyhow::Result<()> {
     println!("insert resp : {:?}", resp.text());
     resp.assert_status_ok();
 
+    let resp = server.post("/data/cat-g-foo").text(r#"
+    456
+    "#).await;
+    println!("insert resp : {:?}", resp.text());
+    resp.assert_status_ok();
+
     //query
     let resp = server.get("/data/cat-g-foo").await;
     println!("get data : {}", resp.text());
     resp.assert_status_ok();
 
-    let resp = server.get("/data/id-2").await;
+    let resp = server.get("/data/id-1").await;
     println!("get data : {}", resp.text());
     resp.assert_status_ok();
 
