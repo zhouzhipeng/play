@@ -1015,6 +1015,9 @@
 
             // 检查响应状态
             if (response.ok) {
+                if(!currentSelectedId){
+                    location.reload();
+                }
                 console.log('数据保存成功');
                 // 这里可以添加更多成功保存后的操作
 
