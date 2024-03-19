@@ -673,10 +673,17 @@
 
     function updatePreview(content) {
         const iframe = document.getElementById('preview-iframe');
-        const doc = iframe.contentWindow.document;
-        doc.open();
-        doc.write(content); // 将HTML内容写入iframe
-        doc.close();
+        // const doc = iframe.contentWindow.document;
+        // // 清空 iframe
+        // doc.open();
+        // doc.close();
+
+        iframe.srcdoc = content;
+
+        //write 方式会导致js变量声明重复定义
+        // doc.open();
+        // doc.write(content); // 将HTML内容写入iframe
+        // doc.close();
     }
 
 
