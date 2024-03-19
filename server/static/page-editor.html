@@ -617,6 +617,7 @@
     });
 
     editor.on("inputRead", function(cm, change) {
+
          if (change.origin === "+input"
              && change.text[0]!=="%"
              && change.text[0]!==":"
@@ -632,7 +633,13 @@
 
     var beginAutocomplte=false;
 
+
     var textChanged =false;
+
+    // 绑定keydown事件监听器
+    // editor.on("keydown", function(cm, event) {
+    //
+    // });
     editor.on('change', function(instance, changeObj) {
         textChanged =true;
         if (changeObj.origin === '+input' && changeObj.text[0] === '<') {
@@ -673,12 +680,10 @@
     }
 
 
-    var shouldCallGenerate=true
+    var isCallingAPI=false
     function generate_preview_page(){
-        if(!editor.getValue()){
-            return;
-        }
-        shouldCallGenerate=false
+
+        isCallingAPI=true
         let data = new URLSearchParams();
         data.append( "s", editor.getValue());
 
@@ -692,19 +697,21 @@
                 }).then(res=>res.text())
                 .then(result=>{
                     updatePreview(result);
-                    shouldCallGenerate=true
-                    textChanged =false;
+                    isCallingAPI=false
+
                 })
 
         }catch (e) {
             console.error(e);
+            isCallingAPI=false
         }
     }
 
 
     //auto refresh preview page
     setInterval(()=>{
-        if(textChanged && shouldCallGenerate){
+        if(textChanged && !isCallingAPI){
+            textChanged =false;
             generate_preview_page()
         }
 
