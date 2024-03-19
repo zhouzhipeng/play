@@ -2,7 +2,7 @@ use axum::extract::Path;
 use chrono::{TimeZone, Utc};
 use serde::Deserialize;
 use serde_json::json;
-use tracing::info;
+use tracing::{error, info};
 
 use shared::timestamp_to_date_str;
 use shared::tpl_engine_api::Template;
@@ -30,8 +30,10 @@ async fn dynamic_pages(s: S, Path(url): Path<String>) -> HTML {
     check!(data.len()==1, "url not found.");
     // Your hex string
 
+
     let page_dto = serde_json::from_str::<PageDto>(&data[0].data)?;
-    let raw_html = hex_to_string!(page_dto.content);
+    let raw_html =  String::from_utf8(hex::decode(&page_dto.content)?)?;
+
     render_fragment(&s, Template::DynamicTemplate {
         name: "<dynamic_pages>".to_string(),
         content: raw_html,
