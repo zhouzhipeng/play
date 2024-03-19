@@ -1,4 +1,6 @@
 import re
+
+
 def html_escape(string):
     ''' Escape HTML special characters ``&<>`` and quotes ``'"``. '''
     return string.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;') \
@@ -215,8 +217,6 @@ class BaseTemplate(object):
         #     raise TemplateError('No template specified.')
         self.prepare(**self.settings)
 
-
-
     @classmethod
     def global_config(cls, key, *args):
         ''' This reads or sets the global settings stored in class.settings. '''
@@ -241,7 +241,6 @@ class BaseTemplate(object):
         or directly, as keywords (kwargs).
         """
         raise NotImplementedError
-
 
 
 class AttributeDict(dict):
@@ -269,18 +268,16 @@ class SimpleTemplate(BaseTemplate):
         if noescape:
             self._str, self._escape = self._escape, self._str
 
-
     def co(self):
 
         if self.filename in global_cache:
             return global_cache[self.filename]
         else:
-            #for test
+            # for test
             # raise Exception(self.code())
             c = compile(self.code(), self.filename or '<string>', 'exec')
             global_cache[self.filename] = c
             return c
-
 
     def code(self):
         source = self.source
@@ -294,11 +291,10 @@ class SimpleTemplate(BaseTemplate):
         self.encoding = parser.encoding
         return code
 
-
     def execute(self, _stdout, kwargs):
         env = self.defaults.copy()
         env.update(kwargs)
-        env.update({'_stdout': _stdout, '_printlist': _stdout.extend,'include':include,
+        env.update({'_stdout': _stdout, '_printlist': _stdout.extend, 'include': include,'http_get': http_get,
 
                     '_str': self._str, '_escape': self._escape, 'get': env.get,
                     'setdefault': env.setdefault, 'defined': env.__contains__
@@ -336,8 +332,11 @@ def render_tpl(source: str, filename: str, args: dict) -> str:
     s = t.render(**args)
     return s
 
-import  json
-def render_tpl_with_str_args(source: str, filename: str, str_args: str, use_cache : bool) -> str:
+
+import json
+
+
+def render_tpl_with_str_args(source: str, filename: str, str_args: str, use_cache: bool) -> str:
     if not use_cache:
         clear_cache(filename)
     r = render_tpl(source, filename, json.loads(str_args))
@@ -347,22 +346,26 @@ def render_tpl_with_str_args(source: str, filename: str, str_args: str, use_cach
 
 
 cached_or_not = {}
-def cache_template(filename: str,source: str):
+
+
+def cache_template(filename: str, source: str):
     t = SimpleTemplate(source, noescape=True)
     t.filename = filename
     t.co()
     cached_or_not[filename] = True
-    print("template :"+ filename+"  cached.")
+    print("template :" + filename + "  cached.")
 
-debug_mode=False
+
+debug_mode = False
+
 
 def set_debug_mode(mode: bool):
-    global  debug_mode
+    global debug_mode
     debug_mode = mode
     # print("simple_template >> set debug mode = "+ str(mode))
 
 
-def include(file_name: str, **kwargs)->str:
+def include(file_name: str, **kwargs) -> str:
     import foo  # rust module.
     if debug_mode:
         clear_cache(file_name)
@@ -375,11 +378,17 @@ def include(file_name: str, **kwargs)->str:
 
     return render_tpl(content, file_name, kwargs)
 
+
+def http_get(url: str) -> str:
+    import foo  # rust module.
+    return foo.http_get(url)
+
+
 if __name__ == '__main__':
     # test_data = {"ss":"bb", "aa":{"name":"111"}}
     # test_data = AttributeDict(test_data)
     # print(test_data.aa.name)
 
-    args = {"ss":"bb", "aa":{"name":"111"}}
+    args = {"ss": "bb", "aa": {"name": "111"}}
     # local_map['__ret__'] =render_tpl()
-    print(render_tpl("{{ss}}","<tmp>", args))
+    print(render_tpl("{{ss}}", "<tmp>", args))
