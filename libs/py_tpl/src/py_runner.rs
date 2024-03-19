@@ -74,7 +74,7 @@ fn http_get(url : String) -> PyResult<String> {
                     Err(_) => Err("Failed to parse response"),
                 }
             },
-            Err(_) => Err("Failed to send request"),
+            Err(e) => Err("Failed to send request"),
         }
     });
 

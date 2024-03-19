@@ -175,12 +175,14 @@
                             <tr>
                                 <th>Quantity</th>
                                 <th>Price</th>
+                                <th>Cost</th>
                                 <th>Unrealized PnL</th>
                             </tr>
                             % for position in item.positions:
                             <tr>
                                 <td>{{round(position.quantity,2)}}</td>
                                 <td>{{position.price}}</td>
+                                <td>{{round(position.quantity*position.price,2)}}</td>
                                 <td>
                                     %if current_price > position.price:
                                     +
