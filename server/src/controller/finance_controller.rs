@@ -119,6 +119,9 @@ async fn dashboard(s: S) -> HTML {
 
     let mut portfolio_items = s.config.finance.portfolio.clone();
 
+
+
+
     for item in portfolio_items.iter_mut() {
 
         if item.orders.len()>0{
@@ -128,9 +131,9 @@ async fn dashboard(s: S) -> HTML {
 
             let mut buy_list = vec![];
             let mut sell_list = vec![];
-
+            let mut total_invest_in_orders = 0.;
             for (quantity, price , date ) in &item.orders {
-
+                total_invest_in_orders = total_invest_in_orders + quantity * price;
                 if *quantity >0.{
                     buy_list.push(PortfolioItemPosition{
                         quantity: *quantity,
@@ -143,6 +146,8 @@ async fn dashboard(s: S) -> HTML {
                     })
                 }
             }
+
+            item.total_invest=  total_invest_in_orders.max(0.);
 
 
 

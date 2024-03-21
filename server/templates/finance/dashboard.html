@@ -128,7 +128,7 @@
                     <th>Symbol</th>
                     <th>Name</th>
                     <th>Quantity</th>
-                    <th>Entry Price</th>
+                    <th>Avg Price</th>
                     <th>Current Price</th>
                     <th>Total Invest</th>
                     <th>Unrealized PnL</th>
@@ -142,8 +142,9 @@
                 % continue
                 %end
 
+                % current_invest = round(item.total_invest,2)
                 % current_price = float(stock_price_map[item.symbol])
-                % total_invest = total_invest+ (item.price * item.quantity / float(rate_map['USDHKD'])  if item.tag=="HK$" else item.price * item.quantity)
+                % total_invest = total_invest+ (current_invest / float(rate_map['USDHKD'])  if item.tag=="HK$" else current_invest)
                 % total_return = total_return+ (current_price * item.quantity / float(rate_map['USDHKD'])  if item.tag=="HK$" else current_price * item.quantity)
                 % total_invest = round(total_invest,2)
                 % total_return = round(total_return,2)
@@ -153,7 +154,7 @@
                     <td class="collapsible">{{round(item.quantity,2)}}</td>
                     <td>{{item.tag}}{{round(item.price,2)}}</td>
                     <td>{{item.tag}}{{current_price}}</td>
-                    <td>{{item.tag}}{{round(item.price * item.quantity,2)}}</td>
+                    <td>{{item.tag}}{{current_invest}}</td>
                     <td>
                         {{item.tag}}{{round(current_price * item.quantity,2)}}
                         (
@@ -175,14 +176,12 @@
                             <tr>
                                 <th>Quantity</th>
                                 <th>Price</th>
-                                <th>Cost</th>
                                 <th>Unrealized PnL</th>
                             </tr>
                             % for position in item.positions:
                             <tr>
                                 <td>{{round(position.quantity,2)}}</td>
                                 <td>{{position.price}}</td>
-                                <td>{{round(position.quantity*position.price,2)}}</td>
                                 <td>
                                     %if current_price > position.price:
                                     +
@@ -202,6 +201,7 @@
                                 <th>op</th>
                                 <th>quantity</th>
                                 <th>price</th>
+                                <th>cost</th>
                                 <th>date</th>
                             </tr>
                             % for qty, price, date in item.orders:
@@ -215,6 +215,7 @@
 
                                 <td>{{qty}}</td>
                                 <td>{{price}}</td>
+                                <td>{{round(price*qty,2)}}</td>
                                 <td>{{date}}</td>
                             </tr>
                             % end
@@ -233,6 +234,8 @@
                     <td></td>
                     <td>${{total_invest}}</td>
                     <td>${{total_return}}
+
+                        % if total_invest >0:
                         (
                         %if total_return > total_invest:
                         +
@@ -242,6 +245,8 @@
                         /
                         {{round((total_return - total_invest) /total_invest *100, 2 )}}%
                         )
+
+                        %end
                     </td>
                 </tr>
 
