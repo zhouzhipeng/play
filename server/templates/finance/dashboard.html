@@ -175,7 +175,11 @@
                 </tr>
                 <tr class="hidden">
                     <td colspan="7">
+                        % if item.market == 'CRYPTO':
+                        <h3 style="color: red">BUY and SELL should have 30 days gap!!!</h3>
+                        %end
                         <h4>Positions</h4>
+
                         <table>
                             <tr>
                                 <th>Quantity</th>
@@ -200,6 +204,7 @@
                             % end
                         </table>
                         <h4>Orders</h4>
+
                         <table>
                             <tr>
                                 <th>op</th>
@@ -210,8 +215,14 @@
                             </tr>
                             % for qty, price, date in item.orders:
                             <tr>
+
                                 % if float(qty) >= 0 :
-                                <td>BUY</td>
+                                    % if item.symbol == "BNBUSDT":
+                                    <td>ISSUED</td>
+                                    % else:
+                                    <td>BUY</td>
+                                    %end
+
                                 %else:
                                 <td>SELL</td>
                                 %end
