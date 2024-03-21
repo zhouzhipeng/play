@@ -47,7 +47,8 @@ async fn test(s: S) -> HTML {
 
 
 async fn serve_db_file(s: S) -> impl IntoResponse {
-    let path = &s.config.database.url;
+    let raw = s.config.database.url.to_string();
+    let path = &raw["sqlite://".len()..raw.len()];
     let file = File::open(path).await.expect("Cannot open file");
     let stream = FramedRead::new(file, BytesCodec::new());
     let body = Body::wrap_stream(stream);

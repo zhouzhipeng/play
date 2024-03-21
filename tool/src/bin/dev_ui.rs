@@ -14,7 +14,7 @@ fn main() {
 
 
 fn run()->anyhow::Result<()>{
-    build_dev("use_embed_python,ui")?;
+    build_dev("use_embed_python,ui,job")?;
 
     let app_dir = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap()
         .join("target/release").join("play.app");

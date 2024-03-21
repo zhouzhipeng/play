@@ -42,6 +42,7 @@ pub struct LocalJobConfig {
     pub name: String,
     pub cron: String,
     pub url: String,
+    pub params : Vec<(String/*key*/, String/*value*/)>
 }
 
 
