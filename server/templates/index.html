@@ -44,9 +44,12 @@
             <li>
                 <a href="/todo/list">Todo Manager</a>
             </li>
-<!--            <li>-->
-<!--                <a href="/finance/dashboard">Finance Dashboard</a>-->
-<!--            </li>-->
+            % for item in pages :
+            <li>
+                <a target="_blank" href="/pages{{item.url}}">{{item.title}}</a>
+            </li>
+            % end
+
         </ul>
 
     </div>

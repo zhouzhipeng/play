@@ -2,13 +2,14 @@ use tokio::fs::File;
 use axum::body::Body;
 use axum::response::{IntoResponse, Response};
 use chrono::{TimeZone, Utc};
-use serde_json::json;
+use serde_json::{json, Value};
 use tokio_util::codec::{BytesCodec, FramedRead};
 use shared::timestamp_to_date_str;
 
 use crate::{ method_router, template};
 use crate::{HTML, R, S};
 use crate::config::get_config_path;
+use crate::tables::general_data::GeneralData;
 
 method_router!(
     get : "/"-> root,
@@ -22,8 +23,12 @@ method_router!(
 async fn root(s: S) -> HTML {
     let built_time = timestamp_to_date_str!(env!("BUILT_TIME").parse::<i64>()?);
     // return_error!("test");
+    let data = GeneralData::query("pages",  &s.db).await?;
+    let pages: Vec<_> = data.iter().map(|p|serde_json::from_str::<Value>(&p.data).unwrap()).collect();
+
     template!(s, "index.html", json!({
-        "built_time": built_time
+        "built_time": built_time,
+        "pages": pages
     }))
 
 }
