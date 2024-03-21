@@ -157,16 +157,20 @@
                     <td>{{item.tag}}{{current_invest}}</td>
                     <td>
                         {{item.tag}}{{round(current_price * item.quantity,2)}}
+
+                        % if current_invest >0:
                         (
                         %if current_price > item.price:
                         +
                         %end
-                        {{round(current_price * item.quantity - item.price * item.quantity,2)}}
+                        {{round(current_price * item.quantity - current_invest,2)}}
 
                         /
-                        {{round((current_price * item.quantity - item.price * item.quantity) / (item.price * item.quantity) * 100 ,2)}}%
+                        {{round((current_price * item.quantity - current_invest) / (current_invest) * 100 ,2)}}%
 
                         )
+
+                        % end
                     </td>
                 </tr>
                 <tr class="hidden">
