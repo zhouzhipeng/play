@@ -89,3 +89,4 @@ http-body = "0.4.6"
 http = "0.2.11"
 moka = { version = "0.12.3", features = ["future"] }
 hex = "0.4.3"
+tokio-util = { version = "0.7", features = ["codec"] }

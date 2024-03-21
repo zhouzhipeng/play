@@ -180,10 +180,10 @@ async fn main()->anyhow::Result<()> {
 
     //start job scheduler
     #[cfg(feature = "job")]
-    tokio::spawn(job::run_job_scheduler(config.local_jobs.iter().map(|c|job::JobConfig{
+    tokio::spawn(job::run_job_scheduler(config.http_jobs.iter().map(|c|job::JobConfig{
         name: c.name.to_string(),
         cron: c.cron.to_string(),
-        url: format!("http://127.0.0.1:{}{}", config.server_port, c.uri),
+        url: c.url.to_string(),
     }).collect()));
 
 
