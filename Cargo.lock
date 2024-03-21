@@ -5475,6 +5475,7 @@ dependencies = [
  "sqlparser",
  "sqlx",
  "tokio",
+ "tokio-util",
  "toml 0.8.8",
  "tower",
  "tower-http",

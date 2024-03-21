@@ -28,7 +28,7 @@ pub struct Config {
     #[serde(default)]
     pub shortlinks: Vec<ShortLink>,
     #[serde(default)]
-    pub local_jobs: Vec<LocalJobConfig>,
+    pub http_jobs: Vec<LocalJobConfig>,
 }
 
 #[derive(Deserialize, Debug, Clone, Default)]
@@ -41,7 +41,7 @@ pub struct ShortLink {
 pub struct LocalJobConfig {
     pub name: String,
     pub cron: String,
-    pub uri: String,
+    pub url: String,
 }
 
 
