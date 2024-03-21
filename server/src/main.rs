@@ -184,6 +184,7 @@ async fn main()->anyhow::Result<()> {
         name: c.name.to_string(),
         cron: c.cron.to_string(),
         url: c.url.to_string(),
+        params: c.params.clone(),
     }).collect()));
 
 

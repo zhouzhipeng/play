@@ -8,7 +8,8 @@ use tokio_cron_scheduler::{Job, JobScheduler};
 pub struct JobConfig{
     pub name: String,
     pub cron: String,
-    pub url: String
+    pub url: String,
+    pub params: Vec<(String/*key*/, String/*value*/)>
 }
 
 
@@ -50,6 +51,7 @@ async fn execute_job(config: &JobConfig)->anyhow::Result<()>{
 
     // Use the client to make a GET request
     let res = client.get(&config.url)
+        .query(&config.params)
         .send()
         .await?.text().await?;;
     info!("invoke job : {} completed ,  res :{}",config.name, res);
