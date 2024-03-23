@@ -26,11 +26,24 @@ struct DownloadRemoteReq{
 }
 
 async fn download_remote(s: S,  Query(req): Query<DownloadRemoteReq>) -> R<String> {
+    tokio::spawn(async move{
+        let r = download_in_background(req).await;
+        info!("download_in_background result : {:?}", r);
+    });
+
+
+
+    Ok("ok.".to_string())
+}
+
+
+
+async fn download_in_background(req : DownloadRemoteReq)->anyhow::Result<()>{
     // URL地址，从这里下载文件
 
-    let url = &req.remote_url;
+    let url = req.remote_url;
     // 目标文件路径，把下载的文件保存到这里
-    let file_path = &req.local_file;
+    let file_path = req.local_file;
 
     // 发送请求下载文件
     let response = reqwest::get(url).await?;
@@ -44,7 +57,7 @@ async fn download_remote(s: S,  Query(req): Query<DownloadRemoteReq>) -> R<Strin
 
         while let Some(item) = stream.next().await {
             let chunk = item.expect("Failed to read chunk");
-            file.write_all(&chunk).await.expect("Failed to write to file");
+            file.write_all(&chunk).await?;
         }
 
         info!("File downloaded successfully.");
@@ -52,9 +65,42 @@ async fn download_remote(s: S,  Query(req): Query<DownloadRemoteReq>) -> R<Strin
         error!("File download error: {}", response.status());
     }
 
-
-    Ok("ok.".to_string())
+    Ok(())
 }
 
 
+#[cfg(test)]
+mod test {
+    use super::*;
 
+    #[tokio::test]
+    async fn test_download_config() {
+        let r = download_in_background(DownloadRemoteReq{
+            remote_url: "https://zhouzhipeng.com/download-config".to_string(),
+            local_file: "/Users/zhouzhipeng/Library/Mobile Documents/com~apple~CloudDocs/big_mac_gogo_backups/play.conf.txt".to_string(),
+        }).await;
+
+        println!("{:?}", r);
+    }
+    #[tokio::test]
+    async fn test_download_db() {
+        let r = download_in_background(DownloadRemoteReq{
+            remote_url: "https://zhouzhipeng.com/download-db".to_string(),
+            local_file: "/Users/zhouzhipeng/Library/Mobile Documents/com~apple~CloudDocs/big_mac_gogo_backups/play.db".to_string(),
+        }).await;
+
+        println!("{:?}", r);
+    }
+    #[tokio::test]
+    async fn test_create_file() ->anyhow::Result<()>{
+        let local_file = "/Users/zhouzhipeng/Library/Mobile Documents/com~apple~CloudDocs/big_mac_gogo_backups/play.conf.txt";
+        // let local_file = "/Users/zhouzhipeng/Downloads/play.conf.txt";
+
+
+        // let file = std::fs::File::create(local_file)?;
+        let  file = File::create(local_file).await?;
+
+        println!("{:?}", file);
+        Ok(())
+    }
+}

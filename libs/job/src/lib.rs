@@ -14,12 +14,14 @@ pub struct JobConfig{
 
 
 pub async fn run_job_scheduler(job_configs : Vec<JobConfig>) -> anyhow::Result<()> {
+
     let mut sched = JobScheduler::new().await?;
 
     for config in job_configs {
+        let job_name = config.name.to_string();
         // Add async job
         let cron = config.cron.to_string();
-        sched.add(
+        let job_id = sched.add(
             Job::new_async(cron.as_str(), move |uuid, mut l| {
                 let copy_config = config.clone();
                 Box::pin(async move {
@@ -27,12 +29,19 @@ pub async fn run_job_scheduler(job_configs : Vec<JobConfig>) -> anyhow::Result<(
                     // Query the next execution time for this job
                     let next_tick = l.next_tick_for_job(uuid).await;
                     match next_tick {
-                        Ok(Some(ts)) => info!("Next time for {} job is {:?}", copy_config.name, ts),
-                        _ => info!("Could not get next tick for  job: {}", copy_config.name),
+                        Ok(Some(ts)) => info!("Next time for [{}] job is {:?}", copy_config.name, ts),
+                        _ => info!("Could not get next tick for  job: [{}]", copy_config.name),
                     }
                 })
             })?
         ).await?;
+
+        // Query the next execution time for this job
+        let next_tick = sched.next_tick_for_job(job_id).await;
+        match next_tick {
+            Ok(Some(ts)) => info!("Next time for [{}] job is {:?}", job_name, ts),
+            _ => info!("Could not get next tick for  job: [{}]", job_name),
+        }
     }
 
 
