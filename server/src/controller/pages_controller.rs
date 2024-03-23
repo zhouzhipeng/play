@@ -1,4 +1,5 @@
 use axum::extract::Path;
+use axum::response::Html;
 use chrono::{TimeZone, Utc};
 use serde::Deserialize;
 use serde_json::json;
@@ -26,6 +27,7 @@ struct PageDto{
 
 async fn dynamic_pages(s: S, Path(url): Path<String>) -> HTML {
     info!("dynamic_pages >> url is : {}", url);
+
     let data = GeneralData::query_json("pages", "url", &format!("/{}", url), &s.db).await?;
     check!(data.len()==1, "url not found.");
     // Your hex string
@@ -34,10 +36,15 @@ async fn dynamic_pages(s: S, Path(url): Path<String>) -> HTML {
     let page_dto = serde_json::from_str::<PageDto>(&data[0].data)?;
     let raw_html =  String::from_utf8(hex::decode(&page_dto.content)?)?;
 
-    render_fragment(&s, Template::DynamicTemplate {
-        name: "<dynamic_pages>".to_string(),
-        content: raw_html,
-    }, json!({})).await
+    if url.ends_with(".html"){
+        Ok(Html(raw_html))
+    }else{
+        render_fragment(&s, Template::DynamicTemplate {
+            name: "<dynamic_pages>".to_string(),
+            content: raw_html,
+        }, json!({})).await
+    }
+
 }
 
 #[cfg(test)]
