@@ -695,6 +695,13 @@
 
     var isCallingAPI=false
     function generate_preview_page(){
+        const urlElement = document.getElementById('url-display');
+        if(urlElement.href.endsWith(".html")){
+            //static pages
+            updatePreview(editor.getValue());
+            isCallingAPI=false
+            return;
+        }
 
         isCallingAPI=true
         let data = new URLSearchParams();
