@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Web Shell</title>
+</head>
+<body>
+<input type="text" id="command">
+<button onclick="executeCommand()">Execute</button>
+<pre id="output"></pre>
+
+<script>
+    async function executeCommand() {
+        const command = document.getElementById('command').value;
+        const response = await fetch('/shell/execute', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'text/plain', // 修改为发送纯文本
+            },
+            body: command, // 发送纯文本命令
+        });
+
+        const result = await response.text(); // 改为接收纯文本响应
+        document.getElementById('output').textContent = result;
+    }
+</script>
+
+</body>
+</html>
