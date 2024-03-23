@@ -73,10 +73,34 @@ async fn download_in_background(req : DownloadRemoteReq)->anyhow::Result<()>{
 mod test {
     use super::*;
 
-    #[test]
-    fn test_download_remote() {
-        download_in_background(DownloadRemoteReq{
-
+    #[tokio::test]
+    async fn test_download_config() {
+        let r = download_in_background(DownloadRemoteReq{
+            remote_url: "https://zhouzhipeng.com/download-config".to_string(),
+            local_file: "/Users/zhouzhipeng/Library/Mobile Documents/com~apple~CloudDocs/big_mac_gogo_backups/play.conf.txt".to_string(),
         }).await;
+
+        println!("{:?}", r);
+    }
+    #[tokio::test]
+    async fn test_download_db() {
+        let r = download_in_background(DownloadRemoteReq{
+            remote_url: "https://zhouzhipeng.com/download-db".to_string(),
+            local_file: "/Users/zhouzhipeng/Library/Mobile Documents/com~apple~CloudDocs/big_mac_gogo_backups/play.db".to_string(),
+        }).await;
+
+        println!("{:?}", r);
+    }
+    #[tokio::test]
+    async fn test_create_file() ->anyhow::Result<()>{
+        let local_file = "/Users/zhouzhipeng/Library/Mobile Documents/com~apple~CloudDocs/big_mac_gogo_backups/play.conf.txt";
+        // let local_file = "/Users/zhouzhipeng/Downloads/play.conf.txt";
+
+
+        // let file = std::fs::File::create(local_file)?;
+        let  file = File::create(local_file).await?;
+
+        println!("{:?}", file);
+        Ok(())
     }
 }
