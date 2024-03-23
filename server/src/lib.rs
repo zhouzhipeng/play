@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use async_channel::Receiver;
 
-use axum::extract::State;
+use axum::extract::{DefaultBodyLimit, State};
 use axum::http::{Method, StatusCode};
 use axum::Json;
 use axum::response::{Html, IntoResponse, Response};
@@ -246,12 +246,18 @@ pub fn routers(app_state: Arc<AppState>) -> Router {
         // allow requests from any origin
         .allow_origin(Any);
 
+    // Define the maximum body size (in bytes).
+    let max_body_size = 10 * 1024 * 1024; // For example, 10 MB
+
+
+
     Router::new()
         .merge(app_routers())
         .with_state(app_state)
         // logging so we can see whats going on
         .layer(TraceLayer::new_for_http().make_span_with(DefaultMakeSpan::default().include_headers(true)))
         .layer(TimeoutLayer::new(Duration::from_secs(60)))
+        .layer(DefaultBodyLimit::disable())
         .layer(cors)
 }
 
