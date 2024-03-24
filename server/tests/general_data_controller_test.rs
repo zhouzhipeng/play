@@ -22,9 +22,8 @@ async fn integration_test() -> anyhow::Result<()> {
     //get
     let resp = server.get("/data/id-1").await;
     resp.assert_status_ok();
-    let data = resp.json::<Option<GeneralData>>();
+    let data = resp.json::<Vec<GeneralData>>();
     println!("get data : {:?}", data);
-    assert!(data.is_some());
 
     //query by field
     let resp = server.get("/data/cat-foo")
@@ -37,8 +36,8 @@ async fn integration_test() -> anyhow::Result<()> {
 
     let resp = server.get("/data/id-2").await;
     resp.assert_status_ok();
-    let data = resp.json::<Option<GeneralData>>();
-    assert_eq!(data.unwrap().data, "this is a text");
+    let data = resp.json::<Vec<GeneralData>>();
+    assert_eq!(data[0].data, "this is a text");
 
 
     // //query list

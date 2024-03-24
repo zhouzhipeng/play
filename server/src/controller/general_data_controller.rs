@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use axum::{Form, Json};
 use axum::extract::{Path, Query};
 use serde::{Deserialize, Serialize};
+use tracing::info;
 
 use crate::{check, JSON, method_router, return_error, S};
 use crate::tables::general_data::GeneralData;
@@ -15,7 +16,7 @@ method_router!(
     post : "/data/cat-g-:cat"-> override_data,  // g-xxx  means a global category , should have only one item. so when call insert_data twice it will override data.
     get : "/data/cat-g-:cat"-> query_data_global,
     post : "/data/cat-:cat"-> insert_data,
-    get : "/data/cat-:cat"-> query_data,
+    get : "/data/cat-:cat"-> query_data, // cat-pages?title=xxx&_select=title,url&_data_json=true
 
 );
 
@@ -58,7 +59,7 @@ async fn insert_data(s: S, Path(cat): Path<String>, body: String) -> JSON<MsgRes
 async fn override_data(s: S, Path(cat): Path<String>, body: String) -> JSON<MsgResp> {
     let cat = format!("g-{}", cat);
 
-    let list_data = GeneralData::query(&cat, &s.db).await?;
+    let list_data = GeneralData::query("*", &cat, &s.db).await?;
     check!(list_data.len()<=1, "A global category should have only one item!");
 
     if list_data.len() == 0 {
@@ -81,14 +82,17 @@ async fn override_data(s: S, Path(cat): Path<String>, body: String) -> JSON<MsgR
 }
 
 
-async fn query_data(s: S, Path(cat): Path<String>, Query(params): Query<HashMap<String, String>>) -> JSON<Vec<GeneralData>> {
+async fn query_data(s: S, Path(cat): Path<String>, Query(mut params): Query<HashMap<String, String>>) -> JSON<Vec<GeneralData>> {
+    let fields = params.remove("_select").unwrap_or("*".to_string());
+
+
     if params.len() == 1 {
         for (k, v) in params {
-            let data = GeneralData::query_json(&cat, &k, &v, &s.db).await?;
+            let data = GeneralData::query_json(&fields, &cat, &k, &v, &s.db).await?;
             return Ok(Json(data));
         }
     } else if params.len() == 0 {
-        let data = GeneralData::query(&cat, &s.db).await?;
+        let data = GeneralData::query(&fields,&cat, &s.db).await?;
         return Ok(Json(data));
     }
 
@@ -98,7 +102,7 @@ async fn query_data(s: S, Path(cat): Path<String>, Query(params): Query<HashMap<
 
 async fn query_data_global(s: S, Path(cat): Path<String>) -> JSON<Vec<GeneralData>> {
     let cat = format!("g-{}", cat);
-    let data = GeneralData::query(&cat, &s.db).await?;
+    let data = GeneralData::query("*", &cat, &s.db).await?;
     return Ok(Json(data));
 }
 async fn get_data(s: S, Path(data_id): Path<u32>) -> JSON<Vec<GeneralData>> {
