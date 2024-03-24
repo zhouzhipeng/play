@@ -38,9 +38,12 @@ impl GeneralData {
                 .collect::<Vec<String>>() // Collect the strings into a new vector.
                 .join(", ");
             info!("fields >> {}", fields);
+            format!("json_object({}) as data", fields)
+        }else{
+            fields
         }
 
-        format!("json_object({}) as data", fields)
+
     }
 
     pub async fn query(fields: &str, cat: &str, pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
