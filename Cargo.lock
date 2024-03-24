@@ -5544,6 +5544,7 @@ dependencies = [
  "ui",
  "urlencoding",
  "walkdir",
+ "zip",
  "zip-extract",
 ]
 

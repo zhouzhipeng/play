@@ -240,7 +240,7 @@ macro_rules! method_router {
 #[macro_export]
 macro_rules! data_dir {
     () => {
-        std::path::Path::new(std::env::var("DATA_DIR").unwrap().as_str()).join("/");
+        std::path::Path::new(std::env::var("DATA_DIR").unwrap().as_str());
     };
 }
 #[macro_export]
