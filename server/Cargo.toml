@@ -92,3 +92,5 @@ hex = "0.4.3"
 tokio-util = { version = "0.7", features = ["codec"] }
 multer = "3.0.0"
 infer = "0.7"
+walkdir = "2.4.0"
+zip = "0.6.6"

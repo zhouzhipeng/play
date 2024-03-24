@@ -1,8 +1,10 @@
 use std::error::Error;
 use std::io;
+use std::io::{Cursor, Write};
 use std::path::{Component, PathBuf};
+use anyhow::anyhow;
 
-use axum::body::{Body, Bytes, HttpBody};
+use axum::body::{Body, Bytes, HttpBody, StreamBody};
 use axum::BoxError;
 use axum::extract::Path;
 use axum::response::{IntoResponse, Response};
@@ -14,22 +16,83 @@ use sqlx::Row;
 use tokio::fs;
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, BufWriter};
+use tokio_util::codec::{BytesCodec, FramedRead};
 use tokio_util::io::StreamReader;
 use tracing::info;
 
 use shared::current_timestamp;
 
-use crate::{files_dir, method_router, R, return_error};
+use crate::{data_dir, files_dir, method_router, R, return_error};
 use crate::extractor::custom_file_upload::CustomFileExtractor;
 
 method_router!(
     post : "/files/upload" -> upload_file,
     put : "/files/upload" -> upload_file,
     get : "/files/*path" -> download_file,
+    get : "/files/packed" -> pack_files,
 );
+async fn pack_files() -> R<impl IntoResponse> {
+    let folder_path = files_dir!();
+    let target_file = data_dir!().join("packed.zip");
+    fs::remove_file(&target_file).await;
+    zip_dir(&folder_path, &target_file)?;
+    match File::open(&target_file).await {
+        Ok(file) => {
+            // 使用 FramedRead 和 BytesCodec 将文件转换为 Stream
+            let stream = FramedRead::new(file, BytesCodec::new())
+                .map_ok(|bytes| bytes.freeze())
+                .map_err(|e| {
+                info!("File streaming error: {}", e);
+                // 在流中发生错误时，将错误转换为 HTTP 500 状态码
+                anyhow!("file stream error")
+            });
 
-// 定义允许的最大文件大小
-const MAX_CONTENT_LENGTH: u64 = 100 * 1024 * 1024; // 10MB
+            let stream_body = StreamBody::new(stream);
+            Ok(Response::new(stream_body))
+        }
+        Err(_) => {
+            // 文件无法打开时，返回 HTTP 404 状态码
+            return_error!("file not found!")
+        }
+    }
+}
+use walkdir::WalkDir;
+use zip::write::{FileOptions, ZipWriter};
+
+fn zip_dir<T: AsRef<std::path::Path>>(src_dir: T, dst_file: T) -> zip::result::ZipResult<()> {
+    let src_path = src_dir.as_ref();
+    let dst_path = dst_file.as_ref();
+
+    let file = std::fs::File::create(&dst_path)?;
+    let walkdir = WalkDir::new(&src_path);
+    let it = walkdir.into_iter();
+
+    let mut zip = ZipWriter::new(file);
+    let options = FileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated)
+        .unix_permissions(0o755);
+
+    for entry in it.filter_map(|e| e.ok()) {
+        let path = entry.path();
+        let name = path.strip_prefix(&src_path).unwrap();
+
+        // 如果是文件，则添加文件到压缩包
+        if path.is_file() {
+            info!("Adding file: {:?}", name);
+            zip.start_file(name.display().to_string(), options)?;
+            let mut f = std::fs::File::open(path)?;
+            std::io::copy(&mut f, &mut zip)?;
+        } else if name.as_os_str().len() != 0 {
+            // 如果是目录，则添加目录到压缩包
+            info!("Adding directory: {:?}", name);
+            zip.start_file(name.display().to_string(), options)?;
+        }
+    }
+    zip.finish()?;
+    Ok(())
+}
+
+
 
 // #[debug_handler]
 async fn upload_file(
