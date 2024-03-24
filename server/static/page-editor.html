@@ -476,6 +476,19 @@
             color: white; /* 文字颜色，确保高亮项易于阅读 */
         }
 
+        #loading-indicator {
+            position: absolute; /* 或其他布局方式，取决于编辑器的布局 */
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            display: none; /* 默认不显示 */
+            z-index: 100;
+            color: #00bb00;
+        }
 
     </style>
 
@@ -522,6 +535,7 @@
 <div class="container" id="container">
 
     <div class="code-editor">
+        <div id="loading-indicator" style="display:none;">加载中...</div>
         <div id="htmlCodeEditor" style="height: 100%"></div> <!-- CodeMirror will attach here -->
 <!--        <div class="draggable" onmousedown="startResizing(event)"></div>-->
 <!--        <div class="draggable"></div>-->
@@ -941,11 +955,37 @@
 <script>
     let currentSelectedId = null; // 用于存储当前选中的列表项ID
 
+    // 定义一个函数，用于根据ID获取内容并更新编辑器
+    function fetchItemContent(id) {
+        // 显示加载指示器
+        const loadingIndicator = document.getElementById('loading-indicator');
+        loadingIndicator.style.display = 'block';
+        fetch(`/data/id-${id}`)
+            .then(response => response.json())
+            .then(data => {
+                data = data[0];
+                // 假设返回的数据结构与列表接口一致
+                const itemData = JSON.parse(data.data); // 根据实际返回结构可能需要调整
+                const content = hexToString(itemData.content); // 对内容进行hex解码
+                editor.setValue(content); // 更新CodeMirror编辑器的内容
+
+                // 更新标题和URL等其他相关字段
+                document.getElementById('title-display').textContent = itemData.title;
+                document.getElementById('url-display').textContent = itemData.url;
+                document.getElementById('last-modified-time').textContent = `最后修改时间: ${data.updated}`;
+            })
+            .catch(error => console.error('获取内容失败:', error))
+            .finally(() => {
+                    // 隐藏加载指示器
+                    loadingIndicator.style.display = 'none';
+            });
+    }
+
     // 定义用于加载列表数据和更新编辑区的函数
     async function loadListData() {
         try {
             // 发送请求获取数据
-            const response = await fetch('/data/cat-pages');
+            const response = await fetch('/data/cat-pages?_select=title,url');
             if (!response.ok) {
                 throw new Error('数据加载失败');
             }
@@ -978,7 +1018,7 @@
                     // 给当前点击的列表项添加高亮样式
                     listItem.classList.add('active-item');
 
-                    updateEditor(itemData, item.updated); // 点击时更新编辑器和相关字段
+                    updateEditor(itemData, item); // 点击时更新编辑器和相关字段
                 });
 
                 listElement.appendChild(listItem); // 将列表项添加到列表中
@@ -1015,16 +1055,16 @@
     }
 
     // 定义用于更新编辑器和相关字段的函数
-    function updateEditor(itemData, updated) {
+    function updateEditor(itemData, item) {
         document.getElementById('title-display').textContent = itemData.title; // 更新标题
-        editor.setValue(hexToString(itemData.content)); // 更新内容（假设您的编辑器实例名为editor）
-        document.getElementById('last-modified-time').textContent = `最后修改时间: ${updated}`; // 更新最后修改时间
+        document.getElementById('last-modified-time').textContent = `最后修改时间: ${item.updated}`; // 更新最后修改时间
 
         // 更新URL链接和文本
         const urlElement = document.getElementById('url-display');
         urlElement.href = "/pages"+ itemData.url; // 设置超链接的地址
         urlElement.textContent = itemData.url; // 设置超链接的文本，也可以设置为更友好的描述
 
+        fetchItemContent(item.id)
     }
 
 

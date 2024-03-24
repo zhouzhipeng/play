@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use sqlx::{Error, FromRow};
+use tracing::info;
 
 use crate::tables::{DBPool, DBQueryResult};
 
@@ -29,15 +30,28 @@ impl GeneralData {
             .await
     }
 
+    fn convert_fields(field: &str) -> String {
+        let mut fields = "*".to_string();
+        if field != "*" {
+            fields = field.split(",").map(|f| f.trim())
+                .map(|f| format!("'{}', json_extract(data, '$.{}')", f, f))
+                .collect::<Vec<String>>() // Collect the strings into a new vector.
+                .join(", ");
+            info!("fields >> {}", fields);
+        }
 
-    pub async fn query(cat: &str, pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
-        sqlx::query_as::<_, GeneralData>("SELECT * FROM general_data where cat = ?")
+        format!("json_object({}) as data", fields)
+    }
+
+    pub async fn query(fields: &str, cat: &str, pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
+        let sql = &format!("SELECT id, cat, created,updated, {} FROM general_data where cat = ?", Self::convert_fields(fields));
+        sqlx::query_as::<_, GeneralData>(sql)
             .bind(cat)
             .fetch_all(pool)
             .await
     }
-    pub async fn query_json(cat: &str, query_field: &str, query_val: &str, pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
-        sqlx::query_as::<_, GeneralData>(format!("SELECT * FROM general_data where cat = ? and json_extract(data, '$.{}') = ?", query_field).as_str())
+    pub async fn query_json(fields: &str, cat: &str, query_field: &str, query_val: &str, pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
+        sqlx::query_as::<_, GeneralData>(format!("SELECT {} FROM general_data where cat = ? and json_extract(data, '$.{}') = ?", Self::convert_fields(fields), query_field).as_str())
             .bind(cat)
             .bind(query_val)
             .fetch_all(pool)
@@ -56,14 +70,14 @@ impl GeneralData {
             .execute(pool)
             .await
     }
-    pub async fn update_text(data_id: u32,data : &str, pool: &DBPool) -> Result<DBQueryResult, Error> {
+    pub async fn update_text(data_id: u32, data: &str, pool: &DBPool) -> Result<DBQueryResult, Error> {
         sqlx::query("update  general_data set data = ?, updated=CURRENT_TIMESTAMP where id = ?")
             .bind(data)
             .bind(data_id)
             .execute(pool)
             .await
     }
-    pub async fn update_text_global(cat: &str,data : &str, pool: &DBPool) -> Result<DBQueryResult, Error> {
+    pub async fn update_text_global(cat: &str, data: &str, pool: &DBPool) -> Result<DBQueryResult, Error> {
         sqlx::query("update  general_data set data = ?, updated=CURRENT_TIMESTAMP where cat = ?")
             .bind(data)
             .bind(cat)
@@ -76,8 +90,17 @@ impl GeneralData {
 #[cfg(test)]
 mod tests {
     use crate::tables::init_test_pool;
-
     use super::*;
+
+
+    #[tokio::test]
+    async fn test_convert_fiels() -> anyhow::Result<()> {
+
+        let f = GeneralData::convert_fields("title,url");
+        println!("{}", f);
+        Ok(())
+    }
+
 
     #[tokio::test]
     async fn test_all() -> anyhow::Result<()> {
