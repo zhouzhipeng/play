@@ -3,60 +3,181 @@
 <head>
     <meta charset="UTF-8">
     <title>Play tool</title>
-    <link rel="stylesheet" href="/static/css/classless.css">
     <link rel="icon" href="/static/icon.png">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"> <!-- 禁止页面缩放 -->
+
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            font-family: 'Arial', sans-serif;
+            background-color: #f5f5f5;
+            color: #333; /* Default text color */
+        }
+        .nav-bar {
+            background-color: #333;
+            color: white;
+            width: 100%;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1000;
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .nav-bar a {
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+        }
+        .nav-bar a:hover {
+            background-color: #575757;
+        }
+        .row {
+            display: flex;
+            flex-wrap: wrap;
+            margin: 0 20px;
+        }
+        .col {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            padding: 20px;
+            margin: 20px 20px;
+            flex: 1;
+            min-width: 300px;
+        }
+        ul {
+            list-style-type: none; /* Remove default list style */
+            padding-left: 0; /* Remove default padding */
+        }
+        ul li {
+            padding: 8px 0; /* Add some padding to each list item */
+        }
+        ul li a {
+            text-decoration: none; /* Remove underline from links */
+            color: #007bff; /* Link color */
+            transition: color 0.3s ease; /* Smooth transition for hover effect */
+        }
+        ul li a:hover {
+            color: #0056b3; /* Darker shade for link hover */
+            text-decoration: underline; /* Reintroduce underline on hover */
+        }
+        .footer {
+            background-color: #242424;
+            color: white;
+            text-align: center;
+            padding: 10px 0;
+            width: 100%;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+        }
+        @media (max-width: 768px) {
+            .row {
+                margin: 50px;
+            }
+            .col {
+                margin: 20px;
+                flex-basis: auto;
+            }
+            body, .nav-bar a {
+                font-size: 16px; /* Larger font size for better readability on small devices */
+            }
+        }
+
+        .row {
+            display: flex;
+            flex-wrap: wrap;
+            margin: 60px 20px 0; /* Increase the top margin to avoid being hidden by the nav-bar */
+            /* Keep the rest of your styles for .row */
+        }
+
+        /* Rest of your CSS... */
+
+        @media (max-width: 768px) {
+            /* Your responsive styles... */
+
+            .row {
+                margin-top: 40px; /* Adjust the top margin for smaller screens if needed */
+            }
+        }
+
+        .nav-bar {
+            background-color: #333;
+            color: white;
+            width: 100%;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1000;
+            display: flex;
+            justify-content: space-around;
+            padding: 5px 0; /* Decreased padding */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .nav-bar a {
+            color: white;
+            text-decoration: none;
+            padding: 10px 15px; /* Adjust based on your visual preference */
+        }
+        .nav-bar a:hover {
+            background-color: #575757;
+        }
+
+        /* Adjust the top padding of the body to ensure content is not hidden behind the smaller nav-bar */
+        body {
+            display: flex;
+            flex-direction: column;
+            padding-top: 50px; /* Adjust this value based on the new height of your nav-bar */
+            padding-bottom: 60px; /* Space for the footer */
+        }
+
+        .row {
+            display: flex;
+            flex-wrap: wrap;
+            margin: 40px 20px 0; /* You might need to adjust this if the nav-bar height changes significantly */
+        }
+
+        /* Other styles... */
+    </style>
 
 </head>
 <body>
-{{include('/fragments/top.html')}}
-
-
+<div class="nav-bar">
+    <a href="/">Home</a>
+    <a href="/admin">Admin</a>
+</div>
 <div class="row">
     <div class="col">
-
         <h2>System Tools</h2>
         <ul>
-            <li>
-                <a href="/static/str-joiner.html">String Joiner</a>
-            </li>
-            <li>
-                <a href="/static/py-runner.html">Python Runner</a>
-            </li>
-            <li>
-                <a href="/api-entry/list">API Manager</a>
-            </li>
-            <li>
-                <a href="/static/sql-runner.html">SQL Runner</a>
-            </li>
-            <li>
-                <a href="/static/text-compare.html">Text Compare</a>
-            </li>
-            <li>
-                <a href="/static/web-shell.html">Web Shell</a>
-            </li>
-            <li>
-                <a href="/static/page-editor.html">Page Editor</a>
-            </li>
+            <li><a href="/static/str-joiner.html">String Joiner</a></li>
+            <li><a href="/static/py-runner.html">Python Runner</a></li>
+            <li><a href="/api-entry/list">API Manager</a></li>
+            <li><a href="/static/sql-runner.html">SQL Runner</a></li>
+            <li><a href="/static/text-compare.html">Text Compare</a></li>
+            <li><a href="/static/web-shell.html">Web Shell</a></li>
+            <li><a href="/static/page-editor.html">Page Editor</a></li>
         </ul>
-
     </div>
     <div class="col">
-
         <h2>Business Pages</h2>
         <ul>
-            <li>
-                <a href="/todo/list">Todo Manager</a>
-            </li>
             % for item in pages :
             <li>
                 <a target="_blank" href="/pages{{item.url}}">{{item.title}}</a>
             </li>
             % end
-
         </ul>
-
     </div>
 </div>
-{{include('/fragments/bottom.html', built_time=built_time)}}
+<div class="footer">
+    built time : {{built_time}} (UTC)
+
+</div>
+
 </body>
 </html>
