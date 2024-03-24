@@ -48,7 +48,7 @@ https = {path = "../libs/https", optional = true}
 # third parties
 zip-extract = "0.1.2"
 sqlx = {workspace=true,features = ["sqlite", "mysql", "chrono"]}
-axum = { version = "0.6.20", features = ["headers", "http2", "ws","macros","tracing"] }
+axum = { version = "0.6.20", features = ["headers", "http2", "ws","macros","tracing", "multipart" ] }
 axum-server = "0.5.1"
 axum-macros = "0.3.8"
 serde = { version = "1.0", features = ["derive"] }
@@ -90,3 +90,5 @@ http = "0.2.11"
 moka = { version = "0.12.3", features = ["future"] }
 hex = "0.4.3"
 tokio-util = { version = "0.7", features = ["codec"] }
+multer = "3.0.0"
+infer = "0.7"
