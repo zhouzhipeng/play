@@ -33,7 +33,7 @@ method_router!(
 );
 async fn pack_files() -> R<impl IntoResponse> {
     let folder_path = files_dir!();
-    let target_file = data_dir!().join("packed.zip");
+    let target_file = data_dir!().join("packed_files.zip");
     fs::remove_file(&target_file).await;
     zip_dir(&folder_path, &target_file)?;
     match File::open(&target_file).await {
