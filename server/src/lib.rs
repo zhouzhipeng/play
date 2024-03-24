@@ -44,6 +44,7 @@ pub mod tables;
 pub mod service;
 pub mod config;
 pub mod layer;
+pub mod extractor;
 
 
 
@@ -234,6 +235,18 @@ macro_rules! method_router {
             )*
             router
         }
+    };
+}
+#[macro_export]
+macro_rules! data_dir {
+    () => {
+        std::path::Path::new(std::env::var("DATA_DIR").unwrap().as_str()).join("/");
+    };
+}
+#[macro_export]
+macro_rules! files_dir {
+    () => {
+        std::path::Path::new(std::env::var("DATA_DIR").unwrap().as_str()).join("files");
     };
 }
 

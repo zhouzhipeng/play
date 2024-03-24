@@ -15,7 +15,7 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
 
-use play::{ init_app_state, shutdown_another_instance, start_server};
+use play::{files_dir, init_app_state, shutdown_another_instance, start_server};
 use play::config::init_config;
 use play::routers;
 use shared::constants::DATA_DIR;
@@ -43,7 +43,9 @@ async fn main()->anyhow::Result<()> {
     env::set_var(DATA_DIR, &data_dir);
     println!("using data dir : {:?}", data_dir);
 
+    //init dir
     fs::create_dir_all(&data_dir).expect("create data dir failed.");
+    fs::create_dir_all(files_dir!()).expect("create files dir failed.");
 
 
     // init config
