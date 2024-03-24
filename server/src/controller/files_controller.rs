@@ -45,9 +45,9 @@ async fn upload_file(
                     continue;
                 };
 
-                let local_path = stream_to_file(&file_name, field).await?;
+                stream_to_file(&file_name, field).await?;
 
-                target_path.push(format!("/files/{}", local_path.file_name().unwrap().to_str().unwrap()));
+                target_path.push(format!("/files/{}", file_name));
             }
             Ok(target_path.join(","))
         }
