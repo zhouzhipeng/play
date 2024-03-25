@@ -149,9 +149,23 @@ async fn query_data_global(s: S, Path(cat): Path<String>) -> JSON<Vec<GeneralDat
     let data = GeneralData::query("*", &cat, &s.db).await?;
     return Ok(Json(data));
 }
-async fn get_data(s: S, Path(data_id): Path<u32>) -> JSON<Vec<GeneralData>> {
+async fn get_data(s: S, Path(data_id): Path<u32>, Query(mut params): Query<HashMap<String, String>>) -> JSON<Vec<QueryDataResp>>  {
+    let data_to_json = params.remove("_json").unwrap_or("false".to_string()).eq("true");
+
     let data = GeneralData::query_by_id(data_id, &s.db).await?;
-    Ok(Json(data))
+    return if data_to_json {
+        let data = data.iter().map(|d| QueryDataResp::Json(GeneralDataJson {
+            id: d.id,
+            cat: d.cat.to_string(),
+            data: serde_json::from_str::<Value>(&d.data).unwrap_or(Value::String(d.data.to_string())),
+            created: d.created,
+            updated: d.updated,
+        })).collect();
+        Ok(Json(data))
+    } else {
+        let data = data.iter().map(|d| QueryDataResp::Raw(d.clone())).collect();
+        Ok(Json(data))
+    }
 }
 
 
