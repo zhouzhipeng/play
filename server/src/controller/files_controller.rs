@@ -116,8 +116,8 @@ async fn upload_file(
                 };
 
                 if option.random_name{
-                    let prefix = file_name.split(".").collect::<Vec<&str>>()[1];
-                    file_name = format!("{}.{}", current_timestamp!(), prefix);
+                    let extension = extract_extension(&file_name);;
+                    file_name = format!("{}.{}", current_timestamp!(), extension);
                     info!("new file name : {}", file_name);
                 }
 
@@ -173,7 +173,11 @@ async fn download_file(Path(file_path): Path<String>) -> impl IntoResponse {
         }
     }
 }
-
+fn extract_extension(filename: &str) -> &str {
+    let path = std::path::Path::new(filename);
+    let extension = path.extension().and_then(|ext| ext.to_str()).unwrap_or("");
+    extension
+}
 
 // Save a `Stream` to a file
 async fn stream_to_file<S, E>(path: &str, stream: S) -> anyhow::Result<PathBuf>
@@ -232,7 +236,6 @@ async fn rename_file_with_correct_extension(path: &std::path::Path) -> anyhow::R
     fs::rename(path, new_path).await?;
     Ok(new_file_name)
 }
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -251,4 +254,13 @@ mod test {
         let path_str = path_buf.display().to_string();
         println!("{}", path_str);
     }
+
+    #[test]
+    fn test_split() {
+        let extension = extract_extension("sdfsdf . sddf sdfs sd.png");
+
+        println!("{}", extension);
+    }
+
+
 }
