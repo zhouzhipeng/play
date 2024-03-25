@@ -2,10 +2,13 @@ use std::collections::HashMap;
 
 use axum::{Form, Json};
 use axum::extract::{Path, Query};
-use serde::{Deserialize, Serialize};
+use axum::response::{IntoResponse, Response};
+use axum_macros::debug_handler;
+use serde::{Deserialize, Serialize, Serializer};
+use serde_json::Value;
 use tracing::info;
 
-use crate::{check, JSON, method_router, return_error, S};
+use crate::{check, JSON, method_router, R, return_error, S};
 use crate::tables::general_data::GeneralData;
 
 method_router!(
@@ -80,24 +83,65 @@ async fn override_data(s: S, Path(cat): Path<String>, body: String) -> JSON<MsgR
         return Ok(Json(MsgResp { msg: "update ok".to_string(), id_or_count: data.rows_affected() as u32 }));
     }
 }
+#[derive(Debug, Serialize, Default)]
+pub struct GeneralDataJson {
+    pub id: u32,
+    pub cat: String,
+    pub data: Value,
+    pub created: chrono::NaiveDateTime,
+    pub updated: chrono::NaiveDateTime,
+}
+
+enum QueryDataResp{
+    Raw(GeneralData),
+    Json(GeneralDataJson),
+}
+
+impl Serialize for QueryDataResp {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        match self{
+            QueryDataResp::Raw(a) => a.serialize(serializer),
+            QueryDataResp::Json(a) => a.serialize(serializer),
+        }
+    }
+}
 
 
-async fn query_data(s: S, Path(cat): Path<String>, Query(mut params): Query<HashMap<String, String>>) -> JSON<Vec<GeneralData>> {
-    let fields = params.remove("_select").unwrap_or("*".to_string());
+//
+// #[debug_handler]
+async fn query_data(s: S, Path(cat): Path<String>, Query(mut params): Query<HashMap<String, String>>) -> JSON<Vec<QueryDataResp>> {
+    //options
+    let select_fields = params.remove("_select").unwrap_or("*".to_string());
+    let data_to_json = params.remove("_json").unwrap_or("false".to_string()).eq("true");
 
+    let mut return_data = vec![];
 
+    //support  one keyword field query only.
     if params.len() == 1 {
         for (k, v) in params {
-            let data = GeneralData::query_json(&fields, &cat, &k, &v, &s.db).await?;
-            return Ok(Json(data));
+            return_data = GeneralData::query_json(&select_fields, &cat, &k, &v, &s.db).await?;
+
+            break;
         }
     } else if params.len() == 0 {
-        let data = GeneralData::query(&fields,&cat, &s.db).await?;
-        return Ok(Json(data));
+        return_data = GeneralData::query(&select_fields, &cat, &s.db).await?;
     }
 
 
-    return_error!("unknown error")
+    return if data_to_json {
+        let data = return_data.iter().map(|d| QueryDataResp::Json(GeneralDataJson {
+            id: d.id,
+            cat: d.cat.to_string(),
+            data: serde_json::from_str::<Value>(&d.data).unwrap_or(Value::String(d.data.to_string())),
+            created: d.created,
+            updated: d.updated,
+        })).collect();
+        Ok(Json(data))
+    } else {
+        let data = return_data.iter().map(|d| QueryDataResp::Raw(d.clone())).collect();
+        Ok(Json(data))
+    }
+
 }
 
 async fn query_data_global(s: S, Path(cat): Path<String>) -> JSON<Vec<GeneralData>> {
