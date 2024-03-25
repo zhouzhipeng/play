@@ -6,12 +6,13 @@ use anyhow::anyhow;
 
 use axum::body::{Body, Bytes, HttpBody, StreamBody};
 use axum::BoxError;
-use axum::extract::Path;
+use axum::extract::{Path, Query};
 use axum::response::{IntoResponse, Response};
 use futures::Stream;
 use futures_util::TryStreamExt;
 use http::{HeaderValue, StatusCode};
 use infer::Infer;
+use serde::Deserialize;
 use sqlx::Row;
 use tokio::fs;
 use tokio::fs::File;
@@ -92,21 +93,34 @@ fn zip_dir<T: AsRef<std::path::Path>>(src_dir: T, dst_file: T) -> zip::result::Z
     Ok(())
 }
 
-
+#[derive(Deserialize, Debug, Default)]
+struct UploadOption{
+    #[serde(default)]
+    random_name: bool
+}
 
 // #[debug_handler]
 async fn upload_file(
+    Query(option): Query<UploadOption>,
     body: CustomFileExtractor
 ) -> R<String> {
+    info!("upload option : {:?}", option);
     return match body {
         CustomFileExtractor::MULTIPART(mut multipart) => {
             let mut target_path = vec![];
             while let Some(field) = multipart.next_field().await.unwrap() {
-                let file_name = if let Some(file_name) = field.file_name() {
+                let mut file_name = if let Some(file_name) = field.file_name() {
                     file_name.to_owned()
                 } else {
                     continue;
                 };
+
+                if option.random_name{
+                    let prefix = file_name.split(".").collect::<Vec<&str>>()[1];
+                    file_name = format!("{}.{}", current_timestamp!(), prefix);
+                    info!("new file name : {}", file_name);
+                }
+
 
                 stream_to_file(&file_name, field).await?;
 
