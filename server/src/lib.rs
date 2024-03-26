@@ -19,6 +19,7 @@ use lazy_static::lazy_static;
 use serde::Serialize;
 use serde_json::{json, Value};
 use tokio::time::sleep;
+use tower_http::compression::CompressionLayer;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
@@ -271,6 +272,7 @@ pub fn routers(app_state: Arc<AppState>) -> Router {
         .layer(TraceLayer::new_for_http().make_span_with(DefaultMakeSpan::default().include_headers(true)))
         .layer(TimeoutLayer::new(Duration::from_secs(60)))
         .layer(DefaultBodyLimit::disable())
+        .layer(CompressionLayer::new())
         .layer(cors)
 }
 
