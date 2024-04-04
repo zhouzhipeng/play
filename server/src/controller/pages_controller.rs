@@ -28,7 +28,7 @@ struct PageDto{
 async fn dynamic_pages(s: S, Path(url): Path<String>) -> HTML {
     info!("dynamic_pages >> url is : {}", url);
 
-    let data = GeneralData::query_json("*", "pages", "url", &format!("/{}", url), &s.db).await?;
+    let data = GeneralData::query_by_json_field("*", "pages", "url", &format!("/{}", url), &s.db).await?;
     ensure!(data.len()==1, "url not found.");
     // Your hex string
 

@@ -187,7 +187,6 @@ async fn chat_ai(s: S, Form(req): Form<ChatAIReq>) -> HTML {
 
 
 
-
     Ok(Html("<h2>No Diff!</h2>".to_string()))
     // Ok(Html("sfd".to_string()))
 }

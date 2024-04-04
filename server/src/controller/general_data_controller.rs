@@ -16,8 +16,7 @@ method_router!(
     put : "/data/id-:data_id"-> update_data,
     patch : "/data/id-:data_id"-> update_field,
     delete : "/data/id-:data_id"-> delete_data,
-    post : "/data/cat-g-:cat"-> override_data,  // g-xxx  means a global category , should have only one item. so when call insert_data twice it will override data.
-    get : "/data/cat-g-:cat"-> query_data_global,
+    put : "/data/cat-:cat"-> override_data,  // global data. insert or update.
     post : "/data/cat-:cat"-> insert_data,
     get : "/data/cat-:cat"-> query_data, // cat-pages?title=xxx&_select=title,url&_data_json=true
 
@@ -60,9 +59,9 @@ async fn insert_data(s: S, Path(cat): Path<String>, body: String) -> JSON<MsgRes
 }
 
 async fn override_data(s: S, Path(cat): Path<String>, body: String) -> JSON<MsgResp> {
-    let cat = format!("g-{}", cat);
 
-    let list_data = GeneralData::query("*", &cat, &s.db).await?;
+
+    let list_data = GeneralData::list_by_cat("*", &cat, &s.db).await?;
     ensure!(list_data.len()<=1, "A global category should have only one item!");
 
     if list_data.len() == 0 {
@@ -79,7 +78,7 @@ async fn override_data(s: S, Path(cat): Path<String>, body: String) -> JSON<MsgR
         Ok(Json(MsgResp { msg: "ok".to_string(), id_or_count: ret.last_insert_rowid() as u32 }))
     } else {
         //update
-        let data = GeneralData::update_text_global(&cat, &body, &s.db).await?;
+        let data = GeneralData::update_data_by_cat(&cat, &body, &s.db).await?;
         return Ok(Json(MsgResp { msg: "update ok".to_string(), id_or_count: data.rows_affected() as u32 }));
     }
 }
@@ -119,12 +118,12 @@ async fn query_data(s: S, Path(cat): Path<String>, Query(mut params): Query<Hash
     //support  one keyword field query only.
     if params.len() == 1 {
         for (k, v) in params {
-            return_data = GeneralData::query_json(&select_fields, &cat, &k, &v, &s.db).await?;
+            return_data = GeneralData::query_by_json_field(&select_fields, &cat, &k, &v, &s.db).await?;
 
             break;
         }
     } else if params.len() == 0 {
-        return_data = GeneralData::query(&select_fields, &cat, &s.db).await?;
+        return_data = GeneralData::list_by_cat(&select_fields, &cat, &s.db).await?;
     }
 
 
@@ -145,8 +144,8 @@ async fn query_data(s: S, Path(cat): Path<String>, Query(mut params): Query<Hash
 }
 
 async fn query_data_global(s: S, Path(cat): Path<String>) -> JSON<Vec<GeneralData>> {
-    let cat = format!("g-{}", cat);
-    let data = GeneralData::query("*", &cat, &s.db).await?;
+
+    let data = GeneralData::list_by_cat("*", &cat, &s.db).await?;
     return Ok(Json(data));
 }
 async fn get_data(s: S, Path(data_id): Path<u32>, Query(mut params): Query<HashMap<String, String>>) -> JSON<Vec<QueryDataResp>>  {
@@ -170,14 +169,14 @@ async fn get_data(s: S, Path(data_id): Path<u32>, Query(mut params): Query<HashM
 
 
 async fn update_data(s: S, Path(data_id): Path<u32>, body: String) -> JSON<MsgResp> {
-    let data = GeneralData::update_text(data_id, &body, &s.db).await?;
+    let data = GeneralData::update_data_by_id(data_id, &body, &s.db).await?;
     return Ok(Json(MsgResp { msg: "update ok".to_string(), id_or_count: data.rows_affected() as u32 }));
 }
 
 async fn update_field(s: S, Path(data_id): Path<u32>, Query(params): Query<HashMap<String, String>>) -> JSON<MsgResp> {
     ensure!(params.len()==1);
     for (k, v) in params {
-        let data = GeneralData::update_json(data_id, &k, &v, &s.db).await?;
+        let data = GeneralData::update_json_field_by_id(data_id, &k, &v, &s.db).await?;
         return Ok(Json(MsgResp { msg: "update ok".to_string(), id_or_count: data.rows_affected() as u32 }));
     }
 

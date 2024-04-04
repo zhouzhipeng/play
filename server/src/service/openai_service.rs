@@ -165,12 +165,14 @@ impl OpenAIService {
 
 #[cfg(test)]
 mod tests {
+    use crate::mock_state;
     use super::*;
 
     #[ignore]
     #[tokio::test]
     async fn test_all() -> anyhow::Result<()> {
-        let openai_service = OpenAIService::new("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".to_string(), "asst_7jzzMXWCSN15ztuDtHBwtlTu".to_string())?;
+        let s = mock_state!();
+        let openai_service = &s.openai_service;;
         let thread  = openai_service.create_thread().await?;
         let msg = CreateMessage{
             role: Role::user,
