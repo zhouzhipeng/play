@@ -8,7 +8,7 @@ use tracing::{error, info};
 use shared::timestamp_to_date_str;
 use shared::tpl_engine_api::Template;
 
-use crate::{check, hex_to_string, method_router, render_fragment, template};
+use crate::{ensure, hex_to_string, method_router, render_fragment, template};
 use crate::{HTML, R, S};
 use crate::tables::general_data::GeneralData;
 
@@ -29,7 +29,7 @@ async fn dynamic_pages(s: S, Path(url): Path<String>) -> HTML {
     info!("dynamic_pages >> url is : {}", url);
 
     let data = GeneralData::query_json("*", "pages", "url", &format!("/{}", url), &s.db).await?;
-    check!(data.len()==1, "url not found.");
+    ensure!(data.len()==1, "url not found.");
     // Your hex string
 
 

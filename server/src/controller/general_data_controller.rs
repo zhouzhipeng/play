@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize, Serializer};
 use serde_json::Value;
 use tracing::info;
 
-use crate::{check, JSON, method_router, R, return_error, S};
+use crate::{ensure, JSON, method_router, R, return_error, S};
 use crate::tables::general_data::GeneralData;
 
 method_router!(
@@ -43,7 +43,7 @@ struct UpdateDataTextReq {
 
 async fn insert_data(s: S, Path(cat): Path<String>, body: String) -> JSON<MsgResp> {
     //validation
-    check!(!vec!["id", "data","get","update","delete","list", "query"].contains(&cat.as_str()));
+    ensure!(!vec!["id", "data","get","update","delete","list", "query"].contains(&cat.as_str()));
     // check!(serde_json::from_str::<Value>(&body).is_ok());
 
     let data = GeneralData {
@@ -54,7 +54,7 @@ async fn insert_data(s: S, Path(cat): Path<String>, body: String) -> JSON<MsgRes
 
     let ret = GeneralData::insert(&data, &s.db).await?;
     let id = ret.rows_affected();
-    check!(id==1);
+    ensure!(id==1);
 
     Ok(Json(MsgResp { msg: "ok".to_string(), id_or_count: ret.last_insert_rowid() as u32 }))
 }
@@ -63,7 +63,7 @@ async fn override_data(s: S, Path(cat): Path<String>, body: String) -> JSON<MsgR
     let cat = format!("g-{}", cat);
 
     let list_data = GeneralData::query("*", &cat, &s.db).await?;
-    check!(list_data.len()<=1, "A global category should have only one item!");
+    ensure!(list_data.len()<=1, "A global category should have only one item!");
 
     if list_data.len() == 0 {
         //insert
@@ -75,7 +75,7 @@ async fn override_data(s: S, Path(cat): Path<String>, body: String) -> JSON<MsgR
 
         let ret = GeneralData::insert(&data, &s.db).await?;
         let id = ret.rows_affected();
-        check!(id==1);
+        ensure!(id==1);
         Ok(Json(MsgResp { msg: "ok".to_string(), id_or_count: ret.last_insert_rowid() as u32 }))
     } else {
         //update
@@ -175,7 +175,7 @@ async fn update_data(s: S, Path(data_id): Path<u32>, body: String) -> JSON<MsgRe
 }
 
 async fn update_field(s: S, Path(data_id): Path<u32>, Query(params): Query<HashMap<String, String>>) -> JSON<MsgResp> {
-    check!(params.len()==1);
+    ensure!(params.len()==1);
     for (k, v) in params {
         let data = GeneralData::update_json(data_id, &k, &v, &s.db).await?;
         return Ok(Json(MsgResp { msg: "update ok".to_string(), id_or_count: data.rows_affected() as u32 }));

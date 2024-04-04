@@ -19,7 +19,7 @@ use sqlx::Executor;
 use sqlx::{Column, Row};
 use sqlx::mysql::{MySqlPoolOptions, MySqlQueryResult, MySqlRow};
 
-use crate::{check, method_router, template};
+use crate::{ensure, method_router, template};
 use crate::{HTML, JSON, render_fragment, S, Template};
 
 method_router!(
@@ -116,7 +116,7 @@ async fn run_sql(s: S, Form(data): Form<RunSqlRequest>) -> HTML {
     //parse sql
     let dialect = GenericDialect {}; // or AnsiDialect
     let statements = Parser::parse_sql(&dialect, sql)?;
-    check!(statements.len()==1, "Err >> can only pass one sql statement!");
+    ensure!(statements.len()==1, "Err >> can only pass one sql statement!");
 
     let is_query = match statements[0] {
         Statement::Query(_) => true,
@@ -175,7 +175,7 @@ async fn text_compare(s: S, Form(mut data): Form<TextCompareReq>) -> HTML {
     }
 
     let resp = client.post("https://text-compare.com/").form(&data).send().await?;
-    check!(resp.status().is_success(), "call https://text-compare.com/ failed.");
+    ensure!(resp.status().is_success(), "call https://text-compare.com/ failed.");
     // info!("resp >> {}", resp.text().await?);
     let res_body = resp.json::<TextCompareRes>().await?;
     Ok(Html(res_body.comparison.unwrap_or("<h2>No Diff!</h2>".to_string())))
@@ -184,6 +184,10 @@ async fn text_compare(s: S, Form(mut data): Form<TextCompareReq>) -> HTML {
 
 
 async fn chat_ai(s: S, Form(req): Form<ChatAIReq>) -> HTML {
+
+
+
+
     Ok(Html("<h2>No Diff!</h2>".to_string()))
     // Ok(Html("sfd".to_string()))
 }
@@ -250,151 +254,5 @@ mod tests {
         Ok(())
     }
 
-    #[ignore]
-    #[tokio::test]
-    async fn test_create_thread() -> anyhow::Result<()> {
-        // 你的 OpenAI API 密钥
-        let api_key = "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";
 
-        // HTTP 客户端设置
-        let client = reqwest::Client::new();
-        let mut headers = HeaderMap::new();
-        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-        headers.insert("Authorization", HeaderValue::from_str(&format!("Bearer {}", api_key))?);
-        headers.insert("OpenAI-Beta", HeaderValue::from_str("assistants=v1")?);
-
-
-        // 对话 API 端点
-        let url = "https://api.openai.com/v1/threads";
-
-        // 请求体，根据需要调整 prompt 和 model
-        let body = json!({
-
-          "messages": [
-              {
-                  "role": "user",
-                  "content": "who are u?",
-              }
-            ]
-
-        });
-
-        // 发起 POST 请求
-        let response = client.post(url)
-            .headers(headers)
-            .json(&body)
-            .send()
-            .await?;
-
-        // 解析响应
-        let response_text = response.text().await?;
-        println!("Response: {}", response_text);
-        Ok(())
-    }
-    #[ignore]
-    #[tokio::test]
-    async fn test_run_thread() -> anyhow::Result<()> {
-        // 你的 OpenAI API 密钥
-        let api_key = "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";
-
-        // HTTP 客户端设置
-        let client = reqwest::Client::new();
-        let mut headers = HeaderMap::new();
-        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-        headers.insert("Authorization", HeaderValue::from_str(&format!("Bearer {}", api_key))?);
-        headers.insert("OpenAI-Beta", HeaderValue::from_str("assistants=v1")?);
-
-        let  thread_id="thread_6xpEFFugvQlUZfFMjnTgNNiq"; //todo: use previous test result
-
-        let assistant_id = "asst_7jzzMXWCSN15ztuDtHBwtlTu";
-
-        // 对话 API 端点
-        let url = format!("https://api.openai.com/v1/threads/{}/runs", thread_id);
-
-        // 请求体，根据需要调整 prompt 和 model
-        let body = json!({
-            "assistant_id": assistant_id,
-        });
-
-        // 发起 POST 请求
-        let response = client.post(url)
-            .headers(headers)
-            .json(&body)
-            .send()
-            .await?;
-
-        // 解析响应
-        let response_text = response.text().await?;
-        println!("Response: {}", response_text);
-        Ok(())
-    }
-
-    ///
-    /// api doc:  https://platform.openai.com/docs/api-reference/runs/getRun
-    #[ignore]
-    #[tokio::test]
-    async fn test_get_run_result() -> anyhow::Result<()> {
-        // 你的 OpenAI API 密钥
-
-
-        // HTTP 客户端设置
-        let client = reqwest::Client::new();
-        let headers = get_headers()?;
-
-        let  thread_id="thread_6xpEFFugvQlUZfFMjnTgNNiq"; //todo: use previous test result
-        let  run_id="run_hsuc5UdSZ7d0ANSycThCIIQ2"; //todo: use previous test result
-
-        let assistant_id = "asst_7jzzMXWCSN15ztuDtHBwtlTu";
-
-        // 对话 API 端点
-        let url = format!("https://api.openai.com/v1/threads/{}/runs/{}", thread_id, run_id);
-
-
-        // 发起 POST 请求
-        let response = client.get(url)
-            .headers(headers)
-            .send()
-            .await?;
-
-        // 解析响应
-        let response_text = response.text().await?;
-        println!("Response: {}", response_text);
-        Ok(())
-    }
-    #[ignore]
-    #[tokio::test]
-    async fn test_get_message_list() -> anyhow::Result<()> {
-
-        // HTTP 客户端设置
-        let client = reqwest::Client::new();
-        let headers = get_headers()?;
-
-        let  thread_id="thread_6xpEFFugvQlUZfFMjnTgNNiq"; //todo: use previous test result
-
-        let assistant_id = "asst_7jzzMXWCSN15ztuDtHBwtlTu";
-
-        // 对话 API 端点
-        let url = format!("https://api.openai.com/v1/threads/{}/messages", thread_id);
-
-
-        // 发起 POST 请求
-        let response = client.get(url)
-            .headers(headers)
-            .send()
-            .await?;
-
-        // 解析响应
-        let response_text = response.text().await?;
-        println!("Response: {}", response_text);
-        Ok(())
-    }
-
-    fn get_headers() -> anyhow::Result<HeaderMap> {
-        let api_key = "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";
-        let mut headers = HeaderMap::new();
-        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-        headers.insert("Authorization", HeaderValue::from_str(&format!("Bearer {}", api_key))?);
-        headers.insert("OpenAI-Beta", HeaderValue::from_str("assistants=v1")?);
-        Ok(headers)
-    }
 }

@@ -4,5 +4,6 @@ pub mod template_service;
 pub mod redis_fake_service;
 #[cfg(not(feature = "tpl"))]
 pub mod tpl_fake_engine;
+mod openai_service;
 
 

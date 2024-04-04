@@ -55,7 +55,7 @@ pub mod extractor;
 ///
 /// a replacement of `ensure!` in anyhow
 #[macro_export]
-macro_rules! check {
+macro_rules! ensure {
     ($($tt:tt)*) => {
         {
             use anyhow::ensure;
