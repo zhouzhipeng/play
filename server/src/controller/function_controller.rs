@@ -9,6 +9,7 @@ use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse, Response};
 use either::Either;
 use futures_util::{StreamExt, TryStreamExt};
+use hex::ToHex;
 use http::StatusCode;
 use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
@@ -22,7 +23,7 @@ use sqlx::mysql::{MySqlPoolOptions, MySqlQueryResult, MySqlRow};
 use tokio::fs::File;
 use tracing::info;
 
-use crate::{ensure, method_router, R, template};
+use crate::{ensure, hex_to_string, method_router, R, string_to_hex, template};
 use crate::{HTML, JSON, render_fragment, S, Template};
 use crate::service::openai_service::{CreateMessage, Role};
 use crate::tables::general_data::GeneralData;
@@ -217,7 +218,7 @@ async fn chat_ai(s: S, Form(req): Form<ChatAIReq>) -> R<impl IntoResponse> {
 
     let  response = Response::builder()
         .status(StatusCode::OK)
-        .header("x-resp-msg", resp_msg)
+        .header("x-resp-msg", string_to_hex(&resp_msg))
         .body(Body::from(bytes))?; // Convert Vec<u8> into Body
 
     Ok(response)

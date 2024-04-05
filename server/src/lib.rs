@@ -1,5 +1,7 @@
+#![feature(backtrace_frames)]
 #![allow(non_camel_case_types)]
 
+use std::backtrace::Backtrace;
 use std::env;
 use std::net::SocketAddr;
 use std::ops::Deref;
@@ -7,6 +9,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 use anyhow::{anyhow, bail};
+use anyhow::__private::kind::TraitKind;
 use async_channel::Receiver;
 use async_trait::async_trait;
 
@@ -123,6 +126,7 @@ macro_rules! mock_server {
 #[macro_export]
 macro_rules! return_error {
     ($msg:literal $(,)?) => {
+        // tracing::info!("Error: {} (file: {}, line: {})", error, file!(), line!());
         return Err(anyhow::anyhow!($msg).into());
     };
     ($err:expr $(,)?) => {
@@ -325,13 +329,17 @@ pub struct AppError(anyhow::Error);
 // Tell axum how to convert `AppError` into a response.
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-        // #[cfg(feature = "debug")]
-        error!("server error: {}", self.0.to_string());
+
+
+        let error = self.0;
+        #[cfg(feature = "debug")]
+        error!("server error: {:?}", error);
+
 
 
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Server Error: {}", self.0),
+            format!("Server Error: {}", error),
         )
             .into_response()
     }
@@ -494,6 +502,13 @@ macro_rules! hex_to_string {
     }};
 }
 
+
+fn string_to_hex(input: &str) -> String {
+    input.as_bytes()
+        .iter()
+        .map(|&b| format!("{:02x}", b))
+        .collect()
+}
 
 // Include the generated-file as a seperate module
 #[cfg(test)]

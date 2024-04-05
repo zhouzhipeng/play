@@ -32,7 +32,7 @@ async fn static_path(s: S, Path(path): Path<String>) -> impl IntoResponse {
         None => Response::builder()
             .status(StatusCode::NOT_FOUND)
             .body(body::boxed(Empty::new()))
-            .unwrap_or(AppError(anyhow!("unknown error.")).into_response()),
+            .unwrap_or(AppError(anyhow!("file not found.")).into_response()),
         Some(file) => Response::builder()
             .status(StatusCode::OK)
             .header(
@@ -40,6 +40,6 @@ async fn static_path(s: S, Path(path): Path<String>) -> impl IntoResponse {
                 HeaderValue::from_str(mime_type.as_ref()).unwrap_or(HeaderValue::from_static("")),
             )
             .body(body::boxed(Full::from(file.contents())))
-            .unwrap_or(AppError(anyhow!("unknown error.")).into_response()),
+            .unwrap_or(AppError(anyhow!("unknown error when handle static files.")).into_response()),
     }
 }
