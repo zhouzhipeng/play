@@ -178,7 +178,8 @@
                         %end
                         {{round(current_price * item.quantity - current_invest,2)}}
 
-                        <span style="font-size: 12px; color: grey">
+                        % color = 'green' if current_price > item.price else 'red'
+                        <span style="font-size: 12px; color: {{color}}">
                         {{round((current_price * item.quantity - current_invest) / (current_invest) * 100 ,2)}}%
                         </span>
                         % end
@@ -268,8 +269,8 @@
                         +
                         %end
                         {{ round(total_return - total_invest,2)}}
-
-                        <span style="font-size: 12px; color: grey">
+                        % color = 'green' if current_price > item.price else 'red'
+                        <span style="font-size: 12px; color: {{color}}">
                         {{round((total_return - total_invest) /total_invest *100, 2 )}}%
                         </span>
                         %end
