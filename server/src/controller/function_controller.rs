@@ -145,7 +145,7 @@ struct TextCompareReq {
     with_ajax: i32,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct ChatAIReq {
     pub input: String,
 }
@@ -190,6 +190,7 @@ async fn text_compare(s: S, Form(mut data): Form<TextCompareReq>) -> HTML {
 const CAT_OPENAI_THREAD: &str="openai_thread";
 
 async fn chat_ai(s: S, Form(req): Form<ChatAIReq>) -> R<impl IntoResponse> {
+    info!("chat ai request in : {:?}", req);
     let openai_thread = GeneralData::query_by_cat_simple(CAT_OPENAI_THREAD, &s.db).await?;
     let thread_id = if openai_thread.is_empty(){
         //first time , so create a new openai thread.

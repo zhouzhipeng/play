@@ -6,7 +6,9 @@ use std::ops::Deref;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
+use anyhow::{anyhow, bail};
 use async_channel::Receiver;
+use async_trait::async_trait;
 
 use axum::extract::{DefaultBodyLimit, State};
 use axum::http::{Method, StatusCode};
@@ -62,14 +64,46 @@ pub mod extractor;
 macro_rules! ensure {
     ($($tt:tt)*) => {
         {
-            use anyhow::ensure;
             (||{
-                ensure!($($tt)*);
+                anyhow::ensure!($($tt)*);
                 Ok(())
             })()?
         }
     };
 }
+
+
+
+#[async_trait]
+trait CheckResponse{
+    async fn check(self)->anyhow::Result<Self>
+        where Self:Sized;
+}
+
+
+#[async_trait]
+impl CheckResponse for reqwest::Response {
+
+    ///
+    /// auto check http status code make sure it's 2xx
+    async fn check(self) -> anyhow::Result<Self> {
+        let url = self.url();
+        let status = self.status();
+        let msg = format!("request url : {},  status : {}",url , status);
+
+        if !self.status().is_success(){
+            let resp_text = self.text().await?;
+            error!("{} , error http response >> {}",msg, resp_text);
+            bail!(resp_text)
+        }else{
+            info!("{}", msg);
+            return Ok(self)
+        }
+    }
+}
+
+
+
 #[macro_export]
 macro_rules! mock_state {
     ()=>{
