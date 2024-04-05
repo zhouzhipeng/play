@@ -1,10 +1,9 @@
-use std::time::Duration;
-use http_body::Body;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
+
 use play::controller::function_controller::ChatAIReq;
 use play::mock_server;
-use play::tables::general_data::GeneralData;
+
 #[tokio::test]
 async fn test_chat_ai() -> anyhow::Result<()> {
     let server = mock_server!();
