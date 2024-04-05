@@ -84,7 +84,7 @@
         % stock_price_map = {}
 
         <!-- Stock Information Section -->
-        <div class="section">
+        <div class="section" style="display: none">
             <h2 class="section-title">Markets</h2>
             <span>US : {{us_stock_status}} | HK : {{hk_stock_status}}</span>
             <table>
@@ -95,16 +95,25 @@
                     <th>Change</th>
                     <th>Previous Close</th>
                 </tr>
+                % symbol_change_map={}
+                % symbol_link_map={}
                 % for item in stock_items:
+                % symbol_change_map[item.symbol]=item.price.change_percent
+
                 % stock_price_map[item.symbol] = item.price.price if item.price.price!="" else "0"
                 <tr>
                     <td>
                     % if item.market == "US_STOCK":
                     <a href="https://finance.yahoo.com/quote/{{item.symbol}}?p={{item.symbol}}&.tsrc=fin-srch" target="_blank">{{item.symbol}}</a>
+                    % symbol_link_map[item.symbol]= f"https://finance.yahoo.com/quote/{item.symbol}?p={item.symbol}&.tsrc=fin-srch"
                     %elif  item.market == "HK_STOCK":
                     <a href="https://www.hkex.com.hk/Market-Data/Securities-Prices/Equities/Equities-Quote?sym={{item.symbol}}&sc_lang=en" target="_blank">{{item.symbol}}</a>
+                    % symbol_link_map[item.symbol]= f"https://www.hkex.com.hk/Market-Data/Securities-Prices/Equities/Equities-Quote?sym={item.symbol}&sc_lang=en"
+
                     %elif  item.market == "CRYPTO":
                     <a href="https://www.binance.com/en/trade/{{item.symbol}}?type=spot" target="_blank">{{item.symbol}}</a>
+                    % symbol_link_map[item.symbol]= f"https://www.binance.com/en/trade/{item.symbol}?type=spot&sc_lang=en"
+
                     %else:
                     {{item.symbol}}
                     % end
@@ -125,7 +134,7 @@
             <h2 class="section-title">Portfolio Holdings</h2>
             <table>
                 <tr>
-                    <th>Symbol</th>
+<!--                    <th>Symbol</th>-->
                     <th>Name</th>
                     <th>Quantity</th>
                     <th>Avg Price</th>
@@ -149,11 +158,14 @@
                 % total_invest = round(total_invest,2)
                 % total_return = round(total_return,2)
                 <tr>
-                    <td>{{item.symbol}}</td>
-                    <td>{{item.name}}</td>
+<!--                    <td>{{item.symbol}}</td>-->
+                    <td>
+                        <a href="{{symbol_link_map[item.symbol]}}" target="_blank">{{item.name}}</a>
+
+                    </td>
                     <td class="collapsible">{{round(item.quantity,2)}}</td>
                     <td>{{item.tag}}{{round(item.price,2)}}</td>
-                    <td>{{item.tag}}{{current_price}}</td>
+                    <td>{{item.tag}}{{current_price}} (<span style="font-size: 12px">{{symbol_change_map[item.symbol]}}</span> <span style="font-size: 10px">24h</span>)</td>
                     <td>{{item.tag}}{{current_invest}}</td>
                     <td>
                         {{item.tag}}{{round(current_price * item.quantity,2)}}
@@ -174,7 +186,7 @@
                     </td>
                 </tr>
                 <tr class="hidden">
-                    <td colspan="7">
+                    <td colspan="6">
                         % if item.market == 'CRYPTO':
                         <h3 style="color: red">BUY and SELL should have 30 days gap!!!</h3>
                         %end
@@ -242,7 +254,8 @@
                 %end
 
                 <tr>
-                    <td></td>
+
+
                     <td></td>
                     <td></td>
                     <td></td>
@@ -302,6 +315,6 @@
         });
     });
 </script>
-    </script>
+
 </body>
 </html>

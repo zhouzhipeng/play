@@ -1,9 +1,12 @@
+use std::time::Duration;
 use anyhow::Context;
 use axum::http::header;
+use axum::response::Html;
 use chrono::TimeZone;
 use rand::Rng;
 use regex::Regex;
-use scraper::{Html, Selector};
+use reqwest::Client;
+use scraper::{ Selector};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tracing::info;
@@ -203,6 +206,7 @@ async fn dashboard(s: S) -> HTML {
         "us_stock_status": us_stock_status,
         "hk_stock_status": hk_stock_status,
     }))
+    // Ok(Html("sf".to_string()))
 
 }
 
@@ -273,7 +277,7 @@ async fn query_stock_price(symbol: &str, apikey: &str)->anyhow::Result<GlobalQuo
     #[cfg(not(feature = "debug"))]
     let url = format!("https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={}&apikey={}", symbol, apikey).to_string();
 
-    let data: Value =reqwest::get(url).await?
+    let data: Value =get_client().get(url).send().await?
         .json().await?;
     info!("data >> {:?}", data);
     if data.get("Information").is_some(){
@@ -290,6 +294,16 @@ async fn query_stock_price(symbol: &str, apikey: &str)->anyhow::Result<GlobalQuo
         previous_close,
         last_trading_day,
     })
+}
+
+fn get_client() -> Client {
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .connect_timeout(Duration::from_secs(3))
+        .timeout(Duration::from_secs(3))
+        .build()
+        .unwrap();
+    client
 }
 async fn query_us_stock_price(symbol: &str, apikey: &str)->anyhow::Result<GlobalQuote>{
     let mut headers = header::HeaderMap::new();
@@ -308,11 +322,8 @@ async fn query_us_stock_price(symbol: &str, apikey: &str)->anyhow::Result<Global
     headers.insert("sec-fetch-site", "same-site".parse().unwrap());
     headers.insert("user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36".parse().unwrap());
 
-    let client = reqwest::Client::builder()
-        .redirect(reqwest::redirect::Policy::none())
-        .build()
-        .unwrap();
-    let res:YahooChartResp = client.get(format!("https://query1.finance.yahoo.com/v8/finance/chart/{}?region=US&lang=en-US&includePrePost=false&interval=2m&useYfid=true&range=1d&corsDomain=finance.yahoo.com&.tsrc=finance", symbol))
+
+    let res:YahooChartResp = get_client().get(format!("https://query1.finance.yahoo.com/v8/finance/chart/{}?region=US&lang=en-US&includePrePost=false&interval=2m&useYfid=true&range=1d&corsDomain=finance.yahoo.com&.tsrc=finance", symbol))
         .headers(headers)
         .send().await?
         .json().await?;
@@ -330,7 +341,7 @@ async fn query_market_status(apikey: &str)->anyhow::Result<Vec<MarketStatus>>{
 
     let url = format!("https://www.alphavantage.co/query?function=MARKET_STATUS&apikey={}", apikey).to_string();
 
-    let data:FullMarketStatus =reqwest::get(url).await?
+    let data:FullMarketStatus =get_client().get(url).send().await?
         .json().await?;
     Ok(data.markets)
 }
@@ -353,11 +364,8 @@ async fn query_currency_rate(source: &str, target: &str) ->anyhow::Result<Vec<Ra
     headers.insert("sec-fetch-site", "same-site".parse().unwrap());
     headers.insert("user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36".parse().unwrap());
 
-    let client = reqwest::Client::builder()
-        .redirect(reqwest::redirect::Policy::none())
-        .build()
-        .unwrap();
-    let res = client.get(format!("https://api.wise.com/v1/rates?source={}&target={}", source, target))
+
+    let res = get_client().get(format!("https://api.wise.com/v1/rates?source={}&target={}", source, target))
         .headers(headers)
         .send().await?
         .json().await?;
@@ -388,7 +396,7 @@ struct HKStockQuoteDataInner{
 async fn query_hk_page_token() -> anyhow::Result<String>{
 
     //get token from page source
-    let page_html = reqwest::get("https://www.hkex.com.hk/Market-Data/Securities-Prices/Equities/Equities-Quote?sym=2477&sc_lang=en").await?.text().await?;
+    let page_html = get_client().get("https://www.hkex.com.hk/Market-Data/Securities-Prices/Equities/Equities-Quote?sym=2477&sc_lang=en").send().await?.text().await?;
     // info!("page_html >> {}", page_html);
     // let document = Html::parse_document(&page_html);
     // let selector = Selector::parse("h1.foo").unwrap();
@@ -399,7 +407,7 @@ async fn query_hk_page_token() -> anyhow::Result<String>{
 }
 async fn query_hk_stock(symbol: &str, token: &str) -> anyhow::Result<HKStockQuote>{
     // 使用 reqwest 发送 HTTP GET 请求
-    let resp = reqwest::get(format!("https://www1.hkex.com.hk/hkexwidget/data/getequityquote?sym={}&token={}&lang=eng&qid=1705105507584&callback=_&_=1705105505592", symbol,token)).await?.text().await?;
+    let resp = get_client().get(format!("https://www1.hkex.com.hk/hkexwidget/data/getequityquote?sym={}&token={}&lang=eng&qid=1705105507584&callback=_&_=1705105505592", symbol,token)).send().await?.text().await?;
     let json_str = &resp[2..resp.len()-1];
     info!("query_hk_stock  resp >> {:?}", json_str);
 
@@ -417,7 +425,7 @@ struct CryptoQuote{
 }
 async fn query_crypto_price(symbol: &str) -> anyhow::Result<CryptoQuote>{
     // 使用 reqwest 发送 HTTP GET 请求
-    let ret = reqwest::get(format!("https://api.binance.com/api/v3/ticker/24hr?symbol={}", symbol)).await?.json().await?;
+    let ret = get_client().get(format!("https://api.binance.com/api/v3/ticker/24hr?symbol={}", symbol)).send().await?.json().await?;
 
     Ok(ret)
 }
