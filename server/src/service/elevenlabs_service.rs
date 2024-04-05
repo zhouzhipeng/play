@@ -10,7 +10,7 @@ use futures_util::StreamExt;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use futures_util::TryStreamExt;
 use multer::bytes;
-use crate::ensure;
+use crate::{CheckResponse, ensure};
 
 pub struct ElevenlabsService {
     api_key: String,
@@ -54,9 +54,9 @@ impl ElevenlabsService {
                   }
             }))
             .send()
+            .await?
+            .check()
             .await?;
-        // 解析响应
-        ensure!(response.status().is_success());
 
         let thread = response.bytes().await?;
         Ok(thread)
