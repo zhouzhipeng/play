@@ -289,7 +289,7 @@ pub struct AppError(anyhow::Error);
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         // #[cfg(feature = "debug")]
-        // error!("{:?}", self.0);
+        error!("server error: {}", self.0.to_string());
 
 
         (
