@@ -80,7 +80,10 @@ async fn main()->anyhow::Result<()> {
     let (writer, _guard) = tracing_appender::non_blocking(file_appender);
 
     let subscriber = tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer().with_thread_names(true)
+        .with(tracing_subscriber::fmt::layer()
+            .with_file(true)
+            .with_line_number(true)
+            .with_thread_names(true)
             .pretty()
             .with_writer(writer)
         );
@@ -90,7 +93,10 @@ async fn main()->anyhow::Result<()> {
 
     #[cfg(feature = "debug")]
     let subscriber = subscriber.with(tracing_subscriber::fmt::Layer::new()
-            .with_writer(std::io::stdout)); // Console output
+        .with_file(true)
+        .with_line_number(true)
+        .with_thread_names(true)
+        .with_writer(std::io::stdout)); // Console output
 
     subscriber.with(filter).init();
 

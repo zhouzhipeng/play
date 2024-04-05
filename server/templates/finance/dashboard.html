@@ -137,10 +137,11 @@
 <!--                    <th>Symbol</th>-->
                     <th>Name</th>
                     <th>Quantity</th>
-                    <th>Avg Price</th>
+                    <th>Invest Price</th>
                     <th>Current Price</th>
-                    <th>Total Invest</th>
-                    <th>Unrealized PnL</th>
+                    <th>Invest Value</th>
+                    <th>Current Value</th>
+                    <th>Profit & Loss</th>
                 </tr>
 
                 % total_invest = 0
@@ -167,26 +168,24 @@
                     <td>{{item.tag}}{{round(item.price,2)}}</td>
                     <td>{{item.tag}}{{current_price}} (<span style="font-size: 12px">{{symbol_change_map[item.symbol]}}</span> <span style="font-size: 10px">24h</span>)</td>
                     <td>{{item.tag}}{{current_invest}}</td>
+                    <td>{{item.tag}}{{round(current_price * item.quantity,2)}}</td>
                     <td>
-                        {{item.tag}}{{round(current_price * item.quantity,2)}}
 
                         % if current_invest >0:
-                        (
+
                         %if current_price > item.price:
                         +
                         %end
                         {{round(current_price * item.quantity - current_invest,2)}}
 
-                        /
+                        <span style="font-size: 12px; color: grey">
                         {{round((current_price * item.quantity - current_invest) / (current_invest) * 100 ,2)}}%
-
-                        )
-
+                        </span>
                         % end
                     </td>
                 </tr>
                 <tr class="hidden">
-                    <td colspan="6">
+                    <td colspan="7">
                         % if item.market == 'CRYPTO':
                         <h3 style="color: red">BUY and SELL should have 30 days gap!!!</h3>
                         %end
@@ -261,19 +260,18 @@
                     <td></td>
                     <td></td>
                     <td>${{total_invest}}</td>
-                    <td>${{total_return}}
-
+                    <td>${{total_return}}</td>
+                    <td>
                         % if total_invest >0:
-                        (
+
                         %if total_return > total_invest:
                         +
                         %end
                         {{ round(total_return - total_invest,2)}}
 
-                        /
+                        <span style="font-size: 12px; color: grey">
                         {{round((total_return - total_invest) /total_invest *100, 2 )}}%
-                        )
-
+                        </span>
                         %end
                     </td>
                 </tr>
