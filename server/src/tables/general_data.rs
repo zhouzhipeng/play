@@ -15,6 +15,13 @@ pub struct GeneralData {
 
 
 impl GeneralData {
+    pub fn new(cat: String, data: String)->Self{
+        GeneralData{
+            cat,
+            data,
+            ..Default::default()
+        }
+    }
     pub async fn insert(t: &GeneralData, pool: &DBPool) -> Result<DBQueryResult, Error> {
         sqlx::query("INSERT INTO general_data (cat,data) VALUES (?,?)")
             .bind(&t.cat)
@@ -46,8 +53,15 @@ impl GeneralData {
 
     }
 
-    pub async fn list_by_cat(fields: &str, cat: &str, pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
+    pub async fn query_by_cat(fields: &str, cat: &str, pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
         let sql = &format!("SELECT {} FROM general_data where cat = ?", Self::convert_fields(fields));
+        sqlx::query_as::<_, GeneralData>(sql)
+            .bind(cat)
+            .fetch_all(pool)
+            .await
+    }
+    pub async fn query_by_cat_simple(cat: &str, pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
+        let sql = &format!("SELECT * FROM general_data where cat = ?");
         sqlx::query_as::<_, GeneralData>(sql)
             .bind(cat)
             .fetch_all(pool)

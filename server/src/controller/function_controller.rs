@@ -3,13 +3,14 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use axum::{Form, Json};
-use axum::body::HttpBody;
+use axum::body::{Body, HttpBody};
 use axum::extract::Query;
 use axum::http::HeaderMap;
-use axum::response::Html;
+use axum::response::{Html, IntoResponse, Response};
 use either::Either;
 use futures_util::{StreamExt, TryStreamExt};
-use reqwest::ClientBuilder;
+use http::StatusCode;
+use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sqlparser::ast::Statement;
@@ -18,9 +19,13 @@ use sqlparser::parser::Parser;
 use sqlx::Executor;
 use sqlx::{Column, Row};
 use sqlx::mysql::{MySqlPoolOptions, MySqlQueryResult, MySqlRow};
+use tokio::fs::File;
+use tracing::info;
 
-use crate::{ensure, method_router, template};
+use crate::{ensure, method_router, R, template};
 use crate::{HTML, JSON, render_fragment, S, Template};
+use crate::service::openai_service::{CreateMessage, Role};
+use crate::tables::general_data::GeneralData;
 
 method_router!(
     post : "/functions/str-joiner" -> str_joiner,
@@ -141,8 +146,8 @@ struct TextCompareReq {
 }
 
 #[derive(Deserialize, Serialize)]
-struct ChatAIReq {
-    input: String,
+pub struct ChatAIReq {
+    pub input: String,
 }
 
 #[allow(non_snake_case)]
@@ -182,12 +187,39 @@ async fn text_compare(s: S, Form(mut data): Form<TextCompareReq>) -> HTML {
     // Ok(Html("sfd".to_string()))
 }
 
+const CAT_OPENAI_THREAD: &str="openai_thread";
 
-async fn chat_ai(s: S, Form(req): Form<ChatAIReq>) -> HTML {
+async fn chat_ai(s: S, Form(req): Form<ChatAIReq>) -> R<impl IntoResponse> {
+    let openai_thread = GeneralData::query_by_cat_simple(CAT_OPENAI_THREAD, &s.db).await?;
+    let thread_id = if openai_thread.is_empty(){
+        //first time , so create a new openai thread.
+        info!("first time chat, creating a new chat thread...");
+        let thread = s.openai_service.create_thread().await?;
+        //save it
+        GeneralData::insert(&GeneralData::new(CAT_OPENAI_THREAD.to_string(), thread.id.to_string()), &s.db).await?;
+        thread.id
+    }else{
+        openai_thread[0].data.to_string()
+    };
 
 
+    //create a message
+    let msg = CreateMessage{ role: Role::user, content: req.input};
+    s.openai_service.create_message(&thread_id, &msg).await?;
 
-    Ok(Html("<h2>No Diff!</h2>".to_string()))
+    //run thread.
+    let resp_msg = s.openai_service.run_thread_and_wait(&thread_id).await?;
+
+    // then call text to speech api
+    let service = &s.elevenlabs_service;;
+    let bytes = service.text_to_speech(&resp_msg).await?;
+
+    let  response = Response::builder()
+        .status(StatusCode::OK)
+        .header("x-resp-msg", resp_msg)
+        .body(Body::from(bytes))?; // Convert Vec<u8> into Body
+
+    Ok(response)
     // Ok(Html("sfd".to_string()))
 }
 

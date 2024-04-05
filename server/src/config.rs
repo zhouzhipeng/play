@@ -31,6 +31,8 @@ pub struct Config {
     pub http_jobs: Vec<LocalJobConfig>,
     #[serde(default)]
     pub open_ai: OpenAIConfig,
+    #[serde(default)]
+    pub elevenlabs: ElevenlabsConfig,
 }
 
 #[derive(Deserialize, Debug, Clone, Default)]
@@ -43,6 +45,11 @@ pub struct ShortLink {
 pub struct OpenAIConfig {
     pub api_key: String,
     pub assistant_id: String,
+}
+#[derive(Deserialize, Debug, Clone, Default)]
+pub struct ElevenlabsConfig {
+    pub api_key: String,
+    pub voice_id: String,
 }
 #[derive(Deserialize, Debug, Clone, Default)]
 pub struct LocalJobConfig {

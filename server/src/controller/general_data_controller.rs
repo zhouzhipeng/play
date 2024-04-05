@@ -61,7 +61,7 @@ async fn insert_data(s: S, Path(cat): Path<String>, body: String) -> JSON<MsgRes
 async fn override_data(s: S, Path(cat): Path<String>, body: String) -> JSON<MsgResp> {
 
 
-    let list_data = GeneralData::list_by_cat("*", &cat, &s.db).await?;
+    let list_data = GeneralData::query_by_cat("*", &cat, &s.db).await?;
     ensure!(list_data.len()<=1, "A global category should have only one item!");
 
     if list_data.len() == 0 {
@@ -123,7 +123,7 @@ async fn query_data(s: S, Path(cat): Path<String>, Query(mut params): Query<Hash
             break;
         }
     } else if params.len() == 0 {
-        return_data = GeneralData::list_by_cat(&select_fields, &cat, &s.db).await?;
+        return_data = GeneralData::query_by_cat(&select_fields, &cat, &s.db).await?;
     }
 
 
@@ -145,7 +145,7 @@ async fn query_data(s: S, Path(cat): Path<String>, Query(mut params): Query<Hash
 
 async fn query_data_global(s: S, Path(cat): Path<String>) -> JSON<Vec<GeneralData>> {
 
-    let data = GeneralData::list_by_cat("*", &cat, &s.db).await?;
+    let data = GeneralData::query_by_cat("*", &cat, &s.db).await?;
     return Ok(Json(data));
 }
 async fn get_data(s: S, Path(data_id): Path<u32>, Query(mut params): Query<HashMap<String, String>>) -> JSON<Vec<QueryDataResp>>  {

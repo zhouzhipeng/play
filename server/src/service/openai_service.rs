@@ -19,12 +19,12 @@ pub struct OpenAIService {
 
 #[derive(Deserialize)]
 pub struct Thread {
-    id: String,
+    pub  id: String,
 }
 #[derive(Serialize)]
 pub struct CreateMessage {
-    role: Role,
-    content: String,
+    pub role: Role,
+    pub content: String,
 }
 #[derive(Deserialize,Debug )]
 pub struct Message {
