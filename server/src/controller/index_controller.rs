@@ -6,7 +6,7 @@ use serde_json::{json, Value};
 use tokio_util::codec::{BytesCodec, FramedRead};
 use shared::timestamp_to_date_str;
 
-use crate::{ method_router, template};
+use crate::{method_router, return_error, template};
 use crate::{HTML, R, S};
 use crate::config::get_config_path;
 use crate::tables::general_data::GeneralData;
@@ -46,6 +46,7 @@ async fn redis_test(s: S) -> R<String> {
 }
 
 async fn test(s: S) -> HTML {
+    return_error!("fuck ");
     // template!(s, "test.html", json!({"name":"zzp"}))
     template!(s, "test.html", json!({"name":"zzp"}))
 }

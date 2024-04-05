@@ -141,15 +141,16 @@ impl OpenAIService {
         while let Some(line) = lines.next_line().await? {
             if line.starts_with("event:") {
                 current_event=line.trim_start_matches("event: ").trim().to_string();
-                println!("Event: {}",current_event );
+                // println!("Event: {}",current_event );
 
             } else if line.starts_with("data:") {
                 let data = line.trim_start_matches("data: ").trim().to_string();
-                println!("Data: {}", data);
+                // println!("Data: {}", data);
 
                 if current_event == target_event{
                     let data_json = serde_json::from_str::<Message>(&data)?;
                     result_msg = data_json.content[0].text.value.to_string();
+                    info!("resp msg >> {}", result_msg);
                     break;
                 }
 
@@ -177,7 +178,7 @@ mod tests {
         let thread  = openai_service.create_thread().await?;
         let msg = CreateMessage{
             role: Role::user,
-            content: "hello, who are u?".to_string(),
+            content: "do u have any movies to recommend?".to_string(),
         };
         openai_service.create_message(&thread.id, &msg).await?;
 
