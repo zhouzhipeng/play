@@ -23,7 +23,7 @@ method_router!(
 async fn root(s: S) -> HTML {
     let built_time = timestamp_to_date_str!(env!("BUILT_TIME").parse::<i64>()?);
     // return_error!("test");
-    let data = GeneralData::list_by_cat("title,url", "pages", &s.db).await?;
+    let data = GeneralData::query_by_cat("title,url", "pages", &s.db).await?;
     let pages: Vec<_> = data.iter().map(|p|serde_json::from_str::<Value>(&p.data).unwrap()).collect();
 
     template!(s, "index.html", json!({

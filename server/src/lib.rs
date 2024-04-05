@@ -36,6 +36,7 @@ use shared::tpl_engine_api::{Template, TemplateData, TplEngineAPI};
 use crate::config::Config;
 use crate::config::init_config;
 use crate::controller::app_routers;
+use crate::service::elevenlabs_service::ElevenlabsService;
 use crate::service::openai_service::OpenAIService;
 use crate::service::template_service;
 use crate::service::template_service::{TemplateService};
@@ -114,6 +115,7 @@ macro_rules! app_error {
 pub struct AppState {
     pub template_service: TemplateService,
     pub openai_service: OpenAIService,
+    pub elevenlabs_service: ElevenlabsService,
     pub db: DBPool,
     pub redis_service: Box<dyn RedisAPI + Send + Sync>,
     pub config: Config,
@@ -132,6 +134,7 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> Arc<AppStat
     let app_state = Arc::new(AppState {
         template_service: TemplateService::new(req_sender),
         openai_service: OpenAIService::new(config.open_ai.api_key.to_string(), config.open_ai.assistant_id.to_string()).unwrap(),
+        elevenlabs_service: ElevenlabsService::new(config.elevenlabs.api_key.to_string(), config.elevenlabs.voice_id.to_string()).unwrap(),
         db: if final_test_pool { tables::init_test_pool().await } else { tables::init_pool(&config).await },
         #[cfg(feature = "redis")]
         redis_service: Box::new(redis::RedisService::new(config.redis_uri.clone(), final_test_pool).await.unwrap()),
