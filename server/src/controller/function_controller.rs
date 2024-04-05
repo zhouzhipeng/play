@@ -4,6 +4,7 @@ use std::time::Duration;
 use anyhow::anyhow;
 use axum::{Form, Json};
 use axum::body::HttpBody;
+use axum::extract::Query;
 use axum::http::HeaderMap;
 use axum::response::Html;
 use either::Either;
@@ -18,7 +19,7 @@ use sqlx::Executor;
 use sqlx::{Column, Row};
 use sqlx::mysql::{MySqlPoolOptions, MySqlQueryResult, MySqlRow};
 
-use crate::{check, method_router, template};
+use crate::{ensure, method_router, template};
 use crate::{HTML, JSON, render_fragment, S, Template};
 
 method_router!(
@@ -27,6 +28,7 @@ method_router!(
     post : "/functions/run-sql" -> run_sql,
     post : "/functions/run-http-request" -> run_http_request,
     post : "/functions/text-compare" -> text_compare,
+    post : "/functions/chat-ai" -> chat_ai,
 );
 
 #[derive(Deserialize)]
@@ -114,7 +116,7 @@ async fn run_sql(s: S, Form(data): Form<RunSqlRequest>) -> HTML {
     //parse sql
     let dialect = GenericDialect {}; // or AnsiDialect
     let statements = Parser::parse_sql(&dialect, sql)?;
-    check!(statements.len()==1, "Err >> can only pass one sql statement!");
+    ensure!(statements.len()==1, "Err >> can only pass one sql statement!");
 
     let is_query = match statements[0] {
         Statement::Query(_) => true,
@@ -136,6 +138,11 @@ struct TextCompareReq {
     text2: String,
     #[serde(default = "default_with_ajax")]
     with_ajax: i32,
+}
+
+#[derive(Deserialize, Serialize)]
+struct ChatAIReq {
+    input: String,
 }
 
 #[allow(non_snake_case)]
@@ -168,10 +175,19 @@ async fn text_compare(s: S, Form(mut data): Form<TextCompareReq>) -> HTML {
     }
 
     let resp = client.post("https://text-compare.com/").form(&data).send().await?;
-    check!(resp.status().is_success(), "call https://text-compare.com/ failed.");
+    ensure!(resp.status().is_success(), "call https://text-compare.com/ failed.");
     // info!("resp >> {}", resp.text().await?);
     let res_body = resp.json::<TextCompareRes>().await?;
     Ok(Html(res_body.comparison.unwrap_or("<h2>No Diff!</h2>".to_string())))
+    // Ok(Html("sfd".to_string()))
+}
+
+
+async fn chat_ai(s: S, Form(req): Form<ChatAIReq>) -> HTML {
+
+
+
+    Ok(Html("<h2>No Diff!</h2>".to_string()))
     // Ok(Html("sfd".to_string()))
 }
 
@@ -222,6 +238,8 @@ async fn query_mysql(url: &str, sql: &str, is_query: bool) -> anyhow::Result<Vec
 
 #[cfg(test)]
 mod tests {
+    use http::header::CONTENT_TYPE;
+    use http::HeaderValue;
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
 
@@ -234,4 +252,6 @@ mod tests {
         println!("data >> {:?}", data);
         Ok(())
     }
+
+
 }

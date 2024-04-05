@@ -31,6 +31,7 @@ redis-test = "0.2.3"
 criterion = "0.5.1"
 reqwest = { workspace=true, features= ["blocking"]}
 
+
 [[bench]]
 name = "my_benchmark"
 harness = false

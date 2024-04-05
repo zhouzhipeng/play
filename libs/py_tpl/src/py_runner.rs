@@ -225,7 +225,7 @@ impl TplEngineAPI for PyRunner{
                 continue;
             }
 
-            if let Err(e) = data.response.send(r).await {
+            if let Err(e) = data.response.try_send(r) {
                 error!("py_runner send error : {:?}", e.to_string() );
             }
         }

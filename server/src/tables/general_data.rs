@@ -38,7 +38,7 @@ impl GeneralData {
                 .collect::<Vec<String>>() // Collect the strings into a new vector.
                 .join(", ");
             info!("fields >> {}", fields);
-            format!("json_object({}) as data", fields)
+            format!("id, cat, created,updated, json_object({}) as data", fields)
         }else{
             fields
         }
@@ -46,14 +46,14 @@ impl GeneralData {
 
     }
 
-    pub async fn query(fields: &str, cat: &str, pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
-        let sql = &format!("SELECT id, cat, created,updated, {} FROM general_data where cat = ?", Self::convert_fields(fields));
+    pub async fn list_by_cat(fields: &str, cat: &str, pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
+        let sql = &format!("SELECT {} FROM general_data where cat = ?", Self::convert_fields(fields));
         sqlx::query_as::<_, GeneralData>(sql)
             .bind(cat)
             .fetch_all(pool)
             .await
     }
-    pub async fn query_json(fields: &str, cat: &str, query_field: &str, query_val: &str, pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
+    pub async fn query_by_json_field(fields: &str, cat: &str, query_field: &str, query_val: &str, pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
         sqlx::query_as::<_, GeneralData>(format!("SELECT {} FROM general_data where cat = ? and json_extract(data, '$.{}') = ?", Self::convert_fields(fields), query_field).as_str())
             .bind(cat)
             .bind(query_val)
@@ -66,21 +66,21 @@ impl GeneralData {
             .fetch_all(pool)
             .await
     }
-    pub async fn update_json(data_id: u32, query_field: &str, query_val: &str, pool: &DBPool) -> Result<DBQueryResult, Error> {
+    pub async fn update_json_field_by_id(data_id: u32, query_field: &str, query_val: &str, pool: &DBPool) -> Result<DBQueryResult, Error> {
         sqlx::query(format!("update  general_data set data = json_set(data, '$.{}', ?), updated=CURRENT_TIMESTAMP where id = ?", query_field).as_str())
             .bind(query_val)
             .bind(data_id)
             .execute(pool)
             .await
     }
-    pub async fn update_text(data_id: u32, data: &str, pool: &DBPool) -> Result<DBQueryResult, Error> {
+    pub async fn update_data_by_id(data_id: u32, data: &str, pool: &DBPool) -> Result<DBQueryResult, Error> {
         sqlx::query("update  general_data set data = ?, updated=CURRENT_TIMESTAMP where id = ?")
             .bind(data)
             .bind(data_id)
             .execute(pool)
             .await
     }
-    pub async fn update_text_global(cat: &str, data: &str, pool: &DBPool) -> Result<DBQueryResult, Error> {
+    pub async fn update_data_by_cat(cat: &str, data: &str, pool: &DBPool) -> Result<DBQueryResult, Error> {
         sqlx::query("update  general_data set data = ?, updated=CURRENT_TIMESTAMP where cat = ?")
             .bind(data)
             .bind(cat)
@@ -99,7 +99,7 @@ mod tests {
     #[tokio::test]
     async fn test_convert_fiels() -> anyhow::Result<()> {
 
-        let f = GeneralData::convert_fields("title,url");
+        let f = GeneralData::convert_fields("*");
         println!("{}", f);
         Ok(())
     }

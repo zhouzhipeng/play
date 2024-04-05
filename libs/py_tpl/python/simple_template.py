@@ -391,4 +391,4 @@ if __name__ == '__main__':
 
     args = {"ss": "bb", "aa": {"name": "111"}}
     # local_map['__ret__'] =render_tpl()
-    print(render_tpl("{{ss}}", "<tmp>", args))
+    print(render_tpl("{{ss}}{{ss}\n{{ss}}sdf", "<tmp>", args))

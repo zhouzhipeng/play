@@ -1,6 +1,6 @@
 use axum::response::Html;
 use serde_json::json;
-use crate::{check, HTML, method_router, S, template};
+use crate::{ensure, HTML, method_router, S, template};
 use crate::tables::email_inbox::EmailInbox;
 
 method_router!(

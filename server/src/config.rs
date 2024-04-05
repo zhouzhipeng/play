@@ -29,6 +29,8 @@ pub struct Config {
     pub shortlinks: Vec<ShortLink>,
     #[serde(default)]
     pub http_jobs: Vec<LocalJobConfig>,
+    #[serde(default)]
+    pub open_ai: OpenAIConfig,
 }
 
 #[derive(Deserialize, Debug, Clone, Default)]
@@ -36,6 +38,11 @@ pub struct ShortLink {
     pub from: String,
     pub to: String,
     pub jump: bool,
+}
+#[derive(Deserialize, Debug, Clone, Default)]
+pub struct OpenAIConfig {
+    pub api_key: String,
+    pub assistant_id: String,
 }
 #[derive(Deserialize, Debug, Clone, Default)]
 pub struct LocalJobConfig {
@@ -180,7 +187,22 @@ pub fn init_config(use_memory: bool) -> Config {
 
         fs::read_to_string(&final_path).expect(format!("config file : {}  not existed!", file_path).as_str())
     } else {
-        CONFIG.to_string()
+        let data_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("output_dir").as_path().to_str().unwrap().to_string();
+        env::set_var(DATA_DIR, &data_dir);
+        let file_path = format!("config.toml");
+        let final_path = Path::new(env::var(DATA_DIR).unwrap().as_str()).join(file_path.as_str());
+
+        println!("config path : {:?}", final_path);
+
+        if final_path.exists() {
+            fs::read_to_string(&final_path).expect(format!("config file : {}  not existed!", file_path).as_str())
+        }else{
+
+            CONFIG.to_string()
+        }
+
+
+
     };
     let  config: Config = toml::from_str(&config_content).unwrap();
     println!("using config file  content >>  {:?}",  config);
