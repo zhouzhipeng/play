@@ -9,7 +9,8 @@ use tracing::info;
 use futures_util::StreamExt;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use futures_util::TryStreamExt;
-use crate::ensure;
+use shared::models::check_response;
+use crate::{ CheckResponse, ensure};
 
 pub struct OpenAIService {
     api_key: String,
@@ -75,10 +76,10 @@ impl OpenAIService {
         let response = self.client.post(url)
             .headers(self.get_headers()?)
             .send()
+            .await?
+            .check()
             .await?;
         // 解析响应
-        ensure!(response.status().is_success());
-
         let thread = response.json::<Thread>().await?;
         Ok(thread)
     }
@@ -90,12 +91,11 @@ impl OpenAIService {
             .headers(self.get_headers()?)
             .json(msg)
             .send()
-            .await?;
+            .await?
+            .check().await?;
         // 解析响应
-        ensure!(response.status().is_success());
-
-        let resp = response.text().await?;
-        info!("create message ok , resp :{}", resp);
+        let resp = response.json::<Message>().await?;
+        info!("create message ok , resp :{:?}", resp);
         Ok(())
     }
     pub async fn list_messages(&self, thread_id: &str) -> anyhow::Result<Vec<Message>> {
@@ -105,10 +105,10 @@ impl OpenAIService {
         let response = self.client.get(url)
             .headers(self.get_headers()?)
             .send()
+            .await?
+            .check()
             .await?;
         // 解析响应
-        ensure!(response.status().is_success());
-
         let resp = response.json::<ListMessageResp>().await?;
         Ok(resp.data)
     }
@@ -126,9 +126,10 @@ impl OpenAIService {
             .headers(self.get_headers()?)
             .json(&body)
             .send()
+            .await?
+            .check()
             .await?;
-        // 解析响应
-        ensure!(response.status().is_success());
+
 
         let body = response.bytes_stream();
         let reader = BufReader::new(tokio_util::io::StreamReader::new(body.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))));
