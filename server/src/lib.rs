@@ -40,6 +40,7 @@ use shared::tpl_engine_api::{Template, TemplateData, TplEngineAPI};
 use crate::config::Config;
 use crate::config::init_config;
 use crate::controller::app_routers;
+use crate::layer::http_log::{HttpLogLayer};
 use crate::service::elevenlabs_service::ElevenlabsService;
 use crate::service::openai_service::OpenAIService;
 use crate::service::template_service;
@@ -301,7 +302,7 @@ macro_rules! files_dir {
 pub fn routers(app_state: Arc<AppState>) -> Router {
     let cors = CorsLayer::new()
         // allow `GET` and `POST` when accessing the resource
-        .allow_methods([Method::GET, Method::POST])
+        .allow_methods(Any)
         // allow requests from any origin
         .allow_origin(Any);
 
@@ -318,6 +319,7 @@ pub fn routers(app_state: Arc<AppState>) -> Router {
         .layer(TimeoutLayer::new(Duration::from_secs(60)))
         .layer(DefaultBodyLimit::disable())
         .layer(CompressionLayer::new())
+        .layer(HttpLogLayer)
         .layer(cors)
 }
 
@@ -331,9 +333,8 @@ impl IntoResponse for AppError {
 
 
         let error = self.0;
-        #[cfg(feature = "debug")]
-        error!("server error: {:?}", error);
 
+        error!("server error: {}", error);
 
 
         (
