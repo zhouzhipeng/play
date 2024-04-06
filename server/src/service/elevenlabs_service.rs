@@ -59,6 +59,8 @@ impl ElevenlabsService {
             .check()
             .await?;
 
+        println!("header : {:?}", response.headers());
+
         let bytes_stream = response.bytes_stream();
         Ok(bytes_stream)
     }
@@ -78,10 +80,14 @@ mod tests {
         let s = mock_state!();
         let service = &s.elevenlabs_service;;
 
-        let bytes = service.text_to_speech("hello my name is nancy!").await?;
+        let mut bytes = service.text_to_speech("hello my name is nancy!").await?;
         let mut file = File::create("test.mp3").await?;
-        file.write_all(&*bytes).await?;
+        while let Some(chunk) = bytes.next().await {
+            let bytes = chunk?;
+            file.write_all(&bytes).await?;
+        }
 
+        file.flush().await?;
         Ok(())
     }
 

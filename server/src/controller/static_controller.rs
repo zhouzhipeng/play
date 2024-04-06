@@ -12,7 +12,7 @@ use tower_http::services::ServeDir;
 
 use crate::{AppError, AppState, S};
 
-static STATIC_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/static");
+pub static STATIC_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/static");
 
 pub fn init() -> Router<Arc<AppState>> {
     #[cfg(not(feature = "debug"))]
