@@ -5517,6 +5517,7 @@ dependencies = [
  "fancy-regex",
  "fs_extra",
  "futures",
+ "futures-core",
  "futures-util",
  "hex",
  "http 0.2.11",

@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::time::Duration;
 
 use http::{HeaderMap, HeaderValue};
@@ -21,7 +22,7 @@ pub struct ElevenlabsService {
 impl ElevenlabsService {
     pub fn new(api_key: String,voice_id: String) -> anyhow::Result<Self> {
         let client = Client::builder()
-            .timeout(Duration::from_secs(10))
+            .timeout(Duration::from_secs(30))
             .build()?;
 
         Ok(ElevenlabsService {
@@ -40,7 +41,7 @@ impl ElevenlabsService {
         Ok(headers)
     }
 
-    pub async fn text_to_speech(&self, text: &str) -> anyhow::Result<bytes::Bytes> {
+    pub async fn text_to_speech(&self, text: &str) -> anyhow::Result<impl futures_core::Stream<Item = std::result::Result<bytes::Bytes, reqwest::Error>>> {
         let url = format!("https://api.elevenlabs.io/v1/text-to-speech/{}/stream",self.voice_id);
         // 发起 POST 请求
         let response = self.client.post(url)
@@ -58,8 +59,8 @@ impl ElevenlabsService {
             .check()
             .await?;
 
-        let thread = response.bytes().await?;
-        Ok(thread)
+        let bytes_stream = response.bytes_stream();
+        Ok(bytes_stream)
     }
 }
 

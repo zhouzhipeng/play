@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use axum::{Form, Json};
-use axum::body::{Body, HttpBody};
+use axum::body::{Body, HttpBody, StreamBody};
 use axum::extract::Query;
 use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse, Response};
@@ -214,12 +214,12 @@ async fn chat_ai(s: S, Form(req): Form<ChatAIReq>) -> R<impl IntoResponse> {
 
     // then call text to speech api
     let service = &s.elevenlabs_service;;
-    let bytes = service.text_to_speech(&resp_msg).await?;
-
+    let bytes_stream = service.text_to_speech(&resp_msg).await?;
+    let stream_body = StreamBody::new(bytes_stream);
     let  response = Response::builder()
         .status(StatusCode::OK)
         .header("x-resp-msg", string_to_hex(&resp_msg))
-        .body(Body::from(bytes))?; // Convert Vec<u8> into Body
+        .body(stream_body)?; // Convert Vec<u8> into Body
 
     Ok(response)
     // Ok(Html("sfd".to_string()))
