@@ -5508,6 +5508,7 @@ dependencies = [
  "axum-macros",
  "axum-server",
  "axum-test",
+ "bytes",
  "chrono",
  "criterion",
  "crossbeam-channel",

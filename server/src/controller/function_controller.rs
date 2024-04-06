@@ -2,15 +2,18 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use anyhow::anyhow;
-use axum::{Form, Json};
-use axum::body::{Body, HttpBody, StreamBody};
+use axum::{body, Form, Json};
+use axum::body::{Body, BoxBody, HttpBody, StreamBody};
 use axum::extract::Query;
 use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse, Response};
+use bytes::Bytes;
 use either::Either;
-use futures_util::{StreamExt, TryStreamExt};
+use futures_core::Stream;
+use futures_util::{stream, StreamExt, TryStreamExt};
 use hex::ToHex;
 use http::StatusCode;
+use http_body::Full;
 use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -21,10 +24,11 @@ use sqlx::Executor;
 use sqlx::{Column, Row};
 use sqlx::mysql::{MySqlPoolOptions, MySqlQueryResult, MySqlRow};
 use tokio::fs::File;
-use tracing::info;
+use tracing::{error, info};
 
 use crate::{ensure, hex_to_string, method_router, R, string_to_hex, template};
 use crate::{HTML, JSON, render_fragment, S, Template};
+use crate::controller::static_controller::STATIC_DIR;
 use crate::service::openai_service::{CreateMessage, Role};
 use crate::tables::general_data::GeneralData;
 
@@ -190,7 +194,17 @@ async fn text_compare(s: S, Form(mut data): Form<TextCompareReq>) -> HTML {
 
 const CAT_OPENAI_THREAD: &str="openai_thread";
 
-async fn chat_ai(s: S, Form(req): Form<ChatAIReq>) -> R<impl IntoResponse> {
+enum MyBodyStream<S>
+    where
+S: Stream<Item = Result<Bytes,  reqwest::Error>>,
+{
+    MyStreamBody(StreamBody<S>),
+    MyBytes(&'static [u8]),
+}
+
+
+
+async fn chat_ai(s: S, Form(req): Form<ChatAIReq>) -> R<impl  IntoResponse> {
     info!("chat ai request in : {:?}", req);
     let openai_thread = GeneralData::query_by_cat_simple(CAT_OPENAI_THREAD, &s.db).await?;
     let thread_id = if openai_thread.is_empty(){
@@ -214,16 +228,38 @@ async fn chat_ai(s: S, Form(req): Form<ChatAIReq>) -> R<impl IntoResponse> {
 
     // then call text to speech api
     let service = &s.elevenlabs_service;;
-    let bytes_stream = service.text_to_speech(&resp_msg).await?;
-    let stream_body = StreamBody::new(bytes_stream);
-    let  response = Response::builder()
-        .status(StatusCode::OK)
-        .header("x-resp-msg", string_to_hex(&resp_msg))
-        .body(stream_body)?; // Convert Vec<u8> into Body
 
-    Ok(response)
+    let tts_result = service.text_to_speech(&resp_msg).await;
+    return match tts_result{
+        Ok(bytes_stream) => {
+            // let stream_body = StreamBody::new(bytes_stream);
+            ;
+            let  response = Response::builder()
+                .status(StatusCode::OK)
+                .header("x-resp-msg", string_to_hex(&resp_msg))
+                .header("content-type", "audio/mpeg")
+                .body(Body::wrap_stream(bytes_stream))?;
+
+            Ok(response)
+        }
+        Err(e) => {
+            error!("text_to_speech error : {} , ready to use default audio", e);
+            let content = STATIC_DIR.get_file("ElevenLabs_changekey_hint.mp3").unwrap().contents();
+            let body = Body::from(content);
+
+            let  response = Response::builder()
+                .status(StatusCode::OK)
+                .header("x-resp-msg", string_to_hex(&resp_msg))
+                .header("content-type", "audio/mpeg")
+                .body(body)?;
+
+            Ok(response)
+        }
+    }
+
     // Ok(Html("sfd".to_string()))
 }
+
 
 async fn query_mysql(url: &str, sql: &str, is_query: bool) -> anyhow::Result<Vec<Vec<String>>> {
     let db = MySqlPoolOptions::new()

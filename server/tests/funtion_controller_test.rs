@@ -10,12 +10,12 @@ async fn test_chat_ai() -> anyhow::Result<()> {
 
     //insert json
     let resp = server.post("/functions/chat-ai")
-        .form(&ChatAIReq{ input: "do u have any movies to recommend?".to_string() })
+        .form(&ChatAIReq{ input: "any movies to recommend?".to_string() })
         .await;
     // println!("resp text : {}", resp.text());
     resp.assert_status_ok();
-    let resp = resp.header("x-resp-msg");
-    println!("resp :  {:?}", hex_to_string!(resp.to_str()?));
+    let header = resp.header("x-resp-msg");
+    println!("header :  {:?}", hex_to_string!(header.to_str()?));
     let bytes = resp.as_bytes();
 
     let mut file = File::create("test.mp3").await?;
