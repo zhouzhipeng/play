@@ -55,6 +55,7 @@ pub mod service;
 pub mod config;
 pub mod layer;
 pub mod extractor;
+pub mod types;
 
 
 

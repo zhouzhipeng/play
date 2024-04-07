@@ -221,10 +221,9 @@ async fn chat_ai(s: S, Form(req): Form<ChatAIReq>) -> R<impl  IntoResponse> {
 
     //create a message
     let msg = CreateMessage{ role: Role::user, content: req.input};
-    s.openai_service.create_message(&thread_id, &msg).await?;
 
     //run thread.
-    let resp_msg = s.openai_service.run_thread_and_wait(&thread_id).await?;
+    let resp_msg = s.openai_service.run_thread_and_wait(&thread_id, &msg).await?;
 
     // then call text to speech api
     let service = &s.elevenlabs_service;;
