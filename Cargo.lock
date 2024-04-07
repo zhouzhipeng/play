@@ -4110,17 +4110,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "jsonpath_lib"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eaa63191d68230cccb81c5aa23abd53ed64d83337cacbb25a7b8c7979523774f"
-dependencies = [
- "log",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "jsonwebtoken"
 version = "8.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5539,7 +5528,6 @@ dependencies = [
  "include_dir",
  "infer 0.7.0",
  "job",
- "jsonpath_lib",
  "lazy_static",
  "mail_server",
  "mime_guess",
@@ -6804,7 +6792,6 @@ version = "1.0.109"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb0652c533506ad7a2e353cce269330d6afd8bdfb6d75e0ace5b35aacbd7b9e9"
 dependencies = [
- "indexmap 2.1.0",
  "itoa 1.0.10",
  "ryu",
  "serde",
