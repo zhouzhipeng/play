@@ -150,9 +150,14 @@ struct TextCompareReq {
     with_ajax: i32,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize,Serialize, Debug)]
 pub struct ChatAIReq {
     pub input: String,
+}
+#[derive(Deserialize,Serialize, Debug)]
+pub struct ChatAIOptionReq {
+    #[serde(default)]
+    pub no_audio: bool,
 }
 
 #[allow(non_snake_case)]
@@ -204,7 +209,7 @@ S: Stream<Item = Result<Bytes,  reqwest::Error>>,
 
 
 
-async fn chat_ai(s: S, Form(req): Form<ChatAIReq>) -> R<impl  IntoResponse> {
+async fn chat_ai(s: S, Query(option): Query<ChatAIOptionReq>, Form(req): Form<ChatAIReq>) -> R<impl  IntoResponse> {
     info!("chat ai request in : {:?}", req);
     let openai_thread = GeneralData::query_by_cat_simple(CAT_OPENAI_THREAD, &s.db).await?;
     let thread_id = if openai_thread.is_empty(){
@@ -225,36 +230,46 @@ async fn chat_ai(s: S, Form(req): Form<ChatAIReq>) -> R<impl  IntoResponse> {
     //run thread.
     let resp_msg = s.openai_service.run_thread_and_wait(&thread_id, &msg).await?;
 
-    // then call text to speech api
-    let service = &s.elevenlabs_service;;
 
-    let tts_result = service.text_to_speech(&resp_msg).await;
-    return match tts_result{
-        Ok(bytes_stream) => {
-            // let stream_body = StreamBody::new(bytes_stream);
-            ;
-            let  response = Response::builder()
-                .status(StatusCode::OK)
-                .header("x-resp-msg", string_to_hex(&resp_msg))
-                .header("content-type", "audio/mpeg")
-                .body(Body::wrap_stream(bytes_stream))?;
+    if option.no_audio{
+        let  response = Response::builder()
+            .status(StatusCode::OK)
+            .header("content-type", "text/plain")
+            .body(Body::from(resp_msg))?;
 
-            Ok(response)
-        }
-        Err(e) => {
-            error!("text_to_speech error : {} , ready to use default audio", e);
-            let content = STATIC_DIR.get_file("ElevenLabs_changekey_hint.mp3").unwrap().contents();
-            let body = Body::from(content);
+        Ok(response)
+    }else{
+        // then call text to speech api
+        let service = &s.elevenlabs_service;;
+        let tts_result = service.text_to_speech(&resp_msg).await;
+        return match tts_result{
+            Ok(bytes_stream) => {
+                // let stream_body = StreamBody::new(bytes_stream);
+                ;
+                let  response = Response::builder()
+                    .status(StatusCode::OK)
+                    .header("x-resp-msg", string_to_hex(&resp_msg))
+                    .header("content-type", "audio/mpeg")
+                    .body(Body::wrap_stream(bytes_stream))?;
 
-            let  response = Response::builder()
-                .status(StatusCode::OK)
-                .header("x-resp-msg", string_to_hex(&resp_msg))
-                .header("content-type", "audio/mpeg")
-                .body(body)?;
+                Ok(response)
+            }
+            Err(e) => {
+                error!("text_to_speech error : {} , ready to use default audio", e);
+                let content = STATIC_DIR.get_file("ElevenLabs_changekey_hint.mp3").unwrap().contents();
+                let body = Body::from(content);
 
-            Ok(response)
+                let  response = Response::builder()
+                    .status(StatusCode::OK)
+                    .header("x-resp-msg", string_to_hex(&resp_msg))
+                    .header("content-type", "audio/mpeg")
+                    .body(body)?;
+
+                Ok(response)
+            }
         }
     }
+
 
     // Ok(Html("sfd".to_string()))
 }
