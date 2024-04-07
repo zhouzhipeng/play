@@ -1,16 +1,18 @@
 use std::time::Duration;
+use anyhow::Context;
 
 use http::{HeaderMap, HeaderValue};
 use http::header::CONTENT_TYPE;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{json, Value};
 use tracing::info;
 use futures_util::StreamExt;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use futures_util::TryStreamExt;
 use shared::models::check_response;
 use crate::{ CheckResponse, ensure};
+use crate::types::openai_runobj::RunObj;
 
 pub struct OpenAIService {
     api_key: String,
@@ -27,10 +29,13 @@ pub struct CreateMessage {
     pub role: Role,
     pub content: String,
 }
+
 #[derive(Deserialize,Debug )]
 pub struct Message {
     content: Vec<MessageContent>,
 }
+
+
 #[derive(Deserialize,Debug )]
 pub struct ListMessageResp {
     data: Vec<Message>,
@@ -42,6 +47,10 @@ pub struct MessageContent {
 #[derive(Deserialize,Debug )]
 pub struct MessageContentValue {
     value: String,
+}
+#[derive(Deserialize,Debug )]
+pub struct CallGetWeatherArg {
+    location: String,
 }
 #[derive(Serialize)]
 pub enum  Role {
@@ -98,6 +107,50 @@ impl OpenAIService {
         info!("create message ok , resp :{:?}", resp);
         Ok(())
     }
+    pub async fn submit_tool_outputs(&self, thread_id: &str, run_id:&str, tool_call_id: &str , output: &str) -> anyhow::Result<String> {
+        // 对话 API 端点
+        let url = format!("https://api.openai.com/v1/threads/{}/runs/{}/submit_tool_outputs", thread_id,run_id);
+        // 发起 POST 请求
+        let response = self.client.post(url)
+            .headers(self.get_headers()?)
+            .json(&json!({
+                "tool_outputs": [{
+                  "tool_call_id": tool_call_id,
+                  "output": output
+                }],
+                 "stream": true
+            }))
+            .send()
+            .await?
+            .check().await?;
+        let body = response.bytes_stream();
+        let reader = BufReader::new(tokio_util::io::StreamReader::new(body.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))));
+        let mut lines = reader.lines();
+
+        let mut result_msg = "".to_string();
+        while let Some(line) = lines.next_line().await? {
+            if line.starts_with("event:") {
+                let next_line = lines.next_line().await?.context("submit_tool_outputs error data!")?;
+
+                let event =line.trim_start_matches("event: ").trim().to_string();
+                println!("Event: {}", event);
+                let data = next_line.trim_start_matches("data: ").trim().to_string();
+                println!("Data: {}", data);
+
+
+                if event == "thread.message.completed"{
+                    let data_json = serde_json::from_str::<Message>(&data)?;
+                    result_msg = data_json.content.get(0).context("thread.message.completed data error!")?.text.value.to_string();
+                    info!("resp msg >> {}", result_msg);
+                    break;
+                }
+
+            }
+
+        }
+
+        Ok(result_msg)
+    }
     pub async fn list_messages(&self, thread_id: &str) -> anyhow::Result<Vec<Message>> {
         // 对话 API 端点
         let url = format!("https://api.openai.com/v1/threads/{}/messages", thread_id);
@@ -112,13 +165,16 @@ impl OpenAIService {
         let resp = response.json::<ListMessageResp>().await?;
         Ok(resp.data)
     }
-    pub async fn run_thread_and_wait(&self, thread_id: &str) -> anyhow::Result<String> {
+    pub async fn run_thread_and_wait(&self, thread_id: &str, msg: &CreateMessage) -> anyhow::Result<String> {
         // 对话 API 端点
         let url = format!("https://api.openai.com/v1/threads/{}/runs", thread_id);
         // 请求体，根据需要调整 prompt 和 model
         let body = json!({
             "assistant_id": self.assistant_id,
-            "stream": true
+            "stream": true,
+            "additional_messages": [
+                msg
+            ]
         });
 
         // 发起 POST 请求
@@ -136,27 +192,36 @@ impl OpenAIService {
         let mut lines = reader.lines();
 
         let mut result_msg = "".to_string();
-        let mut current_event="".to_string();
-        let target_event = "thread.message.completed";
         while let Some(line) = lines.next_line().await? {
-            if line.starts_with("event:") {
-                current_event=line.trim_start_matches("event: ").trim().to_string();
-                // println!("Event: {}",current_event );
+            if line.starts_with("event:"){
+                let next_line = lines.next_line().await?.context("run_thread_and_wait error data!")?;
 
-            } else if line.starts_with("data:") {
-                let data = line.trim_start_matches("data: ").trim().to_string();
-                // println!("Data: {}", data);
+                let event =line.trim_start_matches("event: ").trim().to_string();
+                println!("Event: {}", event);
+                let data = next_line.trim_start_matches("data: ").trim().to_string();
+                println!("Data: {}", data);
 
-                if current_event == target_event{
+
+                if event == "thread.message.completed"{
                     let data_json = serde_json::from_str::<Message>(&data)?;
-                    result_msg = data_json.content[0].text.value.to_string();
+                    result_msg = data_json.content.get(0).context("thread.message.completed data error!")?.text.value.to_string();
                     info!("resp msg >> {}", result_msg);
+                    break;
+                }else if event == "thread.run.requires_action"{
+                    let run_obj = serde_json::from_str::<RunObj>(&data)?;
+                    let tool_call = run_obj.required_action.submit_tool_outputs.tool_calls.get(0).context("tool_calls is empty!")?;
+                    if tool_call.function.name == "get_weather"{
+                        let arg = serde_json::from_str::<CallGetWeatherArg>(&tool_call.function.arguments)?;
+                        //todo: call real weather api
+                        println!("call get_weather arg : {:?}",  arg);
+
+                        //call submit tool output api
+                        result_msg = self.submit_tool_outputs(thread_id, &run_obj.id, &tool_call.id, "30").await?;
+                    }
                     break;
                 }
 
             }
-
-
 
         }
 
@@ -178,17 +243,24 @@ mod tests {
         let thread  = openai_service.create_thread().await?;
         let msg = CreateMessage{
             role: Role::user,
-            content: "do u have any movies to recommend?".to_string(),
+            content: "hi, what's the weather in dubai now?".to_string(),
         };
-        openai_service.create_message(&thread.id, &msg).await?;
 
-        let result_msg = openai_service.run_thread_and_wait(&thread.id).await?;
+        let result_msg = openai_service.run_thread_and_wait(&thread.id , &msg).await?;
         println!("result msg : {}", result_msg);
 
-        //list messages
-        let messsages = openai_service.list_messages(&thread.id).await?;
-        println!("messages : {:?}", messsages);
+        // //list messages
+        // let messsages = openai_service.list_messages(&thread.id).await?;
+        // println!("messages : {:?}", messsages);
 
+        Ok(())
+    }
+    #[ignore]
+    #[tokio::test]
+    async fn test_context() -> anyhow::Result<()> {
+        let aa = vec![1];
+        let b = aa.get(1).context("data error")?;
+        println!("{}", b);
         Ok(())
     }
 
