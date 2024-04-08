@@ -33,6 +33,7 @@ use crate::service::openai_service::{CreateMessage, Role};
 use crate::tables::general_data::GeneralData;
 
 method_router!(
+    get : "/chat" -> index_page,
     post : "/chat/submit" -> submit_chat,
     get : "/chat/threads" -> list_threads,
     get : "/chat/messages" -> list_messages_by_thread,
@@ -72,6 +73,10 @@ pub const CAT_OPENAI_THREAD: &str="openai_thread";
 
 //for general chat.
 pub  const CAT_GENERAL_OPENAI_THREADS: &str="general_openai_threads";
+
+async fn index_page() -> HTML {
+    Ok(Html(STATIC_DIR.get_file("chat.html").context("static data error!")?.contents_utf8().context("static data error!")?.to_string()) )
+}
 
 async fn submit_chat(s: S, Query(option): Query<ChatAIOptionReq>, Form(req): Form<ChatAIReq>) -> R<impl  IntoResponse> {
     info!("chat ai request in  >>  option : {:?},  {:?}",option,  req);
