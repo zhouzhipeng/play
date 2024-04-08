@@ -81,8 +81,7 @@ async fn index_page() -> HTML {
 async fn submit_chat(s: S, Query(option): Query<ChatAIOptionReq>, Form(req): Form<ChatAIReq>) -> R<impl  IntoResponse> {
     info!("chat ai request in  >>  option : {:?},  {:?}",option,  req);
     //prepare thread id.
-    let len =  req.input.len().min(30);
-    let thread_id = get_thread_id(&s, &option, &req.input[0..len]).await?;
+    let thread_id = get_thread_id(&s, &option,  &safe_substring(&req.input, 0,30)).await?;
 
     //create a message
     let msg = CreateMessage{ role: Role::user, content: req.input};
@@ -191,4 +190,26 @@ async fn get_thread_id(s: &S, option: &ChatAIOptionReq, title: &str) -> anyhow::
     Ok(thread_id)
 }
 
+fn safe_substring(s: &str, start_char_index: usize, end_char_index: usize) -> String {
+    let start_byte_index = s.char_indices()
+        .nth(start_char_index)
+        .map_or_else(|| s.len(), |(index, _)| index);
+    let end_byte_index = s.char_indices()
+        .nth(end_char_index)
+        .map_or_else(|| s.len(), |(index, _)| index);
 
+    s[start_byte_index..end_byte_index].to_string()
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_substr() {
+        let s = "用html写一段简单的聊天窗口的代码";
+        // let  a= &s[0..30];
+        let  a=safe_substring(s,0,300);
+        println!("{:?}", a);
+    }
+}
