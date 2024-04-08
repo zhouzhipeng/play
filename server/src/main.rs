@@ -124,10 +124,12 @@ async fn main()->anyhow::Result<()> {
         pub struct NotHxRequest();
         impl<T> Predicate<Request<T>> for NotHxRequest {
             fn check(&mut self, request: &Request<T>) -> bool {
-                request
+                let should_inject_js = request
                     .headers()
                     .get("HX-Request")
-                    .is_none()
+                    .is_none();
+                info!("should_inject_js : {}", should_inject_js);
+                should_inject_js
             }
         }
 

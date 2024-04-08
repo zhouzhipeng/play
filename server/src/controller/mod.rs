@@ -17,6 +17,7 @@ mod general_data_controller;
 mod pages_controller;
 mod shell_controller;
 mod files_controller;
+pub mod chat_controller;
 //PLACEHOLDER:CONTROLLER_MOD
 
 
@@ -41,6 +42,7 @@ crate::register_routers!(
         pages_controller,
         shell_controller,
         files_controller,
+        chat_controller,
         //PLACEHOLDER:CONTROLLER_REGISTER
 
 
