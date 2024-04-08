@@ -101,9 +101,9 @@ impl OpenAIService {
                 let next_line = lines.next_line().await?.context("submit_tool_outputs error data!")?;
 
                 let event =line.trim_start_matches("event: ").trim().to_string();
-                println!("Event: {}", event);
+                // println!("Event: {}", event);
                 let data = next_line.trim_start_matches("data: ").trim().to_string();
-                println!("Data: {}", data);
+                // println!("Data: {}", data);
 
 
                 if event == "thread.message.completed"{
@@ -165,9 +165,9 @@ impl OpenAIService {
                 let next_line = lines.next_line().await?.context("run_thread_and_wait error data!")?;
 
                 let event =line.trim_start_matches("event: ").trim().to_string();
-                println!("Event: {}", event);
+                // println!("Event: {}", event);
                 let data = next_line.trim_start_matches("data: ").trim().to_string();
-                println!("Data: {}", data);
+                // println!("Data: {}", data);
 
 
                 if event == "thread.message.completed"{
