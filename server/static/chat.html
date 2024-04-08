@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat Interface</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -214,81 +215,149 @@
         }
 
 
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100px; /* 根据需要调整高度 */
+            font-size: 24px; /* 根据需要调整字体大小 */
+            color: #007bff; /* 根据需要调整颜色 */
+            background-color: #f0f0f0; /* 根据需要调整背景色 */
+        }
 
     </style>
 </head>
 <body>
 <div id="container">
-    <div id="sidebar">
+    <div id="sidebar" :class="{show : showSidebar}">
         <div class="top-bar">
-            <button id="new-conversation" class="icon-button"><i class="fas fa-edit"></i></button>
+            <button @click="newConversation" id="new-conversation" class="icon-button"><i class="fas fa-edit"></i></button>
         </div>
         <ul id="conversation-list">
-            <li>会话1</li>
-            <li>会话2</li>
+            <li :class="{active : currentThreadId === thread.thread_id}" v-for="thread in threads" :key="thread.thread_id" @click="selectThread(thread)">
+                {{ thread.title }}
+            </li>
         </ul>
     </div>
     <div id="main">
-        <button id="menu-icon" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
-        <div id="chat-window"></div>
+        <button id="menu-icon"  @click="toggleSidebar"><i class="fas fa-bars"></i></button>
+        <div id="chat-window"  @click="showSidebar=false">
+            <div v-if="isLoading" class="loading">Loading...</div>
+            <div v-for="message in messages" :key="message.id" :class="{'my-message': message.role==='user', 'their-message': message.role==='assistant'}" class="message">
+                {{ message.content }}
+            </div>
+        </div>
         <div id="message-form">
-            <input type="text" id="message-input" placeholder="Type a message..." autofocus>
+            <input  v-model="newMessage" @keydown.enter="sendMessage" type="text"  ref="messageInput" id="message-input" placeholder="Type a message..." autofocus  autocomplete="off">
 <!--            <button id="send-message"><i class="fas fa-paper-plane"></i></button>-->
         </div>
     </div>
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
+
+
+
 <script>
-    document.getElementById('new-conversation').onclick = function() {
-        document.getElementById('chat-window').innerHTML = '';
-        var elems = document.querySelectorAll("#conversation-list li.active");
-        [].forEach.call(elems, function(el) {
-            el.classList.remove("active");
-        });
+    new Vue({
+        el: '#container',
+        data: {
+            showSidebar: false,
+            isLoading: false,
+            threads: [],
+            messages: [],
+            newMessage: '',
+            currentThreadId: null
+        },
+        mounted() {
+            this.fetchThreads();
+        },
+        methods: {
+            fetchThreads() {
+                fetch('/chat/threads')
+                    .then(response => response.json())
+                    .then(data => {
+                        // 模拟从API获取数据
+                        this.threads = data;
 
-        toggleSidebar(); // 隐藏侧边栏
-    };
+                    })
+                    .catch(error => console.error('Error fetching data:', error));
 
-    const messageInput = document.getElementById('message-input');
-    messageInput.addEventListener('keypress', function(event) {
-        if (event.key === 'Enter' && !event.shiftKey) {
-            sendMessage();
-            event.preventDefault();
+            },
+            selectThread(thread) {
+                this.showSidebar =false;
+                this.currentThreadId = thread.thread_id;
+                this.isLoading=true;
+                // 加载对话消息
+                fetch('/chat/messages?thread_id='+this.currentThreadId)
+                    .then(response => response.json())
+                    .then(data => {
+                        this.messages = data;
+                        this.isLoading=false;
+
+                        // 确保DOM更新完成后滚动到底部
+                        this.$nextTick(() => {
+                            this.scrollToEnd();
+                        });
+                    })
+                    .catch(error => console.error('Error fetching data:', error));
+
+            },
+            sendMessage() {
+                if (!this.newMessage.trim()) return;
+                const submitUrl = `/chat/submit?is_general=true&thread_id=${this.currentThreadId || ''}`;
+                const input = this.newMessage;
+                this.messages.push({ content: input, role: 'user'});
+                const formData = new URLSearchParams();
+                formData.append("input", input);
+                this.newMessage = ''; // 清空输入框
+                this.messages.push({ content: "generating...", role: 'assistant'});
+                // 确保DOM更新完成后滚动到底部
+                this.$nextTick(() => {
+                    this.scrollToEnd();
+                });
+
+                fetch(submitUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: formData
+                })
+                .then(response => {
+                   this.currentThreadId = response.headers.get('x-thread-id');
+                   return  response.text()
+                })
+                .then(data => {
+                    this.messages.pop();
+                    // 假设这是发送消息后的响应
+                    this.messages.push({ content: data, role: 'assistant'});
+
+                    // 确保DOM更新完成后滚动到底部
+                    this.$nextTick(() => {
+                        this.scrollToEnd();
+                    });
+
+                    this.fetchThreads();
+                });
+
+
+            },
+            newConversation() {
+                this.messages = [];
+                this.currentThreadId = null;
+                this.toggleSidebar()
+                this.$refs.messageInput.focus(); // 发送消息后重新聚焦到输入框
+            },
+            toggleSidebar() {
+                this.showSidebar = !this.showSidebar;
+            },
+            scrollToEnd() {
+                const chatWindow = this.$el.querySelector('#chat-window');
+                chatWindow.scrollTop = chatWindow.scrollHeight;
+                this.$refs.messageInput.focus(); // 发送消息后重新聚焦到输入框
+            },
         }
-    });
-
-    function sendMessage() {
-        const message = messageInput.value.trim();
-        if (message) {
-            const messageElement = document.createElement('div');
-            messageElement.textContent = message;
-            messageElement.className = 'message my-message';
-            document.getElementById('chat-window').appendChild(messageElement);
-            messageInput.value = '';
-        }
-    }
-
-    document.querySelectorAll("#conversation-list li").forEach(item => {
-        item.onclick = function() {
-            document.querySelectorAll("#conversation-list li").forEach(li => {
-                li.classList.remove("active");
-            });
-            item.classList.add("active");
-            document.getElementById('chat-window').innerHTML = '<div class="message their-message">系统回复的消息</div>';
-
-            toggleSidebar(); // 隐藏侧边栏
-        };
-    });
-
-    function toggleSidebar() {
-        const sidebar = document.getElementById('sidebar');
-        sidebar.classList.toggle('show');
-    }
-
-
-
-    // 确保菜单按钮的点击事件不会触发全局隐藏逻辑
-    document.getElementById('chat-window').addEventListener('click', function(event) {
-        sidebar.classList.remove('show');
     });
 </script>
 </body>

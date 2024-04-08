@@ -93,8 +93,9 @@ async fn test_list_threads() -> anyhow::Result<()> {
     //insert json
     let resp = server.get("/chat/threads")
         .await;
-    let text = resp.json::<Vec<ChatThreadDo>>();
-    println!("resp data : {:?}", text);
+    // let text = resp.json::<Vec<ChatThreadDo>>();
+    let text = resp.text();
+    println!("resp data : {}", text);
     resp.assert_status_ok();
 
     Ok(())

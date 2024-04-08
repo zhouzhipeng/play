@@ -76,7 +76,8 @@ pub  const CAT_GENERAL_OPENAI_THREADS: &str="general_openai_threads";
 async fn submit_chat(s: S, Query(option): Query<ChatAIOptionReq>, Form(req): Form<ChatAIReq>) -> R<impl  IntoResponse> {
     info!("chat ai request in  >>  option : {:?},  {:?}",option,  req);
     //prepare thread id.
-    let thread_id = get_thread_id(&s, &option).await?;
+    let len =  req.input.len().min(30);
+    let thread_id = get_thread_id(&s, &option, &req.input[0..len]).await?;
 
     //create a message
     let msg = CreateMessage{ role: Role::user, content: req.input};
@@ -90,6 +91,7 @@ async fn submit_chat(s: S, Query(option): Query<ChatAIOptionReq>, Form(req): For
         let  response = Response::builder()
             .status(StatusCode::OK)
             .header("content-type", "text/plain")
+            .header("x-thread-id", thread_id)
             .body(Body::from(resp_msg))?;
 
         Ok(response)
@@ -109,7 +111,7 @@ async fn list_threads(s: S) -> JSON<Vec<ChatThreadDo>> {
 
 async fn list_messages_by_thread(s: S, Query(req): Query<ListMessageReq>) -> JSON<Vec<ChatMessageDo>> {
     info!("list_threads request in");
-    let return_list = s.openai_service.list_messages(&req.thread_id).await?.iter().map(|t|ChatMessageDo{
+    let return_list = s.openai_service.list_messages(&req.thread_id).await?.iter().rev().map(|t|ChatMessageDo{
         role: t.role.to_string(),
         content: t.content[0].text.value.to_string(),
     }).collect();
@@ -148,7 +150,7 @@ async fn call_tts(s: &S, resp_msg: &String)->R<Response<axum::body::Body>> {
     }
 }
 
-async fn get_thread_id(s: &S, option: &ChatAIOptionReq) -> anyhow::Result<String> {
+async fn get_thread_id(s: &S, option: &ChatAIOptionReq, title: &str) -> anyhow::Result<String> {
     let thread_id = if !option.is_general {
         //use dedicated assistant.
         let openai_thread = GeneralData::query_by_cat_simple(CAT_OPENAI_THREAD, &s.db).await?;
@@ -169,7 +171,7 @@ async fn get_thread_id(s: &S, option: &ChatAIOptionReq) -> anyhow::Result<String
             info!("first time chat, creating a new chat thread...");
             let thread = s.openai_service.create_thread().await?;
             //save it
-            let data = serde_json::to_string(&ChatThreadDo { thread_id: option.thread_id.to_string(), title: "<new title>".to_string() })?;
+            let data = serde_json::to_string(&ChatThreadDo { thread_id: thread.id.to_string(), title: title.to_string() })?;
             GeneralData::insert(&GeneralData::new(CAT_GENERAL_OPENAI_THREADS.to_string(), data), &s.db).await?;
             thread.id
         } else {
