@@ -2,7 +2,8 @@
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"> <!-- 禁止页面缩放 -->
+
     <title>Chat Interface</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 
@@ -225,6 +226,39 @@
             background-color: #f0f0f0; /* 根据需要调整背景色 */
         }
 
+    </style>
+<!--    fix ios safari -->
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden; /* 隐藏滚动条 */
+        }
+
+        #container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh; /* 容器高度填满视口 */
+            overflow: hidden; /* 防止容器产生滚动条 */
+        }
+
+        #main {
+            flex-grow: 1;
+            overflow-y: auto; /* 允许内容区滚动 */
+        }
+        #message-form {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0; /* 确保输入框右侧不超出视口 */
+            display: flex; /* 使用弹性布局确保内部元素排列整齐 */
+            background-color: #eee; /* 或其他符合设计的颜色 */
+            padding: 10px; /* 根据需要调整 */
+            box-sizing: border-box; /* 确保内边距不影响整体宽度 */
+        }
+
+        #chat-window{
+            padding-bottom: 90px;
+        }
     </style>
 </head>
 <body>
