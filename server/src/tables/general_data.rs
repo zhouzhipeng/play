@@ -67,6 +67,13 @@ impl GeneralData {
             .fetch_all(pool)
             .await
     }
+    pub async fn query_latest_by_cat_with_limit(cat: &str, limit: u32, pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
+        let sql = &format!("SELECT * FROM general_data where cat = ? order by id desc limit {}", limit);
+        sqlx::query_as::<_, GeneralData>(sql)
+            .bind(cat)
+            .fetch_all(pool)
+            .await
+    }
     pub async fn query_by_json_field(fields: &str, cat: &str, query_field: &str, query_val: &str, pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
         sqlx::query_as::<_, GeneralData>(format!("SELECT {} FROM general_data where cat = ? and json_extract(data, '$.{}') = ?", Self::convert_fields(fields), query_field).as_str())
             .bind(cat)
