@@ -337,7 +337,15 @@
                     .catch(error => console.error('Error fetching data:', error));
 
             },
-            sendMessage() {
+            sendMessage(event) {
+                if (event.key === 'Enter' && event.isComposing) {
+                    // 阻止默认行为（如表单提交）
+                    event.preventDefault();
+                    // 在这里执行你的提交操作，比如调用一个函数
+                    console.log('回车键被按下，且不是输入法输入状态');
+                    return;
+                }
+
                 if (!this.newMessage.trim()) return;
                 const submitUrl = `/chat/submit?is_general=true&thread_id=${this.currentThreadId || ''}`;
                 const input = this.newMessage;
