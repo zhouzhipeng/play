@@ -45,6 +45,7 @@ pub struct ShortLink {
 pub struct OpenAIConfig {
     pub api_key: String,
     pub assistant_id: String,
+    pub general_assistant_id: String,
 }
 #[derive(Deserialize, Debug, Clone, Default)]
 pub struct ElevenlabsConfig {

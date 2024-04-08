@@ -12,12 +12,12 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use futures_util::TryStreamExt;
 use shared::models::check_response;
 use crate::{ CheckResponse, ensure};
+use crate::types::openai_message::{Message, MessageList};
 use crate::types::openai_runobj::RunObj;
 
 pub struct OpenAIService {
     api_key: String,
     client: Client,
-    assistant_id: String,
 }
 
 #[derive(Deserialize)]
@@ -30,24 +30,7 @@ pub struct CreateMessage {
     pub content: String,
 }
 
-#[derive(Deserialize,Debug )]
-pub struct Message {
-    content: Vec<MessageContent>,
-}
 
-
-#[derive(Deserialize,Debug )]
-pub struct ListMessageResp {
-    data: Vec<Message>,
-}
-#[derive(Deserialize,Debug )]
-pub struct MessageContent {
-    text: MessageContentValue,
-}
-#[derive(Deserialize,Debug )]
-pub struct MessageContentValue {
-    value: String,
-}
 #[derive(Deserialize,Debug )]
 pub struct CallGetWeatherArg {
     location: String,
@@ -58,15 +41,14 @@ pub enum  Role {
 }
 
 impl OpenAIService {
-    pub fn new(api_key: String,assistant_id: String) -> anyhow::Result<Self> {
+    pub fn new(api_key: String) -> anyhow::Result<Self> {
         let client = Client::builder()
-            .timeout(Duration::from_secs(10))
+            .timeout(Duration::from_secs(60))
             .build()?;
 
         Ok(OpenAIService {
             api_key,
             client,
-            assistant_id,
         })
     }
     fn get_headers(&self) -> anyhow::Result<HeaderMap> {
@@ -92,21 +74,7 @@ impl OpenAIService {
         let thread = response.json::<Thread>().await?;
         Ok(thread)
     }
-    pub async fn create_message(&self, thread_id: &str , msg: &CreateMessage) -> anyhow::Result<()> {
-        // 对话 API 端点
-        let url = format!("https://api.openai.com/v1/threads/{}/messages", thread_id);
-        // 发起 POST 请求
-        let response = self.client.post(url)
-            .headers(self.get_headers()?)
-            .json(msg)
-            .send()
-            .await?
-            .check().await?;
-        // 解析响应
-        let resp = response.json::<Message>().await?;
-        info!("create message ok , resp :{:?}", resp);
-        Ok(())
-    }
+
     pub async fn submit_tool_outputs(&self, thread_id: &str, run_id:&str, tool_call_id: &str , output: &str) -> anyhow::Result<String> {
         // 对话 API 端点
         let url = format!("https://api.openai.com/v1/threads/{}/runs/{}/submit_tool_outputs", thread_id,run_id);
@@ -162,15 +130,15 @@ impl OpenAIService {
             .check()
             .await?;
         // 解析响应
-        let resp = response.json::<ListMessageResp>().await?;
+        let resp = response.json::<MessageList>().await?;
         Ok(resp.data)
     }
-    pub async fn run_thread_and_wait(&self, thread_id: &str, msg: &CreateMessage) -> anyhow::Result<String> {
+    pub async fn run_thread_and_wait(&self, thread_id: &str,assistant_id: &str,  msg: &CreateMessage) -> anyhow::Result<String> {
         // 对话 API 端点
         let url = format!("https://api.openai.com/v1/threads/{}/runs", thread_id);
         // 请求体，根据需要调整 prompt 和 model
         let body = json!({
-            "assistant_id": self.assistant_id,
+            "assistant_id": assistant_id,
             "stream": true,
             "additional_messages": [
                 msg
@@ -246,12 +214,8 @@ mod tests {
             content: "hi, what's the weather in dubai now?".to_string(),
         };
 
-        let result_msg = openai_service.run_thread_and_wait(&thread.id , &msg).await?;
+        let result_msg = openai_service.run_thread_and_wait(&thread.id , &s.config.open_ai.general_assistant_id, &msg).await?;
         println!("result msg : {}", result_msg);
-
-        // //list messages
-        // let messsages = openai_service.list_messages(&thread.id).await?;
-        // println!("messages : {:?}", messsages);
 
         Ok(())
     }
@@ -261,6 +225,17 @@ mod tests {
         let aa = vec![1];
         let b = aa.get(1).context("data error")?;
         println!("{}", b);
+        Ok(())
+    }
+    #[ignore]
+    #[tokio::test]
+    async fn test_list_message() -> anyhow::Result<()> {
+        let s = mock_state!();
+        let openai_service = &s.openai_service;;
+        // //list messages
+        let messsages = openai_service.list_messages("thread_2qzEju9lH7mhxmjubDoNPngA").await?;
+        println!("messages : {:?}", messsages);
+
         Ok(())
     }
 

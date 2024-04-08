@@ -120,6 +120,17 @@ macro_rules! mock_server {
         axum_test::TestServer::new(play::routers(play::init_app_state(&play::config::init_config(true), true).await))?;
     };
 }
+#[macro_export]
+macro_rules! mock_server_state {
+    ()=>{
+        {
+           let s = play::init_app_state(&play::config::init_config(true), true).await;
+            let server = axum_test::TestServer::new(play::routers(s.clone()))?;
+            (server, axum::extract::State(s))
+        }
+
+    };
+}
 
 
 ///
@@ -172,7 +183,7 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> Arc<AppStat
     // Create an instance of the shared state
     let app_state = Arc::new(AppState {
         template_service: TemplateService::new(req_sender),
-        openai_service: OpenAIService::new(config.open_ai.api_key.to_string(), config.open_ai.assistant_id.to_string()).unwrap(),
+        openai_service: OpenAIService::new(config.open_ai.api_key.to_string()).unwrap(),
         elevenlabs_service: ElevenlabsService::new(config.elevenlabs.api_key.to_string(), config.elevenlabs.voice_id.to_string()).unwrap(),
         db: if final_test_pool { tables::init_test_pool().await } else { tables::init_pool(&config).await },
         #[cfg(feature = "redis")]
