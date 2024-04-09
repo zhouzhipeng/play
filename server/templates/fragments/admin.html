@@ -2,27 +2,7 @@
 
 <h2>Admin operations be careful!</h2>
 <div>
-    <div class="row">
-        <div class="col">
-            <form hx-get="/admin/upgrade" hx-target="#result">
-                <label>
-                    upgrade url :
-                    <input name="url" type="text" value="{{upgrade_url}}"
-                           placeholder="paste a valid http  download url"/>
-                </label>
-                <button type="submit">upgrade app</button>
-                <p id="result"></p>
-            </form>
 
-        </div>
-        <div class="col">
-            <h3>shutdown app</h3>
-            <button type="button" hx-get="/admin/shutdown">shutdown</button>
-
-        </div>
-    </div>
-    <hr/>
-    <hr/>
 
     <form hx-post="/admin/save-config" hx-target="#save-result">
         <p>{{config_path}}</p>
