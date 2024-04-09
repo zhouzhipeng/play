@@ -128,7 +128,7 @@ async fn main()->anyhow::Result<()> {
                     .headers()
                     .get("HX-Request")
                     .is_none();
-                info!("should_inject_js : {}", should_inject_js);
+                // info!("should_inject_js : {}", should_inject_js);
                 should_inject_js
             }
         }

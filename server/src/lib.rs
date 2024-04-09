@@ -323,6 +323,7 @@ pub fn routers(app_state: Arc<AppState>) -> Router {
 
 
 
+    let auth_config = app_state.config.auth_config.clone();
     let mut router = Router::new()
         .merge(app_routers())
         .with_state(app_state)
@@ -330,8 +331,9 @@ pub fn routers(app_state: Arc<AppState>) -> Router {
         .layer(TraceLayer::new_for_http().make_span_with(DefaultMakeSpan::default().include_headers(true)))
         .layer(TimeoutLayer::new(Duration::from_secs(120)))
         .layer(DefaultBodyLimit::disable())
-        .layer(HttpLogLayer)
+        .layer(HttpLogLayer{ auth_config })
         .layer(cors);
+
 
     #[cfg(not(feature = "debug"))]
     {
