@@ -13,6 +13,7 @@ use crate::tables::general_data::GeneralData;
 
 method_router!(
     get : "/"-> root,
+    get : "/ping"-> ping,
     get : "/test-redis"-> redis_test,
     get : "/test"-> test,
     get : "/download-db"-> serve_db_file,
@@ -43,6 +44,9 @@ async fn redis_test(s: S) -> R<String> {
 
     Ok(val)
     // Ok("sdf".to_string())
+}
+async fn ping() -> R<String> {
+    Ok("pong".to_string())
 }
 
 async fn test(s: S) -> HTML {
