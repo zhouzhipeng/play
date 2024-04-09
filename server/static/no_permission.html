@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <script type="text/javascript" src="/static/js/gen_fingerprint.js"></script>
+
 
     <meta charset="UTF-8">
     <title>No Permission</title>
@@ -9,8 +9,15 @@
 <body>
 <h1>NO PERMISSION!</h1>
 <h3>please contact admin</h3>
+<script type="text/javascript" src="/static/js/gen_fingerprint.js"></script>
 <script>
-fetch(location.pathname)
+fetch(location.pathname).then(res=>{
+    if(res.status!==403){
+        //actually has permission, maybe in an anonymous window
+        location.reload()
+    }
+    // console.log(res.status)
+})
 </script>
 </body>
 </html>
