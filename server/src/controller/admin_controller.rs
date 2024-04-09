@@ -13,6 +13,7 @@ use reqwest::{ClientBuilder, Url};
 use serde::Deserialize;
 use serde_json::json;
 use tracing::info;
+
 use shared::constants::DATA_DIR;
 
 use crate::{ensure, HTML, method_router, S, template};
@@ -32,11 +33,12 @@ struct UpgradeRequest {
 }
 
 #[derive(Deserialize)]
-struct SaveConfigReq{
+struct SaveConfigReq {
     new_content: String,
 }
+
 async fn display_logs(s: S) -> HTML {
-    let count= 50;
+    let count = 50;
     // Get the current local date
     let now = Local::now();
 
@@ -50,7 +52,7 @@ async fn display_logs(s: S) -> HTML {
         .filter_map(Result::ok)
         .collect();
 
-    let tail_lines:Vec<String> = lines.iter()
+    let tail_lines: Vec<String> = lines.iter()
         .rev()
         .take(count)
         .rev()
@@ -62,9 +64,13 @@ async fn display_logs(s: S) -> HTML {
 
     Ok(Html(converted))
 }
+
 async fn save_config(s: S, Form(req): Form<SaveConfigReq>) -> HTML {
     save_config_file(&req.new_content)?;
-    Ok(Html("save ok.".to_string()))
+    tokio::spawn(async {
+        let _ = shutdown().await;
+    });
+    Ok(Html("save ok,will reboot in a sec.".to_string()))
 }
 
 
@@ -82,7 +88,7 @@ async fn enter_admin_page(s: S) -> HTML {
     }))
 }
 
-async fn upgrade_in_background(url: Url) ->anyhow::Result<()>{
+async fn upgrade_in_background(url: Url) -> anyhow::Result<()> {
     info!("begin to download from url in background  : {}", url);
 
     // download file
@@ -112,7 +118,7 @@ async fn upgrade(s: S, Query(upgrade): Query<UpgradeRequest>) -> HTML {
     let url = Url::parse(&upgrade.url.as_ref().unwrap_or(&s.config.upgrade_url))?;
 
 
-    tokio::spawn(async move{
+    tokio::spawn(async move {
         let r = upgrade_in_background(url).await;
         info!("upgrade_in_background result >> {:?}", r);
     });
@@ -122,9 +128,6 @@ async fn upgrade(s: S, Query(upgrade): Query<UpgradeRequest>) -> HTML {
 }
 
 async fn shutdown() -> HTML {
-
-    info!("ready to reboot...");
-
+    info!("ready to shutdown...");
     std::process::exit(0);
-
 }
