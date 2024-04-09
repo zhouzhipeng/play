@@ -1,5 +1,5 @@
 mod index_controller;
-mod static_controller;
+pub mod static_controller;
 mod user_controller;
 mod ws_controller;
 pub mod function_controller;

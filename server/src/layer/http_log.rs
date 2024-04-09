@@ -9,7 +9,7 @@ use futures_util::future::BoxFuture;
 use tower::{Service, Layer};
 use std::task::{Context, Poll};
 use axum::body::{BoxBody};
-use axum::response::IntoResponse;
+use axum::response::{Html, IntoResponse};
 use cookie::Cookie;
 
 use http_body::Full;
@@ -141,10 +141,12 @@ impl<S> Service<Request<Body>> for HttpLogMiddleware<S>
 
 
 fn refuse_response() -> Response {
+    let html = STATIC_DIR.get_file("no_permission.html").unwrap().contents_utf8().unwrap();
+
     let response: Response = Response::builder()
         .status(StatusCode::FORBIDDEN)
-        .header("content-type", "text/plain")
-        .body(Body::from("NO PERMISSION! (please contact admin)")).unwrap().into_response();
+        .header("content-type", "text/html")
+        .body(Body::from(html)).unwrap().into_response();
     response
 }
 
@@ -155,7 +157,7 @@ fn extract_prefix(url: &str) -> String {
     let components = path.components().collect::<Vec<_>>();
 
     // 检查是否有足够的组件来提取前缀
-    if components.len() > 1 {
+    if components.len() > 2 {
 
 
         format!("/{}/", components[1].as_os_str().to_str().unwrap_or(""))
@@ -166,7 +168,8 @@ fn extract_prefix(url: &str) -> String {
 
 use futures::TryStreamExt;
 use http::{HeaderValue, StatusCode};
-use crate::config::AuthConfig; // 提供 `try_concat` 方法来转换 body
+use crate::config::AuthConfig;
+use crate::controller::static_controller::STATIC_DIR; // 提供 `try_concat` 方法来转换 body
 
 #[cfg(test)]
 mod tests {
