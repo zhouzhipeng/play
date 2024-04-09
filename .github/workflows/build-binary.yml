@@ -11,10 +11,12 @@ jobs:
     name: Create Release
     runs-on: ubuntu-latest
     steps:
+      - name: Setup environment variable for URL
+        run: echo "REQUEST_URL=https://api.day.app/${{secrets.MY_IOS_DEVICE}}/github-action/start" >> $GITHUB_ENV
       - name: Send Push
         uses: fjogeleit/http-request-action@v1
         with:
-          url: 'https://api.day.app/pTyPrycAjp36tGRSAUgfiU/github-action/start'
+          url: ${{ env.REQUEST_URL }}
           method: 'GET'
           contentType: 'application/x-www-form-urlencoded'
       - name: Create Release
@@ -150,9 +152,11 @@ jobs:
           method: 'GET'
           headers: |
             X-Browser-Fingerprint: ${{ secrets.FINGERPRINT }}
+      - name: Setup environment variable for URL
+        run: echo "REQUEST_URL=https://api.day.app/${{secrets.MY_IOS_DEVICE}}/github-action/done" >> $GITHUB_ENV
       - name: Send Push
         uses: fjogeleit/http-request-action@v1
         with:
-          url: 'https://api.day.app/pTyPrycAjp36tGRSAUgfiU/github-action/done'
+          url: ${{ env.REQUEST_URL }}
           method: 'GET'
           contentType: 'application/x-www-form-urlencoded'
