@@ -142,8 +142,8 @@ impl<S> Service<Request<Body>> for HttpLogMiddleware<S>
 fn refuse_response() -> Response {
     let response: Response = Response::builder()
         .status(StatusCode::FORBIDDEN)
-        .header("content-type", "text/html")
-        .body(Body::from("NO PERMISSION! back to <a href='/'>HOME</a>")).unwrap().into_response();
+        .header("content-type", "text/plain")
+        .body(Body::from("NO PERMISSION! (please contact admin)")).unwrap().into_response();
     response
 }
 
