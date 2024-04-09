@@ -90,6 +90,7 @@ impl<S> Service<Request<Body>> for HttpLogMiddleware<S>
 
                 if f.is_empty(){
                     //refuse
+                    warn!("no fingerprint found, refuse to visit uri : {}", uri);
                     return Box::pin(async move {
                         let response = refuse_response();
                         Ok(response)
