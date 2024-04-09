@@ -150,8 +150,7 @@ jobs:
         with:
           url: 'https://zhouzhipeng.com/admin/upgrade'
           method: 'GET'
-          headers: |
-            X-Browser-Fingerprint: ${{ secrets.FINGERPRINT }}
+          customHeaders: '{"X-Browser-Fingerprint": "${{ secrets.FINGERPRINT }}"}'
       - name: Setup environment variable for URL
         run: echo "REQUEST_URL=https://api.day.app/${{secrets.MY_IOS_DEVICE}}/github-action/done" >> $GITHUB_ENV
       - name: Send Push
