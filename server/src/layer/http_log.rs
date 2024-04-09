@@ -43,8 +43,9 @@ impl<S> Service<Request<Body>> for HttpLogMiddleware<S>
     }
 
     fn call(&mut self, request: Request<Body>) -> Self::Future {
+        let uri = request.uri().to_string();
         let prefix_log = format!("served request >> method: {} , url :{} , headers : {:?}",
-                                 request.method(), request.uri(), request.headers());
+                                 request.method(), uri, request.headers());
 
         let future = self.inner.call(request);
         Box::pin(async move {
@@ -58,8 +59,14 @@ impl<S> Service<Request<Body>> for HttpLogMiddleware<S>
             // }else{
             //     info!("success response : {}", prefix_log);
             // }
+            if !(uri.to_string().starts_with("/static")
+                || uri.to_string().starts_with("/files")
+                || uri.to_string().starts_with("/admin")
+            ){
+                info!("{}", prefix_log);
+            }
 
-            info!("{}", prefix_log);
+
 
             Ok(response)
         })
