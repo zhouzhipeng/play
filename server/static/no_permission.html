@@ -7,14 +7,21 @@
     <title>No Permission</title>
 </head>
 <body>
+<h1 id="checking">checking permission...</h1>
+<div id="nopermission" style="display: none">
 <h1>NO PERMISSION!</h1>
 <h3>please contact admin</h3>
+</div>
 <script type="text/javascript" src="/static/js/gen_fingerprint.js"></script>
 <script>
 fetch(location.pathname).then(res=>{
     if(res.status!==403){
         //actually has permission, maybe in an anonymous window
         location.reload()
+    }else{
+        //not permission
+        nopermission.style.display="block";
+        checking.style.display="none";
     }
     // console.log(res.status)
 })
