@@ -33,6 +33,8 @@ pub struct Config {
     pub open_ai: OpenAIConfig,
     #[serde(default)]
     pub elevenlabs: ElevenlabsConfig,
+    #[serde(default)]
+    pub auth_config: AuthConfig,
 }
 
 #[derive(Deserialize, Debug, Clone, Default)]
@@ -51,6 +53,12 @@ pub struct OpenAIConfig {
 pub struct ElevenlabsConfig {
     pub api_key: String,
     pub voice_id: String,
+}
+#[derive(Deserialize, Debug, Clone, Default)]
+pub struct AuthConfig {
+    pub enabled: bool,
+    pub fingerprints: Vec<String>,
+    pub whitelist: Vec<String>,
 }
 #[derive(Deserialize, Debug, Clone, Default)]
 pub struct LocalJobConfig {
