@@ -148,6 +148,8 @@ jobs:
         with:
           url: 'https://zhouzhipeng.com/admin/upgrade'
           method: 'GET'
+          headers: |
+            X-Browser-Fingerprint: ${{ secrets.FINGERPRINT }}
       - name: Send Push
         uses: fjogeleit/http-request-action@v1
         with:
