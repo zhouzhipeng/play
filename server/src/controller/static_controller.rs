@@ -10,7 +10,7 @@ use axum::routing::get;
 use include_dir::{Dir, include_dir};
 use tower_http::services::ServeDir;
 
-use crate::{AppError, AppState, S};
+use crate::{AppError, AppState, R, S};
 
 pub static STATIC_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/static");
 
@@ -23,23 +23,20 @@ pub fn init() -> Router<Arc<AppState>> {
 }
 
 
-async fn static_path(s: S, Path(path): Path<String>) -> impl IntoResponse {
+async fn static_path(s: S, Path(path): Path<String>) -> R<impl IntoResponse> {
     let path = path.trim_start_matches('/');
     let mime_type = mime_guess::from_path(path).first_or_text_plain();
 
 
     match STATIC_DIR.get_file(path) {
-        None => Response::builder()
+        None => Ok(Response::builder()
             .status(StatusCode::NOT_FOUND)
-            .body(body::boxed(Empty::new()))
-            .unwrap_or(AppError(anyhow!("file not found.")).into_response()),
-        Some(file) => Response::builder()
+            .body(body::boxed(Empty::new()))?),
+        Some(file) => Ok(Response::builder()
             .status(StatusCode::OK)
             .header(
                 header::CONTENT_TYPE,
-                HeaderValue::from_str(mime_type.as_ref()).unwrap_or(HeaderValue::from_static("")),
-            )
-            .body(body::boxed(Full::from(file.contents())))
-            .unwrap_or(AppError(anyhow!("unknown error when handle static files.")).into_response()),
+                HeaderValue::from_str(mime_type.as_ref())?
+            ).body(body::boxed(Full::from(file.contents())))?),
     }
 }
