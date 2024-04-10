@@ -38,7 +38,7 @@ struct SaveConfigReq {
 }
 
 async fn display_logs(s: S) -> HTML {
-    let count = 50;
+    let count = 100;
     // Get the current local date
     let now = Local::now();
 

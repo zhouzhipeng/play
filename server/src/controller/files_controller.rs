@@ -10,7 +10,7 @@ use axum::extract::{Path, Query};
 use axum::response::{IntoResponse, Response};
 use futures::Stream;
 use futures_util::TryStreamExt;
-use http::{HeaderValue, StatusCode};
+use http::{header, HeaderValue, StatusCode};
 use infer::Infer;
 use serde::Deserialize;
 use sqlx::Row;
@@ -115,9 +115,19 @@ async fn upload_file(
                     continue;
                 };
 
+                if file_name.is_empty(){
+                    //not valid upload.
+                    continue;
+                }
+
                 if option.random_name{
-                    let extension = extract_extension(&file_name);;
-                    file_name = format!("{}.{}", current_timestamp!(), extension);
+                    let mut extension = extract_extension(&file_name);;
+                    if extension.is_empty(){
+                        file_name = format!("{}", current_timestamp!());
+                    }else{
+                        file_name = format!("{}.{}", current_timestamp!(), extension);
+                    }
+
                     info!("new file name : {}", file_name);
                 }
 
@@ -143,6 +153,9 @@ async fn download_file(Path(file_path): Path<String>) -> impl IntoResponse {
         return Err((StatusCode::FORBIDDEN, "Access denied"));
     }
 
+    let mime_type = mime_guess::from_path(&safe_path).first_or_text_plain();
+
+
     // Attempt to open the file
     match File::open(&safe_path).await {
         Ok(mut file) => {
@@ -152,14 +165,19 @@ async fn download_file(Path(file_path): Path<String>) -> impl IntoResponse {
                 // Create a response with the file contents
                 let mut response = Response::builder()
                     .status(StatusCode::OK)
+                    .header(
+                        header::CONTENT_TYPE,
+                        HeaderValue::from_str(mime_type.as_ref()).unwrap()
+                    )
                     .body(Body::from(contents))
                     .expect("Failed to build response"); // Convert Vec<u8> into Body
 
+
                 // You can add or modify response headers here
-                response.headers_mut().insert(
-                    "Content-Disposition",
-                    HeaderValue::from_str(&format!("attachment; filename=\"{}\"", safe_path.file_name().unwrap().to_str().unwrap())).unwrap(),
-                );
+                // response.headers_mut().insert(
+                //     "Content-Disposition",
+                //     HeaderValue::from_str(&format!("attachment; filename=\"{}\"", safe_path.file_name().unwrap().to_str().unwrap())).unwrap(),
+                // );
 
                 Ok(response)
             } else {

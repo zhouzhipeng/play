@@ -1,6 +1,6 @@
 use tokio::process::Command;
 
-use crate::method_router;
+use crate::{data_dir, method_router};
 use crate::R;
 
 method_router!(
@@ -10,6 +10,7 @@ method_router!(
 
 async fn execute_command(input: String) -> R<String> {
     let output = Command::new("sh")
+        .current_dir(data_dir!())
         .arg("-c")
         .arg(&input)
         .output()
