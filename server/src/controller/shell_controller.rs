@@ -9,6 +9,21 @@ method_router!(
 
 
 async fn execute_command(input: String) -> R<String> {
+    let input_tmp = input.trim().to_lowercase();
+    if  input_tmp.starts_with("vi")
+        || input_tmp.starts_with("top")
+        || input_tmp.starts_with("less")
+        || input_tmp.starts_with("nano")
+        || input_tmp.starts_with("screen")
+        || input_tmp.starts_with("tmux")
+        || input_tmp.starts_with("ncurses")
+        || input_tmp.starts_with("ssh")
+        || input_tmp.starts_with("ftp")
+        || input_tmp.starts_with("mysql")
+    {
+        return Ok("command not supported!".to_string())
+    }
+
     let output = Command::new("sh")
         .current_dir(data_dir!())
         .arg("-c")
