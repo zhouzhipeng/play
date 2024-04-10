@@ -32,6 +32,7 @@ method_router!(
     post : "/files/upload" -> upload_file,
     put : "/files/upload" -> upload_file,
     get : "/files/*path" -> download_file,
+    delete : "/files/*path" -> delete_file,
     get : "/files/packed" -> pack_files,
     get : "/files" -> list_files,
 );
@@ -233,6 +234,20 @@ async fn download_file(Path(file_path): Path<String>) -> impl IntoResponse {
             // If file opening fails
             Err((StatusCode::NOT_FOUND, "File not found"))
         }
+    }
+}
+
+async fn delete_file(Path(file_path): Path<String>) -> impl IntoResponse {
+    // Sanitize file path and prevent directory traversal
+    let safe_path = files_dir!().join(file_path.trim_start_matches('/'));
+    if safe_path.components().any(|component| component == Component::ParentDir) {
+        return Err((StatusCode::FORBIDDEN, "Access denied".to_string()));
+    }
+
+    // 尝试删除文件
+    match fs::remove_file(safe_path).await {
+        Ok(_) => Ok(Response::new("文件删除成功".to_string())),
+        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, format!("文件删除失败: {}", e))),
     }
 }
 fn extract_extension(filename: &str) -> &str {
