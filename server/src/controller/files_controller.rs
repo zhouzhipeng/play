@@ -2,17 +2,19 @@ use std::error::Error;
 use std::io;
 use std::io::{Cursor, Write};
 use std::path::{Component, PathBuf};
+use std::time::UNIX_EPOCH;
 use anyhow::anyhow;
 
 use axum::body::{Body, Bytes, HttpBody, StreamBody};
-use axum::BoxError;
+use axum::{BoxError, Json};
 use axum::extract::{Path, Query};
 use axum::response::{IntoResponse, Response};
+use chrono::{DateTime, Local};
 use futures::Stream;
 use futures_util::TryStreamExt;
 use http::{header, HeaderValue, StatusCode};
 use infer::Infer;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sqlx::Row;
 use tokio::fs;
 use tokio::fs::File;
@@ -23,7 +25,7 @@ use tracing::info;
 
 use shared::current_timestamp;
 
-use crate::{data_dir, files_dir, method_router, R, return_error};
+use crate::{data_dir, files_dir, JSON, method_router, R, return_error};
 use crate::extractor::custom_file_upload::CustomFileExtractor;
 
 method_router!(
@@ -31,7 +33,49 @@ method_router!(
     put : "/files/upload" -> upload_file,
     get : "/files/*path" -> download_file,
     get : "/files/packed" -> pack_files,
+    get : "/files" -> list_files,
 );
+
+
+#[derive(Serialize, Debug)]
+struct FileInfo {
+    filename: String,
+    modify_time: i64,  // 使用 i64 来存储时间戳（毫秒）
+}
+
+async fn list_files() -> JSON<Vec<FileInfo>> {
+    let path = files_dir!();
+    let mut files_info = Vec::new();
+
+    if let Ok(mut entries) = fs::read_dir(path).await {
+        while let Ok(Some(entry)) = entries.next_entry().await {
+            let path = entry.path();
+            if path.is_file() {
+                if let Ok(filename) = entry.file_name().into_string() {
+                    if let Ok(metadata) = fs::metadata(&path).await {
+                        if let Ok(modify_time) = metadata.modified() {
+                            // 使用 chrono 来格式化时间
+                            let modify_time = modify_time
+                                .duration_since(UNIX_EPOCH)
+                                .expect("Time went backwards")
+                                .as_millis() as i64;  // 转换为毫秒
+                            files_info.push(FileInfo {
+                                filename,
+                                modify_time,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Sort the files by modify_time, descending
+    files_info.sort_by(|a, b| b.modify_time.cmp(&a.modify_time));
+
+    Ok(Json(files_info))
+}
+
 async fn pack_files() -> R<impl IntoResponse> {
     let folder_path = files_dir!();
     let target_file = data_dir!().join("packed_files.zip");
@@ -256,6 +300,7 @@ async fn rename_file_with_correct_extension(path: &std::path::Path) -> anyhow::R
 }
 #[cfg(test)]
 mod test {
+    use crate::{mock_server, mock_state};
     use super::*;
 
     #[tokio::test]
@@ -279,6 +324,5 @@ mod test {
 
         println!("{}", extension);
     }
-
 
 }

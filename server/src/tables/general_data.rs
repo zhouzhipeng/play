@@ -68,7 +68,7 @@ impl GeneralData {
             .await
     }
     pub async fn query_latest_by_cat_with_limit(cat: &str, limit: u32, pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
-        let sql = &format!("SELECT * FROM general_data where cat = ? order by id desc limit {}", limit);
+        let sql = &format!("SELECT * FROM general_data where cat = ? order by updated desc limit {}", limit);
         sqlx::query_as::<_, GeneralData>(sql)
             .bind(cat)
             .fetch_all(pool)
