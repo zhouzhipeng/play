@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh">
 <head>
-    <script type="text/javascript" src="/static/js/gen_fingerprint.js"></script>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"> <!-- 禁止页面缩放 -->
 
@@ -73,7 +73,7 @@
             padding: 5px 10px;
             margin: 5px;
             border-radius: 20px;
-            max-width: 60%;
+            max-width: 95%;
         }
 
         .my-message {
@@ -274,6 +274,9 @@
             flex: 1; /* 使textarea在Flex容器中正确伸缩 */
             /*margin-right: 10px; !* 与发送按钮的间隔 *!*/
         }
+        p{
+            margin: 0;
+        }
     </style>
 </head>
 <body>
@@ -292,8 +295,7 @@
         <button id="menu-icon"  @click="toggleSidebar"><i class="fas fa-bars"></i></button>
         <div id="chat-window"  @click="showSidebar=false">
             <div v-if="isLoading" class="loading">Loading...</div>
-            <div v-for="message in messages" :key="message.id" :class="{'my-message': message.role==='user', 'their-message': message.role==='assistant'}" class="message">
-                {{ message.content }}
+            <div v-html="render_markdown(message.content)" v-for="message in messages" :key="message.id" :class="{'my-message': message.role==='user', 'their-message': message.role==='assistant'}" class="message">
             </div>
         </div>
         <div id="message-form">
@@ -303,10 +305,10 @@
         </div>
     </div>
 </div>
+<script type="text/javascript" src="/static/js/gen_fingerprint.js"></script>
 
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="/static/js/vue@2.js"></script>
-
-
 
 <script>
     new Vue({
@@ -323,6 +325,9 @@
             this.fetchThreads();
         },
         methods: {
+            render_markdown(str){
+               return window.marked.parse(str)
+            },
             fetchThreads() {
                 fetch('/chat/threads')
                     .then(response => response.json())
