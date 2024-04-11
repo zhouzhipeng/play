@@ -39,7 +39,7 @@ use shared::tpl_engine_api::{Template, TemplateData, TplEngineAPI};
 
 use crate::config::Config;
 use crate::config::init_config;
-use crate::controller::app_routers;
+use crate::controller::{app_routers, shortlink_controller};
 use crate::layer::http_log::{HttpLogLayer};
 use crate::service::elevenlabs_service::ElevenlabsService;
 use crate::service::openai_service::OpenAIService;
@@ -325,6 +325,7 @@ pub fn routers(app_state: Arc<AppState>) -> Router {
 
     let auth_config = app_state.config.auth_config.clone();
     let mut router = Router::new()
+        .merge(shortlink_controller::init(app_state.clone()))
         .merge(app_routers())
         .with_state(app_state)
         // logging so we can see whats going on
