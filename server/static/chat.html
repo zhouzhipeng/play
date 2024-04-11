@@ -260,6 +260,20 @@
         #chat-window{
             padding-bottom: 90px;
         }
+
+
+        #message-input {
+            width: auto; /* 根据cols属性调整宽度 */
+            height: auto; /* 初始高度自动调整 */
+            min-height: 40px; /* 设置一个最小高度 */
+            resize: none; /* 阻止用户调整大小 */
+            overflow-y: hidden; /* 隐藏垂直滚动条 */
+            padding: 5px; /* 内边距 */
+            border: 2px solid #ccc; /* 边框样式 */
+            border-radius: 10px; /* 边框圆角 */
+            flex: 1; /* 使textarea在Flex容器中正确伸缩 */
+            /*margin-right: 10px; !* 与发送按钮的间隔 *!*/
+        }
     </style>
 </head>
 <body>
@@ -283,7 +297,8 @@
             </div>
         </div>
         <div id="message-form">
-            <input  v-model="newMessage" @keydown.enter="sendMessage" type="text"  ref="messageInput" id="message-input" placeholder="Type a message..." autofocus  autocomplete="off">
+            <textarea id="message-input" v-model="newMessage" @keydown.enter="sendMessage" ref="messageInput" cols="30" rows="1" autofocus  autocomplete="off" placeholder="Type a message..."></textarea>
+<!--            <input  v-model="newMessage" @keydown.enter="sendMessage" type="text"  ref="messageInput" id="message-input" placeholder="Type a message..." autofocus  autocomplete="off">-->
 <!--            <button id="send-message"><i class="fas fa-paper-plane"></i></button>-->
         </div>
     </div>
@@ -401,6 +416,11 @@
                 this.$refs.messageInput.focus(); // 发送消息后重新聚焦到输入框
             },
         }
+    });
+
+    document.getElementById('message-input').addEventListener('input', function() {
+        this.style.height = 'auto'; // 重置高度以便获取正确的新高度
+        this.style.height = this.scrollHeight + 'px'; // 设置高度为内容的实际高度
     });
 </script>
 </body>

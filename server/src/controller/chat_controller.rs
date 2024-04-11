@@ -184,6 +184,10 @@ async fn get_thread_id(s: &S, option: &ChatAIOptionReq, title: &str) -> anyhow::
             let openai_thread = thread_list.get(0)
                 .context(format!("get thread {} error!", option.thread_id))?;
             let th_do = serde_json::from_str::<ChatThreadDo>(&openai_thread.data)?;
+
+            //update it for order by time
+            GeneralData::update_data_by_id(openai_thread.id, &openai_thread.data, &s.db).await?;
+
             th_do.thread_id
         }
     };
