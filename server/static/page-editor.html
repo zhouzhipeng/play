@@ -23,6 +23,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/css/css.min.js"></script>
+    <script src="/static/js/common.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -974,7 +975,7 @@
                 // 更新标题和URL等其他相关字段
                 document.getElementById('title-display').textContent = itemData.title;
                 document.getElementById('url-display').textContent = itemData.url;
-                document.getElementById('last-modified-time').textContent = `最后修改时间: ${data.updated}`;
+                document.getElementById('last-modified-time').textContent = `最后修改时间: ${formatTimestamp(data.updated)}`;
             })
             .catch(error => console.error('获取内容失败:', error))
             .finally(() => {
@@ -1059,7 +1060,7 @@
     // 定义用于更新编辑器和相关字段的函数
     function updateEditor(itemData, item) {
         document.getElementById('title-display').textContent = itemData.title; // 更新标题
-        document.getElementById('last-modified-time').textContent = `最后修改时间: ${item.updated}`; // 更新最后修改时间
+        document.getElementById('last-modified-time').textContent = `最后修改时间: ${formatTimestamp(item.updated)}`; // 更新最后修改时间
 
         // 更新URL链接和文本
         const urlElement = document.getElementById('url-display');
