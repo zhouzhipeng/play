@@ -196,9 +196,8 @@ impl TplEngineAPI for PyRunner{
                         Ok(_) => {}
                         Err(e) => {
                             // e.display(py);
-                            let err_msg = format!("{}{}", e.traceback(py).unwrap().format()?, e);
-                            error!("python execution error >>\n  {}",err_msg);
-                            return Ok(err_msg)
+                            return Ok(Self::gen_err_msg(py, e))
+
                         }
                     };
                     Ok("ok".to_string())
@@ -208,9 +207,7 @@ impl TplEngineAPI for PyRunner{
                         Ok(s) => s.to_string(),
                         Err(e) => {
                             // e.display(py);
-                            let err_msg = format!("{}{}", e.traceback(py).unwrap().format()?, e);
-                            error!("python execution error >>\n  {}",err_msg);
-                            return Ok(err_msg)
+                            return Ok(Self::gen_err_msg(py, e))
                         }
                     };
                     Ok(r)
@@ -228,6 +225,20 @@ impl TplEngineAPI for PyRunner{
             if let Err(e) = data.response.try_send(r) {
                 error!("py_runner send error : {:?}", e.to_string() );
             }
+        }
+    }
+}
+
+impl PyRunner {
+    fn gen_err_msg(py: Python, e: PyErr)->String{
+        if let Some(ss) = e.traceback(py) {
+            let err_msg = format!("{}{}", ss.format().unwrap_or_default(), e);
+            error!("python execution error >>\n  {}",err_msg);
+            return err_msg
+        } else {
+            let err_msg = format!("{}{}", "unknown error", e);
+            error!("python execution error >> {}",err_msg);
+            return err_msg
         }
     }
 }
