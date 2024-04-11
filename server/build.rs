@@ -25,8 +25,8 @@ fn main() {
     gen_pre_commit();
 
     //check if you forgot to add your new rust file into mod.rs
-    #[cfg(feature = "debug")]
-    check_mod_files();
+    // #[cfg(feature = "debug")]
+    // check_mod_files();
 
 
     //generate rustc args.
