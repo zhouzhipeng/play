@@ -16,8 +16,8 @@ use tracing::info;
 
 use shared::constants::DATA_DIR;
 
-use crate::{ensure, HTML, method_router, S, template};
-use crate::config::{get_config_path, read_config_file, save_config_file};
+use crate::{ensure, HTML, method_router, R, S, template};
+use crate::config::{Config, get_config_path, read_config_file, save_config_file};
 
 method_router!(
     get : "/admin" -> enter_admin_page,
@@ -65,12 +65,13 @@ async fn display_logs(s: S) -> HTML {
     Ok(Html(converted))
 }
 
-async fn save_config(s: S, Form(req): Form<SaveConfigReq>) -> HTML {
+async fn save_config(s: S, Form(req): Form<SaveConfigReq>) -> R<String> {
+    toml::from_str::<Config>(&req.new_content)?;
     save_config_file(&req.new_content)?;
     tokio::spawn(async {
         let _ = shutdown().await;
     });
-    Ok(Html("save ok,will reboot in a sec.".to_string()))
+    Ok("save ok,will reboot in a sec.".to_string())
 }
 
 
