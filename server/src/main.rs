@@ -27,6 +27,8 @@ async fn main()->anyhow::Result<()> {
 
     // Set the custom panic hook
     panic::set_hook(Box::new(|panic_info| {
+
+        println!("panic occurred : {:?}", panic_info);
         error!("panic occurred : {:?}", panic_info);
     }));
 

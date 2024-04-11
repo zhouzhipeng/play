@@ -41,6 +41,7 @@ pub struct Config {
 pub struct ShortLink {
     pub from: String,
     pub to: String,
+    #[serde(default)]
     pub jump: bool,
 }
 #[derive(Deserialize, Debug, Clone, Default)]
