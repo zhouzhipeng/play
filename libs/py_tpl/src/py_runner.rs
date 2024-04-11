@@ -231,14 +231,18 @@ impl TplEngineAPI for PyRunner{
 
 impl PyRunner {
     fn gen_err_msg(py: Python, e: PyErr)->String{
-        if let Some(ss) = e.traceback(py) {
+        let r = if let Some(ss) = e.traceback(py) {
             let err_msg = format!("{}{}", ss.format().unwrap_or_default(), e);
             error!("python execution error >>\n  {}",err_msg);
-            return err_msg
+             err_msg
         } else {
             let err_msg = format!("{}{}", "unknown error", e);
             error!("python execution error >> {}",err_msg);
-            return err_msg
-        }
+             err_msg
+        };
+
+
+
+        format!("[ERROR]{}", r)
     }
 }

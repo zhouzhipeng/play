@@ -43,7 +43,7 @@ async fn dynamic_pages(s: S, Path(url): Path<String>,Query(params): Query<HashMa
         //pass through query params.
 
         render_fragment(&s, Template::DynamicTemplate {
-            name: "<dynamic_pages>".to_string(),
+            name: page_dto.title.to_string(),
             content: raw_html,
         }, json!({
             "params": params

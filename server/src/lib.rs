@@ -473,7 +473,7 @@ async fn render_page(s: &S, page: Template, fragment: Template, data: Value) -> 
 
 async fn render_fragment(s: &S, fragment: Template, data: Value) -> R<Html<String>> {
     let content = s.template_service.render_template(fragment, data).await?;
-    Ok(Html(content))
+    Ok(Html(content.trim().to_string()))
 }
 
 
