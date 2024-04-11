@@ -334,11 +334,11 @@ pub fn routers(app_state: Arc<AppState>) -> Router {
         .layer(HttpLogLayer{ auth_config })
         .layer(cors);
 
-
-    #[cfg(not(feature = "debug"))]
-    {
-        router = router.layer(CompressionLayer::new());
-    }
+    //
+    // #[cfg(not(feature = "debug"))]
+    // {
+    //     router = router.layer(CompressionLayer::new());
+    // }
 
 
     router
