@@ -329,7 +329,7 @@ pub fn routers(app_state: Arc<AppState>) -> Router {
         .with_state(app_state)
         // logging so we can see whats going on
         .layer(TraceLayer::new_for_http().make_span_with(DefaultMakeSpan::default().include_headers(true)))
-        .layer(TimeoutLayer::new(Duration::from_secs(120)))
+        .layer(TimeoutLayer::new(Duration::from_secs(600)))
         .layer(DefaultBodyLimit::disable())
         .layer(HttpLogLayer{ auth_config })
         .layer(cors);
@@ -510,26 +510,24 @@ pub async fn handle_email_message(copy_appstate: &Arc<AppState>, msg: &mail_serv
 #[macro_export]
 macro_rules! hex_to_string {
     ($hex_literal:expr) => {{
-        let mut chars = $hex_literal.chars();
-        let mut string = String::with_capacity($hex_literal.len() / 2);
+         // Convert the hex string to a vector of bytes
+        let bytes = hex::decode($hex_literal).expect("Invalid hex string");
 
-        while let (Some(high), Some(low)) = (chars.next(), chars.next()) {
-            let high_val = high.to_digit(16).unwrap_or(0);
-            let low_val = low.to_digit(16).unwrap_or(0);
-            string.push(char::from((high_val << 4 | low_val) as u8));
-        }
+        // Convert the byte vector to a UTF-8 string
+        String::from_utf8(bytes).unwrap()
 
-        string
+    }};
+}
+#[macro_export]
+macro_rules! string_to_hex {
+    ($raw:expr) => {{
+        $raw.as_bytes()
+        .iter()
+        .map(|&b| format!("{:02x}", b))
+        .collect::<String>()
     }};
 }
 
-
-fn string_to_hex(input: &str) -> String {
-    input.as_bytes()
-        .iter()
-        .map(|&b| format!("{:02x}", b))
-        .collect()
-}
 
 // Include the generated-file as a seperate module
 #[cfg(test)]
