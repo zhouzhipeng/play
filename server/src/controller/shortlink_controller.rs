@@ -43,12 +43,12 @@ async fn link( s: S,OriginalUri(uri): OriginalUri) -> R<MyResponse> {
     let path = uri.path();
     let shortlink = s.config.shortlinks.iter().find(|c| c.from == path).ok_or::<AppError>(app_error!("404 , link not found."))?;
     // s.config.finance
-    if !shortlink.jump {
-        let res = reqwest::get(&shortlink.to).await?.text().await?;
-        Ok(MyResponse::Text(res))
-    } else {
+    // if !shortlink.jump {
+    //     let res = reqwest::get(&shortlink.to).await?.text().await?;
+    //     Ok(MyResponse::Text(res))
+    // } else {
         Ok(MyResponse::Redirect(Redirect::temporary(&shortlink.to)))
-    }
+    // }
 }
 
 
