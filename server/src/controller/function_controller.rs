@@ -49,7 +49,9 @@ async fn str_joiner(s: S, Form(data): Form<Data>) -> HTML {
     render_fragment(&s, Template::DynamicTemplate {
         name: "<string>".to_string(),
         content: data.s,
-    }, json!({})).await
+    }, json!({
+        "params":{}
+    })).await
 }
 
 async fn py_runner(s: S, Form(data): Form<Data>) -> HTML {

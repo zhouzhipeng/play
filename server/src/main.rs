@@ -130,8 +130,10 @@ async fn main()->anyhow::Result<()> {
                     .headers()
                     .get("HX-Request")
                     .is_none();
+
+                let pages = request.uri().path().starts_with("/pages/");
                 // info!("should_inject_js : {}", should_inject_js);
-                should_inject_js
+                should_inject_js && !pages
             }
         }
 

@@ -23,6 +23,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/css/css.min.js"></script>
+    <script src="/static/js/common.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -712,7 +713,7 @@
     var isCallingAPI=false
     function generate_preview_page(){
         const urlElement = document.getElementById('url-display');
-        if(urlElement.href.endsWith(".html")){
+        if(urlElement.innerText.endsWith(".html")){
             //static pages
             updatePreview(editor.getValue());
             isCallingAPI=false
@@ -974,7 +975,7 @@
                 // 更新标题和URL等其他相关字段
                 document.getElementById('title-display').textContent = itemData.title;
                 document.getElementById('url-display').textContent = itemData.url;
-                document.getElementById('last-modified-time').textContent = `最后修改时间: ${data.updated}`;
+                document.getElementById('last-modified-time').textContent = `最后修改时间: ${formatTimestamp(data.updated)}`;
             })
             .catch(error => console.error('获取内容失败:', error))
             .finally(() => {
@@ -1044,22 +1045,12 @@
         }
     }
 
-    // 将字符串转换为十六进制
-    function stringToHex(str) {
-        const buffer = new TextEncoder().encode(str);
-        return Array.from(buffer).map(b => b.toString(16).padStart(2, '0')).join('');
-    }
 
-    // 将十六进制转换回字符串
-    function hexToString(hex) {
-        const bytes = new Uint8Array(hex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
-        return new TextDecoder().decode(bytes);
-    }
 
     // 定义用于更新编辑器和相关字段的函数
     function updateEditor(itemData, item) {
         document.getElementById('title-display').textContent = itemData.title; // 更新标题
-        document.getElementById('last-modified-time').textContent = `最后修改时间: ${item.updated}`; // 更新最后修改时间
+        document.getElementById('last-modified-time').textContent = `最后修改时间: ${formatTimestamp(item.updated)}`; // 更新最后修改时间
 
         // 更新URL链接和文本
         const urlElement = document.getElementById('url-display');

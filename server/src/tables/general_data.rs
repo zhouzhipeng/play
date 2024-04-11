@@ -1,4 +1,5 @@
-use serde::{Deserialize, Serialize};
+use chrono::NaiveDateTime;
+use serde::{Deserialize, Serialize, Serializer};
 use sqlx::{Error, FromRow};
 use tracing::info;
 
@@ -9,10 +10,18 @@ pub struct GeneralData {
     pub id: u32,
     pub cat: String,
     pub data: String,
-    pub created: chrono::NaiveDateTime,
-    pub updated: chrono::NaiveDateTime,
+    #[serde(serialize_with = "serialize_as_timestamp")]
+    pub created: NaiveDateTime,
+    #[serde(serialize_with = "serialize_as_timestamp")]
+    pub updated: NaiveDateTime,
 }
-
+// Custom serialization function for NaiveDateTime
+fn serialize_as_timestamp<S>(date: &NaiveDateTime, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+{
+    serializer.serialize_i64(date.timestamp_millis())
+}
 
 impl GeneralData {
     pub fn new(cat: String, data: String)->Self{

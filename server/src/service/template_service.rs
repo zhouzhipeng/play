@@ -34,7 +34,12 @@ impl TemplateService {
         let result = time::timeout(timeout_duration, receiver.recv()).await;
 
         return match result {
-            Ok(Ok(msg)) => Ok(msg),
+            Ok(Ok(msg)) => {
+                if msg.starts_with("[ERROR]"){
+                    bail!(msg)
+                }
+                Ok(msg)
+            },
             Ok(Err(e)) => bail!("Error receiving template message: {}", e),
             Err(_) => bail!("Timeout waiting for template message"),
         }

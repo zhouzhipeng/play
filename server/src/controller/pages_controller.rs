@@ -1,4 +1,5 @@
-use axum::extract::Path;
+use std::collections::HashMap;
+use axum::extract::{Path, Query};
 use axum::response::Html;
 use chrono::{TimeZone, Utc};
 use serde::Deserialize;
@@ -25,7 +26,7 @@ struct PageDto{
 
 
 
-async fn dynamic_pages(s: S, Path(url): Path<String>) -> HTML {
+async fn dynamic_pages(s: S, Path(url): Path<String>,Query(params): Query<HashMap<String, String>>) -> HTML {
     info!("dynamic_pages >> url is : {}", url);
 
     let data = GeneralData::query_by_json_field("*", "pages", "url", &format!("/{}", url), &s.db).await?;
@@ -39,10 +40,14 @@ async fn dynamic_pages(s: S, Path(url): Path<String>) -> HTML {
     if url.ends_with(".html"){
         Ok(Html(raw_html))
     }else{
+        //pass through query params.
+
         render_fragment(&s, Template::DynamicTemplate {
-            name: "<dynamic_pages>".to_string(),
+            name: page_dto.title.to_string(),
             content: raw_html,
-        }, json!({})).await
+        }, json!({
+            "params": params
+        })).await
     }
 
 }

@@ -9,3 +9,15 @@ function hexToString(hex) {
     const bytes = new Uint8Array(hex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
     return new TextDecoder().decode(bytes);
 }
+
+
+//convert timestamp to a locale date string.
+function formatTimestamp(timestamp) {
+    const date = new Date(timestamp);
+    return date.getFullYear() + '-' +
+        ('0' + (date.getMonth() + 1)).slice(-2) + '-' +
+        ('0' + date.getDate()).slice(-2) + ' ' +
+        ('0' + date.getHours()).slice(-2) + ':' +
+        ('0' + date.getMinutes()).slice(-2) + ':' +
+        ('0' + date.getSeconds()).slice(-2);
+}
