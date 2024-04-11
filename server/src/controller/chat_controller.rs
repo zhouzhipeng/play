@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::convert::Infallible;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
@@ -6,11 +7,15 @@ use axum::{body, Form, Json};
 use axum::body::{Body, BoxBody, HttpBody, StreamBody};
 use axum::extract::Query;
 use axum::http::HeaderMap;
-use axum::response::{Html, IntoResponse, Response};
+use axum::response::{Html, IntoResponse, Response, Sse};
+use axum::response::sse::{Event, KeepAlive};
+use axum_macros::debug_handler;
 use bytes::Bytes;
+use crossbeam_channel::{RecvError, unbounded};
 use either::Either;
 use futures_core::Stream;
-use futures_util::{stream, StreamExt, TryStreamExt};
+use futures_util::{stream, TryStreamExt};
+use futures::StreamExt;
 use hex::ToHex;
 use http::StatusCode;
 use http_body::Full;
@@ -24,6 +29,8 @@ use sqlx::Executor;
 use sqlx::{Column, Row};
 use sqlx::mysql::{MySqlPoolOptions, MySqlQueryResult, MySqlRow};
 use tokio::fs::File;
+use tokio::sync::mpsc;
+use tokio_stream::wrappers::{ReceiverStream, UnboundedReceiverStream};
 use tracing::{error, info};
 
 use crate::{ensure, hex_to_string, method_router, R, string_to_hex, template};
@@ -34,7 +41,9 @@ use crate::tables::general_data::GeneralData;
 
 method_router!(
     get : "/chat" -> index_page,
+    get : "/chat/test" -> test_sse,
     post : "/chat/submit" -> submit_chat,
+    get : "/chat/sse-submit" -> sse_submit_chat,
     get : "/chat/threads" -> list_threads,
     get : "/chat/messages" -> list_messages_by_thread,
 );
@@ -42,6 +51,12 @@ method_router!(
 #[derive(Deserialize,Serialize, Debug)]
 pub struct ChatAIReq {
     pub input: String,
+}
+#[derive(Deserialize,Serialize, Debug)]
+pub struct SSEChatAIReq {
+    pub hexInput: String,
+    #[serde(default)]
+    pub thread_id: String,
 }
 #[derive(Deserialize,Serialize, Debug)]
 pub struct ListMessageReq {
@@ -105,6 +120,54 @@ async fn submit_chat(s: S, Query(option): Query<ChatAIOptionReq>, Form(req): For
     }
 
 }
+
+async fn sse_submit_chat(s: S, Query(req): Query<SSEChatAIReq>) -> Sse<impl Stream<Item = Result<Event, Infallible>>>  {
+
+    let option = ChatAIOptionReq{
+        no_audio: true,
+        is_general: true,
+        thread_id: req.thread_id.to_string(),
+    };
+
+    let input = hex_to_string!(&req.hexInput);
+
+    info!("sse chat ai request in  >>  {:?}", input);
+
+    //prepare thread id.
+    let thread_id = get_thread_id(&s, &option,  &safe_substring(&input, 0,30)).await.unwrap();
+
+    //create a message
+    let msg = CreateMessage{ role: Role::user, content: input};
+
+    //run thread.
+    let ass_id = s.config.open_ai.general_assistant_id.to_string();
+    let (sender,  mut receiver) = mpsc::unbounded_channel();
+
+    tokio::spawn(async move{
+       let r = s.openai_service.run_thread_sse(&thread_id,&ass_id,  &msg,sender).await;
+        info!("run_thread_sse result : {:?}", r);
+    });
+
+    let stream = UnboundedReceiverStream::new(receiver)
+        .map(|data| Ok(Event::default().data(data)));
+
+    Sse::new(stream)
+}
+async fn test_sse() -> Sse<impl Stream<Item = Result<Event, Infallible>>>  {
+
+    let stream = stream::unfold(0, |state| async move {
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        if state<10{
+            Some((Event::default().data(state.to_string()), state + 1))
+        }else{
+            None
+        }
+
+    })  .map(Ok);
+        // .throttle(Duration::from_secs(1));;
+
+    Sse::new(stream).keep_alive(KeepAlive::default())
+}
 // #[axum::debug_handler]
 async fn list_threads(s: S) -> JSON<Vec<ChatThreadDo>> {
     info!("list_threads request in");
@@ -132,7 +195,7 @@ async fn call_tts(s: &S, resp_msg: &String)->R<Response<axum::body::Body>> {
             ;
             let response = Response::builder()
                 .status(StatusCode::OK)
-                .header("x-resp-msg", string_to_hex(&resp_msg))
+                .header("x-resp-msg", string_to_hex!(&resp_msg))
                 .header("content-type", "audio/mpeg")
                 .body(Body::wrap_stream(bytes_stream))?;
 
@@ -145,7 +208,7 @@ async fn call_tts(s: &S, resp_msg: &String)->R<Response<axum::body::Body>> {
 
             let response = Response::builder()
                 .status(StatusCode::OK)
-                .header("x-resp-msg", string_to_hex(&resp_msg))
+                .header("x-resp-msg", string_to_hex!(&resp_msg))
                 .header("content-type", "audio/mpeg")
                 .body(body)?;
 

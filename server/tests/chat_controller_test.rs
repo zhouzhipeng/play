@@ -3,7 +3,7 @@ use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 
 use play::controller::chat_controller::{CAT_GENERAL_OPENAI_THREADS, ChatAIReq, ChatMessageDo, ChatThreadDo};
-use play::{hex_to_string, mock_server, mock_server_state, mock_state};
+use play::{hex_to_string, mock_server, mock_server_state, mock_state, string_to_hex};
 use play::tables::general_data::GeneralData;
 
 #[tokio::test]
@@ -22,6 +22,14 @@ async fn test_chat_ai_with_audio() -> anyhow::Result<()> {
 
     let mut file = File::create("test.mp3").await?;
     file.write_all(bytes).await?;
+    Ok(())
+}
+#[tokio::test]
+async fn test_hex_string() -> anyhow::Result<()> {
+    let hex_str = string_to_hex!("你好, abc");
+    println!("{}", hex_str);
+    let raw_str = hex_to_string!(hex_str);
+    println!("{}", raw_str);
     Ok(())
 }
 #[tokio::test]

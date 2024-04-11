@@ -74,6 +74,7 @@
             margin: 5px;
             border-radius: 20px;
             max-width: 95%;
+            word-wrap: break-word; /* 在需要时断字换行 */
         }
 
         .my-message {
@@ -309,8 +310,10 @@
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="/static/js/vue@2.js"></script>
+<script src="/static/js/common.js"></script>
 
 <script>
+
     new Vue({
         el: '#container',
         data: {
@@ -368,11 +371,12 @@
                 }
 
                 if (!this.newMessage.trim()) return;
-                const submitUrl = `/chat/submit?is_general=true&thread_id=${this.currentThreadId || ''}`;
-                const input = this.newMessage;
-                this.messages.push({ content: input, role: 'user'});
-                const formData = new URLSearchParams();
-                formData.append("input", input);
+
+                const input = stringToHex(this.newMessage);
+                const submitUrl = `/chat/sse-submit?thread_id=${this.currentThreadId || ''}&hexInput=${input}`;
+
+                this.messages.push({ content: this.newMessage, role: 'user'});
+
                 this.newMessage = ''; // 清空输入框
                 this.messages.push({ content: "generating...", role: 'assistant'});
                 // 确保DOM更新完成后滚动到底部
@@ -380,30 +384,47 @@
                     this.scrollToEnd();
                 });
 
-                fetch(submitUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: formData
-                })
-                .then(response => {
-                   this.currentThreadId = response.headers.get('x-thread-id');
-                   return  response.text()
-                })
-                .then(data => {
-                    this.messages.pop();
-                    // 假设这是发送消息后的响应
-                    this.messages.push({ content: data, role: 'assistant'});
+                const eventSource = new EventSource(submitUrl);
 
-                    // 确保DOM更新完成后滚动到底部
-                    this.$nextTick(() => {
-                        this.scrollToEnd();
-                    });
+                let firstMessage = true;
+                let thisRef = this
+                eventSource.onmessage = function(event) {
+                    if(firstMessage){
+                        firstMessage = false;
+                        thisRef.currentThreadId = event.data;
 
-                    this.fetchThreads();
-                });
+                        thisRef.messages.pop(); //remove "generating..."
+                        thisRef.messages.push({ content: "", role: 'assistant'});  //to mark,will update content later
 
+                        thisRef.fetchThreads();
+                    }else{
+                        console.log('Received event:', event.data);
+
+
+                        // 假设这是发送消息后的响应
+                        let lastMessage = thisRef.messages[thisRef.messages.length-1];
+                        lastMessage.content+=event.data;
+
+                        // 确保DOM更新完成后滚动到底部
+                        thisRef.$nextTick(() => {
+                            thisRef.scrollToEnd();
+                        });
+                    }
+
+
+                };
+
+                eventSource.onerror = function(error) {
+                    console.error('EventSource failed:', error);
+                    eventSource.close();
+
+                    // thisRef.messages.push({ content: "[error]"+ error, role: 'assistant'});
+                    //
+                    // // 确保DOM更新完成后滚动到底部
+                    // thisRef.$nextTick(() => {
+                    //     thisRef.scrollToEnd();
+                    // });
+                };
 
             },
             newConversation() {
