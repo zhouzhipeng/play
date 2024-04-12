@@ -50,7 +50,7 @@ async fn ping() -> R<String> {
 }
 
 async fn test(s: S) -> HTML {
-    return_error!("fuck ");
+    return_error!("fuck33 ");
     // template!(s, "test.html", json!({"name":"zzp"}))
     template!(s, "test.html", json!({"name":"zzp"}))
 }
