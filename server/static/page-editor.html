@@ -614,7 +614,7 @@
     CodeMirror.defineMode("myOverlay", function(config, parserConfig) {
         return CodeMirror.overlayMode(CodeMirror.getMode(config, parserConfig.backdrop || "htmlWithPython"),      {token: function(stream, state) {
             // 正则表达式匹配 <special> 或 </special>
-            var re = /({{)|(}})|(%>)|%|(<%)|(end)/;
+            var re = /({{)|(}})|(%>)|%|(<%)|(^end$)/;
             if (stream.match(re)) {
                 // 返回自定义样式
                 return "special-string";
