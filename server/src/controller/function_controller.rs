@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::anyhow;
@@ -12,7 +13,7 @@ use either::Either;
 use futures_core::Stream;
 use futures_util::{stream, StreamExt, TryStreamExt};
 use hex::ToHex;
-use http::StatusCode;
+use http::{HeaderName, HeaderValue, StatusCode};
 use http_body::Full;
 use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
@@ -81,22 +82,35 @@ struct HttpResponseData {
 async fn run_http_request(s: S, Form(data): Form<HttpRequestData>) -> JSON<HttpResponseData> {
     let client = ClientBuilder::new().timeout(Duration::from_secs(3)).build()?;
 
+    let mut headers = HeaderMap::new();
+    let json_data: Value = serde_json::from_str(&data.headers)?;
+    if let Value::Object(map) = json_data {
+        for (k, v) in map {
+            if let Value::String(v) = v {
+                let k =k.to_string();
+                let header_value = HeaderValue::from_str(&v)?;
+                headers.insert(HeaderName::from_str(&k)?, header_value);
+            } else {
+                // Skip non-string values or add error handling as needed
+            }
+        }
+    }
+
     let response = match data.method.as_str() {
         "GET" => {
-            client.get(&data.url).send().await?
+            client.get(&data.url).headers(headers).send().await?
         }
         "DELETE" => {
-            client.delete(&data.url).send().await?
+            client.delete(&data.url).headers(headers).send().await?
         }
         "POST" => {
-            let mut headers = HeaderMap::new();
-            let json_data: Value = serde_json::from_str(&data.headers)?;
-            headers.insert("Content-Type", json_data["Content-Type"].as_str().unwrap_or("").parse()?);
-            headers.insert("Hx-Request", "true".parse()?);
             client.post(&data.url).headers(headers).body(data.body).send().await?
         }
         "PUT" => {
-            client.put(&data.url).body(data.body).send().await?
+            client.put(&data.url).headers(headers).body(data.body).send().await?
+        }
+        "PATCH" => {
+            client.patch(&data.url).headers(headers).body(data.body).send().await?
         }
         _ => return Err(anyhow!("Err >> method : {} not supported", data.method).into())
     };

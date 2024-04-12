@@ -285,7 +285,7 @@
         end
         %>
 
-        % color_map = {'GET':'green', 'POST': 'blue', 'PUT': 'orange', 'DELETE': 'red'}
+        % color_map = {'GET':'green', 'POST': 'blue', 'PUT': 'orange','PATCH': 'orange', 'DELETE': 'red'}
 
         % for k,v in host_map.items():
         <dl>
@@ -312,6 +312,7 @@
             <option class="get" value="GET">GET</option>
             <option  class="post" value="POST">POS</option>
             <option value="PUT"  class="put">PUT</option>
+            <option value="PATCH"  class="put">PAT</option>
             <option value="DELETE"  class="delete">DEL</option>
         </select>
         <input class="line-input" placeholder="url" type ="url" pattern="https?://.+" required  style="flex: 12;    color: green;    border: 0;
