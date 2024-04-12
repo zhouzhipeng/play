@@ -11,12 +11,10 @@ jobs:
     name: Create Release
     runs-on: ubuntu-latest
     steps:
-      - name: Setup environment variable for URL
-        run: echo "REQUEST_URL=https://api.day.app/${{secrets.MY_IOS_DEVICE}}/github-action/start" >> $GITHUB_ENV
       - name: Send Push
         uses: fjogeleit/http-request-action@v1
         with:
-          url: ${{ env.REQUEST_URL }}
+          url: ${{ secrets.NOTIFY_BEGIN_URL }}
           method: 'GET'
           contentType: 'application/x-www-form-urlencoded'
       - name: Create Release
@@ -94,15 +92,13 @@ jobs:
       - name: Trigger Upgrade
         uses: fjogeleit/http-request-action@v1
         with:
-          url: 'https://zhouzhipeng.com/admin/upgrade'
+          url: ${{ secrets.TRIGGER_UPGRADE_URL }}
           method: 'GET'
-          customHeaders: '{"X-Browser-Fingerprint": "${{ secrets.FINGERPRINT }}"}'
-      - name: Setup environment variable for URL
-        run: echo "REQUEST_URL=https://api.day.app/${{secrets.MY_IOS_DEVICE}}/github-action/done" >> $GITHUB_ENV
+          customHeaders:  ${{ secrets.TRIGGER_UPGRADE_CUSTOM_HEADER }}
       - name: Send Push
         uses: fjogeleit/http-request-action@v1
         with:
-          url: ${{ env.REQUEST_URL }}
+          url: ${{ secrets.NOTIFY_END_URL }}
           method: 'GET'
           contentType: 'application/x-www-form-urlencoded'
 #  buildBinaries:
