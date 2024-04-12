@@ -50,3 +50,63 @@ the grammar is :
 {{ }}   ：  means to wrap a python variable or expression and display as output
 
 ```
+
+
+### how to do CRUD in js code (using general data api)
+
+```js
+// insert data on a category
+fetch(`/data/cat-${any_category}```, 
+    {   method: "POST",headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify("{}")
+    })
+    .then(res=>res.json())
+    .then(res=>note.id=res.id_or_count)
+
+//actually , you can post any text, but if u use json , there is benefit from it.
+```
+
+```js
+//delete data
+fetch('/data/id-'+ note.id, {method: "DELETE"})
+```
+
+```js
+//update data
+let data = new URLSearchParams();
+
+data.append("note",note.text);
+data.append("timestamp", note.timestamp);
+data.append("left",note.left);
+data.append("top", note.top);
+data.append("zindex", note.zIndex);
+fetch(`/data/id-${note.id}`, {method: "PUT",headers: {'Content-Type': 'application/json'}, body: JSON.stringify(Object.fromEntries(data))})
+
+
+```
+```js
+//query 
+  fetch('/data/cat-StickyNotes?_json=true').then(res=>res.json())
+    .then(result=>{
+    
+        for (var i = 0; i < result.length; ++i) {
+            var row = result[i].data;
+            var note = new Note();
+            note.id = result[i]['id'];
+            note.text = row['note'];
+            note.timestamp = row['timestamp'];
+            note.left = row['left'];
+            note.top = row['top'];
+            note.zIndex = row['zindex'];
+
+           
+            if (row['zindex'] > highestZ)
+                highestZ = row['zindex'];
+        }
+
+      
+    })
+
+```
+
+
