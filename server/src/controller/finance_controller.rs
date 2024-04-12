@@ -156,7 +156,7 @@ async fn dashboard(s: S) -> HTML {
 
 
             //calculate positions
-            buy_list.sort_by(|a, b| a.price.partial_cmp(&b.price).unwrap());
+            buy_list.sort_by(|a, b| b.price.partial_cmp(&a.price).unwrap());
             for sell_item in sell_list.iter_mut() {
                 let mut i =0;
                 let mut to_remove = vec![];
