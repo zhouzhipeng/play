@@ -105,56 +105,56 @@ jobs:
           url: ${{ env.REQUEST_URL }}
           method: 'GET'
           contentType: 'application/x-www-form-urlencoded'
-  buildBinaries:
-    name: Build  packages
-    needs: createrelease
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - os: macos-latest
-            TARGET: macos
-            CMD_BUILD: >
-              cargo dev_ui && mkdir -p dist && cp -r target/release/play.app dist/play.app &&
-              cd dist && zip -r9 play_mac_x86.zip play.app
-            OUT_FILE_NAME: play_mac_x86.zip
-            ASSET_MIME: application/zip
-          - os: windows-latest
-            TARGET: windows
-            CMD_BUILD: >
-              cargo dev_ui && mkdir -p dist && cp target/release/play.exe dist/play.exe &&
-              cp libs/py_tpl/python/build/python310.dll dist/python310.dll &&
-              cd dist && powershell Compress-Archive *  play_win.zip
-            OUT_FILE_NAME: play_win.zip
-            ASSET_MIME: application/zip
-    steps:
-      - uses: actions/checkout@v3
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v2
-        with:
-          python-version: "3.11"
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          rustflags: "-A warnings"
-      - name: Build play for ${{matrix.TARGET}}
-        run: ${{matrix.CMD_BUILD}}
-      - name: Load Release URL File from release job
-        uses: actions/download-artifact@v1
-        with:
-          name: release_url
-      - name: Get Release File Name & Upload URL
-        id: get_release_info
-        shell: bash
-        run: |
-          value=`cat release_url/release_url.txt`
-          echo ::set-output name=upload_url::$value
-      - name: Upload Release Asset
-        id: upload-release-asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.get_release_info.outputs.upload_url }}
-          asset_path: ./dist/${{ matrix.OUT_FILE_NAME}}
-          asset_name: ${{ matrix.OUT_FILE_NAME}}
-          asset_content_type: ${{ matrix.ASSET_MIME}}
+#  buildBinaries:
+#    name: Build  packages
+#    needs: createrelease
+#    runs-on: ${{ matrix.os }}
+#    strategy:
+#      matrix:
+#        include:
+#          - os: macos-latest
+#            TARGET: macos
+#            CMD_BUILD: >
+#              cargo dev_ui && mkdir -p dist && cp -r target/release/play.app dist/play.app &&
+#              cd dist && zip -r9 play_mac_x86.zip play.app
+#            OUT_FILE_NAME: play_mac_x86.zip
+#            ASSET_MIME: application/zip
+#          - os: windows-latest
+#            TARGET: windows
+#            CMD_BUILD: >
+#              cargo dev_ui && mkdir -p dist && cp target/release/play.exe dist/play.exe &&
+#              cp libs/py_tpl/python/build/python310.dll dist/python310.dll &&
+#              cd dist && powershell Compress-Archive *  play_win.zip
+#            OUT_FILE_NAME: play_win.zip
+#            ASSET_MIME: application/zip
+#    steps:
+#      - uses: actions/checkout@v3
+#      - name: Set up Python 3.11
+#        uses: actions/setup-python@v2
+#        with:
+#          python-version: "3.11"
+#      - uses: actions-rust-lang/setup-rust-toolchain@v1
+#        with:
+#          rustflags: "-A warnings"
+#      - name: Build play for ${{matrix.TARGET}}
+#        run: ${{matrix.CMD_BUILD}}
+#      - name: Load Release URL File from release job
+#        uses: actions/download-artifact@v1
+#        with:
+#          name: release_url
+#      - name: Get Release File Name & Upload URL
+#        id: get_release_info
+#        shell: bash
+#        run: |
+#          value=`cat release_url/release_url.txt`
+#          echo ::set-output name=upload_url::$value
+#      - name: Upload Release Asset
+#        id: upload-release-asset
+#        uses: actions/upload-release-asset@v1
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#        with:
+#          upload_url: ${{ steps.get_release_info.outputs.upload_url }}
+#          asset_path: ./dist/${{ matrix.OUT_FILE_NAME}}
+#          asset_name: ${{ matrix.OUT_FILE_NAME}}
+#          asset_content_type: ${{ matrix.ASSET_MIME}}
