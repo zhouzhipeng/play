@@ -1,10 +1,7 @@
-FROM rust:bookworm
+FROM zhouzhipeng/play-cache
 
 WORKDIR /app
 COPY . .
-
-# 由于GitHub Actions已缓存target目录，我们将其复制进来以利用增量编译
-COPY target target
 
 RUN cargo dev_server
 

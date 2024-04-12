@@ -44,19 +44,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: init directory
-        id: init_directory
-        shell: bash
-        run: |
-          mkdir -p target
-      - name : Cache cargo registry and target directory
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/git
-            ~/.cargo/registry
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Build Docker Image
         uses: docker/build-push-action@v2
         with:
