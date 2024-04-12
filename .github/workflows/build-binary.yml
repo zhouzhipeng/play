@@ -44,6 +44,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - name: init directory
+        id: init_directory
+        shell: bash
+        run: |
+          mkdir -p target  ~/.cargo/registry ~/.cargo/git
       - name: Cache cargo registry and target directory
         uses: actions/cache@v2
         with:

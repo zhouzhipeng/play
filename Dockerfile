@@ -6,6 +6,7 @@ COPY . .
 # 由于GitHub Actions已缓存target目录，我们将其复制进来以利用增量编译
 COPY target target
 COPY ~/.cargo/registry ~/.cargo/registry
+COPY ~/.cargo/git ~/.cargo/git
 
 RUN cargo dev_server
 
