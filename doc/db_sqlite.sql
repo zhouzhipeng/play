@@ -1,9 +1,3 @@
-create table IF NOT EXISTS todo_item
-(
-    id     integer primary key AUTOINCREMENT,
-    title  varchar(255) not null,
-    status varchar(10)  not null
-);
 
 CREATE TABLE IF NOT EXISTS api_entry
 (
@@ -16,15 +10,6 @@ CREATE TABLE IF NOT EXISTS api_entry
     updated    DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-
-CREATE TABLE IF NOT EXISTS english_card
-(
-    id       INTEGER PRIMARY KEY AUTOINCREMENT,
-    name     VARCHAR,
-    phonetic VARCHAR,
-    meaning  VARCHAR,
-    updated  DATETIME DEFAULT CURRENT_TIMESTAMP
-);
 
 CREATE TABLE IF NOT EXISTS email_inbox
 (
