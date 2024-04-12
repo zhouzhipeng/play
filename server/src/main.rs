@@ -132,8 +132,9 @@ async fn main()->anyhow::Result<()> {
                     .is_none();
 
                 let pages = request.uri().path().starts_with("/pages/");
+                let functions = request.uri().path().starts_with("/functions/");
                 // info!("should_inject_js : {}", should_inject_js);
-                should_inject_js && !pages
+                should_inject_js && !pages && !functions
             }
         }
 
