@@ -94,7 +94,7 @@ jobs:
       - name: Trigger Upgrade
         uses: fjogeleit/http-request-action@v1
         with:
-          url: 'https://zhouzhipeng.com/admin/upgrade'
+          url: ${{ secrets.TRIGGER_UPGRADE_URL }}
           method: 'GET'
           customHeaders: '{"X-Browser-Fingerprint": "${{ secrets.FINGERPRINT }}"}'
       - name: Setup environment variable for URL
