@@ -11,7 +11,7 @@ use tokio::sync::mpsc;
 use tokio::sync::mpsc::unbounded_channel;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::{error, info};
-use crate::{data_dir, hex_to_string, method_router, return_error};
+use crate::{data_dir, hex_to_string, method_router, return_error, string_to_hex};
 use crate::R;
 use futures::{stream, StreamExt};  // 引入所需的 futures 库部分
 
@@ -82,7 +82,7 @@ async fn execute_command(Query(req): Query<ShellInput>) -> Sse<impl Stream<Item=
     });
 
     let stream = UnboundedReceiverStream::new(receiver)
-        .map(|data| Ok(Event::default().data(data)));
+        .map(|data| Ok(Event::default().data(string_to_hex!(data))));
 
     Sse::new(stream)
 }
