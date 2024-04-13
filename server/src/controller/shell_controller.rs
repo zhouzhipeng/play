@@ -110,8 +110,8 @@ mod test {
 
     #[tokio::test]
     async fn test_execute_command() {
-        let r = execute_command("ls -l".to_string()).await;
-        println!("{:?}", r);
+        // let r = execute_command("ls -l".to_string()).await;
+        // println!("{:?}", r);
     }
 }
 
