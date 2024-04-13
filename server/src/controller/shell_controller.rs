@@ -91,6 +91,7 @@ fn check_input(input: &str) -> anyhow::Result<()> {
     let input_tmp = input.trim().to_lowercase();
     if input_tmp.starts_with("vi")
         || input_tmp.starts_with("less")
+        || input_tmp.starts_with("top")
         || input_tmp.starts_with("nano")
         || input_tmp.starts_with("screen")
         || input_tmp.starts_with("tmux")
