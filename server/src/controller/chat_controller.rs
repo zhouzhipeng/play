@@ -145,7 +145,7 @@ async fn sse_submit_chat(s: S, Query(req): Query<SSEChatAIReq>) -> Sse<impl Stre
     });
 
     let stream = UnboundedReceiverStream::new(receiver)
-        .map(|data| Ok(Event::default().data(data)));
+        .map(|data| Ok(Event::default().data(string_to_hex!(data))));
 
     Sse::new(stream)
 }

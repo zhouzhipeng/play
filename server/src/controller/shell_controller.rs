@@ -1,5 +1,6 @@
 use std::convert::Infallible;
 use std::process::Stdio;
+use std::time::Duration;
 use axum::extract::Query;
 use axum::response::{IntoResponse, Sse};
 use axum::response::sse::Event;
@@ -13,7 +14,8 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::{error, info};
 use crate::{data_dir, hex_to_string, method_router, return_error, string_to_hex};
 use crate::R;
-use futures::{stream, StreamExt};  // 引入所需的 futures 库部分
+use futures::{stream, StreamExt};
+use sqlx::__rt::timeout;  // 引入所需的 futures 库部分
 
 method_router!(
     get : "/shell/execute"-> execute_command,
@@ -58,21 +60,32 @@ async fn execute_command(Query(req): Query<ShellInput>) -> Sse<impl Stream<Item=
         // 合并两个 Stream
         let mut lines = stream::select(stdout_stream, stderr_stream);
         // Process each line as it becomes available
-        while let Some(line) =  lines.next().await {
-            match line {
-                Ok(line) => {
-                    info!("Received: {}", line);
-                    if sender.is_closed() {
-                        break;
+        let duration = Duration::from_secs(5); // Set a 5 second timeout
+
+
+        while let Ok(line) =  timeout(duration, lines.next()).await {
+            match line{
+                Some(line)=>{
+                    match line {
+                        Ok(line) => {
+                            info!("Received: {}", line);
+                            if sender.is_closed() {
+                                break;
+                            }
+                            let r = sender.send(line);
+                            info!("sender result : {:?}", r);
+                        }
+                        Err(e) => {
+                            error!("Error reading line : {:?}", e);
+                            break;
+                        },
                     }
-                    let r = sender.send(line);
-                    info!("sender result : {:?}", r);
-                }
-                Err(e) => {
-                    error!("Error reading line : {:?}", e);
-                    break;
                 },
+                None=>{
+                    error!("error");
+                }
             }
+
         }
 
         let r = child.kill().await;
