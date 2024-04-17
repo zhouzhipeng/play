@@ -28,12 +28,17 @@ struct ShellInput {
 
 async fn execute_command(Query(req): Query<ShellInput>) -> Sse<impl Stream<Item=Result<Event, Infallible>>> {
     let input = hex_to_string!(&req.shell_hex).trim().to_string();
-    check_input(&input).unwrap();
+
 
     let (sender, mut receiver) = mpsc::unbounded_channel();
 
 
     tokio::spawn(async move {
+        if let Err(e) = check_input(&input){
+            sender.send(e.to_string());
+            return
+        }
+
         // Setup the command and pipe the stdout
         let mut child = Command::new("sh")
             .current_dir(data_dir!())
