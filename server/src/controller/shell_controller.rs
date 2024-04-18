@@ -87,7 +87,8 @@ async fn execute_command(Query(req): Query<ShellInput>) -> Sse<impl Stream<Item=
                     }
                 },
                 None=>{
-                    error!("error");
+                    error!("error, empty line");
+                    break;
                 }
             }
 
