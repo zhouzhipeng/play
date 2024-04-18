@@ -73,12 +73,12 @@ async fn execute_command(Query(req): Query<ShellInput>) -> Sse<impl Stream<Item=
                 Some(line)=>{
                     match line {
                         Ok(line) => {
-                            info!("Received: {}", line);
+                            // info!("Received: {}", line);
                             if sender.is_closed() {
                                 break;
                             }
                             let r = sender.send(line);
-                            info!("sender result : {:?}", r);
+                            // info!("sender result : {:?}", r);
                         }
                         Err(e) => {
                             error!("Error reading line : {:?}", e);
