@@ -27,9 +27,12 @@ async fn root(s: S) -> HTML {
     let data = GeneralData::query_by_cat("title,url", "pages", &s.db).await?;
     let pages: Vec<_> = data.iter().map(|p|serde_json::from_str::<Value>(&p.data).unwrap()).collect();
 
+
+
     template!(s, "index.html", json!({
         "built_time": built_time,
-        "pages": pages
+        "pages": pages,
+        "shortlinks":  s.config.shortlinks
     }))
 
 }

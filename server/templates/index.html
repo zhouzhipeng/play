@@ -162,6 +162,14 @@
             <li><a href="/finance/dashboard">Finance</a></li>
             <li><a href="/email">Email</a></li>
         </ul>
+        <h2>Short Links</h2>
+        <ul>
+            % for item in shortlinks :
+            <li>
+                <a target="_blank" href="{{item.to}}">{{item['from'][1:]}}</a>
+            </li>
+            % end
+        </ul>
     </div>
     <div class="col">
         <h2>Business Pages</h2>
