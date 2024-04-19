@@ -52,8 +52,8 @@ impl<S> Service<Request<Body>> for HttpLogMiddleware<S>
 
     fn call(&mut self, request: Request<Body>) -> Self::Future {
         let uri = request.uri().to_string();
-        let prefix_log = format!("served request >> method: {} , url :{} , headers : {:?}",
-                                 request.method(), uri, request.headers());
+        let prefix_log = format!("served request >> method: {} , url :{}",
+                                 request.method(), uri);
 
         let fingerprint = request.headers().get("X-Browser-Fingerprint");
         // info!("fingerprint is : {:?}", fingerprint);
