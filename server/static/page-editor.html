@@ -522,6 +522,7 @@
     <span id="edit-title-icon" style="cursor: pointer;">✎</span>
     <input type="text" id="title-input" placeholder="编辑标题..." style="display: none;">
 
+    <span style=" ">/pages</span>
     <a id="url-display" href="/pages/xx.html" target="_blank">/xx.html</a>
 
     <span id="edit-url-icon" style="cursor: pointer;">✎</span>
@@ -530,7 +531,7 @@
     <span id="save-icon" class="fa fa-save"></span>
     <span id="save-result" class="save-ok"></span> <!-- 用于显示保存结果的标签 -->
 
-    <span id="last-modified-time"></span>
+    <span id="last-modified-time" ></span>
 
     <span id="help-icon" title="see doc" class="fas fa-question-circle" style="cursor: pointer; float: right;" onclick="window.open('https://github.com/zhouzhipeng/play/blob/main/doc/page-editor-usage.md')"></span>
     <span id="delete-icon" class="fas fa-trash" style="cursor: pointer; float: right;"></span>
@@ -976,7 +977,7 @@
                 // 更新标题和URL等其他相关字段
                 document.getElementById('title-display').textContent = itemData.title;
                 document.getElementById('url-display').textContent = itemData.url;
-                document.getElementById('last-modified-time').textContent = `最后修改时间: ${formatTimestamp(data.updated)}`;
+                document.getElementById('last-modified-time').textContent = `updated: ${formatTimestamp(data.updated)}`;
             })
             .catch(error => console.error('获取内容失败:', error))
             .finally(() => {
@@ -1051,7 +1052,7 @@
     // 定义用于更新编辑器和相关字段的函数
     function updateEditor(itemData, item) {
         document.getElementById('title-display').textContent = itemData.title; // 更新标题
-        document.getElementById('last-modified-time').textContent = `最后修改时间: ${formatTimestamp(item.updated)}`; // 更新最后修改时间
+        document.getElementById('last-modified-time').textContent = `updated: ${formatTimestamp(item.updated)}`; // 更新updated
 
         // 更新URL链接和文本
         const urlElement = document.getElementById('url-display');

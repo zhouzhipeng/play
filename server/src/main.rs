@@ -11,7 +11,7 @@ use tracing::{error, info};
 use tracing::level_filters::LevelFilter;
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::filter;
-use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::subscribe::CollectExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
 
@@ -76,31 +76,35 @@ async fn main()->anyhow::Result<()> {
         .filename_prefix("play") // log file names will be prefixed with `myapp.`
         .filename_suffix("log") // log file names will be suffixed with `.log`
         .max_log_files(10)
+        .max_file_size(100*1024*1024 /*100MB*/)
         .build(data_dir) // try to build an appender that stores log files in `/var/log`
         .expect("initializing rolling file appender failed");
 
     let (writer, _guard) = tracing_appender::non_blocking(file_appender);
 
-    let subscriber = tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer()
-            .with_file(true)
-            .with_line_number(true)
-            .with_thread_names(true)
-            .pretty()
-            .with_writer(writer)
-        );
-
+    #[cfg(not(feature = "debug"))]
+    tracing_subscriber::fmt()
+        .with_file(true)
+        .with_line_number(true)
+        .with_thread_names(true)
+        .pretty()
+        .with_writer(writer)
+        .finish()
+        .init();
 
 
 
     #[cfg(feature = "debug")]
-    let subscriber = subscriber.with(tracing_subscriber::fmt::Layer::new()
+    tracing_subscriber::fmt()
         .with_file(true)
         .with_line_number(true)
         .with_thread_names(true)
-        .with_writer(std::io::stdout)); // Console output
+        .pretty()
+        .with_writer(std::io::stdout)
+        .finish()
+        .init();
 
-    subscriber.with(filter).init();
+
 
     info!("using log level : {}", log_level);
 
