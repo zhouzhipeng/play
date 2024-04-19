@@ -42,6 +42,7 @@ method_router!(
 struct FileInfo {
     filename: String,
     modify_time: i64,  // 使用 i64 来存储时间戳（毫秒）
+    size: u64,
 }
 
 async fn list_files() -> JSON<Vec<FileInfo>> {
@@ -63,6 +64,7 @@ async fn list_files() -> JSON<Vec<FileInfo>> {
                             files_info.push(FileInfo {
                                 filename,
                                 modify_time,
+                                size: metadata.len(),
                             });
                         }
                     }
