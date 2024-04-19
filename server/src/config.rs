@@ -37,7 +37,7 @@ pub struct Config {
     pub auth_config: AuthConfig,
 }
 
-#[derive(Deserialize, Debug, Clone, Default)]
+#[derive(Deserialize,Serialize, Debug, Clone, Default)]
 pub struct ShortLink {
     pub from: String,
     pub to: String,
