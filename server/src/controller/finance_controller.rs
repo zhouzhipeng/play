@@ -141,11 +141,13 @@ async fn dashboard(s: S) -> HTML {
                     buy_list.push(PortfolioItemPosition{
                         quantity: *quantity,
                         price: *price,
+                        date: date.to_string(),
                     })
                 }else{
                     sell_list.push(PortfolioItemPosition{
                         quantity: -*quantity,
                         price: *price,
+                        date: date.to_string(),
                     })
                 }
             }
@@ -156,7 +158,13 @@ async fn dashboard(s: S) -> HTML {
 
 
             //calculate positions
-            buy_list.sort_by(|a, b| b.price.partial_cmp(&a.price).unwrap());
+            if item.issued{
+                buy_list.sort_by(|a, b| b.date.partial_cmp(&a.date).unwrap());
+
+            }else{
+                buy_list.sort_by(|a, b| a.price.partial_cmp(&b.price).unwrap());
+
+            }
             for sell_item in sell_list.iter_mut() {
                 let mut i =0;
                 let mut to_remove = vec![];
@@ -509,6 +517,28 @@ mod test {
    async fn test_query_us_stock()->anyhow::Result<()> {
         let data = query_us_stock_price("AAPL","").await?;
         println!("{:?}", data);
+        Ok(())
+    }
+    #[ignore]
+    #[tokio::test]
+   async fn test_order()->anyhow::Result<()> {
+        let mut buy_list = vec![
+            PortfolioItemPosition{
+                quantity: 0.0,
+                price: 0.0,
+                date: "2022.1.1".to_string(),
+            },
+            PortfolioItemPosition{
+                quantity: 0.0,
+                price: 0.0,
+                date: "2024.2.1".to_string(),
+            }
+        ];
+
+        buy_list.sort_by(|a, b| b.date.partial_cmp(&a.date).unwrap());
+
+
+        println!("{:?}", buy_list);
         Ok(())
     }
 }

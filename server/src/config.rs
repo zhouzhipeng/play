@@ -114,6 +114,8 @@ pub struct PortfolioItem {
     pub positions: Vec<PortfolioItemPosition>,
     #[serde(default)]
     pub total_invest: f64,
+    #[serde(default)]
+    pub issued: bool,
 }
 #[derive(Deserialize,Serialize, Debug, Clone, Default)]
 pub struct PortfolioItemPosition {
@@ -121,6 +123,8 @@ pub struct PortfolioItemPosition {
     pub quantity: f64,
     #[serde(default)]
     pub price: f64,
+    #[serde(default)]
+    pub date: String,
 }
 #[derive(Deserialize,Serialize, Debug, Clone, Default)]
 pub struct RateItem {
