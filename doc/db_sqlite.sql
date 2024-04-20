@@ -41,6 +41,5 @@ CREATE TABLE IF NOT EXISTS change_log
     op      VARCHAR,  -- INSERT, UPDATE, DELETE
     data_before    text,
     data_after    text,
-    created DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated DATETIME DEFAULT CURRENT_TIMESTAMP
+    created DATETIME DEFAULT CURRENT_TIMESTAMP
 );
