@@ -44,7 +44,7 @@ impl ChangeLog {
 
 
     pub async fn query(data_id: u32, pool: &DBPool) -> Result<Vec<ChangeLog>, Error> {
-        sqlx::query_as::<_, ChangeLog>("SELECT * FROM change_log where data_id = ?")
+        sqlx::query_as::<_, ChangeLog>("SELECT * FROM change_log where data_id = ? order by id desc limit 10")
             .bind(data_id)
             .fetch_all(pool)
             .await
