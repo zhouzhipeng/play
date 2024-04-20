@@ -25,6 +25,7 @@ pub enum ChangeLogOp {
 
 impl ChangeLog {
     pub async fn insert(t: &ChangeLog, pool: &DBPool) -> Result<DBQueryResult, Error> {
+        //todo: auto delete old logs.
         sqlx::query("INSERT INTO change_log (data_id,op,data_before,data_after) VALUES (?,?,?,?)")
             .bind(&t.data_id)
             .bind(&t.op)
