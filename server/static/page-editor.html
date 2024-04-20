@@ -531,9 +531,11 @@
     <span id="save-icon" class="fa fa-save"></span>
     <span id="save-result" class="save-ok"></span> <!-- 用于显示保存结果的标签 -->
 
+
     <span id="last-modified-time" ></span>
 
     <span id="help-icon" title="see doc" class="fas fa-question-circle" style="cursor: pointer; float: right;" onclick="window.open('https://github.com/zhouzhipeng/play/blob/main/doc/page-editor-usage.md')"></span>
+    <a  id="versionsLink" target="_blank" href="/page-versions" style="margin-left: 10px">versions</a>
     <span id="delete-icon" class="fas fa-trash" style="cursor: pointer; float: right;"></span>
 
 </div>
@@ -978,6 +980,7 @@
                 document.getElementById('title-display').textContent = itemData.title;
                 document.getElementById('url-display').textContent = itemData.url;
                 document.getElementById('last-modified-time').textContent = `updated: ${formatTimestamp(data.updated)}`;
+                document.getElementById('versionsLink').href = `/page-versions?data_id=${data.id}`;
             })
             .catch(error => console.error('获取内容失败:', error))
             .finally(() => {
