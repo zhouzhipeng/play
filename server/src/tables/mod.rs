@@ -21,7 +21,10 @@ pub mod email_inbox;
 
 
 pub mod general_data;
+
+pub mod change_log;
 //PLACEHOLDER:TABLE_MOD
+
 
 
 

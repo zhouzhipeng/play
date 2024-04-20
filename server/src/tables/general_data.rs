@@ -2,8 +2,10 @@ use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize, Serializer};
 use sqlx::{Error, FromRow};
 use tracing::info;
+use crate::ensure;
 
 use crate::tables::{DBPool, DBQueryResult};
+use crate::tables::change_log::{ChangeLog, ChangeLogOp};
 
 #[derive(Clone, FromRow, Debug, Serialize, Deserialize, Default)]
 pub struct GeneralData {
@@ -15,6 +17,7 @@ pub struct GeneralData {
     #[serde(serialize_with = "serialize_as_timestamp")]
     pub updated: NaiveDateTime,
 }
+
 // Custom serialization function for NaiveDateTime
 fn serialize_as_timestamp<S>(date: &NaiveDateTime, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -24,26 +27,59 @@ fn serialize_as_timestamp<S>(date: &NaiveDateTime, serializer: S) -> Result<S::O
 }
 
 impl GeneralData {
-    pub fn new(cat: String, data: String)->Self{
-        GeneralData{
+    pub fn new(cat: String, data: String) -> Self {
+        GeneralData {
             cat,
             data,
             ..Default::default()
         }
     }
     pub async fn insert(t: &GeneralData, pool: &DBPool) -> Result<DBQueryResult, Error> {
-        sqlx::query("INSERT INTO general_data (cat,data) VALUES (?,?)")
+        let r = sqlx::query("INSERT INTO general_data (cat,data) VALUES (?,?)")
             .bind(&t.cat)
             .bind(&t.data)
             .execute(pool)
-            .await
+            .await;
+
+        if let Ok(succ) = &r {
+            let data_id = succ.last_insert_rowid();
+            let changelog_result = ChangeLog::insert(&ChangeLog {
+                data_id: data_id as u32,
+                op: ChangeLogOp::INSERT,
+                data_before: "".to_string(),
+                data_after: t.data.to_string(),
+                ..ChangeLog::default()
+            }, pool).await;
+            info!("changelog_result : {:?}", changelog_result);
+        }
+
+        r
     }
 
     pub async fn delete(id: u32, pool: &DBPool) -> Result<DBQueryResult, Error> {
-        sqlx::query("DELETE from general_data WHERE id =?")
+        let rows = Self::query_by_id(id, pool).await?;
+        if rows.is_empty(){
+            return Err(Error::RowNotFound)
+        }
+
+
+
+        let changelog_result = ChangeLog::insert(&ChangeLog {
+            data_id: id,
+            op: ChangeLogOp::DELETE,
+            data_before: rows[0].data.to_string(),
+            data_after: "".to_string(),
+            ..ChangeLog::default()
+        }, pool).await;
+        info!("changelog_result : {:?}", changelog_result);
+
+
+        let r = sqlx::query("DELETE from general_data WHERE id =?")
             .bind(&id)
             .execute(pool)
-            .await
+            .await;
+
+        r
     }
 
     fn convert_fields(field: &str) -> String {
@@ -55,11 +91,9 @@ impl GeneralData {
                 .join(", ");
             info!("fields >> {}", fields);
             format!("id, cat, created,updated, json_object({}) as data", fields)
-        }else{
+        } else {
             fields
         }
-
-
     }
 
     pub async fn query_by_cat(fields: &str, cat: &str, pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
@@ -97,13 +131,59 @@ impl GeneralData {
             .await
     }
     pub async fn update_json_field_by_id(data_id: u32, query_field: &str, query_val: &str, pool: &DBPool) -> Result<DBQueryResult, Error> {
-        sqlx::query(format!("update  general_data set data = json_set(data, '$.{}', ?), updated=CURRENT_TIMESTAMP where id = ?", query_field).as_str())
+        let rows = Self::query_by_id(data_id, pool).await?;
+        if rows.is_empty(){
+            return Err(Error::RowNotFound)
+        }
+
+
+        let r = sqlx::query(format!("update  general_data set data = json_set(data, '$.{}', ?), updated=CURRENT_TIMESTAMP where id = ?", query_field).as_str())
             .bind(query_val)
             .bind(data_id)
             .execute(pool)
-            .await
+            .await;
+
+        if let Ok(succ)= &r{
+            if succ.rows_affected()==1{
+
+                let new_rows = Self::query_by_id(data_id, pool).await?;
+                if rows.is_empty(){
+                    return Err(Error::RowNotFound)
+                }
+
+
+
+                let changelog_result = ChangeLog::insert(&ChangeLog {
+                    data_id: data_id,
+                    op: ChangeLogOp::UPDATE,
+                    data_before: rows[0].data.to_string(),
+                    data_after: new_rows[0].data.to_string(),
+                    ..ChangeLog::default()
+                }, pool).await;
+                info!("changelog_result : {:?}", changelog_result);
+
+            }
+        }
+
+        r
     }
     pub async fn update_data_by_id(data_id: u32, data: &str, pool: &DBPool) -> Result<DBQueryResult, Error> {
+        let rows = Self::query_by_id(data_id, pool).await?;
+        if rows.is_empty(){
+            return Err(Error::RowNotFound)
+        }
+
+
+        let changelog_result = ChangeLog::insert(&ChangeLog {
+            data_id: data_id,
+            op: ChangeLogOp::UPDATE,
+            data_before: rows[0].data.to_string(),
+            data_after: data.to_string(),
+            ..ChangeLog::default()
+        }, pool).await;
+        info!("changelog_result : {:?}", changelog_result);
+
+
         sqlx::query("update  general_data set data = ?, updated=CURRENT_TIMESTAMP where id = ?")
             .bind(data)
             .bind(data_id)
@@ -111,6 +191,21 @@ impl GeneralData {
             .await
     }
     pub async fn update_data_by_cat(cat: &str, data: &str, pool: &DBPool) -> Result<DBQueryResult, Error> {
+        let rows = Self::query_by_cat_simple(cat, pool).await?;
+        if rows.is_empty(){
+            return Err(Error::RowNotFound)
+        }
+
+        let changelog_result = ChangeLog::insert(&ChangeLog {
+            data_id: rows[0].id,
+            op: ChangeLogOp::UPDATE,
+            data_before: rows[0].data.to_string(),
+            data_after: data.to_string(),
+            ..ChangeLog::default()
+        }, pool).await;
+        info!("changelog_result : {:?}", changelog_result);
+
+
         sqlx::query("update  general_data set data = ?, updated=CURRENT_TIMESTAMP where cat = ?")
             .bind(data)
             .bind(cat)
@@ -128,7 +223,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_convert_fiels() -> anyhow::Result<()> {
-
         let f = GeneralData::convert_fields("*");
         println!("{}", f);
         Ok(())
@@ -136,43 +230,54 @@ mod tests {
 
 
     #[tokio::test]
-    async fn test_all() -> anyhow::Result<()> {
+    async fn test_insert_with_changelog() -> anyhow::Result<()> {
         //the test pool is just a memory sqlite.
         let pool = init_test_pool().await;
 
-        //todo: uncomment below code and write your tests.
-        /*
         let r = GeneralData::insert(&GeneralData {
-             ..Default::default()
+            cat: "test1".to_string(),
+            data: "{\"name\":\"zzp\"}".to_string(),
+            ..Default::default()
         }, &pool).await?;
 
         assert_eq!(r.rows_affected(), 1);
 
-        let rows = GeneralData::query(&GeneralData {
-            ..Default::default()
-        }, &pool).await?;
-        assert_eq!(rows.len(), 1);
+        let rows = ChangeLog::query(1, &pool).await?;
+        println!("{:?}", rows);
 
-        let r = GeneralData::update(1, &GeneralData {
-            ..Default::default()
-        }, &pool).await?;
+
+        /////////////
+        let r = GeneralData::update_data_by_id(1,"{\"name\":\"zzp2\"}", &pool).await?;
         assert_eq!(r.rows_affected(), 1);
 
-        let rows = GeneralData::query(&GeneralData {
-            ..Default::default()
-        }, &pool).await?;
-        assert_eq!(rows[0].id, 1);
+        let rows = ChangeLog::query(1, &pool).await?;
+        println!("{:?}", rows);
 
-        let  r = GeneralData::delete(1, &pool).await?;
-        assert_eq!(r.rows_affected(),1);
+        ///////////
+        /////////////
+        let r = GeneralData::update_data_by_cat("test1","{\"name\":\"zzp3\"}", &pool).await?;
+        assert_eq!(r.rows_affected(), 1);
 
-        let rows = GeneralData::query(&GeneralData {
-            ..Default::default()
-        }, &pool).await?;
-        assert_eq!(rows.len(), 0);
+        let rows = ChangeLog::query(1, &pool).await?;
+        println!("{:?}", rows);
 
-        */
+        ///////////
+        /////////////
+        let r = GeneralData::update_json_field_by_id(1,"name", "zzp4", &pool).await?;
+        assert_eq!(r.rows_affected(), 1);
 
+        let rows = ChangeLog::query(1, &pool).await?;
+        println!("{:?}", rows);
+
+        ///////////
+        /////////////
+        let r = GeneralData::delete(1, &pool).await?;
+        assert_eq!(r.rows_affected(), 1);
+
+        let rows = ChangeLog::query(1, &pool).await?;
+        println!("{:?}", rows);
+
+        ///////////
 
         Ok(())
     }
