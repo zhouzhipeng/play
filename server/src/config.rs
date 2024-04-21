@@ -60,6 +60,7 @@ pub struct AuthConfig {
     pub enabled: bool,
     pub fingerprints: Vec<String>,
     pub whitelist: Vec<String>,
+    pub passcode: String,
 }
 #[derive(Deserialize, Debug, Clone, Default)]
 pub struct LocalJobConfig {

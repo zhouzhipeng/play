@@ -30,7 +30,7 @@ use tower_http::cors::{Any, CorsLayer};
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::{error, info};
-use shared::constants::DATA_DIR;
+use shared::constants::{CAT_FINGERPRINT, DATA_DIR};
 
 use shared::{current_timestamp, timestamp_to_date_str};
 
@@ -47,6 +47,7 @@ use crate::service::template_service;
 use crate::service::template_service::{TemplateService};
 use crate::tables::DBPool;
 use crate::tables::email_inbox::EmailInbox;
+use crate::tables::general_data::GeneralData;
 
 
 pub mod controller;
@@ -311,7 +312,7 @@ macro_rules! files_dir {
 
 
 
-pub fn routers(app_state: Arc<AppState>) -> Router {
+pub async fn routers(app_state: Arc<AppState>) -> anyhow::Result<Router> {
     let cors = CorsLayer::new()
         // allow `GET` and `POST` when accessing the resource
         .allow_methods(Any)
@@ -328,6 +329,11 @@ pub fn routers(app_state: Arc<AppState>) -> Router {
     auth_config.whitelist.append(&mut shortlinks);
 
     info!("whitelist : {:?}", auth_config.whitelist);
+
+    let mut fingerprints = GeneralData::query_by_cat_simple(CAT_FINGERPRINT,&app_state.db).await?.iter().map(|f|f.data.to_string()).collect::<Vec<String>>();
+    auth_config.fingerprints.append(&mut fingerprints);
+
+    info!("fingerprints : {:?}", auth_config.fingerprints);
 
 
     let mut router = Router::new()
@@ -348,7 +354,7 @@ pub fn routers(app_state: Arc<AppState>) -> Router {
     // }
 
 
-    router
+    Ok(router)
 }
 
 // Make our own error that wraps `anyhow::Error`.

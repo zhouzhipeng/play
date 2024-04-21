@@ -9,8 +9,12 @@
 <body>
 <h1 id="checking">checking permission...</h1>
 <div id="nopermission" style="display: none">
-<h1>NO PERMISSION!</h1>
-<h3>please contact admin</h3>
+    <h3>输入访问口令（仅第一次时需要）</h3>
+    <input type="text" id="passcodeInput" placeholder="请输入访问口令">
+    <button onclick="submitPasscode()">申请</button>
+    <p id="error" style="color: red;"></p>
+
+
 </div>
 <script type="text/javascript" src="/static/js/gen_fingerprint.js"></script>
 <script>
@@ -25,6 +29,33 @@ fetch(location.pathname).then(res=>{
     }
     // console.log(res.status)
 })
+
+
+
+async function submitPasscode() {
+    const fingerprint = await generateBrowserFingerprint();
+    var passcode = document.getElementById("passcodeInput").value;
+    fetch(`/save-fingerprint?fingerprint=${fingerprint}&passcode=${passcode}`)
+        .then(response => {
+            if (response.ok) {
+                document.getElementById("error").textContent = "申请成功请稍后...";
+                setTimeout(()=>{
+                    location.reload(); // 页面刷新
+                }, 2000);
+
+            } else {
+                return response.text(); // 获取文本形式的错误信息
+            }
+        })
+        .then(errorText => {
+            if (errorText) {
+                document.getElementById("error").textContent = errorText;
+            }
+        })
+        .catch(error => {
+            document.getElementById("error").textContent = "请求失败，请检查网络连接。";
+        });
+}
 </script>
 </body>
 </html>

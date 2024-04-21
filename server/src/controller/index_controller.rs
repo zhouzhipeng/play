@@ -1,19 +1,26 @@
-use tokio::fs::File;
 use axum::body::Body;
+use axum::extract::Query;
 use axum::response::{IntoResponse, Response};
 use chrono::{TimeZone, Utc};
+use serde::Deserialize;
 use serde_json::{json, Value};
+use tokio::fs::File;
 use tokio_util::codec::{BytesCodec, FramedRead};
+use tracing::{info, warn};
+
+use shared::constants::CAT_FINGERPRINT;
 use shared::timestamp_to_date_str;
 
 use crate::{method_router, return_error, template};
 use crate::{HTML, R, S};
 use crate::config::get_config_path;
+use crate::controller::admin_controller::shutdown;
 use crate::tables::general_data::GeneralData;
 
 method_router!(
     get : "/"-> root,
     get : "/ping"-> ping,
+    get : "/save-fingerprint"-> save_fingerprint,
     get : "/test-redis"-> redis_test,
     get : "/test"-> test,
     get : "/download-db"-> serve_db_file,
@@ -50,6 +57,33 @@ async fn redis_test(s: S) -> R<String> {
 }
 async fn ping() -> R<String> {
     Ok("pong".to_string())
+}
+
+#[derive(Deserialize, Debug)]
+struct SaveFingerPrintReq{
+    fingerprint: String,
+    passcode: String
+}
+
+async fn save_fingerprint(s: S, Query(req): Query<SaveFingerPrintReq>) -> R<String> {
+    //check passcode
+    if &s.config.auth_config.passcode == &req.passcode{
+        //save fingerprint
+        let r = GeneralData::insert(&GeneralData{
+            cat: CAT_FINGERPRINT.to_string(),
+            data : req.fingerprint.to_string(),
+            ..GeneralData::default()
+        }, &s.db).await?;
+        info!("save fingerprint result  : {:?}", r);
+    }else{
+        warn!("passcode not matched. req : {:?}", req);
+        return_error!("passcode not matched.")
+    }
+
+    tokio::spawn(async {
+       shutdown();
+    });
+    Ok("save ok,will reboot in a sec.".to_string())
 }
 
 async fn test(s: S) -> HTML {

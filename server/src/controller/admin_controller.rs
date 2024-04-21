@@ -22,7 +22,6 @@ use crate::config::{Config, get_config_path, read_config_file, save_config_file}
 method_router!(
     get : "/admin" -> enter_admin_page,
     get : "/admin/upgrade" -> upgrade,
-    get : "/admin/shutdown" -> shutdown,
     post : "/admin/save-config" -> save_config,
     get : "/admin/logs" -> display_logs,
 );
@@ -69,7 +68,7 @@ async fn save_config(s: S, Form(req): Form<SaveConfigReq>) -> R<String> {
     toml::from_str::<Config>(&req.new_content)?;
     save_config_file(&req.new_content)?;
     tokio::spawn(async {
-        let _ = shutdown().await;
+        shutdown();
     });
     Ok("save ok,will reboot in a sec.".to_string())
 }
@@ -107,7 +106,7 @@ async fn upgrade_in_background(url: Url) -> anyhow::Result<()> {
 
     info!("replaced ok. and ready to shutdown self");
 
-    shutdown().await;
+    shutdown();
 
 
     Ok(())
@@ -128,7 +127,7 @@ async fn upgrade(s: S, Query(upgrade): Query<UpgradeRequest>) -> HTML {
     Ok(Html("upgrading in background, pls wait and restart manually later.".to_string()))
 }
 
-async fn shutdown() -> HTML {
+pub  fn shutdown() {
     info!("ready to shutdown...");
     std::process::exit(0);
 }
