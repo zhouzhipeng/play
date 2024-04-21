@@ -323,7 +323,13 @@ pub fn routers(app_state: Arc<AppState>) -> Router {
 
 
 
-    let auth_config = app_state.config.auth_config.clone();
+    let mut auth_config = app_state.config.auth_config.clone();
+    let mut shortlinks:Vec<String> = app_state.config.shortlinks.iter().map(|p|p.from.to_string()).collect();
+    auth_config.whitelist.append(&mut shortlinks);
+
+    info!("whitelist : {:?}", auth_config.whitelist);
+
+
     let mut router = Router::new()
         .merge(shortlink_controller::init(app_state.clone()))
         .merge(app_routers())
