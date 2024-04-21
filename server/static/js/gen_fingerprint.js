@@ -38,9 +38,38 @@ async function generateBrowserFingerprint() {
 
     return hashHex;
 }
+function detectDevice() {
+    var userAgent = navigator.userAgent;
+
+    // 检测微信浏览器
+    if (/MicroMessenger/i.test(userAgent)) {
+        return 'WeChat';
+    }
+
+    // 检测手机设备
+    if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent)) {
+        return 'Mobile';
+    }
+
+    // 检测Mac
+    if (/Macintosh|Mac OS X/i.test(userAgent)) {
+        return 'Mac';
+    }
+
+    // 检测Windows
+    if (/Windows|Win32|Win64/i.test(userAgent)) {
+        return 'Windows';
+    }
+
+    return 'Unknown';
+}
 
 
 (async () => {
+
+    console.log("current device: ", detectDevice());
+
+
     // 假设已经有一个生成浏览器指纹的函数 generateBrowserFingerprint
     const fingerprint = await generateBrowserFingerprint();
     console.log("fingerprint : " + fingerprint);

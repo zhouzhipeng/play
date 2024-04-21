@@ -119,7 +119,7 @@ async fn main()->anyhow::Result<()> {
     info!("current path : {}", env!("CARGO_MANIFEST_DIR"));
 
     #[allow(unused_mut)]
-    let  mut router = routers(app_state.clone());
+    let  mut router = routers(app_state.clone()).await.unwrap();
     #[cfg(feature = "debug")]  //to make `watcher` live longer.
     let mut watcher;
     #[cfg(feature = "debug")]

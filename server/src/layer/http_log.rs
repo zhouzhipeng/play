@@ -158,9 +158,15 @@ fn extract_prefix(url: &str) -> String {
 
     // 检查是否有足够的组件来提取前缀
     if components.len() > 2 {
+        let  p = components[1].as_os_str().to_str().unwrap_or("");
 
-
-        format!("/{}/", components[1].as_os_str().to_str().unwrap_or(""))
+        format!("/{}/", p)
+    }else if components.len()==2{
+        let mut p = components[1].as_os_str().to_str().unwrap_or("");
+        if p.contains("?"){
+            p = p.split("?").collect::<Vec<&str>>()[0];
+        }
+        format!("/{}", p)
     } else {
         url.to_string()
     }
