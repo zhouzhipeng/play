@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
 
-    <script type="text/javascript" src="/static/js/gen_fingerprint.js"></script>
 
     <meta charset="UTF-8">
     <title>Play tool</title>
@@ -183,9 +182,15 @@
     </div>
 </div>
 <div class="footer">
-    built time : {{built_time}} (UTC)
+    built time : <span id="builtTimeSpan"></span>
 
 </div>
 
+<script type="text/javascript" src="/static/js/gen_fingerprint.js"></script>
+<script src="/static/js/common.js"></script>
+
+<script>
+    builtTimeSpan.innerText = formatTimestamp({{built_time}})
+</script>
 </body>
 </html>

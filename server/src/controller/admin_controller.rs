@@ -13,6 +13,7 @@ use reqwest::{ClientBuilder, Url};
 use serde::Deserialize;
 use serde_json::json;
 use tracing::info;
+use zip::ZipArchive;
 
 use shared::constants::DATA_DIR;
 
@@ -96,8 +97,13 @@ async fn upgrade_in_background(url: Url) -> anyhow::Result<()> {
     let mut file = File::create(&new_binary)?;
     let client = ClientBuilder::new().timeout(Duration::from_secs(30)).build()?;
     let response = client.get(url).send().await?;
-    let mut content = Cursor::new(response.bytes().await?);
-    std::io::copy(&mut content, &mut file)?;
+    let content = Cursor::new(response.bytes().await?);
+
+    let mut archive = ZipArchive::new(BufReader::new(content))?;
+    ensure!( archive.len()==1, "upgrade_url for zip file is not valid, should have only one file inside!");
+    let mut inside_file = archive.by_index(0)?;
+    std::io::copy(&mut inside_file, &mut file)?;
+
 
     info!("downloaded and saved at : {:?}", new_binary);
 
@@ -106,7 +112,7 @@ async fn upgrade_in_background(url: Url) -> anyhow::Result<()> {
 
     info!("replaced ok. and ready to shutdown self");
 
-    shutdown();
+
 
 
     Ok(())
@@ -121,10 +127,17 @@ async fn upgrade(s: S, Query(upgrade): Query<UpgradeRequest>) -> HTML {
     tokio::spawn(async move {
         let r = upgrade_in_background(url).await;
         info!("upgrade_in_background result >> {:?}", r);
+
+        let sender= urlencoding::encode("upgrade done").into_owned();
+        let title= urlencoding::encode(&format!("result : {:?}", r)).into_owned();
+        reqwest::get(format!("https://api.day.app/pTyPrycAjp36tGRSAUgfiU/{}/{}", sender, title)).await;
+
+
+        shutdown();
     });
 
 
-    Ok(Html("upgrading in background, pls wait and restart manually later.".to_string()))
+    Ok(Html("upgrading in background, pls wait a minute and system will restart automatically later.".to_string()))
 }
 
 pub  fn shutdown() {
