@@ -1,10 +1,58 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-
-
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"> <!-- 禁止页面缩放 -->
+
     <title>No Permission</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        input[type="text"] {
+            padding: 10px;
+            margin-top: 8px;
+            margin-bottom: 16px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            width: calc(100% - 24px); /* Input width minus padding and border */
+            box-sizing: border-box; /* Include padding and border in width */
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        #error {
+            color: #cc0000;
+            margin-top: 12px;
+        }
+    </style>
 </head>
 <body>
 <h1 id="checking">checking permission...</h1>
@@ -19,7 +67,7 @@
 <script type="text/javascript" src="/static/js/gen_fingerprint.js"></script>
 <script>
 fetch(location.pathname).then(res=>{
-    if(res.status!==403){
+    if(location.pathname.indexOf("/static")===-1 &&  res.status!==403){
         //actually has permission, maybe in an anonymous window
         location.reload()
     }else{
