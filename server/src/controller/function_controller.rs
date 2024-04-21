@@ -158,11 +158,15 @@ async fn run_sql(s: S, Form(data): Form<RunSqlRequest>) -> HTML {
 }
 
 #[derive(Deserialize, Serialize)]
-struct TextCompareReq {
-    text1: String,
-    text2: String,
+pub struct TextCompareReq {
+    pub text1: String,
+    pub text2: String,
     #[serde(default = "default_with_ajax")]
-    with_ajax: i32,
+    pub with_ajax: i32,
+    #[serde(default)]
+    pub use_str_joiner: bool,
+    #[serde(default)]
+    pub format_json: bool,
 }
 
 #[allow(non_snake_case)]
@@ -176,23 +180,30 @@ fn default_with_ajax() -> i32 {
     1
 }
 
-async fn text_compare(s: S, Form(mut data): Form<TextCompareReq>) -> HTML {
+pub async fn text_compare(s: S, Form(mut data): Form<TextCompareReq>) -> HTML {
     let client = ClientBuilder::new().timeout(Duration::from_secs(3)).build()?;
 
-    data.text1 = str_joiner(s.clone(), Form(Data { s: data.text1.to_string() })).await?.0;
-    data.text2 = str_joiner(s, Form(Data { s: data.text2.to_string() })).await?.0;
+    if data.use_str_joiner{
+        data.text1 = str_joiner(s.clone(), Form(Data { s: data.text1.to_string() })).await?.0;
+        data.text2 = str_joiner(s, Form(Data { s: data.text2.to_string() })).await?.0;
 
-    //format json
-    if let Ok(val) = serde_json::from_str::<Value>(&data.text1) {
-        if let Ok(val) = serde_json::to_string_pretty(&val) {
-            data.text1 = val;
+    }
+
+
+    if data.format_json{
+        //format json
+        if let Ok(val) = serde_json::from_str::<Value>(&data.text1) {
+            if let Ok(val) = serde_json::to_string_pretty(&val) {
+                data.text1 = val;
+            }
+        }
+        if let Ok(val) = serde_json::from_str::<Value>(&data.text2) {
+            if let Ok(val) = serde_json::to_string_pretty(&val) {
+                data.text2 = val;
+            }
         }
     }
-    if let Ok(val) = serde_json::from_str::<Value>(&data.text2) {
-        if let Ok(val) = serde_json::to_string_pretty(&val) {
-            data.text2 = val;
-        }
-    }
+
 
     let resp = client.post("https://text-compare.com/").form(&data).send().await?;
     ensure!(resp.status().is_success(), "call https://text-compare.com/ failed.");

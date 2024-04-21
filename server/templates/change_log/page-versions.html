@@ -209,37 +209,15 @@
 
 
     % for item in items:
+    <h2 id="update">修改时间(UTC)：{{item.updated}} </h2>
+    <span style="display: none" id="data_before_{{item.id}}">{{item.data_before}}</span>
+    <span style="display: none"  id="data_after_{{item.id}}">{{item.data_after}}</span>
+    <button onclick="navigator.clipboard.writeText(data_before_{{item.id}}.innerText)">Copy Left</button>
+    <button onclick="navigator.clipboard.writeText(data_after_{{item.id}}.innerText)">Copy Right</button>
     <div id="comparisonWrapper_{{item.id}}" style="display: block;">
+        {{item.output_html}}
     </div>
-    <form hx-post="/functions/text-compare" hx-target="#comparisonWrapper_{{item.id}}" hx-indicator="#compareButtonSpinner_{{item.id}}" >
-        <div>
-            <h2 id="update">修改时间(UTC)：{{item.updated}} </h2>
-            <table>
-                <tbody>
-                <tr>
 
-                    <td width="4%">
-                        <button class="compareButton btn btn-success" id="compareButton" type="submit">
-                            <div  class="compareButtonText">Compare!</div>
-                            <div id="compareButtonSpinner_{{item.id}}" class="lds-dual-ring htmx-indicator"></div>
-                        </button>
-                    </td>
-
-                </tr>
-                </tbody>
-            </table>
-            <textarea name="text1" cols="80" rows="20" class="inputText" id="inputText1"
-                      placeholder="Paste text here. (will auto prettify json & template available)" style="margin: 5px;"
-                      data-gtm-form-interact-field-id="0">{{item.before}}</textarea>
-            <textarea name="text2" cols="80" rows="20"
-                      class="inputText" id="inputText2"
-                      placeholder="Paste text here.(will auto prettify json & template available)"
-                      style="margin: 5px;"
-                      data-gtm-form-interact-field-id="1">{{item.after}}</textarea>
-        </div>
-    </form>
-
-    <hr/>
     <hr/>
     %end
 </div>

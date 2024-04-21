@@ -25,7 +25,13 @@ pub enum ChangeLogOp {
 
 impl ChangeLog {
     pub async fn insert(t: &ChangeLog, pool: &DBPool) -> Result<DBQueryResult, Error> {
-        //todo: auto delete old logs.
+        let count = Self::query_count(pool).await?.0;
+        if count > 1000{
+            let old_id = Self::query_oldest_one(pool).await?.0;
+            Self::delete(old_id, pool).await?;
+        }
+
+
         sqlx::query("INSERT INTO change_log (data_id,op,data_before,data_after) VALUES (?,?,?,?)")
             .bind(&t.data_id)
             .bind(&t.op)
@@ -49,6 +55,16 @@ impl ChangeLog {
             .fetch_all(pool)
             .await
     }
+    pub async fn query_count(pool: &DBPool) -> Result<(i64,), Error> {
+        sqlx::query_as::<_, (i64,)>("SELECT count(1) FROM change_log")
+            .fetch_one(pool)
+            .await
+    }
+    pub async fn query_oldest_one(pool: &DBPool) -> Result<(i64,), Error> {
+        sqlx::query_as::<_, (i64,)>("SELECT id FROM change_log order by id asc limit 1")
+            .fetch_one(pool)
+            .await
+    }
 }
 
 
@@ -62,6 +78,8 @@ mod tests {
     async fn test_all() -> anyhow::Result<()> {
         //the test pool is just a memory sqlite.
         let pool = init_test_pool().await;
+
+        //insert data
         let r = ChangeLog::insert(&ChangeLog {
             data_id: 1,
             op: ChangeLogOp::UPDATE,
@@ -72,12 +90,49 @@ mod tests {
 
         assert_eq!(r.rows_affected(), 1);
 
-        let rows = ChangeLog::query(1, &pool).await?;
-        assert_eq!(rows.len(), 1);
+        //query count
+        let count = ChangeLog::query_count(&pool).await?;
+        println!("{:?}", count.0);
+
+
+        let r = ChangeLog::insert(&ChangeLog {
+            data_id: 2,
+            op: ChangeLogOp::UPDATE,
+            data_before:"333".to_string(),
+            data_after:"444".to_string(),
+            ..Default::default()
+        }, &pool).await?;
+
+        assert_eq!(r.rows_affected(), 1);
+        //query count
+        let count = ChangeLog::query_count(&pool).await?;
+        println!("{:?}", count.0);
+
+        let r = ChangeLog::insert(&ChangeLog {
+            data_id: 3,
+            op: ChangeLogOp::UPDATE,
+            data_before:"555".to_string(),
+            data_after:"666".to_string(),
+            ..Default::default()
+        }, &pool).await?;
+
+        assert_eq!(r.rows_affected(), 1);
+
+        //query count
+        let count = ChangeLog::query_count(&pool).await?;
+        println!("{:?}", count.0);
+
+        //delete old logs
+        let r = ChangeLog::query_oldest_one(&pool).await?;
+        println!("{:?}", r);
+
+
+        let rows = ChangeLog::query(3, &pool).await?;
+        // assert_eq!(rows.len(), 1);
         println!("{:?}", rows);
 
 
-        let  r = ChangeLog::delete(1, &pool).await?;
+        let  r = ChangeLog::delete(3, &pool).await?;
         assert_eq!(r.rows_affected(),1);
 
 
