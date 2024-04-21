@@ -5515,6 +5515,7 @@ dependencies = [
  "criterion",
  "crossbeam-channel",
  "dashmap",
+ "difference",
  "directories",
  "either",
  "fancy-regex",

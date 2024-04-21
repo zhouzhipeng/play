@@ -108,13 +108,64 @@ async fn dynamic_pages(s: S, Path(url): Path<String>, Query(params): Query<HashM
         })).await
     }
 }
-
+fn escape_html(input: &str) -> String {
+    input.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+}
 #[cfg(test)]
 mod tests {
+    use std::fs;
+    use difference::{Changeset, Difference};
+    use crate::controller::pages_controller::escape_html;
+
     #[tokio::test]
-    async fn test_dynamic_pages() -> anyhow::Result<()> {
+    async fn test_text_compare() -> anyhow::Result<()> {
         // dynamic_pages(mock_state!(), Path("/a/b".to_string())).await;
 
+        let text1 = fs::read_to_string("file1.txt").expect("Error reading file1.txt");
+        let text2 = fs::read_to_string("file2.txt").expect("Error reading file2.txt");
+
+        let changeset = Changeset::new(&text1, &text2, "\n");
+
+        let mut html_output = String::new();
+        html_output.push_str("<html><head><style>");
+        html_output.push_str("body { font-family: monospace; }");
+        html_output.push_str("table { width: 100%; table-layout: fixed; border-collapse: collapse; }");
+        html_output.push_str("td { vertical-align: top; white-space: pre-wrap; word-wrap: break-word; padding: 5px; border: 1px solid #ddd; }");
+        html_output.push_str(".lineno { color: #999; }");
+        html_output.push_str(".add { background-color: #e6ffed; }");
+        html_output.push_str(".rem { background-color: #ffeef0; }");
+        html_output.push_str("</style></head><body>");
+        html_output.push_str("<table><tr><th>Old</th><th>New</th></tr>");
+
+        let mut line_no_old = 1;
+        let mut line_no_new = 1;
+
+        for diff in changeset.diffs {
+            match diff {
+                Difference::Same(ref x) => {
+                    // Split lines and advance both line numbers correctly.
+                    let count = x.split('\n').count();
+                    line_no_old += count;
+                    line_no_new += count;
+                },
+                Difference::Add(ref x) => {
+                    for line in x.split('\n') {
+                        html_output.push_str(&format!("<tr><td></td><td class='add'><span class='lineno'>{}</span> {}</td></tr>", line_no_new, escape_html(line)));
+                        line_no_new += 1;
+                    }
+                },
+                Difference::Rem(ref x) => {
+                    for line in x.split('\n') {
+                        html_output.push_str(&format!("<tr><td class='rem'><span class='lineno'>{}</span> {}</td><td></td></tr>", line_no_old, escape_html(line)));
+                        line_no_old += 1;
+                    }
+                }
+            }
+        }
+
+        html_output.push_str("</table></body></html>");
+
+        fs::write("diff_output.html", html_output).expect("Unable to write file");
         Ok(())
     }
 }
