@@ -57,8 +57,8 @@ async fn page_versions(s: S, Query(q): Query<QueryPageVersion>) -> HTML {
     for log in logs {
         let s_clone = s.clone();
         handlers.push(tokio::spawn(async move {
-            let before = hex_to_string!(serde_json::from_str::<PageDto>(&log.data_before).unwrap().content);
-            let after = hex_to_string!(serde_json::from_str::<PageDto>(&log.data_after).unwrap().content);
+            let before =  if !log.data_before.is_empty(){hex_to_string!(serde_json::from_str::<PageDto>(&log.data_before).unwrap().content)} else{"".to_string()};
+            let after =  if !log.data_after.is_empty(){hex_to_string!(serde_json::from_str::<PageDto>(&log.data_after).unwrap().content) }else{"".to_string()};
             let output_html = text_compare(s_clone, Form(TextCompareReq {
                 text1: before.to_string(),
                 text2: after.to_string(),
