@@ -167,7 +167,7 @@ async fn test_sse() -> Sse<impl Stream<Item = Result<Event, Infallible>>>  {
 // #[axum::debug_handler]
 async fn list_threads(s: S) -> JSON<Vec<ChatThreadDo>> {
     info!("list_threads request in");
-    let thread_list = GeneralData::query_latest_by_cat_with_limit(CAT_GENERAL_OPENAI_THREADS, 50,&s.db).await?;
+    let thread_list = GeneralData::query_latest_by_cat_with_limit(CAT_GENERAL_OPENAI_THREADS, 100,&s.db).await?;
     let return_list = thread_list.iter().map(|t|serde_json::from_str::<ChatThreadDo>(&t.data).unwrap()).collect();
     Ok(Json(return_list))
 }
