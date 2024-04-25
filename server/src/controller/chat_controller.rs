@@ -76,6 +76,13 @@ pub struct ChatThreadDo {
     pub title: String,
 }
 #[derive(Deserialize,Serialize, Debug)]
+pub struct ChatThreadVo {
+    #[serde(default)]
+    pub data_id: u32,
+    pub thread_id: String,
+    pub title: String,
+}
+#[derive(Deserialize,Serialize, Debug)]
 pub struct ChatMessageDo {
     pub role: String,
     pub content: String,
@@ -165,10 +172,14 @@ async fn test_sse() -> Sse<impl Stream<Item = Result<Event, Infallible>>>  {
     Sse::new(stream).keep_alive(KeepAlive::default())
 }
 // #[axum::debug_handler]
-async fn list_threads(s: S) -> JSON<Vec<ChatThreadDo>> {
+async fn list_threads(s: S) -> JSON<Vec<ChatThreadVo>> {
     info!("list_threads request in");
     let thread_list = GeneralData::query_latest_by_cat_with_limit(CAT_GENERAL_OPENAI_THREADS, 100,&s.db).await?;
-    let return_list = thread_list.iter().map(|t|serde_json::from_str::<ChatThreadDo>(&t.data).unwrap()).collect();
+    let return_list = thread_list.iter().map(|t|{
+        let mut  dd = serde_json::from_str::<ChatThreadVo>(&t.data).unwrap();
+        dd.data_id = t.id;
+        dd
+    }).collect();
     Ok(Json(return_list))
 }
 
