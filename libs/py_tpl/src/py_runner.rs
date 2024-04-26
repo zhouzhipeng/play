@@ -72,10 +72,13 @@ fn http_get(url : String) -> PyResult<String> {
                         // 将响应数据转换为字符串（或任何适合你数据的格式）
                         Ok(parsed)
                     },
-                    Err(_) => Err("Failed to parse response"),
+                    Err(_) => Err("Failed to parse response".to_string()),
                 }
             },
-            Err(e) => Err("Failed to send request"),
+            Err(e) => {
+                error!("http_get error > {}", e);
+                Err(format!("Failed to send request: {}", e.to_string()))
+            },
         }
     });
 

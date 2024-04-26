@@ -104,7 +104,7 @@ impl GeneralData {
     }
 
     pub async fn query_by_cat(fields: &str, cat: &str, pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
-        let sql = &format!("SELECT {} FROM general_data where cat = ?", Self::convert_fields(fields));
+        let sql = &format!("SELECT {} FROM general_data where cat = ? order by id desc", Self::convert_fields(fields));
         sqlx::query_as::<_, GeneralData>(sql)
             .bind(cat)
             .fetch_all(pool)
@@ -133,7 +133,7 @@ impl GeneralData {
             .await
     }
     pub async fn query_by_json_field(fields: &str, cat: &str, query_field: &str, query_val: &str, pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
-        sqlx::query_as::<_, GeneralData>(format!("SELECT {} FROM general_data where cat = ? and json_extract(data, '$.{}') = ?", Self::convert_fields(fields), query_field).as_str())
+        sqlx::query_as::<_, GeneralData>(format!("SELECT {} FROM general_data where cat = ? and json_extract(data, '$.{}') = ?  order by id desc", Self::convert_fields(fields), query_field).as_str())
             .bind(cat)
             .bind(query_val)
             .fetch_all(pool)
