@@ -128,9 +128,10 @@ async fn upgrade(s: S, Query(upgrade): Query<UpgradeRequest>) -> HTML {
         let r = upgrade_in_background(url).await;
         info!("upgrade_in_background result >> {:?}", r);
 
+
         let sender= urlencoding::encode("upgrade done").into_owned();
         let title= urlencoding::encode(&format!("result : {:?}", r)).into_owned();
-        reqwest::get(format!("https://api.day.app/pTyPrycAjp36tGRSAUgfiU/{}/{}", sender, title)).await;
+        reqwest::get(format!("{}/{}/{}",&s.config.misc_config.mail_notify_url,  sender, title)).await;
 
 
         shutdown();

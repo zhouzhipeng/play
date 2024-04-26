@@ -69,11 +69,7 @@ async fn save_fingerprint(s: S, Query(req): Query<SaveFingerPrintReq>) -> R<Stri
     //check passcode
     if &s.config.auth_config.passcode == &req.passcode{
         //save fingerprint
-        let r = GeneralData::insert(&GeneralData{
-            cat: CAT_FINGERPRINT.to_string(),
-            data : req.fingerprint.to_string(),
-            ..GeneralData::default()
-        }, &s.db).await?;
+        let r = GeneralData::insert(CAT_FINGERPRINT, &req.fingerprint, &s.db).await?;
         info!("save fingerprint result  : {:?}", r);
     }else{
         warn!("passcode not matched. req : {:?}", req);
