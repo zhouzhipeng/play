@@ -513,9 +513,12 @@ pub async fn handle_email_message(copy_appstate: &Arc<AppState>, msg: &mail_serv
     info!("email insert result : {:?}", r);
 
     //double write
-    let r2 = GeneralData::insert(&GeneralData{
-        cat: CAT_MAIL.to_string(),
-        data: json!({
+    if GeneralData::query_count(CAT_MAIL, &copy_appstate.db).await.unwrap_or_default()>=50{
+        info!("delete emails");
+        GeneralData::delete_by_cat(CAT_MAIL, &copy_appstate.db).await;
+    }
+    let r2 = GeneralData::insert(CAT_MAIL,
+        &json!({
             "from_mail": msg.sender.to_string(),
             "to_mail": msg.recipients.join(","),
             "send_date": msg.created_at.as_ref().unwrap_or(&String::from("")).to_string(),
@@ -525,9 +528,8 @@ pub async fn handle_email_message(copy_appstate: &Arc<AppState>, msg: &mail_serv
             "full_body": "<TODO>".to_string(),
             "attachments": "<TODO>".to_string(),
             "create_time": current_timestamp!(),
-        }).to_string(),
-        ..GeneralData::default()
-    } ,  &copy_appstate.db).await;
+        }).to_string()
+    ,  &copy_appstate.db).await;
     info!("email insert result2 : {:?}", r2);
 
 
@@ -565,15 +567,35 @@ macro_rules! string_to_hex {
 
 // Include the generated-file as a seperate module
 #[cfg(test)]
+#[cfg(feature = "mail_server")]
 mod test {
+
     use super::*;
+
 
     #[ignore]
     #[tokio::test]
-    async fn test_send_push() {
-        let sender= urlencoding::encode("aa@bb.com").into_owned();
-        let title= urlencoding::encode("sdf sdfs  👋 ").into_owned();
-        reqwest::get(format!("https://api.day.app/pTyPrycAjp36tGRSAUgfiU/{}/{}", sender, title)).await;
+    #[cfg(feature = "mail_server")]
+    async fn test_save_email() ->anyhow::Result<()>{
+        use mail_server::models::message::Message;
+        let s = mock_state!();
+        handle_email_message(&s, &Message{
+            id: Some(1),
+            sender: "test".to_string(),
+            recipients: vec!["test@test.com".to_string()],
+            subject: "testsub".to_string(),
+            created_at: Some("1111".to_string()),
+            attachments: vec![],
+            source: vec![],
+            formats: vec![],
+            html: Some("html".to_string()),
+            plain: Some("plain".to_string()),
+        }).await;
+
+        let r = GeneralData::query_by_cat_simple(CAT_MAIL, &s.db).await?;
+        println!("{:?}" , r);
+
+        Ok(())
     }
 }
 

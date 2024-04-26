@@ -34,10 +34,10 @@ impl GeneralData {
             ..Default::default()
         }
     }
-    pub async fn insert(t: &GeneralData, pool: &DBPool) -> Result<DBQueryResult, Error> {
+    pub async fn insert(cat: &str, data: &str, pool: &DBPool) -> Result<DBQueryResult, Error> {
         let r = sqlx::query("INSERT INTO general_data (cat,data) VALUES (?,?)")
-            .bind(&t.cat)
-            .bind(&t.data)
+            .bind(cat)
+            .bind(data)
             .execute(pool)
             .await;
 
@@ -47,7 +47,7 @@ impl GeneralData {
                 data_id: data_id as u32,
                 op: ChangeLogOp::INSERT,
                 data_before: "".to_string(),
-                data_after: t.data.to_string(),
+                data_after: data.to_string(),
                 ..ChangeLog::default()
             }, pool).await;
             info!("changelog_result : {:?}", changelog_result);
@@ -81,6 +81,13 @@ impl GeneralData {
 
         r
     }
+    pub async fn delete_by_cat(cat: &str, pool: &DBPool) -> Result<DBQueryResult, Error> {
+        let r = sqlx::query("DELETE from general_data WHERE cat =?")
+            .bind(cat)
+            .execute(pool)
+            .await;
+        r
+    }
 
     fn convert_fields(field: &str) -> String {
         let mut fields = "*".to_string();
@@ -102,6 +109,14 @@ impl GeneralData {
             .bind(cat)
             .fetch_all(pool)
             .await
+    }
+    pub async fn query_count(cat: &str, pool: &DBPool) -> Result<i64, Error> {
+        let sql = "SELECT count(*) FROM general_data where cat = ?";
+        let result: (i64,) = sqlx::query_as(sql)
+            .bind(cat)
+            .fetch_one(pool)
+            .await?;
+        Ok(result.0)
     }
     pub async fn query_by_cat_simple(cat: &str, pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
         let sql = &format!("SELECT * FROM general_data where cat = ?");
@@ -217,14 +232,35 @@ impl GeneralData {
 
 #[cfg(test)]
 mod tests {
+    use crate::mock_state;
     use crate::tables::init_test_pool;
     use super::*;
 
 
+    #[ignore]
     #[tokio::test]
     async fn test_convert_fiels() -> anyhow::Result<()> {
         let f = GeneralData::convert_fields("*");
         println!("{}", f);
+        Ok(())
+    }
+    #[ignore]
+    #[tokio::test]
+    async fn test_query_count() -> anyhow::Result<()> {
+        let s = mock_state!();
+        GeneralData::insert("test","dd", &s.db).await?;
+        let f = GeneralData::query_count("test", &s.db).await;
+        println!("{:?}", f);
+        Ok(())
+    }
+    #[ignore]
+    #[tokio::test]
+    async fn test_delete_by_cat() -> anyhow::Result<()> {
+        let s = mock_state!();
+        GeneralData::insert("test","dd", &s.db).await?;
+        // GeneralData::insert("test","dd2", &s.db).await?;
+        let f = GeneralData::delete_by_cat("test", &s.db).await;
+        println!("{:?}", f);
         Ok(())
     }
 
@@ -234,11 +270,9 @@ mod tests {
         //the test pool is just a memory sqlite.
         let pool = init_test_pool().await;
 
-        let r = GeneralData::insert(&GeneralData {
-            cat: "test1".to_string(),
-            data: "{\"name\":\"zzp\"}".to_string(),
-            ..Default::default()
-        }, &pool).await?;
+        let r = GeneralData::insert("test1","{\"name\":\"zzp\"}",
+
+         &pool).await?;
 
         assert_eq!(r.rows_affected(), 1);
 

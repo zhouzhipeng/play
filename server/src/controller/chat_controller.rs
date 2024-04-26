@@ -233,7 +233,7 @@ async fn get_thread_id(s: &S, option: &ChatAIOptionReq, title: &str) -> anyhow::
             info!("first time chat, creating a new chat thread...");
             let thread = s.openai_service.create_thread().await?;
             //save it
-            GeneralData::insert(&GeneralData::new(CAT_OPENAI_THREAD.to_string(), thread.id.to_string()), &s.db).await?;
+            GeneralData::insert(CAT_OPENAI_THREAD, &thread.id, &s.db).await?;
             thread.id
         } else {
             openai_thread[0].data.to_string()
@@ -246,7 +246,7 @@ async fn get_thread_id(s: &S, option: &ChatAIOptionReq, title: &str) -> anyhow::
             let thread = s.openai_service.create_thread().await?;
             //save it
             let data = serde_json::to_string(&ChatThreadDo { thread_id: thread.id.to_string(), title: title.to_string() })?;
-            GeneralData::insert(&GeneralData::new(CAT_GENERAL_OPENAI_THREADS.to_string(), data), &s.db).await?;
+            GeneralData::insert(CAT_GENERAL_OPENAI_THREADS, &data, &s.db).await?;
             thread.id
         } else {
             //use existed one.

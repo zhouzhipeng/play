@@ -45,13 +45,7 @@ async fn insert_data(s: S, Path(cat): Path<String>, body: String) -> JSON<MsgRes
     ensure!(!vec!["id", "data","get","update","delete","list", "query"].contains(&cat.as_str()));
     // check!(serde_json::from_str::<Value>(&body).is_ok());
 
-    let data = GeneralData {
-        cat,
-        data: body.trim().to_string(),
-        ..GeneralData::default()
-    };
-
-    let ret = GeneralData::insert(&data, &s.db).await?;
+    let ret = GeneralData::insert(&cat,&body.trim(), &s.db).await?;
     let id = ret.rows_affected();
     ensure!(id==1);
 
@@ -66,13 +60,7 @@ async fn override_data(s: S, Path(cat): Path<String>, body: String) -> JSON<MsgR
 
     if list_data.len() == 0 {
         //insert
-        let data = GeneralData {
-            cat,
-            data: body.trim().to_string(),
-            ..GeneralData::default()
-        };
-
-        let ret = GeneralData::insert(&data, &s.db).await?;
+        let ret = GeneralData::insert(&cat, &body.trim(), &s.db).await?;
         let id = ret.rows_affected();
         ensure!(id==1);
         Ok(Json(MsgResp { msg: "ok".to_string(), id_or_count: ret.last_insert_rowid() as u32 }))
