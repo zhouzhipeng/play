@@ -16,9 +16,6 @@ pub mod user;
 pub mod article;
 pub mod api_entry;
 pub mod users;
-pub mod email_inbox;
-
-
 
 pub mod general_data;
 

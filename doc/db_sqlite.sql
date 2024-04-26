@@ -11,19 +11,6 @@ CREATE TABLE IF NOT EXISTS api_entry
 );
 
 
-CREATE TABLE IF NOT EXISTS email_inbox
-(
-    id            INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-    from_mail     VARCHAR,
-    to_mail       VARCHAR,
-    send_date     VARCHAR,
-    subject       VARCHAR,
-    plain_content VARCHAR,
-    html_content  VARCHAR,
-    full_body     VARCHAR,
-    attachments   VARCHAR,
-    create_time   INTEGER
-);
 
 CREATE TABLE IF NOT EXISTS general_data
 (

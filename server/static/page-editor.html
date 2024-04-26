@@ -892,6 +892,7 @@
 
         if (input.value.trim() !== '') {
             display.textContent = input.value.trim();
+            display.href = "/pages"+input.value.trim();
         }
         input.style.display = 'none';
         display.style.display = 'block';
@@ -935,7 +936,7 @@
         if (isConfirmed) {
             // 用户确认删除，执行删除操作
             try {
-                const response = await fetch(`/data/id-${currentSelectedId}`, {
+                const response = await fetch(`/data/id/${currentSelectedId}`, {
                     method: 'DELETE', // 使用DELETE方法
                 });
                 if (response.ok) {
@@ -967,7 +968,7 @@
         // 显示加载指示器
         const loadingIndicator = document.getElementById('loading-indicator');
         loadingIndicator.style.display = 'block';
-        fetch(`/data/id-${id}`)
+        fetch(`/data/id/${id}`)
             .then(response => response.json())
             .then(data => {
                 data = data[0];
@@ -993,7 +994,7 @@
     async function loadListData() {
         try {
             // 发送请求获取数据
-            const response = await fetch('/data/cat-pages?_select=title,url');
+            const response = await fetch('/data/cat/pages?_select=title,url');
             if (!response.ok) {
                 throw new Error('数据加载失败');
             }
@@ -1089,7 +1090,7 @@
         };
 
         try {
-            let url = currentSelectedId ?`/data/id-${currentSelectedId}` :'/data/cat-pages';
+            let url = currentSelectedId ?`/data/id/${currentSelectedId}` :'/data/cat/pages';
             let method = currentSelectedId ? "PUT":"POST";
             // 发送保存请求
             const response = await fetch(url, {
