@@ -47,7 +47,6 @@ use crate::service::openai_service::OpenAIService;
 use crate::service::template_service;
 use crate::service::template_service::{TemplateService};
 use crate::tables::DBPool;
-use crate::tables::email_inbox::EmailInbox;
 use crate::tables::general_data::GeneralData;
 
 
@@ -498,26 +497,6 @@ async fn render_fragment(s: &S, fragment: Template, data: Value) -> R<Html<Strin
 
 #[cfg(feature = "mail_server")]
 pub async fn handle_email_message(copy_appstate: &Arc<AppState>, msg: &mail_server::models::message::Message) {
-    //delete all if email count > 100
-    if EmailInbox::count(&copy_appstate.db).await.unwrap_or_default() >= 50{
-        info!("delete emails");
-        EmailInbox::delete_all(&copy_appstate.db).await;
-    }
-
-    let r = EmailInbox::insert(&EmailInbox {
-        from_mail: msg.sender.to_string(),
-        to_mail: msg.recipients.join(","),
-        send_date: msg.created_at.as_ref().unwrap_or(&String::from("")).to_string(),
-        subject: msg.subject.to_string(),
-        plain_content: msg.plain.as_ref().unwrap_or(&String::from("")).to_string(),
-        html_content: msg.html.as_ref().unwrap_or(&String::from("")).to_string(),
-        full_body: "<TODO>".to_string(),
-        attachments: "<TODO>".to_string(),
-        create_time: current_timestamp!(),
-        ..Default::default()
-    }, &copy_appstate.db).await;
-    info!("email insert result : {:?}", r);
-
     //double write
     if GeneralData::query_count(CAT_MAIL, &copy_appstate.db).await.unwrap_or_default()>=50{
         info!("delete emails");
