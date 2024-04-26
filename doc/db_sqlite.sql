@@ -1,17 +1,4 @@
 
-CREATE TABLE IF NOT EXISTS api_entry
-(
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    url        VARCHAR,
-    method     VARCHAR,
-    url_params VARCHAR,
-    headers    VARCHAR,
-    body       VARCHAR,
-    updated    DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-
-
 CREATE TABLE IF NOT EXISTS general_data
 (
     id      INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,

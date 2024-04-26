@@ -12,10 +12,6 @@ use shared::file_path;
 
 use crate::config::Config;
 
-pub mod user;
-pub mod article;
-pub mod api_entry;
-pub mod users;
 
 pub mod general_data;
 

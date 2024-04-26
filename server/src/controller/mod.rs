@@ -2,7 +2,6 @@ mod index_controller;
 pub mod static_controller;
 mod ws_controller;
 pub mod function_controller;
-mod api_entry_controller;
 mod admin_controller;
 mod finance_controller;
 pub mod shortlink_controller;
@@ -28,7 +27,6 @@ crate::register_routers!(
         static_controller,
         ws_controller,
         function_controller,
-        api_entry_controller,
         admin_controller,
         finance_controller,
         job_controller,
