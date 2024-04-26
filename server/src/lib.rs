@@ -531,12 +531,10 @@ pub async fn handle_email_message(copy_appstate: &Arc<AppState>, msg: &mail_serv
     info!("email insert result2 : {:?}", r2);
 
 
-    tokio::spawn(async {
-        //send push
-        let sender= urlencoding::encode(&msg.sender).into_owned();
-        let title= urlencoding::encode(&msg.subject).into_owned();
-        reqwest::get(format!("{}/{}/{}", &copy_appstate.config.misc_config.mail_notify_url, sender, title)).await;
-    });
+    //send push
+    let sender= urlencoding::encode(&msg.sender).into_owned();
+    let title= urlencoding::encode(&msg.subject).into_owned();
+    reqwest::get(format!("{}/{}/{}", &copy_appstate.config.misc_config.mail_notify_url, sender, title)).await;
 
 }
 
