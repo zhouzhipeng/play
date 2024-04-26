@@ -297,6 +297,7 @@ class SimpleTemplate(BaseTemplate):
         env.update({'_stdout': _stdout, '_printlist': _stdout.extend, 'include': include,
                     'http_get': http_get,
                     'local_http_get': local_http_get,
+                    'AttributeDict': AttributeDict,
 
                     '_str': self._str, '_escape': self._escape, 'get': env.get,
                     'setdefault': env.setdefault, 'defined': env.__contains__
