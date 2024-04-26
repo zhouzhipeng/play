@@ -20,6 +20,15 @@ method_router!(
     post : "/data/cat-:cat"-> insert_data,
     get : "/data/cat-:cat"-> query_data, // cat-pages?title=xxx&_select=title,url&_data_json=true
 
+    //new mapping
+    get : "/data/id/:data_id"-> get_data,
+    put : "/data/id/:data_id"-> update_data,
+    patch : "/data/id/:data_id"-> update_field,
+    delete : "/data/id/:data_id"-> delete_data,
+    put : "/data/cat/:cat"-> override_data,  // global data. insert or update.
+    post : "/data/cat/:cat"-> insert_data,
+    get : "/data/cat/:cat"-> query_data, // cat-pages?title=xxx&_select=title,url&_data_json=true
+
 );
 
 

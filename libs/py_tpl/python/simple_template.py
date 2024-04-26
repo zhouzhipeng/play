@@ -294,7 +294,9 @@ class SimpleTemplate(BaseTemplate):
     def execute(self, _stdout, kwargs):
         env = self.defaults.copy()
         env.update(kwargs)
-        env.update({'_stdout': _stdout, '_printlist': _stdout.extend, 'include': include,'http_get': http_get,
+        env.update({'_stdout': _stdout, '_printlist': _stdout.extend, 'include': include,
+                    'http_get': http_get,
+                    'local_http_get': local_http_get,
 
                     '_str': self._str, '_escape': self._escape, 'get': env.get,
                     'setdefault': env.setdefault, 'defined': env.__contains__
@@ -382,6 +384,9 @@ def include(file_name: str, **kwargs) -> str:
 def http_get(url: str) -> str:
     import foo  # rust module.
     return foo.http_get(url)
+def local_http_get(uri: str) -> str:
+    import foo  # rust module.
+    return foo.local_http_get(uri)
 
 
 if __name__ == '__main__':

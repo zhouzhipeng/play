@@ -223,7 +223,7 @@ pub async fn start_server(router: Router, app_state: Arc<AppState>) -> anyhow::R
     #[cfg(not(feature = "https"))]
     // run it with hyper on localhost:3000
     axum_server::bind(addr)
-        .serve(router.into_make_service())
+        .serve(router.into_make_service_with_connect_info::<SocketAddr>())
         .await?;
 
 
@@ -258,6 +258,12 @@ type S = State<Arc<AppState>>;
 
 type HTML = Result<Html<String>, AppError>;
 type JSON<T> = Result<Json<T>, AppError>;
+
+//
+//
+// lazy_static! {
+//     pub static ref CONFIG: Config = init_config(false);
+// }
 
 
 

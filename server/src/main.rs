@@ -15,7 +15,7 @@ use tracing_subscriber::subscribe::CollectExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
 
-use play::{files_dir, init_app_state, shutdown_another_instance, start_server};
+use play::{ files_dir, init_app_state, shutdown_another_instance, start_server};
 use play::config::init_config;
 use play::routers;
 use shared::constants::DATA_DIR;
@@ -53,6 +53,9 @@ async fn main()->anyhow::Result<()> {
     // init config
     let config = init_config(false);
 
+    //inject env for py_runner
+    set_var("HOST", format!("http://127.0.0.1:{}", config.server_port));
+    set_var("FP", &config.auth_config.fingerprints[0]);
 
     let log_level = match config.log_level.as_str(){
         "TRACE"=> LevelFilter::TRACE,
