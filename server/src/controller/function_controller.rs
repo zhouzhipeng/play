@@ -51,10 +51,7 @@ async fn str_joiner(s: S, Form(data): Form<Data>) -> HTML {
         name: "<string>".to_string(),
         content: data.s,
     }, json!({
-        "params":{},
-       "envs": {
-            "host": format!("http://127.0.0.1:{}", s.config.server_port)
-        }
+        "params":{}
     })).await
 }
 

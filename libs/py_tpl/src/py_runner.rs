@@ -90,12 +90,48 @@ fn http_get(url : String) -> PyResult<String> {
     }
 
 }
+#[pyfunction]
+fn local_http_get(uri : String) -> PyResult<String> {
+    // 使用 std::thread::spawn 来创建一个新线程
+    let host = env::var("HOST").unwrap_or_default();
+    let fp = env::var("FP").unwrap_or_default();
+    let whole_url = format!("{}{}", host, uri);
+
+    let handle = thread::spawn(move || {
+        let client = Client::builder().timeout(Duration::from_secs(3)).build().unwrap();
+        // 尝试发送请求并获取响应
+        match client.get(&whole_url).header("X-Browser-Fingerprint", &fp).send() {
+            Ok(response) => {
+                match response.text() {
+                    Ok(parsed) => {
+                        // 将响应数据转换为字符串（或任何适合你数据的格式）
+                        Ok(parsed)
+                    },
+                    Err(_) => Err("Failed to parse response".to_string()),
+                }
+            },
+            Err(e) => {
+                error!("http_get error > {}", e);
+                Err(format!("Failed to send request: {}", e.to_string()))
+            },
+        }
+    });
+
+    // 等待线程结束并获取结果
+    match handle.join() {
+        Ok(Ok(result)) => Ok(result),
+        Ok(Err(e)) => Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e)),
+        Err(_) => Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>("Thread panicked")),
+    }
+
+}
 
 #[pymodule]
 fn foo(_py: Python<'_>, foo_module: &PyModule) -> PyResult<()> {
     foo_module.add_function(wrap_pyfunction!(add_one, foo_module)?)?;
     foo_module.add_function(wrap_pyfunction!(read_file, foo_module)?)?;
     foo_module.add_function(wrap_pyfunction!(http_get, foo_module)?)?;
+    foo_module.add_function(wrap_pyfunction!(local_http_get, foo_module)?)?;
     foo_module.add_function(wrap_pyfunction!(parse_create_sql_str, foo_module)?)?;
     Ok(())
 }
