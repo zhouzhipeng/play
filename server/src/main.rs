@@ -55,7 +55,8 @@ async fn main()->anyhow::Result<()> {
 
     //inject env for py_runner
     set_var("HOST", format!("http://127.0.0.1:{}", config.server_port));
-    set_var("FP", &config.auth_config.fingerprints[0]);
+
+    set_var("FP", &config.auth_config.fingerprints.get(0).unwrap_or(&"".to_string()));
 
     let log_level = match config.log_level.as_str(){
         "TRACE"=> LevelFilter::TRACE,

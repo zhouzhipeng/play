@@ -13,7 +13,6 @@ use include_dir::{Dir, include_dir};
 use lazy_static::lazy_static;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
-use reqwest::blocking::Client;
 
 use tracing::{error, info, warn};
 use shared::constants::DATA_DIR;
@@ -62,31 +61,16 @@ fn read_file(filename : String) -> PyResult<String> {
 #[pyfunction]
 fn http_get(url : String) -> PyResult<String> {
     // 使用 std::thread::spawn 来创建一个新线程
-    let handle = thread::spawn(move || {
-        let client = Client::builder().timeout(Duration::from_secs(3)).build().unwrap();
-        // 尝试发送请求并获取响应
-        match client.get(&url).send() {
-            Ok(response) => {
-                match response.text() {
-                    Ok(parsed) => {
-                        // 将响应数据转换为字符串（或任何适合你数据的格式）
-                        Ok(parsed)
-                    },
-                    Err(_) => Err("Failed to parse response".to_string()),
-                }
-            },
-            Err(e) => {
-                error!("http_get error > {}", e);
-                Err(format!("Failed to send request: {}", e.to_string()))
-            },
-        }
-    });
+    let response = ureq::get(&url)
+        .timeout(Duration::from_secs(3))
+        .call();
+    info!("http_get response : {:?}", response);
 
     // 等待线程结束并获取结果
-    match handle.join() {
-        Ok(Ok(result)) => Ok(result),
-        Ok(Err(e)) => Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e)),
-        Err(_) => Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>("Thread panicked")),
+
+    match response{
+        Ok(s) => Ok(s.into_string().unwrap_or("<response error>".to_string())),
+        Err(e) => Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
     }
 
 }
@@ -97,31 +81,16 @@ fn local_http_get(uri : String) -> PyResult<String> {
     let fp = env::var("FP").unwrap_or_default();
     let whole_url = format!("{}{}", host, uri);
 
-    let handle = thread::spawn(move || {
-        let client = Client::builder().timeout(Duration::from_secs(3)).build().unwrap();
-        // 尝试发送请求并获取响应
-        match client.get(&whole_url).header("X-Browser-Fingerprint", &fp).send() {
-            Ok(response) => {
-                match response.text() {
-                    Ok(parsed) => {
-                        // 将响应数据转换为字符串（或任何适合你数据的格式）
-                        Ok(parsed)
-                    },
-                    Err(_) => Err("Failed to parse response".to_string()),
-                }
-            },
-            Err(e) => {
-                error!("http_get error > {}", e);
-                Err(format!("Failed to send request: {}", e.to_string()))
-            },
-        }
-    });
+    // Make a GET request
+    let response = ureq::get(&whole_url)
+        .set("X-Browser-Fingerprint", &fp)
+        .timeout(Duration::from_secs(3))
+        .call();
+    info!("local_http_get response : {:?}", response);
 
-    // 等待线程结束并获取结果
-    match handle.join() {
-        Ok(Ok(result)) => Ok(result),
-        Ok(Err(e)) => Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e)),
-        Err(_) => Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>("Thread panicked")),
+    match response{
+        Ok(s) => Ok(s.into_string().unwrap_or("<response error>".to_string())),
+        Err(e) => Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
     }
 
 }
