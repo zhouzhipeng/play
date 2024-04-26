@@ -4,6 +4,7 @@ use std::env::set_var;
 use std::{env, fs, thread};
 
 use std::io::Cursor;
+use std::time::Duration;
 
 
 use async_channel::Receiver;
@@ -62,7 +63,7 @@ fn read_file(filename : String) -> PyResult<String> {
 fn http_get(url : String) -> PyResult<String> {
     // 使用 std::thread::spawn 来创建一个新线程
     let handle = thread::spawn(move || {
-        let client = Client::new();
+        let client = Client::builder().timeout(Duration::from_secs(3)).build().unwrap();
         // 尝试发送请求并获取响应
         match client.get(&url).send() {
             Ok(response) => {

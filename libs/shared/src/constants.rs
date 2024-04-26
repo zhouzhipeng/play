@@ -12,4 +12,5 @@ pub const API_EXECUTE_SQL: &str = "/internal/execute-sql";
 
 pub const DATA_DIR: &str ="DATA_DIR";
 pub const CAT_FINGERPRINT: &str ="fingerprint";
+pub const CAT_MAIL: &str ="mail_inbox";
 

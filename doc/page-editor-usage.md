@@ -1,5 +1,9 @@
 ## how to use page editor
 
+### global variable
+* params :   a map for storing request params on url
+* envs :  a map for like 'host' info
+
 by default, the page is static, if u want to use a dynamic page,
 just remove the suffix '.html' in the uri.
 

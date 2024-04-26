@@ -12,7 +12,7 @@ use shared::current_timestamp;
 
 const HOOKS_PATH: &str = "../.git/hooks";
 const PRE_COMMIT_HOOK: &str = "#!/bin/sh
-exec cargo build
+exec cargo dev_server
 ";
 
 fn main() {

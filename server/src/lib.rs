@@ -2,6 +2,7 @@
 
 use std::backtrace::Backtrace;
 use std::env;
+use std::fmt::format;
 use std::net::SocketAddr;
 use std::ops::Deref;
 use std::path::Path;
@@ -30,7 +31,7 @@ use tower_http::cors::{Any, CorsLayer};
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::{error, info};
-use shared::constants::{CAT_FINGERPRINT, DATA_DIR};
+use shared::constants::{CAT_FINGERPRINT, CAT_MAIL, DATA_DIR};
 
 use shared::{current_timestamp, timestamp_to_date_str};
 
@@ -511,10 +512,32 @@ pub async fn handle_email_message(copy_appstate: &Arc<AppState>, msg: &mail_serv
     }, &copy_appstate.db).await;
     info!("email insert result : {:?}", r);
 
-    //send push
-    let sender= urlencoding::encode(&msg.sender).into_owned();
-    let title= urlencoding::encode(&msg.subject).into_owned();
-    reqwest::get(format!("https://api.day.app/pTyPrycAjp36tGRSAUgfiU/{}/{}", sender, title)).await;
+    //double write
+    let r2 = GeneralData::insert(&GeneralData{
+        cat: CAT_MAIL.to_string(),
+        data: json!({
+            "from_mail": msg.sender.to_string(),
+            "to_mail": msg.recipients.join(","),
+            "send_date": msg.created_at.as_ref().unwrap_or(&String::from("")).to_string(),
+            "subject": msg.subject.to_string(),
+            "plain_content": msg.plain.as_ref().unwrap_or(&String::from("")).to_string(),
+            "html_content": msg.html.as_ref().unwrap_or(&String::from("")).to_string(),
+            "full_body": "<TODO>".to_string(),
+            "attachments": "<TODO>".to_string(),
+            "create_time": current_timestamp!(),
+        }).to_string(),
+        ..GeneralData::default()
+    } ,  &copy_appstate.db).await;
+    info!("email insert result2 : {:?}", r2);
+
+
+    tokio::spawn(async {
+        //send push
+        let sender= urlencoding::encode(&msg.sender).into_owned();
+        let title= urlencoding::encode(&msg.subject).into_owned();
+        reqwest::get(format!("{}/{}/{}", &copy_appstate.config.misc_config.mail_notify_url, sender, title)).await;
+    });
+
 }
 
 

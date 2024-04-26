@@ -104,7 +104,10 @@ async fn dynamic_pages(s: S, Path(url): Path<String>, Query(params): Query<HashM
             name: page_dto.title.to_string(),
             content: raw_html,
         }, json!({
-            "params": params
+            "params": params,
+            "envs": {
+                "host": format!("http://127.0.0.1:{}", s.config.server_port)
+            }
         })).await
     }
 }

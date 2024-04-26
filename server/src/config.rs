@@ -35,6 +35,8 @@ pub struct Config {
     pub elevenlabs: ElevenlabsConfig,
     #[serde(default)]
     pub auth_config: AuthConfig,
+    #[serde(default)]
+    pub misc_config: MiscConfig,
 }
 
 #[derive(Deserialize,Serialize, Debug, Clone, Default)]
@@ -61,6 +63,10 @@ pub struct AuthConfig {
     pub fingerprints: Vec<String>,
     pub whitelist: Vec<String>,
     pub passcode: String,
+}
+#[derive(Deserialize, Debug, Clone, Default)]
+pub struct MiscConfig {
+    pub mail_notify_url: String,
 }
 #[derive(Deserialize, Debug, Clone, Default)]
 pub struct LocalJobConfig {
