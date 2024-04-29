@@ -146,7 +146,8 @@ pub enum PortfolioMarket {
     #[default]
     US_STOCK,
     HK_STOCK,
-    CRYPTO
+    CRYPTO,
+    FUND
 }
 
 #[derive(Deserialize, Debug, Clone, Default)]

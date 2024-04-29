@@ -9,11 +9,12 @@ use reqwest::Client;
 use scraper::{ Selector};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use tracing::info;
+use tracing::{error, info};
 
 use crate::{method_router, template};
 use crate::{HTML, S};
 use crate::config::{PortfolioItemPosition, PortfolioMarket};
+use crate::types::winglung_fund::WingLungFundRes;
 //
 method_router!(
     get : "/finance/dashboard"-> dashboard,
@@ -57,6 +58,7 @@ async fn dashboard(s: S) -> HTML {
 
 
     let us_stock_symbols: Vec<String> = s.config.finance.portfolio.iter().filter(|p|p.market==PortfolioMarket::US_STOCK).map(|p|p.symbol.to_string()).collect();
+    let winglung_fund_symbols: Vec<String> = s.config.finance.portfolio.iter().filter(|p|p.market==PortfolioMarket::FUND).map(|p|p.symbol.to_string()).collect();
 
     //query stock prices
     // use  a random apikey
@@ -70,6 +72,25 @@ async fn dashboard(s: S) -> HTML {
             StockItem{
                 symbol: symbol.to_string(),
                 market: PortfolioMarket::US_STOCK,
+                price,
+            }
+        }));
+    }
+    for symbol in winglung_fund_symbols{
+        // let copy_keys = s.config.finance.alphavantage_apikeys.clone();
+        handles.push(tokio::spawn(async move{
+            // let rand_range =get_random(0, copy_keys.len());
+            // info!("random >> {}", rand_range);
+            let price = match query_winglung_fund_price(&symbol).await{
+                Ok(a) => a,
+                Err(e) => {
+                    error!("query_winglung_fund_price errro: {}", e);
+                    GlobalQuote::default()
+                }
+            };
+            StockItem{
+                symbol: symbol.to_string(),
+                market: PortfolioMarket::FUND,
                 price,
             }
         }));
@@ -307,8 +328,8 @@ async fn query_stock_price(symbol: &str, apikey: &str)->anyhow::Result<GlobalQuo
 fn get_client() -> Client {
     let client = reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
-        .connect_timeout(Duration::from_secs(3))
-        .timeout(Duration::from_secs(3))
+        .connect_timeout(Duration::from_secs(10))
+        .timeout(Duration::from_secs(10))
         .build()
         .unwrap();
     client
@@ -342,6 +363,27 @@ async fn query_us_stock_price(symbol: &str, apikey: &str)->anyhow::Result<Global
         price: data.regularMarketPrice.to_string(),
         previous_close: data.previousClose.to_string(),
         last_trading_day: "".to_string(),
+    })
+}
+async fn query_winglung_fund_price(symbol: &str)->anyhow::Result<GlobalQuote>{
+    let mut headers = header::HeaderMap::new();
+
+    let res = get_client().post("https://m2.cmbwinglungbank.com/QP/fundRecordInfo")
+        .headers(headers)
+        .json(&json!({
+            "id": symbol,
+            "dateFlag":"",
+            "tabFlag":"",
+        }))
+        .send().await?
+        .json::<WingLungFundRes>().await?;
+    // println!("{:?}", res);
+    let data = &res.data;
+    Ok(GlobalQuote{
+        change_percent: data.day_trip.to_string(),
+        price: data.day_end_nav.to_string(),
+        previous_close: "N/A".to_string(),
+        last_trading_day:data.day_end_date.to_string(),
     })
 }
 
@@ -516,6 +558,13 @@ mod test {
     #[tokio::test]
    async fn test_query_us_stock()->anyhow::Result<()> {
         let data = query_us_stock_price("AAPL","").await?;
+        println!("{:?}", data);
+        Ok(())
+    }
+    #[ignore]
+    #[tokio::test]
+   async fn test_query_winglung_fund()->anyhow::Result<()> {
+        let data = query_winglung_fund_price("76003").await?;
         println!("{:?}", data);
         Ok(())
     }
