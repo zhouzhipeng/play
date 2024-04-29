@@ -113,6 +113,9 @@
                     %elif  item.market == "CRYPTO":
                     <a href="https://www.binance.com/en/trade/{{item.symbol}}?type=spot" target="_blank">{{item.symbol}}</a>
                     % symbol_link_map[item.symbol]= f"https://www.binance.com/en/trade/{item.symbol}?type=spot&sc_lang=en"
+                    %elif  item.market == "FUND":
+                    <a href="https://m2.cmbwinglungbank.com/shareadmin/fund/fund_fundDetail_share.html?fdCode={{item.symbol}}&lang=zh_CN" target="_blank">{{item.symbol}}</a>
+                    % symbol_link_map[item.symbol]= f"https://m2.cmbwinglungbank.com/shareadmin/fund/fund_fundDetail_share.html?fdCode={item.symbol}&lang=zh_CN"
 
                     %else:
                     {{item.symbol}}

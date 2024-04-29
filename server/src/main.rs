@@ -20,7 +20,7 @@ use play::config::init_config;
 use play::routers;
 use shared::constants::DATA_DIR;
 
-#[tokio::main(flavor = "multi_thread", worker_threads = 4)]
+#[tokio::main(flavor = "multi_thread", worker_threads = 10)]
 async fn main()->anyhow::Result<()> {
     #[cfg(feature = "debug")]
     set_var("RUST_BACKTRACE","1");
