@@ -37,6 +37,9 @@ async fn static_path(s: S, Path(path): Path<String>) -> R<impl IntoResponse> {
             .header(
                 header::CONTENT_TYPE,
                 HeaderValue::from_str(mime_type.as_ref())?
-            ).body(body::boxed(Full::from(file.contents())))?),
+            )
+            .header("Cross-Origin-Opener-Policy", "same-origin")
+            .header("Cross-Origin-Embedder-Policy", "require-corp")
+            .body(body::boxed(Full::from(file.contents())))?),
     }
 }
