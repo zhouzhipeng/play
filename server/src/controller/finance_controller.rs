@@ -190,6 +190,12 @@ async fn dashboard(s: S) -> HTML {
                 let mut i =0;
                 let mut to_remove = vec![];
                 for buy_item in buy_list.iter_mut() {
+                    if item.issued && buy_item.date.gt(&sell_item.date){
+                        i=i+1;
+                        continue;
+                    }
+
+
                     if sell_item.quantity < buy_item.quantity{
                         buy_item.quantity = buy_item.quantity - sell_item.quantity;
                         break;
