@@ -20,13 +20,15 @@ use axum::response::{Html, IntoResponse, Response};
 use axum::Router;
 use axum_server::Handle;
 use either::Either;
+use http_body::Body;
 use hyper::HeaderMap;
 use include_dir::{Dir, include_dir};
 use lazy_static::lazy_static;
 use serde::Serialize;
 use serde_json::{json, Value};
 use tokio::time::sleep;
-use tower_http::compression::CompressionLayer;
+use tower_http::compression::{CompressionLayer, DefaultPredicate, Predicate};
+use tower_http::compression::predicate::{NotForContentType, SizeAbove};
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
@@ -316,6 +318,16 @@ macro_rules! files_dir {
     };
 }
 
+#[derive(Clone, Copy, Debug)]
+struct CustomCompressPredict{}
+
+
+
+impl Predicate for CustomCompressPredict {
+    fn should_compress<B>(&self, response: &http::Response<B>) -> bool where B: Body {
+        response.headers().contains_key("x-compress")
+    }
+}
 
 
 pub async fn routers(app_state: Arc<AppState>) -> anyhow::Result<Router> {
@@ -356,7 +368,7 @@ pub async fn routers(app_state: Arc<AppState>) -> anyhow::Result<Router> {
     //
     // #[cfg(not(feature = "debug"))]
     // {
-    //     router = router.layer(CompressionLayer::new());
+        router = router.layer(CompressionLayer::new().compress_when(CustomCompressPredict{}));
     // }
 
 
