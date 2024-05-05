@@ -40,6 +40,7 @@ async fn static_path(s: S, Path(path): Path<String>) -> R<impl IntoResponse> {
             )
             .header("Cross-Origin-Opener-Policy", "same-origin")
             .header("Cross-Origin-Embedder-Policy", "require-corp")
+            .header("x-compress", "1")
             .body(body::boxed(Full::from(file.contents())))?),
     }
 }
