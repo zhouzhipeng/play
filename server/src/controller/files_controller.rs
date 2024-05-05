@@ -218,6 +218,7 @@ async fn download_file(Path(file_path): Path<String>) -> impl IntoResponse {
                     )
                     .header("Cross-Origin-Opener-Policy", "same-origin")
                     .header("Cross-Origin-Embedder-Policy", "require-corp")
+                    .header("x-compress", "1")
                     .body(Body::from(contents))
                     .expect("Failed to build response"); // Convert Vec<u8> into Body
 
