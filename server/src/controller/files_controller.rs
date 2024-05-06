@@ -23,7 +23,7 @@ use tokio_util::codec::{BytesCodec, FramedRead};
 use tokio_util::io::StreamReader;
 use tracing::info;
 
-use shared::current_timestamp;
+use shared::{current_timestamp, file_path};
 
 use crate::{data_dir, files_dir, JSON, method_router, R, return_error};
 use crate::extractor::custom_file_upload::CustomFileExtractor;
@@ -143,7 +143,9 @@ fn zip_dir<T: AsRef<std::path::Path>>(src_dir: T, dst_file: T) -> zip::result::Z
 #[derive(Deserialize, Debug, Default)]
 struct UploadOption{
     #[serde(default)]
-    random_name: bool
+    random_name: bool,
+    #[serde(default)]
+    unzip: bool
 }
 
 // #[debug_handler]
@@ -179,9 +181,17 @@ async fn upload_file(
                 }
 
 
-                stream_to_file(&file_name, field).await?;
+                if option.unzip && file_name.ends_with(".zip"){
+                    let archive = Cursor::new(field.bytes().await?);
+                    zip_extract::extract(archive, &files_dir!(), false).unwrap();
+                    target_path.push(format!("/files/{}", &file_name.as_str()[0..(file_name.len()-".zip".len())]));
+                }else{
+                    stream_to_file(&file_name, field).await?;
+                    target_path.push(format!("/files/{}", file_name));
+                }
 
-                target_path.push(format!("/files/{}", file_name));
+
+
             }
             Ok(target_path.join(","))
         }
@@ -200,8 +210,53 @@ async fn download_file(Path(file_path): Path<String>) -> impl IntoResponse {
         return Err((StatusCode::FORBIDDEN, "Access denied"));
     }
 
+    if !safe_path.exists(){
+        return Err((StatusCode::FORBIDDEN, "Access denied"));
+    }
+
     let mime_type = mime_guess::from_path(&safe_path).first_or_text_plain();
 
+    if safe_path.is_dir(){
+        // 要列举的目录路径
+        let directory_path =  &safe_path;
+
+        // 创建一个 Vector 来存储目录下所有文件的名称
+        let mut files: Vec<String> = Vec::new();
+
+        // 使用 WalkDir 遍历目录并收集文件名
+        for entry in WalkDir::new(directory_path).into_iter().filter_map(|e| e.ok()) {
+            if entry.file_type().is_file() {
+                if let Some(file_name) = entry.file_name().to_str() {
+                    files.push(file_name.to_owned());
+                }
+            }
+        }
+
+        // 生成 HTML 内容
+        let mut html_content = String::new();
+        html_content.push_str("<html>\n<head>\n<title>Directory Listing</title>\n</head>\n<body>");
+        html_content.push_str("<h1>Files in Directory:</h1>");
+        html_content.push_str("<ul>\n");
+
+        for file in files {
+            html_content.push_str(&format!(r#"<li><a href="{}/{}" target="_blank">{}</a></li>"#, file_path,file,file));
+        }
+
+        html_content.push_str("</ul>\n");
+        html_content.push_str("</body>\n</html>\n");
+        let  response = Response::builder()
+            .status(StatusCode::OK)
+            .header(
+                header::CONTENT_TYPE,
+                "text/html;charset=UTF-8"
+            )
+            .header("x-compress", "1")
+            .body(Body::from(html_content))
+            .expect("Failed to build response"); // Convert Vec<u8> into Body
+
+
+        return Ok(response)
+    }
 
     // Attempt to open the file
     match File::open(&safe_path).await {
@@ -210,7 +265,7 @@ async fn download_file(Path(file_path): Path<String>) -> impl IntoResponse {
             // Read the file contents into a buffer
             if let Ok(_) = file.read_to_end(&mut contents).await {
                 // Create a response with the file contents
-                let mut response = Response::builder()
+                let  response = Response::builder()
                     .status(StatusCode::OK)
                     .header(
                         header::CONTENT_TYPE,
