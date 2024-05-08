@@ -20,3 +20,4 @@ serde = { version = "1.0.163", features = ["derive"] }
 serde_json = "1.0.96"
 async-channel = "2.1.1"
 axum = "0.6.20"
+pyo3 = { version = "0.21.2" }
