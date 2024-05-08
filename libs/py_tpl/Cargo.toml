@@ -12,7 +12,7 @@ use_embed_python=[]
 [dependencies]
 shared={path="../shared"}
 
-pyo3 = { version = "0.20.0" }
+pyo3 = { workspace=true }
 async-trait = {workspace=true}
 async-channel = {workspace=true}
 tracing = "0.1"
