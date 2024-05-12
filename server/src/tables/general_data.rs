@@ -41,39 +41,10 @@ impl GeneralData {
             .execute(pool)
             .await;
 
-        if let Ok(succ) = &r {
-            let data_id = succ.last_insert_rowid();
-            let changelog_result = ChangeLog::insert(&ChangeLog {
-                data_id: data_id as u32,
-                op: ChangeLogOp::INSERT,
-                data_before: "".to_string(),
-                data_after: data.to_string(),
-                ..ChangeLog::default()
-            }, pool).await;
-            info!("changelog_result : {:?}", changelog_result);
-        }
-
         r
     }
 
     pub async fn delete(id: u32, pool: &DBPool) -> Result<DBQueryResult, Error> {
-        let rows = Self::query_by_id(id, pool).await?;
-        if rows.is_empty(){
-            return Err(Error::RowNotFound)
-        }
-
-
-
-        let changelog_result = ChangeLog::insert(&ChangeLog {
-            data_id: id,
-            op: ChangeLogOp::DELETE,
-            data_before: rows[0].data.to_string(),
-            data_after: "".to_string(),
-            ..ChangeLog::default()
-        }, pool).await;
-        info!("changelog_result : {:?}", changelog_result);
-
-
         let r = sqlx::query("DELETE from general_data WHERE id =?")
             .bind(&id)
             .execute(pool)
@@ -166,16 +137,18 @@ impl GeneralData {
                     return Err(Error::RowNotFound)
                 }
 
+                let pool_copy = pool.clone();
+                tokio::spawn(async move{
+                    let changelog_result = ChangeLog::insert(&ChangeLog {
+                        data_id: data_id,
+                        op: ChangeLogOp::UPDATE,
+                        data_before: rows[0].data.to_string(),
+                        data_after: new_rows[0].data.to_string(),
+                        ..ChangeLog::default()
+                    }, &pool_copy).await;
+                    info!("changelog_result : {:?}", changelog_result);
 
-
-                let changelog_result = ChangeLog::insert(&ChangeLog {
-                    data_id: data_id,
-                    op: ChangeLogOp::UPDATE,
-                    data_before: rows[0].data.to_string(),
-                    data_after: new_rows[0].data.to_string(),
-                    ..ChangeLog::default()
-                }, pool).await;
-                info!("changelog_result : {:?}", changelog_result);
+                });
 
             }
         }
@@ -188,15 +161,18 @@ impl GeneralData {
             return Err(Error::RowNotFound)
         }
 
-
-        let changelog_result = ChangeLog::insert(&ChangeLog {
-            data_id: data_id,
-            op: ChangeLogOp::UPDATE,
-            data_before: rows[0].data.to_string(),
-            data_after: data.to_string(),
-            ..ChangeLog::default()
-        }, pool).await;
-        info!("changelog_result : {:?}", changelog_result);
+        let data_copy = data.to_string();
+        let pool_copy = pool.clone();
+        tokio::spawn(async move {
+            let changelog_result = ChangeLog::insert(&ChangeLog {
+                data_id: data_id,
+                op: ChangeLogOp::UPDATE,
+                data_before: rows[0].data.to_string(),
+                data_after: data_copy,
+                ..ChangeLog::default()
+            }, &pool_copy).await;
+            info!("changelog_result : {:?}", changelog_result);
+        });
 
 
         sqlx::query("update  general_data set data = ?, updated=CURRENT_TIMESTAMP where id = ?")
@@ -211,14 +187,19 @@ impl GeneralData {
             return Err(Error::RowNotFound)
         }
 
-        let changelog_result = ChangeLog::insert(&ChangeLog {
-            data_id: rows[0].id,
-            op: ChangeLogOp::UPDATE,
-            data_before: rows[0].data.to_string(),
-            data_after: data.to_string(),
-            ..ChangeLog::default()
-        }, pool).await;
-        info!("changelog_result : {:?}", changelog_result);
+
+        let data_copy = data.to_string();
+        let pool_copy = pool.clone();
+        tokio::spawn(async move {
+            let changelog_result = ChangeLog::insert(&ChangeLog {
+                data_id: rows[0].id,
+                op: ChangeLogOp::UPDATE,
+                data_before: rows[0].data.to_string(),
+                data_after:data_copy ,
+                ..ChangeLog::default()
+            }, &pool_copy).await;
+            info!("changelog_result : {:?}", changelog_result);
+        });
 
 
         sqlx::query("update  general_data set data = ?, updated=CURRENT_TIMESTAMP where cat = ?")

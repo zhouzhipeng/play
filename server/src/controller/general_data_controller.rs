@@ -1,14 +1,12 @@
 use std::collections::HashMap;
 
-use axum::{Form, Json};
 use axum::extract::{Path, Query};
-use axum::response::{IntoResponse, Response};
-use axum_macros::debug_handler;
+use axum::Json;
+use axum::response::IntoResponse;
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json::Value;
-use tracing::info;
 
-use crate::{ensure, JSON, method_router, R, return_error, S};
+use crate::{ensure, JSON, method_router, return_error, S};
 use crate::tables::general_data::GeneralData;
 
 method_router!(
@@ -49,16 +47,18 @@ struct UpdateDataTextReq {
     data: String,
 }
 
-async fn insert_data(s: S, Path(cat): Path<String>, body: String) -> JSON<MsgResp> {
+async fn insert_data(s: S, Path(cat): Path<String>, body: String) -> JSON<QueryDataResp> {
     //validation
-    ensure!(!vec!["id", "data","get","update","delete","list", "query"].contains(&cat.as_str()));
+    // ensure!(!vec!["id", "data","get","update","delete","list", "query"].contains(&cat.as_str()), "please use another category name ! ");
     // check!(serde_json::from_str::<Value>(&body).is_ok());
 
     let ret = GeneralData::insert(&cat,&body.trim(), &s.db).await?;
     let id = ret.rows_affected();
-    ensure!(id==1);
+    ensure!(id==1, "insert failed!");
 
-    Ok(Json(MsgResp { msg: "ok".to_string(), id_or_count: ret.last_insert_rowid() as u32 }))
+    let data = GeneralData::query_by_id(ret.last_insert_rowid() as u32, &s.db).await?;
+    ensure!(data.len()==1, "data error! query_by_id not found.");
+    Ok(Json(QueryDataResp::Raw(data[0].clone())))
 }
 
 async fn override_data(s: S, Path(cat): Path<String>, body: String) -> JSON<MsgResp> {
@@ -140,11 +140,6 @@ async fn query_data(s: S, Path(cat): Path<String>, Query(mut params): Query<Hash
 
 }
 
-async fn query_data_global(s: S, Path(cat): Path<String>) -> JSON<Vec<GeneralData>> {
-
-    let data = GeneralData::query_by_cat("*", &cat, &s.db).await?;
-    return Ok(Json(data));
-}
 async fn get_data(s: S, Path(data_id): Path<u32>, Query(mut params): Query<HashMap<String, String>>) -> JSON<Vec<QueryDataResp>>  {
     let data_to_json = params.remove("_json").unwrap_or("false".to_string()).eq("true");
 
@@ -165,25 +160,32 @@ async fn get_data(s: S, Path(data_id): Path<u32>, Query(mut params): Query<HashM
 }
 
 
-async fn update_data(s: S, Path(data_id): Path<u32>, body: String) -> JSON<MsgResp> {
-    let data = GeneralData::update_data_by_id(data_id, &body, &s.db).await?;
-    return Ok(Json(MsgResp { msg: "update ok".to_string(), id_or_count: data.rows_affected() as u32 }));
+async fn update_data(s: S, Path(data_id): Path<u32>, body: String) -> JSON<QueryDataResp> {
+    let r = GeneralData::update_data_by_id(data_id, &body, &s.db).await?;
+    ensure!(r.rows_affected()==1, "update_data failed!");
+    let data = GeneralData::query_by_id(data_id as u32, &s.db).await?;
+    Ok(Json(QueryDataResp::Raw(data[0].clone())))
 }
 
-async fn update_field(s: S, Path(data_id): Path<u32>, Query(params): Query<HashMap<String, String>>) -> JSON<MsgResp> {
-    ensure!(params.len()==1);
+async fn update_field(s: S, Path(data_id): Path<u32>, Query(params): Query<HashMap<String, String>>) -> JSON<QueryDataResp> {
+    ensure!(params.len()==1, "must specify only one pair param !");
     for (k, v) in params {
-        let data = GeneralData::update_json_field_by_id(data_id, &k, &v, &s.db).await?;
-        return Ok(Json(MsgResp { msg: "update ok".to_string(), id_or_count: data.rows_affected() as u32 }));
+        let r = GeneralData::update_json_field_by_id(data_id, &k, &v, &s.db).await?;
+        ensure!(r.rows_affected()==1, "update_json_field_by_id failed!");
+        let data = GeneralData::query_by_id(data_id as u32, &s.db).await?;
+        return Ok(Json(QueryDataResp::Raw(data[0].clone())))
     }
 
     return_error!("unknown error")
 }
 
 
-async fn delete_data(s: S, Path(data_id): Path<u32>) -> JSON<MsgResp> {
-    let data = GeneralData::delete(data_id, &s.db).await?;
-    return Ok(Json(MsgResp { msg: "delete ok".to_string(), id_or_count: data.rows_affected() as u32 }));
+async fn delete_data(s: S, Path(data_id): Path<u32>) -> JSON<QueryDataResp> {
+    let data = GeneralData::query_by_id(data_id as u32, &s.db).await?;
+    ensure!(data.len()==1, "query_by_id failed! length is not 1");
+    let r = GeneralData::delete(data_id, &s.db).await?;
+    ensure!(r.rows_affected()==1, "delete failed!");
+    Ok(Json(QueryDataResp::Raw(data[0].clone())))
 }
 
 
