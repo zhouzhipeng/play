@@ -348,7 +348,7 @@ pub async fn routers(app_state: Arc<AppState>) -> anyhow::Result<Router> {
 
     info!("whitelist : {:?}", auth_config.whitelist);
 
-    let mut fingerprints = GeneralData::query_by_cat_simple(CAT_FINGERPRINT,&app_state.db).await?.iter().map(|f|f.data.to_string()).collect::<Vec<String>>();
+    let mut fingerprints = GeneralData::query_by_cat_simple(CAT_FINGERPRINT,1000,&app_state.db).await?.iter().map(|f|f.data.to_string()).collect::<Vec<String>>();
     auth_config.fingerprints.append(&mut fingerprints);
 
     info!("fingerprints : {:?}", auth_config.fingerprints);

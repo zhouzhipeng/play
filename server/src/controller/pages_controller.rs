@@ -87,7 +87,7 @@ async fn page_versions(s: S, Query(q): Query<QueryPageVersion>) -> HTML {
 async fn dynamic_pages(s: S, Path(url): Path<String>, Query(params): Query<HashMap<String, String>>) -> HTML {
     info!("dynamic_pages >> url is : {}", url);
 
-    let data = GeneralData::query_by_json_field("*", "pages", "url", &format!("/{}", url), &s.db).await?;
+    let data = GeneralData::query_by_json_field("*", "pages", "url", &format!("/{}", url), 1,&s.db).await?;
     ensure!(data.len()==1, "url not found.");
     // Your hex string
 

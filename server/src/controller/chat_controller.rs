@@ -227,7 +227,7 @@ async fn call_tts(s: &S, resp_msg: &String)->R<Response<axum::body::Body>> {
 async fn get_thread_id(s: &S, option: &ChatAIOptionReq, title: &str) -> anyhow::Result<String> {
     let thread_id = if !option.is_general {
         //use dedicated assistant.
-        let openai_thread = GeneralData::query_by_cat_simple(CAT_OPENAI_THREAD, &s.db).await?;
+        let openai_thread = GeneralData::query_by_cat_simple(CAT_OPENAI_THREAD,1000, &s.db).await?;
         if openai_thread.is_empty() {
             //first time , so create a new openai thread.
             info!("first time chat, creating a new chat thread...");
@@ -250,7 +250,7 @@ async fn get_thread_id(s: &S, option: &ChatAIOptionReq, title: &str) -> anyhow::
             thread.id
         } else {
             //use existed one.
-            let thread_list = GeneralData::query_by_json_field("*", CAT_GENERAL_OPENAI_THREADS, "thread_id", &option.thread_id, &s.db).await?;
+            let thread_list = GeneralData::query_by_json_field("*", CAT_GENERAL_OPENAI_THREADS, "thread_id", &option.thread_id,1, &s.db).await?;
             let openai_thread = thread_list.get(0)
                 .context(format!("get thread {} error!", option.thread_id))?;
             let th_do = serde_json::from_str::<ChatThreadDo>(&openai_thread.data)?;

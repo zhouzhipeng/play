@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use axum::extract::{Path, Query};
 use axum::Json;
 use axum::response::IntoResponse;
+use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json::Value;
 
@@ -31,11 +32,6 @@ method_router!(
 
 
 
-#[derive(Serialize, Debug)]
-struct MsgResp {
-    msg: String,
-    id_or_count: u32,
-}
 
 #[derive(Deserialize)]
 struct InsertDataReq {
@@ -61,33 +57,49 @@ async fn insert_data(s: S, Path(cat): Path<String>, body: String) -> JSON<QueryD
     Ok(Json(QueryDataResp::Raw(data[0].clone())))
 }
 
-async fn override_data(s: S, Path(cat): Path<String>, body: String) -> JSON<MsgResp> {
+async fn override_data(s: S, Path(cat): Path<String>, body: String) -> JSON<QueryDataResp> {
 
 
-    let list_data = GeneralData::query_by_cat("*", &cat, &s.db).await?;
+    let list_data = GeneralData::query_by_cat("*", &cat,10, &s.db).await?;
     ensure!(list_data.len()<=1, "A global category should have only one item!");
 
     if list_data.len() == 0 {
         //insert
         let ret = GeneralData::insert(&cat, &body.trim(), &s.db).await?;
-        let id = ret.rows_affected();
-        ensure!(id==1);
-        Ok(Json(MsgResp { msg: "ok".to_string(), id_or_count: ret.last_insert_rowid() as u32 }))
+        ensure!(ret.rows_affected()==1, "GeneralData::insert error!");
+        let data = GeneralData::query_by_id(ret.last_insert_rowid() as u32, &s.db).await?;
+        ensure!(data.len()==1, "data error! query_by_id not found.");
+
+        Ok(Json(QueryDataResp::Raw(data[0].clone())))
     } else {
         //update
-        let data = GeneralData::update_data_by_cat(&cat, &body, &s.db).await?;
-        return Ok(Json(MsgResp { msg: "update ok".to_string(), id_or_count: data.rows_affected() as u32 }));
-    }
+        let r = GeneralData::update_data_by_cat(&cat, &body, &s.db).await?;
+        ensure!(r.rows_affected()==1, "update_data_by_cat error!");
+        let data = GeneralData::query_by_cat_simple(&cat,1, &s.db).await?;
+        ensure!(data.len()==1, "data error! query_by_id not found.");
+        Ok(Json(QueryDataResp::Raw(data[0].clone())))    }
 }
+
 #[derive(Debug, Serialize, Default)]
 pub struct GeneralDataJson {
     pub id: u32,
     pub cat: String,
     pub data: Value,
+    #[serde(serialize_with = "serialize_as_timestamp")]
     pub created: chrono::NaiveDateTime,
+    #[serde(serialize_with = "serialize_as_timestamp")]
     pub updated: chrono::NaiveDateTime,
 }
 
+fn serialize_as_timestamp<S>(date: &NaiveDateTime, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+{
+    serializer.serialize_i64(date.timestamp_millis())
+}
+
+
+#[derive(Debug)]
 enum QueryDataResp{
     Raw(GeneralData),
     Json(GeneralDataJson),
@@ -109,18 +121,20 @@ async fn query_data(s: S, Path(cat): Path<String>, Query(mut params): Query<Hash
     //options
     let select_fields = params.remove("_select").unwrap_or("*".to_string());
     let data_to_json = params.remove("_json").unwrap_or("false".to_string()).eq("true");
+    let limit = params.remove("_limit").unwrap_or("10".to_string()).parse::<i32>()?;
+
 
     let mut return_data = vec![];
 
     //support  one keyword field query only.
     if params.len() == 1 {
         for (k, v) in params {
-            return_data = GeneralData::query_by_json_field(&select_fields, &cat, &k, &v, &s.db).await?;
+            return_data = GeneralData::query_by_json_field(&select_fields, &cat, &k, &v, limit, &s.db).await?;
 
             break;
         }
     } else if params.len() == 0 {
-        return_data = GeneralData::query_by_cat(&select_fields, &cat, &s.db).await?;
+        return_data = GeneralData::query_by_cat(&select_fields, &cat,limit, &s.db).await?;
     }
 
 
@@ -141,9 +155,10 @@ async fn query_data(s: S, Path(cat): Path<String>, Query(mut params): Query<Hash
 }
 
 async fn get_data(s: S, Path(data_id): Path<u32>, Query(mut params): Query<HashMap<String, String>>) -> JSON<Vec<QueryDataResp>>  {
-    let data_to_json = params.remove("_json").unwrap_or("false".to_string()).eq("true");
+    let select_fields = params.remove("_select").unwrap_or("*".to_string());
 
-    let data = GeneralData::query_by_id(data_id, &s.db).await?;
+    let data_to_json = params.remove("_json").unwrap_or("false".to_string()).eq("true");
+    let data = GeneralData::query_by_id_with_select(&select_fields,data_id, &s.db).await?;
     return if data_to_json {
         let data = data.iter().map(|d| QueryDataResp::Json(GeneralDataJson {
             id: d.id,

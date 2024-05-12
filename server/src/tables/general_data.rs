@@ -74,8 +74,8 @@ impl GeneralData {
         }
     }
 
-    pub async fn query_by_cat(fields: &str, cat: &str, pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
-        let sql = &format!("SELECT {} FROM general_data where cat = ? order by id desc", Self::convert_fields(fields));
+    pub async fn query_by_cat(fields: &str, cat: &str,limit: i32, pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
+        let sql = &format!("SELECT {} FROM general_data where cat = ? order by id desc limit {}", Self::convert_fields(fields), limit);
         sqlx::query_as::<_, GeneralData>(sql)
             .bind(cat)
             .fetch_all(pool)
@@ -89,8 +89,8 @@ impl GeneralData {
             .await?;
         Ok(result.0)
     }
-    pub async fn query_by_cat_simple(cat: &str, pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
-        let sql = &format!("SELECT * FROM general_data where cat = ?");
+    pub async fn query_by_cat_simple(cat: &str, limit : i32, pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
+        let sql = &format!("SELECT * FROM general_data where cat = ? limit {}", limit);
         sqlx::query_as::<_, GeneralData>(sql)
             .bind(cat)
             .fetch_all(pool)
@@ -103,8 +103,8 @@ impl GeneralData {
             .fetch_all(pool)
             .await
     }
-    pub async fn query_by_json_field(fields: &str, cat: &str, query_field: &str, query_val: &str, pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
-        sqlx::query_as::<_, GeneralData>(format!("SELECT {} FROM general_data where cat = ? and json_extract(data, '$.{}') = ?  order by id desc", Self::convert_fields(fields), query_field).as_str())
+    pub async fn query_by_json_field(fields: &str, cat: &str, query_field: &str, query_val: &str, limit: i32,pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
+        sqlx::query_as::<_, GeneralData>(format!("SELECT {} FROM general_data where cat = ? and json_extract(data, '$.{}') = ?  order by id desc limit {}", Self::convert_fields(fields), query_field, limit).as_str())
             .bind(cat)
             .bind(query_val)
             .fetch_all(pool)
@@ -112,6 +112,12 @@ impl GeneralData {
     }
     pub async fn query_by_id(data_id: u32, pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
         sqlx::query_as::<_, GeneralData>("SELECT * FROM general_data where id = ? ")
+            .bind(data_id)
+            .fetch_all(pool)
+            .await
+    }
+    pub async fn query_by_id_with_select(fields: &str, data_id: u32, pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
+        sqlx::query_as::<_, GeneralData>(&format!("SELECT {} FROM general_data where id = ? ", Self::convert_fields(fields)))
             .bind(data_id)
             .fetch_all(pool)
             .await
@@ -182,7 +188,7 @@ impl GeneralData {
             .await
     }
     pub async fn update_data_by_cat(cat: &str, data: &str, pool: &DBPool) -> Result<DBQueryResult, Error> {
-        let rows = Self::query_by_cat_simple(cat, pool).await?;
+        let rows = Self::query_by_cat_simple(cat,1, pool).await?;
         if rows.is_empty(){
             return Err(Error::RowNotFound)
         }
@@ -231,6 +237,16 @@ mod tests {
         let s = mock_state!();
         GeneralData::insert("test","dd", &s.db).await?;
         let f = GeneralData::query_count("test", &s.db).await;
+        println!("{:?}", f);
+        Ok(())
+    }
+    #[ignore]
+    #[tokio::test]
+    async fn test_query_with_limit() -> anyhow::Result<()> {
+        let s = mock_state!();
+        GeneralData::insert("test","dd", &s.db).await?;
+        GeneralData::insert("test","dd2", &s.db).await?;
+        let f = GeneralData::query_by_cat_simple("test", 2,&s.db).await;
         println!("{:?}", f);
         Ok(())
     }
