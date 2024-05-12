@@ -1,6 +1,8 @@
 ## Play
 A playground project writen in rust for fun.
 
+## general data api
+[genera-data-api.md](doc%2Fgenera-data-api.md)
 
 ## crates
 * tool : put your pre-build logic here.

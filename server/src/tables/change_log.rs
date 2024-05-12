@@ -26,7 +26,7 @@ pub enum ChangeLogOp {
 impl ChangeLog {
     pub async fn insert(t: &ChangeLog, pool: &DBPool) -> Result<DBQueryResult, Error> {
         let count = Self::query_count(pool).await?.0;
-        if count > 1000{
+        if count > 200{
             let old_id = Self::query_oldest_one(pool).await?.0;
             Self::delete(old_id, pool).await?;
         }
