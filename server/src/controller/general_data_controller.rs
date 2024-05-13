@@ -24,6 +24,7 @@ method_router!(
     put : "/data/id/:data_id"-> update_data,
     patch : "/data/id/:data_id"-> update_field,
     delete : "/data/id/:data_id"-> delete_data,
+    delete : "/data/cat/:cat"-> delete_category,
     put : "/data/cat/:cat"-> override_data,  // global data. insert or update.
     post : "/data/cat/:cat"-> insert_data,
     get : "/data/cat/:cat"-> query_data, // cat-pages?title=xxx&_select=title,url&_data_json=true
@@ -79,6 +80,11 @@ async fn override_data(s: S, Path(cat): Path<String>, body: String) -> JSON<Vec<
         ensure!(data.len()==1, "data error! query_by_id not found.");
         Ok(Json(vec![QueryDataResp::Raw(data[0].clone())]))
     }
+}
+
+async fn delete_category(s: S, Path(cat): Path<String>) -> JSON<Vec<QueryDataResp>> {
+    let r = GeneralData::delete_by_cat(&cat, &s.db).await?;
+    Ok(Json(vec![]))
 }
 
 #[derive(Debug, Serialize, Default)]
