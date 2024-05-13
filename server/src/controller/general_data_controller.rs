@@ -43,7 +43,7 @@ struct UpdateDataTextReq {
     data: String,
 }
 
-async fn insert_data(s: S, Path(cat): Path<String>, body: String) -> JSON<QueryDataResp> {
+async fn insert_data(s: S, Path(cat): Path<String>, body: String) -> JSON<Vec<QueryDataResp>> {
     //validation
     // ensure!(!vec!["id", "data","get","update","delete","list", "query"].contains(&cat.as_str()), "please use another category name ! ");
     // check!(serde_json::from_str::<Value>(&body).is_ok());
@@ -54,10 +54,10 @@ async fn insert_data(s: S, Path(cat): Path<String>, body: String) -> JSON<QueryD
 
     let data = GeneralData::query_by_id(ret.last_insert_rowid() as u32, &s.db).await?;
     ensure!(data.len()==1, "data error! query_by_id not found.");
-    Ok(Json(QueryDataResp::Raw(data[0].clone())))
+    Ok(Json(vec![QueryDataResp::Raw(data[0].clone())]))
 }
 
-async fn override_data(s: S, Path(cat): Path<String>, body: String) -> JSON<QueryDataResp> {
+async fn override_data(s: S, Path(cat): Path<String>, body: String) -> JSON<Vec<QueryDataResp>> {
 
 
     let list_data = GeneralData::query_by_cat("*", &cat,10, &s.db).await?;
@@ -70,14 +70,15 @@ async fn override_data(s: S, Path(cat): Path<String>, body: String) -> JSON<Quer
         let data = GeneralData::query_by_id(ret.last_insert_rowid() as u32, &s.db).await?;
         ensure!(data.len()==1, "data error! query_by_id not found.");
 
-        Ok(Json(QueryDataResp::Raw(data[0].clone())))
+        Ok(Json(vec![QueryDataResp::Raw(data[0].clone())]))
     } else {
         //update
         let r = GeneralData::update_data_by_cat(&cat, &body, &s.db).await?;
         ensure!(r.rows_affected()==1, "update_data_by_cat error!");
         let data = GeneralData::query_by_cat_simple(&cat,1, &s.db).await?;
         ensure!(data.len()==1, "data error! query_by_id not found.");
-        Ok(Json(QueryDataResp::Raw(data[0].clone())))    }
+        Ok(Json(vec![QueryDataResp::Raw(data[0].clone())]))
+    }
 }
 
 #[derive(Debug, Serialize, Default)]
@@ -175,32 +176,32 @@ async fn get_data(s: S, Path(data_id): Path<u32>, Query(mut params): Query<HashM
 }
 
 
-async fn update_data(s: S, Path(data_id): Path<u32>, body: String) -> JSON<QueryDataResp> {
+async fn update_data(s: S, Path(data_id): Path<u32>, body: String) -> JSON<Vec<QueryDataResp>> {
     let r = GeneralData::update_data_by_id(data_id, &body, &s.db).await?;
     ensure!(r.rows_affected()==1, "update_data failed!");
     let data = GeneralData::query_by_id(data_id as u32, &s.db).await?;
-    Ok(Json(QueryDataResp::Raw(data[0].clone())))
+    Ok(Json(vec![QueryDataResp::Raw(data[0].clone())]))
 }
 
-async fn update_field(s: S, Path(data_id): Path<u32>, Query(params): Query<HashMap<String, String>>) -> JSON<QueryDataResp> {
+async fn update_field(s: S, Path(data_id): Path<u32>, Query(params): Query<HashMap<String, String>>) -> JSON<Vec<QueryDataResp>> {
     ensure!(params.len()==1, "must specify only one pair param !");
     for (k, v) in params {
         let r = GeneralData::update_json_field_by_id(data_id, &k, &v, &s.db).await?;
         ensure!(r.rows_affected()==1, "update_json_field_by_id failed!");
         let data = GeneralData::query_by_id(data_id as u32, &s.db).await?;
-        return Ok(Json(QueryDataResp::Raw(data[0].clone())))
+        return Ok(Json(vec![QueryDataResp::Raw(data[0].clone())]))
     }
 
     return_error!("unknown error")
 }
 
 
-async fn delete_data(s: S, Path(data_id): Path<u32>) -> JSON<QueryDataResp> {
+async fn delete_data(s: S, Path(data_id): Path<u32>) -> JSON<Vec<QueryDataResp>> {
     let data = GeneralData::query_by_id(data_id as u32, &s.db).await?;
     ensure!(data.len()==1, "query_by_id failed! length is not 1");
     let r = GeneralData::delete(data_id, &s.db).await?;
     ensure!(r.rows_affected()==1, "delete failed!");
-    Ok(Json(QueryDataResp::Raw(data[0].clone())))
+    Ok(Json(vec![QueryDataResp::Raw(data[0].clone())]))
 }
 
 
