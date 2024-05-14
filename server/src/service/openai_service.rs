@@ -58,7 +58,7 @@ impl OpenAIService {
         let mut headers = HeaderMap::new();
         headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
         headers.insert("Authorization", HeaderValue::from_str(&format!("Bearer {}", api_key))?);
-        headers.insert("OpenAI-Beta", HeaderValue::from_str("assistants=v1")?);
+        headers.insert("OpenAI-Beta", HeaderValue::from_str("assistants=v2")?);
         Ok(headers)
     }
 

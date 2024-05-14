@@ -994,7 +994,7 @@
     async function loadListData() {
         try {
             // 发送请求获取数据
-            const response = await fetch('/data/cat/pages?_select=title,url');
+            const response = await fetch('/data/cat/pages?_select=title,url&_limit=100');
             if (!response.ok) {
                 throw new Error('数据加载失败');
             }
