@@ -17,7 +17,6 @@ pub struct Message {
     pub thread_id: String,
     pub role: String,
     pub content: Vec<Content>,
-    pub file_ids: Vec<String>,
     pub assistant_id: Option<serde_json::Value>,
     pub run_id: Option<serde_json::Value>,
     pub metadata: Metadata,

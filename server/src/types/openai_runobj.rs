@@ -17,7 +17,6 @@ pub struct RunObj {
     pub last_error: Option<serde_json::Value>,
     pub model: String,
     pub instructions: String,
-    pub file_ids: Vec<Option<serde_json::Value>>,
     pub metadata: Metadata,
     pub temperature: f64,
     pub usage: Option<serde_json::Value>,

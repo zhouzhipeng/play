@@ -290,7 +290,7 @@ mod tests {
         let s = mock_state!();
         let openai_service = &s.openai_service;;
         // //list messages
-        let messsages = openai_service.list_messages("thread_2qzEju9lH7mhxmjubDoNPngA").await?;
+        let messsages = openai_service.list_messages("thread_9bTEV7PZg6MQjr3HYepnM1Pq").await?;
         println!("messages : {:?}", messsages);
 
         Ok(())
