@@ -44,7 +44,7 @@ pub struct ShortLink {
     pub from: String,
     pub to: String,
     #[serde(default)]
-    pub jump: bool,
+    pub download: bool,
 }
 #[derive(Deserialize, Debug, Clone, Default)]
 pub struct OpenAIConfig {
