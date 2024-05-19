@@ -46,7 +46,7 @@ fn gen_db_models_code() {
     let ss = format!("table infos >> {:?}", table_info);
 
     pyo3::prepare_freethreaded_python();
-    let py_app = include_str!("../../../libs/py_tpl/python/simple_template.py");
+    let py_app = include_str!("../../../crates/play_py_tpl/python/simple_template.py");
     let model_template = include_str!("../../../doc/tmpl/model_template.rs.txt");
     let controller_template = include_str!("../../../doc/tmpl/controller_template.rs.txt");
 
