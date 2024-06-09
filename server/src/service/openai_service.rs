@@ -103,9 +103,9 @@ impl OpenAIService {
                 let next_line = lines.next_line().await?.context("submit_tool_outputs error data!")?;
 
                 let event =line.trim_start_matches("event: ").trim().to_string();
-                // println!("Event: {}", event);
+                // info!("Event: {}", event);
                 let data = next_line.trim_start_matches("data: ").trim().to_string();
-                // println!("Data: {}", data);
+                // info!("Data: {}", data);
 
 
                 if event == "thread.message.completed"{
@@ -167,9 +167,9 @@ impl OpenAIService {
                 let next_line = lines.next_line().await?.context("run_thread_and_wait error data!")?;
 
                 let event =line.trim_start_matches("event: ").trim().to_string();
-                // println!("Event: {}", event);
+                // info!("Event: {}", event);
                 let data = next_line.trim_start_matches("data: ").trim().to_string();
-                // println!("Data: {}", data);
+                // info!("Data: {}", data);
 
 
                 if event == "thread.message.completed"{
@@ -183,7 +183,7 @@ impl OpenAIService {
                     if tool_call.function.name == "get_weather"{
                         let arg = serde_json::from_str::<CallGetWeatherArg>(&tool_call.function.arguments)?;
                         //todo: call real weather api
-                        println!("call get_weather arg : {:?}",  arg);
+                        info!("call get_weather arg : {:?}",  arg);
 
                         //call submit tool output api
                         result_msg = self.submit_tool_outputs(thread_id, &run_obj.id, &tool_call.id, "30").await?;
@@ -218,7 +218,7 @@ impl OpenAIService {
             .check()
             .await?;
 
-        sender.send(format!("{}",thread_id));
+        sender.send(format!("{}",thread_id))?;
 
         let body = response.bytes_stream();
         let reader = BufReader::new(tokio_util::io::StreamReader::new(body.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))));
@@ -230,20 +230,20 @@ impl OpenAIService {
                 let next_line = lines.next_line().await?.context("run_thread_and_wait error data!")?;
 
                 let event =line.trim_start_matches("event: ").trim().to_string();
-                // println!("Event: {}", event);
+                info!("Event: {}", event);
                 let data = next_line.trim_start_matches("data: ").trim().to_string();
-                // println!("Data: {}", data);
+                info!("Data: {}", data);
 
                 if event == "thread.message.delta"{
                     let data_json = serde_json::from_str::<MessageDelta>(&data)?;
                     let delta_msg = data_json.delta.content[0].text.value.to_string();
                     let r = sender.send(delta_msg);
-                    // info!("delta sender result : {:?}", r);
+                    info!("delta sender result : {:?}", r);
                 }
                 else if event == "thread.message.completed"{
                     let data_json = serde_json::from_str::<Message>(&data)?;
                     result_msg = data_json.content.get(0).context("thread.message.completed data error!")?.text.value.to_string();
-                    // info!("resp msg >> {}", result_msg);
+                    info!("resp msg >> {}", result_msg);
                     break;
                 }
             }
@@ -272,7 +272,7 @@ mod tests {
         };
 
         let result_msg = openai_service.run_thread_and_wait(&thread.id , &s.config.open_ai.general_assistant_id, &msg).await?;
-        println!("result msg : {}", result_msg);
+        info!("result msg : {}", result_msg);
 
         Ok(())
     }
@@ -281,7 +281,7 @@ mod tests {
     async fn test_context() -> anyhow::Result<()> {
         let aa = vec![1];
         let b = aa.get(1).context("data error")?;
-        println!("{}", b);
+        info!("{}", b);
         Ok(())
     }
     #[ignore]
@@ -291,7 +291,7 @@ mod tests {
         let openai_service = &s.openai_service;;
         // //list messages
         let messsages = openai_service.list_messages("thread_9bTEV7PZg6MQjr3HYepnM1Pq").await?;
-        println!("messages : {:?}", messsages);
+        info!("messages : {:?}", messsages);
 
         Ok(())
     }
