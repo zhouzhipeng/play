@@ -2,7 +2,7 @@
 resolver="2"
 members = [
     "tool",
-    "libs/*",
+    "crates/*",
     "server",
 ]
 default-members=["server"]

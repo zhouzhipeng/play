@@ -29,11 +29,11 @@ fn run()->anyhow::Result<()>{
     fs::create_dir_all(&MacOS_dir)?;
 
     fs::copy(Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap()
-        .join("libs/ui/res/Info.plist"), &Contents_dir.join("Info.plist"))?;
+        .join("crates/play_ui/res/Info.plist"), &Contents_dir.join("Info.plist"))?;
     fs::copy(Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap()
         .join("target/release/play"), &MacOS_dir.join("play"))?;
     fs::copy(Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap()
-                 .join("libs/ui/icon.icns"), &Resources_dir.join("icon.icns"))?;
+                 .join("crates/play_ui/icon.icns"), &Resources_dir.join("icon.icns"))?;
 
 
 
