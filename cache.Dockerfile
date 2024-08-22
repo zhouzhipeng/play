@@ -1,4 +1,5 @@
-FROM rust:bookworm
+FROM rust:1.78.0-bookworm
+
 
 WORKDIR /app
 COPY . .
