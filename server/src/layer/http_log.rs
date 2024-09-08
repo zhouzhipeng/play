@@ -60,7 +60,24 @@ impl<S> Service<Request<Body>> for HttpLogMiddleware<S>
         let fingerprint = request.headers().get("X-Browser-Fingerprint");
         // info!("fingerprint is : {:?}", fingerprint);
 
-        //check fingerprint
+
+        //serve other domains (support only static files now)
+        if !self.auth_config.serve_domains.is_empty(){
+            if let Some(header) = request.headers().get(axum::http::header::HOST) {
+                if let Ok(host) = header.to_str() {
+                    let host = host.to_string();
+                    // if host == "crab.rs"{
+                    if self.auth_config.serve_domains.contains(&host){
+                        return Box::pin(async move {
+                            let response = serve_domain_folder(host, request).await;
+                            Ok(response)
+                        })
+                    }
+                }
+            }
+        }
+
+        //check fingerprint only for main domain.
         if self.auth_config.enabled{
             let uri_prefix = extract_prefix(&uri);
             if self.auth_config.whitelist.contains(&uri_prefix){
@@ -114,23 +131,6 @@ impl<S> Service<Request<Body>> for HttpLogMiddleware<S>
             }
         }
 
-
-
-        //serve other domains
-        if !self.auth_config.serve_domains.is_empty(){
-            if let Some(header) = request.headers().get(axum::http::header::HOST) {
-                if let Ok(host) = header.to_str() {
-                    let host = host.to_string();
-                    // if host == "crab.rs"{
-                    if self.auth_config.serve_domains.contains(&host){
-                        return Box::pin(async move {
-                            let response = serve_domain_folder(host, request).await;
-                            Ok(response)
-                        })
-                    }
-                }
-            }
-        }
 
 
 
