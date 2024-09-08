@@ -353,6 +353,13 @@ pub async fn routers(app_state: Arc<AppState>) -> anyhow::Result<Router> {
 
     info!("fingerprints : {:?}", auth_config.fingerprints);
 
+    if app_state.config.https_cert.domains.len()>1{
+        //add serve domains from https domains
+        auth_config.serve_domains = app_state.config.https_cert.domains[1..].to_vec();
+    }
+
+
+
 
     let mut router = Router::new()
         .merge(shortlink_controller::init(app_state.clone()))

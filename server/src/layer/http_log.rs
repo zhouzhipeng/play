@@ -7,10 +7,11 @@ use axum::{
     http::Request,
 };
 use futures_util::future::BoxFuture;
-use tower::{Service, Layer};
+use tower::{Service, Layer, ServiceExt};
 use std::task::{Context, Poll};
 use axum::body::{BoxBody};
 use axum::response::{Html, IntoResponse};
+use axum::routing::get_service;
 use cookie::Cookie;
 
 use http_body::Full;
@@ -59,7 +60,23 @@ impl<S> Service<Request<Body>> for HttpLogMiddleware<S>
         let fingerprint = request.headers().get("X-Browser-Fingerprint");
         // info!("fingerprint is : {:?}", fingerprint);
 
-        //check fingerprint
+
+        //serve other domains (support only static files now)
+        if !self.auth_config.serve_domains.is_empty(){
+            if let Some(header) = request.headers().get(axum::http::header::HOST) {
+                if let Ok(host) = header.to_str() {
+                    let host = host.to_string();
+                    if self.auth_config.serve_domains.contains(&host){
+                        return Box::pin(async move {
+                            let response = serve_domain_folder(host, request).await;
+                            Ok(response)
+                        })
+                    }
+                }
+            }
+        }
+
+        //check fingerprint only for main domain.
         if self.auth_config.enabled{
             let uri_prefix = extract_prefix(&uri);
             if self.auth_config.whitelist.contains(&uri_prefix){
@@ -114,6 +131,9 @@ impl<S> Service<Request<Body>> for HttpLogMiddleware<S>
         }
 
 
+
+
+        // normal requests handle
         let future = self.inner.call(request);
         Box::pin(async move {
             let response: Response = future.await?;
@@ -150,6 +170,19 @@ fn refuse_response() -> Response {
         .body(Body::from(html)).unwrap().into_response();
     response
 }
+async fn serve_domain_folder(host: String, request: Request<Body>) -> Response {
+    let dir = files_dir!().join(host);
+    let svc = get_service(ServeDir::new(dir))
+        .handle_error(|error| async move {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Unhandled internal error: {}", error),
+            )
+        });
+
+    // 转发请求到 ServeDir
+    svc.oneshot(request).await.into_response()
+}
 
 
 fn extract_prefix(url: &str) -> String {
@@ -175,8 +208,11 @@ fn extract_prefix(url: &str) -> String {
 
 use futures::TryStreamExt;
 use http::{HeaderValue, StatusCode};
+use tower_http::services::ServeDir;
 use crate::config::AuthConfig;
-use crate::controller::static_controller::STATIC_DIR; // 提供 `try_concat` 方法来转换 body
+use crate::controller::static_controller::STATIC_DIR;
+use crate::files_dir;
+// 提供 `try_concat` 方法来转换 body
 
 #[cfg(test)]
 mod tests {

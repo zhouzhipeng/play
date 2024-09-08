@@ -1,7 +1,4 @@
-use std::env::set_var;
-use std::path::Path;
-use std::process::Command;
-use tool::{build_dev, build_python_artifacts};
+use tool::build_dev;
 
 fn main() {
     std::env::set_var("RUST_BACKTRACE","1");

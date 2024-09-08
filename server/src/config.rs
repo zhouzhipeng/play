@@ -63,6 +63,8 @@ pub struct AuthConfig {
     pub fingerprints: Vec<String>,
     pub whitelist: Vec<String>,
     pub passcode: String,
+    #[serde(default)]
+    pub serve_domains: Vec<String>,
 }
 #[derive(Deserialize, Debug, Clone, Default)]
 pub struct MiscConfig {
@@ -86,6 +88,7 @@ pub struct HttpsCert {
     pub https_port: u16,
     #[serde(default)]
     pub auto_redirect : bool,
+    /// first domain is main domain ,other domain will serve folder under $files/$domain_name
     pub domains: Vec<String>,
     pub emails: Vec<String>,
 
