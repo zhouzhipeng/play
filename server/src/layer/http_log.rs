@@ -66,7 +66,6 @@ impl<S> Service<Request<Body>> for HttpLogMiddleware<S>
             if let Some(header) = request.headers().get(axum::http::header::HOST) {
                 if let Ok(host) = header.to_str() {
                     let host = host.to_string();
-                    // if host == "crab.rs"{
                     if self.auth_config.serve_domains.contains(&host){
                         return Box::pin(async move {
                             let response = serve_domain_folder(host, request).await;
