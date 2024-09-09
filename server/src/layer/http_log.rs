@@ -232,7 +232,7 @@ impl Service<Request<Body>> for NotFoundService {
 
 async fn serve_domain_folder(host: String, request: Request<Body>) -> Response {
     let dir = files_dir!().join(host);
-    let svc = get_service(ServeDir::new(dir).not_found_service(NotFoundService))
+    let svc = get_service(ServeDir::new(dir).fallback(NotFoundService))
         .handle_error(|error| async move {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -269,6 +269,7 @@ fn extract_prefix(url: &str) -> String {
 use futures::TryStreamExt;
 use http::{HeaderValue, Method, StatusCode};
 use tower_http::services::{ServeDir, ServeFile};
+use tower_http::set_status::SetStatus;
 use crate::config::AuthConfig;
 use crate::controller::static_controller::STATIC_DIR;
 use crate::files_dir;
