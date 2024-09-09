@@ -1,6 +1,8 @@
 use std::convert::Infallible;
+use std::future::Future;
 use std::net::SocketAddr;
 use std::path::Path;
+use std::pin::Pin;
 use axum::{
     response::Response,
     body::Body,
@@ -172,9 +174,65 @@ fn refuse_response() -> Response {
         .body(Body::from(html)).unwrap().into_response();
     response
 }
+
+async fn handle_404(req: Request<Body>) -> impl IntoResponse {
+    println!("404 Not Found: {}", req.uri());
+    let uri = req.uri().path();
+    let extension = Path::new(uri)
+        .extension()
+        .and_then(std::ffi::OsStr::to_str)
+        .unwrap_or("");
+
+
+    if extension.is_empty(){
+        //return index page (dioxus will handle it)
+        let index_file = files_dir!().join(req.headers().get(http::header::HOST).unwrap().to_str().unwrap()).join("index.html");
+        if !index_file.exists(){
+            // 这里您可以自定义404响应
+            return Response::builder()
+                .status(StatusCode::NOT_FOUND)
+                .body(Body::from("Page not found."))
+                .unwrap()
+        }
+
+        Response::builder()
+            .status(StatusCode::OK)
+            .header("content-type", "text/html")
+            .body(Body::from(tokio::fs::read_to_string(&index_file).await.unwrap()))
+            .unwrap()
+    }else{
+        // 这里您可以自定义404响应
+        Response::builder()
+            .status(StatusCode::NOT_FOUND)
+            .body(Body::from("Page not found."))
+            .unwrap()
+    }
+
+}
+
+#[derive(Clone)]
+struct NotFoundService;
+
+impl Service<Request<Body>> for NotFoundService {
+    type Response = Response;
+    type Error = std::convert::Infallible;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
+
+    fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
+    }
+
+    fn call(&mut self, req: Request<Body>) -> Self::Future {
+        Box::pin(async move {
+            Ok(handle_404(req).await.into_response().into())
+        })
+    }
+}
+
+
 async fn serve_domain_folder(host: String, request: Request<Body>) -> Response {
     let dir = files_dir!().join(host);
-    let svc = get_service(ServeDir::new(dir))
+    let svc = get_service(ServeDir::new(dir).not_found_service(NotFoundService))
         .handle_error(|error| async move {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -210,7 +268,7 @@ fn extract_prefix(url: &str) -> String {
 
 use futures::TryStreamExt;
 use http::{HeaderValue, Method, StatusCode};
-use tower_http::services::ServeDir;
+use tower_http::services::{ServeDir, ServeFile};
 use crate::config::AuthConfig;
 use crate::controller::static_controller::STATIC_DIR;
 use crate::files_dir;
