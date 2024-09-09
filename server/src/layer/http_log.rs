@@ -78,10 +78,11 @@ impl<S> Service<Request<Body>> for HttpLogMiddleware<S>
 
         //check fingerprint only for main domain.
         if self.auth_config.enabled{
-            let uri_prefix = extract_prefix(&uri);
-            if self.auth_config.whitelist.contains(&uri_prefix){
-                // info!("whitelist uri : {}, skip checking fingerprint.", uri);
-            }else{
+            let is_whitelist = uri == "/" || {
+                self.auth_config.whitelist.iter().any(|x| uri.starts_with(x))
+            };
+
+            if !is_whitelist{
                 //begin to match fingerprint
                 let f = match fingerprint {
                     None => {
