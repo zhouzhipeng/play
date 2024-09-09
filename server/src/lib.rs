@@ -334,6 +334,7 @@ pub async fn routers(app_state: Arc<AppState>) -> anyhow::Result<Router> {
     let cors = CorsLayer::new()
         // allow `GET` and `POST` when accessing the resource
         .allow_methods(Any)
+        .allow_headers(Any)
         // allow requests from any origin
         .allow_origin(Any);
 
