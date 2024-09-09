@@ -79,7 +79,8 @@ impl<S> Service<Request<Body>> for HttpLogMiddleware<S>
         //check fingerprint only for main domain.
         if self.auth_config.enabled{
             let is_whitelist = uri == "/" || {
-                self.auth_config.whitelist.iter().any(|x| uri.starts_with(x))
+
+                request.method() == &Method::GET && self.auth_config.whitelist.iter().any(|x| uri.starts_with(x))
             };
 
             if !is_whitelist{
@@ -208,7 +209,7 @@ fn extract_prefix(url: &str) -> String {
 }
 
 use futures::TryStreamExt;
-use http::{HeaderValue, StatusCode};
+use http::{HeaderValue, Method, StatusCode};
 use tower_http::services::ServeDir;
 use crate::config::AuthConfig;
 use crate::controller::static_controller::STATIC_DIR;
