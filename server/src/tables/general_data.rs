@@ -122,6 +122,13 @@ impl GeneralData {
             .fetch_all(pool)
             .await
     }
+    pub async fn query_by_id_with_cat_select(fields: &str, data_id: u32, cat: &str, pool: &DBPool) -> Result<Vec<GeneralData>, Error> {
+        sqlx::query_as::<_, GeneralData>(&format!("SELECT {} FROM general_data where id = ?  and cat = ?", Self::convert_fields(fields)))
+            .bind(data_id)
+            .bind(cat)
+            .fetch_all(pool)
+            .await
+    }
     pub async fn update_json_field_by_id(data_id: u32, query_field: &str, query_val: &str, pool: &DBPool) -> Result<DBQueryResult, Error> {
         let rows = Self::query_by_id(data_id, pool).await?;
         if rows.is_empty(){

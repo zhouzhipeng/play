@@ -21,6 +21,7 @@ method_router!(
 
     //new mapping
     get : "/data/id/:data_id"-> get_data,
+    get : "/data/cat/:cat/id/:data_id"-> get_data_under_cat,
     put : "/data/id/:data_id"-> update_data,
     patch : "/data/id/:data_id"-> update_field,
     delete : "/data/id/:data_id"-> delete_data,
@@ -180,6 +181,25 @@ async fn get_data(s: S, Path(data_id): Path<u32>, Query(mut params): Query<HashM
         Ok(Json(data))
     }
 }
+async fn get_data_under_cat(s: S, Path((cat,data_id)): Path<(String,u32)>, Query(mut params): Query<HashMap<String, String>>) -> JSON<Vec<QueryDataResp>>  {
+    let select_fields = params.remove("_select").unwrap_or("*".to_string());
+
+    let data_to_json = params.remove("_json").unwrap_or("false".to_string()).eq("true");
+    let data = GeneralData::query_by_id_with_cat_select(&select_fields,data_id, &cat,&s.db).await?;
+    return if data_to_json {
+        let data = data.iter().map(|d| QueryDataResp::Json(GeneralDataJson {
+            id: d.id,
+            cat: d.cat.to_string(),
+            data: serde_json::from_str::<Value>(&d.data).unwrap_or(Value::String(d.data.to_string())),
+            created: d.created,
+            updated: d.updated,
+        })).collect();
+        Ok(Json(data))
+    } else {
+        let data = data.iter().map(|d| QueryDataResp::Raw(d.clone())).collect();
+        Ok(Json(data))
+    }
+}
 
 
 async fn update_data(s: S, Path(data_id): Path<u32>, body: String) -> JSON<Vec<QueryDataResp>> {
@@ -222,6 +242,20 @@ mod tests {
         let result = insert_data(mock_state!(), Path("book".to_string()), r#"
         {"name":"zzp"}
         "#.to_string()).await;
+        println!("resp : {:?}", result);
+        assert!(result.is_ok());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_query() -> anyhow::Result<()> {
+        let state = mock_state!();
+        insert_data(state.clone(), Path("book".to_string()), r#"
+        {"name":"zzp"}
+        "#.to_string()).await.unwrap();
+        let result = get_data_under_cat(state, Path(("book".to_string()
+                                        ,1)), Query(HashMap::new())).await;
         println!("resp : {:?}", result);
         assert!(result.is_ok());
 
