@@ -6,12 +6,13 @@ use std::process::Command;
 use pyoxidizerlib::environment::Environment;
 use pyoxidizerlib::projectmgmt;
 use zip_archive::Archiver;
+use shared::get_workspace_root;
 
-pub fn build_python_artifacts()->anyhow::Result<()> {
+pub fn build_python_artifacts() ->anyhow::Result<()> {
     let target_triple = current_platform::CURRENT_PLATFORM;
     let flavor = "standalone";
     let python_version = None; //default is 3.10
-    let dest_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../crates/play_py_tpl/python/build");
+    let dest_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../play_py_tpl/python/build");
     //
     projectmgmt::generate_python_embedding_artifacts(
         &Environment::new()?,
@@ -90,7 +91,7 @@ pub fn build_python_artifacts()->anyhow::Result<()> {
     compress_directory(&dest_path.join("stdlib"), &dest_path);
 
 
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().to_str().unwrap();
+    let root = get_workspace_root();
     println!("workspace root : {}", root);
     set_var("PYO3_CONFIG_FILE", format!("{}/crates/play_py_tpl/python/build/pyo3-build-config-file.txt", root));
 

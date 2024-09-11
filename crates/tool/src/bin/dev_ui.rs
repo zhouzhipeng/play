@@ -2,6 +2,7 @@ use std::env::set_var;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
+use shared::get_workspace_root;
 use tool::{build_dev, build_python_artifacts};
 
 fn main() {
@@ -16,7 +17,8 @@ fn main() {
 fn run()->anyhow::Result<()>{
     build_dev("use_embed_python,ui,job")?;
 
-    let app_dir = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap()
+    let root = get_workspace_root();
+    let app_dir = Path::new(&root)
         .join("target/release").join("play.app");
 
     fs::remove_dir_all(&app_dir);
@@ -28,11 +30,11 @@ fn run()->anyhow::Result<()>{
     fs::create_dir_all(&Resources_dir)?;
     fs::create_dir_all(&MacOS_dir)?;
 
-    fs::copy(Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap()
+    fs::copy(Path::new(&root)
         .join("crates/play_ui/res/Info.plist"), &Contents_dir.join("Info.plist"))?;
-    fs::copy(Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap()
+    fs::copy(Path::new(&root)
         .join("target/release/play"), &MacOS_dir.join("play"))?;
-    fs::copy(Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap()
+    fs::copy(Path::new(&root)
                  .join("crates/play_ui/icon.icns"), &Resources_dir.join("icon.icns"))?;
 
 
