@@ -31,10 +31,9 @@ async fn cache_html(s: S, Query(param): Query<Param>) -> HTML {
             Ok(())
         }
 
-        inner(&param.url).await.map_err(|e| {
+        if let Err(e) = inner(&param.url).await{
             error!("cache_html error: {:?}", e);
-            e
-        })
+        }
 
     });
 
