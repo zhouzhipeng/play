@@ -1,23 +1,48 @@
+use crate::{files_dir, method_router, HTML, S};
 use axum::body::HttpBody;
+use axum::extract::Query;
 use axum::response::Html;
-use sqlx::Row;
-
-use crate::{method_router, HTML};
+use serde::Deserialize;
+use tokio::task::JoinHandle;
+use tracing::{error, info};
 
 method_router!(
-    get : "/cache/test" -> list_files,
+    get : "/cache/html" -> cache_html,
 );
 
+#[derive(Deserialize)]
+struct Param {
+    url: String,
+}
 
-async fn list_files() -> HTML {
-    #[cfg(feature = "play_cache")]
-    {
-        let html  = play_cache::render_html_in_browser("http://example.com/index.html").await?;
-        Ok(Html(html))
-    }
-    #[cfg(not(feature = "play_cache"))]
-    {
-        Ok(Html("play_cache is disabled.".to_owned()))
-    }
+#[cfg(feature = "play_cache")]
+async fn cache_html(s: S, Query(param): Query<Param>) -> HTML {
+    tokio::spawn(async move {
+        async fn inner(url: &str)->anyhow::Result<()> {
+            let html = play_cache::render_html_in_browser(url).await?;
 
+            //save to file
+            let cache_file_name = rust_utils::md5(url);
+            let save_path  = files_dir!().join("__cache__").join(&cache_file_name);
+
+
+
+            info!("html >> {:?}", html);
+            Ok(())
+        }
+
+        inner(&param.url).await.map_err(|e| {
+            error!("cache_html error: {:?}", e);
+            e
+        })
+
+    });
+
+    Ok(Html("ok".to_string()))
+}
+
+
+#[cfg(not(feature = "play_cache"))]
+async fn cache_html(s: S, Query(param): Query<Param>) -> HTML {
+    Ok(Html("play_cache feature is disabled.".to_owned()))
 }
