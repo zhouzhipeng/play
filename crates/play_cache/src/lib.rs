@@ -8,7 +8,7 @@ pub async fn render_html_in_browser(url: &str) -> Result<String> {
         LaunchOptionsBuilder::default()
             .headless(true)
             .build()
-            .expect("Couldn't find appropriate Chrome binary."),
+            ?,
     )?;
 
     // Create a new tab
@@ -40,9 +40,9 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    fn test_parse() -> Result<()> {
+    async fn test_parse() -> Result<()> {
 
-        println!("{}", render_html_in_browser("http://example.com/index.html")?);
+        println!("{}", render_html_in_browser("http://example.com/index.html").await?);
 
         Ok(())
     }

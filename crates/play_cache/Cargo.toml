@@ -5,5 +5,7 @@ edition = "2021"
 
 [dependencies]
 headless_chrome = "1.0.5"
-anyhow = "1.0"
-tokio = { version = "1", features = ["full"] }
+anyhow = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
