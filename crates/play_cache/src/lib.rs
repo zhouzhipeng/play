@@ -7,6 +7,8 @@ pub async fn render_html_in_browser(url: &str) -> Result<String> {
     let browser = Browser::new(
         LaunchOptionsBuilder::default()
             .headless(true)
+            .port(Some(8989))
+            .sandbox(false)
             .build()
             ?,
     )?;
