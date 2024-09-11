@@ -7021,6 +7021,7 @@ dependencies = [
  "anyhow",
  "async-channel",
  "async-trait",
+ "cargo_metadata 0.15.4",
  "chrono",
  "include_dir",
  "proc_macros",
