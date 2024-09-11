@@ -5662,6 +5662,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "headless_chrome",
+ "log",
  "tokio",
 ]
 
