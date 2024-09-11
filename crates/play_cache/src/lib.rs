@@ -1,5 +1,5 @@
 use anyhow::Result;
-use headless_chrome::{Browser, LaunchOptionsBuilder};
+use headless_chrome::{Browser, LaunchOptions, LaunchOptionsBuilder};
 use std::time::Duration;
 use tokio::task::JoinHandle;
 use log::info;
@@ -7,14 +7,18 @@ use log::info;
 pub async fn render_html_in_browser(url: &str) -> Result<String> {
     let url = url.to_string();
     let _:JoinHandle<Result<String>>  = tokio::spawn(async move {
+        let options = LaunchOptions {
+            headless: true,
+            port: Some(8989),
+            sandbox: false,
+            // 设置为使用一个线程
+            process_envs: Some(vec![("CHROMIUM_FLAGS".to_string(), "--single-process".to_string())].into_iter().collect()),
+            ..Default::default()
+        };
+
         // Launch the browser
         let browser = Browser::new(
-            LaunchOptionsBuilder::default()
-                .headless(true)
-                .port(Some(8989))
-                .sandbox(false)
-                .build()
-                ?,
+            options,
         )?;
 
         // Create a new tab
