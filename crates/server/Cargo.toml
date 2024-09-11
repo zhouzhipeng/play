@@ -10,7 +10,7 @@ before-packaging-command = "cargo dev_ui"
 
 [features]
 default = []
-debug = ["tower-livereload", "notify", "tpl", "tpl/debug"]
+debug = ["tower-livereload", "notify", "tpl", "tpl/debug", "play_cache"]
 use_embed_python = ["tpl", "tpl/use_embed_python"]
 #use_mysql=[]
 
@@ -44,6 +44,7 @@ redis = { package = "redis", path = "../play_redis", optional = true }
 tpl = { package = "py_tpl", path = "../play_py_tpl", optional = true }
 mail_server = { path = "../play_mail_server", optional = true }
 https = { path = "../play_https", optional = true }
+play_cache = { path = "../play_cache", optional = true }
 
 
 # third parties

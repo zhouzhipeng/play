@@ -13,7 +13,7 @@ mod pages_controller;
 mod shell_controller;
 mod files_controller;
 pub mod chat_controller;
-
+mod cache_controller;
 //PLACEHOLDER:CONTROLLER_MOD
 
 
@@ -34,6 +34,7 @@ crate::register_routers!(
         shell_controller,
         files_controller,
         chat_controller,
+        cache_controller,
 //PLACEHOLDER:CONTROLLER_REGISTER
 
 
