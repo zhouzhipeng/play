@@ -21,8 +21,8 @@ fn main() {
     println!("cargo:rustc-env=BUILT_TIME={}",current_timestamp!().to_string() );
 
     //generate git pre-commit file.
-    #[cfg(feature = "debug")]
-    gen_pre_commit();
+    // #[cfg(feature = "debug")]
+    // gen_pre_commit();
 
     //check if you forgot to add your new rust file into mod.rs
     // #[cfg(feature = "debug")]

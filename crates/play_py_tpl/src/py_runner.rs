@@ -52,7 +52,7 @@ fn read_file(filename : String) -> PyResult<String> {
     filename.remove(0);
 
     #[cfg(feature = "debug")]
-    let c = fs::read_to_string(format!("{}/../../server/templates/{}", env!("CARGO_MANIFEST_DIR"),filename)).unwrap_or(format!("Error : file not found :{}",format!("{}/../../server/templates/{}", env!("CARGO_MANIFEST_DIR"),filename)));
+    let c = fs::read_to_string(format!("{}/../server/templates/{}", env!("CARGO_MANIFEST_DIR"),filename)).unwrap_or(format!("Error : file not found :{}",format!("{}/../../server/templates/{}", env!("CARGO_MANIFEST_DIR"),filename)));
     #[cfg(not(feature = "debug"))]
     let c = crate::TEMPLATES_DIR.get_file(filename).unwrap().contents_utf8().unwrap().to_string();
     // info!(" content  >> {}", c);

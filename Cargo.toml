@@ -1,11 +1,9 @@
 [workspace]
 resolver="2"
 members = [
-    "tool",
     "crates/*",
-    "server",
 ]
-default-members=["server"]
+default-members=["crates/server"]
 
 [workspace.dependencies]
 # don't use native tls / openssl !!!  use rustls instead.
