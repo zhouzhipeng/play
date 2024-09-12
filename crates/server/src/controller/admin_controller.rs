@@ -89,6 +89,22 @@ async fn enter_admin_page(s: S) -> HTML {
     }))
 }
 
+async fn copy_me()->anyhow::Result<()>{
+    // 获取当前执行文件的路径
+    let current_exe = env::current_exe()?;
+
+    // 创建目标文件名（在当前目录下，添加 "_copy" 后缀）
+    let file_name = current_exe.file_name().unwrap().to_str().unwrap();
+    let copy_name = format!("{}_bak", file_name);
+    let destination =  current_exe.parent().unwrap().join(copy_name);
+
+    // 复制文件
+    tokio::fs::copy(&current_exe, &destination).await?;
+
+    info!("copy_me >> destination : {:?}",destination);
+    Ok(())
+}
+
 async fn upgrade_in_background(url: Url) -> anyhow::Result<()> {
     info!("begin to download from url in background  : {}", url);
 
@@ -104,16 +120,16 @@ async fn upgrade_in_background(url: Url) -> anyhow::Result<()> {
     let mut inside_file = archive.by_index(0)?;
     std::io::copy(&mut inside_file, &mut file)?;
 
+    //make a backup for old binary
+    copy_me().await?;
 
     info!("downloaded and saved at : {:?}", new_binary);
 
     self_replace::self_replace(&new_binary)?;
     std::fs::remove_file(&new_binary)?;
 
+
     info!("replaced ok. and ready to shutdown self");
-
-
-
 
     Ok(())
 }
@@ -144,4 +160,19 @@ async fn upgrade(s: S, Query(upgrade): Query<UpgradeRequest>) -> HTML {
 pub  fn shutdown() {
     info!("ready to shutdown...");
     std::process::exit(0);
+}
+
+
+
+#[cfg(test)]
+mod tests {
+    // Note this useful idiom: importing names from outer (for mod tests) scope.
+
+    use super::*;
+
+    #[tokio::test]
+    pub async fn test_copy_me(){
+        let r = copy_me().await;
+        println!("{:?}", r);
+    }
 }

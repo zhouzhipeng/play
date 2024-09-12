@@ -277,23 +277,3 @@ async fn query_mysql(url: &str, sql: &str, is_query: bool) -> anyhow::Result<Vec
 
     Ok(data)
 }
-
-#[cfg(test)]
-mod tests {
-    use http::header::CONTENT_TYPE;
-    use http::HeaderValue;
-    // Note this useful idiom: importing names from outer (for mod tests) scope.
-    use super::*;
-
-    #[ignore]
-    #[tokio::test]
-    async fn test_all() -> anyhow::Result<()> {
-        let url = "mysql://root:@localhost:3306/mysql";
-        let sql = "select * from article";
-        let data = query_mysql(url, sql, true).await?;
-        println!("data >> {:?}", data);
-        Ok(())
-    }
-
-
-}
