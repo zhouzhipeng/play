@@ -23,6 +23,7 @@ use sqlparser::dialect::GenericDialect;
 use sqlparser::parser::Parser;
 use sqlx::Executor;
 use sqlx::{Column, Row};
+#[cfg(feature = "use_mysql")]
 use sqlx::mysql::{MySqlPoolOptions, MySqlQueryResult, MySqlRow};
 use tokio::fs::File;
 use tracing::{error, info};
@@ -135,7 +136,11 @@ struct RunSqlRequest {
     url: String,
     sql: String,
 }
-
+#[cfg(not(feature = "use_mysql"))]
+async fn run_sql(s: S, Form(data): Form<RunSqlRequest>) -> HTML {
+    Ok(Html("use_mysql feature is disabled.".to_string()))
+}
+#[cfg(feature = "use_mysql")]
 async fn run_sql(s: S, Form(data): Form<RunSqlRequest>) -> HTML {
     let sql = data.sql.trim();
     //parse sql
@@ -225,7 +230,7 @@ S: Stream<Item = Result<Bytes,  reqwest::Error>>,
 
 
 
-
+#[cfg(feature = "use_mysql")]
 async fn query_mysql(url: &str, sql: &str, is_query: bool) -> anyhow::Result<Vec<Vec<String>>> {
     let db = MySqlPoolOptions::new()
         .max_connections(1)
