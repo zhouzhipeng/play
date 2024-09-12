@@ -1,4 +1,4 @@
-use std::env;
+use std::{env, fs};
 use std::env::temp_dir;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Cursor};
@@ -89,7 +89,7 @@ async fn enter_admin_page(s: S) -> HTML {
     }))
 }
 
-async fn copy_me()->anyhow::Result<()>{
+fn copy_me()->anyhow::Result<()>{
     // 获取当前执行文件的路径
     let current_exe = env::current_exe()?;
 
@@ -99,7 +99,7 @@ async fn copy_me()->anyhow::Result<()>{
     let destination =  current_exe.parent().unwrap().join(copy_name);
 
     // 复制文件
-    tokio::fs::copy(&current_exe, &destination).await?;
+    fs::copy(&current_exe, &destination)?;
 
     info!("copy_me >> destination : {:?}",destination);
     Ok(())
@@ -121,7 +121,7 @@ async fn upgrade_in_background(url: Url) -> anyhow::Result<()> {
     std::io::copy(&mut inside_file, &mut file)?;
 
     //make a backup for old binary
-    copy_me().await?;
+    copy_me()?;
 
     info!("downloaded and saved at : {:?}", new_binary);
 
@@ -171,7 +171,7 @@ mod tests {
 
     #[tokio::test]
     pub async fn test_copy_me(){
-        let r = copy_me().await;
+        let r = copy_me();
         println!("{:?}", r);
     }
 }
