@@ -361,7 +361,7 @@ async fn query_us_stock_price(symbol: &str, apikey: &str)->anyhow::Result<Global
         .headers(headers)
         .send().await?
         .json().await?;
-    println!("{:?}", res);
+    // println!("{:?}", res);
     let data = &res.chart.result[0].meta;
     Ok(GlobalQuote{
         change_percent: format!("{:.2}%", (data.regularMarketPrice/data.previousClose-1.0)*100.0),
