@@ -47,7 +47,7 @@ https = { path = "../play_https", optional = true }
 play_cache = { path = "../play_cache", optional = true }
 
 # util
-rust-utils = {path = "/Users/zhouzhipeng/RustroverProjects/rust-utils"}
+rust-utils = {path = "https://github.com/zhouzhipeng/rust-utils.git"}
 
 
 # third parties
