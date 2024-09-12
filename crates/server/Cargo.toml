@@ -12,7 +12,7 @@ before-packaging-command = "cargo dev_ui"
 default = []
 debug = ["tower-livereload", "notify", "tpl", "tpl/debug", "play_cache"]
 use_embed_python = ["tpl", "tpl/use_embed_python"]
-#use_mysql=[]
+use_mysql=["sqlx/mysql"]
 
 [build-dependencies]
 walkdir = "2"
@@ -52,7 +52,7 @@ rust-utils = {path = "/Users/zhouzhipeng/RustroverProjects/rust-utils"}
 
 # third parties
 zip-extract = "0.1.2"
-sqlx = { workspace = true, features = ["sqlite", "mysql", "chrono"] }
+sqlx = { workspace = true, features = ["sqlite", "chrono"] }
 axum = { workspace = true, features = ["headers", "http2", "ws", "macros", "tracing", "multipart"] }
 axum-server = "0.5.1"
 axum-macros = "0.3.8"

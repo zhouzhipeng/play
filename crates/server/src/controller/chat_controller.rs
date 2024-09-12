@@ -27,6 +27,7 @@ use sqlparser::dialect::GenericDialect;
 use sqlparser::parser::Parser;
 use sqlx::Executor;
 use sqlx::{Column, Row};
+#[cfg(feature = "use_mysql")]
 use sqlx::mysql::{MySqlPoolOptions, MySqlQueryResult, MySqlRow};
 use tokio::fs::File;
 use tokio::sync::mpsc;
