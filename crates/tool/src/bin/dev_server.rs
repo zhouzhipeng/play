@@ -9,6 +9,9 @@ fn main() {
 
 }
 fn run()->anyhow::Result<()>{
-    build_dev("tpl,mail_server,https,job")?;
+    // must use use_embed_python(not tpl , because the debian server may miss some python libs)
+    // below error when startup:
+    /// ModuleNotFoundError: No module named 'encodings'
+    build_dev("use_embed_python,mail_server,https,job")?;
     Ok(())
 }
