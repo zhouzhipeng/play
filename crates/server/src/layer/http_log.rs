@@ -3,6 +3,7 @@ use std::future::Future;
 use std::net::SocketAddr;
 use std::path::Path;
 use std::pin::Pin;
+use std::str::FromStr;
 use axum::{
     response::Response,
     body::Body,
@@ -70,8 +71,13 @@ impl<S> Service<Request<Body>> for HttpLogMiddleware<S>
                     let host = host.to_string();
                     if self.auth_config.serve_domains.contains(&host){
                         return Box::pin(async move {
-                            let response = serve_domain_folder(host, request).await;
-                            Ok(response)
+                            match serve_domain_folder(host, request).await{
+                                Ok(res) => Ok(res),
+                                Err(e) =>  Ok((
+                                    StatusCode::INTERNAL_SERVER_ERROR,
+                                    format!("Unhandled internal error: {}", e),
+                                ).into_response())
+                            }
                         })
                     }
                 }
@@ -230,11 +236,12 @@ impl Service<Request<Body>> for NotFoundService {
 }
 
 
-async fn serve_domain_folder(host: String, request: Request<Body>) -> Response {
+async fn serve_domain_folder(host: String, request: Request<Body>) -> anyhow::Result<Response> {
+    let full_url = Uri::from_str(&format!("https://{}{}", host, request.uri().path()))?;
     //use cache
-    if let Ok(cache) = get_cache_content(&request.uri()).await{
+    if let Ok(cache) = get_cache_content(&full_url).await{
         info!("use cache for host : {}", host);
-        return Html(cache.to_string()).into_response();
+        return Ok(Html(cache.to_string()).into_response());
     }
 
     let dir = files_dir!().join(host);
@@ -247,7 +254,7 @@ async fn serve_domain_folder(host: String, request: Request<Body>) -> Response {
         });
 
     // 转发请求到 ServeDir
-    svc.oneshot(request).await.into_response()
+    Ok(svc.oneshot(request).await.into_response())
 }
 
 
@@ -273,7 +280,7 @@ fn extract_prefix(url: &str) -> String {
 }
 
 use futures::TryStreamExt;
-use http::{HeaderValue, Method, StatusCode};
+use http::{HeaderValue, Method, StatusCode, Uri};
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::set_status::SetStatus;
 use crate::config::AuthConfig;
