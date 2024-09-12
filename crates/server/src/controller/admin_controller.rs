@@ -128,7 +128,6 @@ async fn upgrade_in_background(url: Url) -> anyhow::Result<()> {
     self_replace::self_replace(&new_binary)?;
     std::fs::remove_file(&new_binary)?;
 
-
     info!("replaced ok. and ready to shutdown self");
 
     Ok(())
