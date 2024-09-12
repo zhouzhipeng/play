@@ -5555,7 +5555,6 @@ dependencies = [
  "multer 3.0.0",
  "notify",
  "play_cache",
- "py_tpl",
  "rand 0.8.5",
  "redis 0.1.0",
  "redis-test",
@@ -5755,22 +5754,6 @@ version = "0.1.0"
 dependencies = [
  "quote",
  "syn 2.0.75",
-]
-
-[[package]]
-name = "py_tpl"
-version = "0.1.0"
-dependencies = [
- "async-channel",
- "async-trait",
- "include_dir",
- "lazy_static",
- "pyo3",
- "serde_json",
- "shared",
- "tracing 0.1.40",
- "ureq",
- "zip-extract",
 ]
 
 [[package]]
