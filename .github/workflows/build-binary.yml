@@ -43,10 +43,16 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Build Docker Image
+        id: docker_build
         uses: docker/build-push-action@v2
         with:
           tags: tmp-image
           push: false
+      - name: Check build result
+        if: steps.docker_build.outcome != 'success'
+        run: |
+          echo "Docker build failed"
+          exit 1
       - uses: shrink/actions-docker-extract@v1
         id: extract
         with:
