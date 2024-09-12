@@ -104,3 +104,4 @@ curl -sSL https://raw.githubusercontent.com/zhouzhipeng/play/main/scripts/instal
 
 `dev2`: working for clean minimal server
 `dev3`: regular developing
+
