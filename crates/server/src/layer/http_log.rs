@@ -231,6 +231,12 @@ impl Service<Request<Body>> for NotFoundService {
 
 
 async fn serve_domain_folder(host: String, request: Request<Body>) -> Response {
+    //use cache
+    if let Ok(cache) = get_cache_content(&request.uri()).await{
+        info!("use cache for host : {}", host);
+        return Html(cache.to_string()).into_response();
+    }
+
     let dir = files_dir!().join(host);
     let svc = get_service(ServeDir::new(dir).fallback(NotFoundService))
         .handle_error(|error| async move {
@@ -271,6 +277,7 @@ use http::{HeaderValue, Method, StatusCode};
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::set_status::SetStatus;
 use crate::config::AuthConfig;
+use crate::controller::cache_controller::get_cache_content;
 use crate::controller::static_controller::STATIC_DIR;
 use crate::files_dir;
 // 提供 `try_concat` 方法来转换 body
