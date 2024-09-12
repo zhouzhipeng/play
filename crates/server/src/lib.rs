@@ -19,7 +19,6 @@ use axum::Json;
 use axum::response::{Html, IntoResponse, Response};
 use axum::Router;
 use axum_server::Handle;
-use either::Either;
 use http_body::Body;
 use hyper::HeaderMap;
 use include_dir::{Dir, include_dir};

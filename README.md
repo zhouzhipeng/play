@@ -98,3 +98,9 @@ https://github.com/rust-cross/rust-musl-cross
 ```bash
 curl -sSL https://raw.githubusercontent.com/zhouzhipeng/play/main/scripts/install_service.sh | sudo bash
 ```
+
+
+## branches
+
+`dev2`: working for clean minimal server
+`dev3`: regular developing

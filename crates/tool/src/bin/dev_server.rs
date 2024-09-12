@@ -9,6 +9,6 @@ fn main() {
 
 }
 fn run()->anyhow::Result<()>{
-    build_dev("use_embed_python,mail_server,https,job,play_cache")?;
+    build_dev("tpl,mail_server,https,job")?;
     Ok(())
 }

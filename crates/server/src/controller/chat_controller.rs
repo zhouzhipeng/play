@@ -3,41 +3,37 @@ use std::convert::Infallible;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
-use axum::{body, Form, Json};
 use axum::body::{Body, BoxBody, HttpBody, StreamBody};
 use axum::extract::Query;
 use axum::http::HeaderMap;
-use axum::response::{Html, IntoResponse, Response, Sse};
 use axum::response::sse::{Event, KeepAlive};
+use axum::response::{Html, IntoResponse, Response, Sse};
+use axum::{body, Form, Json};
 use axum_macros::debug_handler;
 use bytes::Bytes;
-use crossbeam_channel::{RecvError, unbounded};
-use either::Either;
+use futures::StreamExt;
 use futures_core::Stream;
 use futures_util::{stream, TryStreamExt};
-use futures::StreamExt;
 use hex::ToHex;
 use http::StatusCode;
 use http_body::Full;
 use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use sqlparser::ast::Statement;
-use sqlparser::dialect::GenericDialect;
-use sqlparser::parser::Parser;
+#[cfg(feature = "use_mysql")]
+use sqlx::mysql::{MySqlPoolOptions, MySqlQueryResult, MySqlRow};
 use sqlx::Executor;
 use sqlx::{Column, Row};
-use sqlx::mysql::{MySqlPoolOptions, MySqlQueryResult, MySqlRow};
 use tokio::fs::File;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::{ReceiverStream, UnboundedReceiverStream};
 use tracing::{error, info};
 
-use crate::{ensure, hex_to_string, method_router, R, string_to_hex, template};
-use crate::{HTML, JSON, render_fragment, S, Template};
 use crate::controller::static_controller::STATIC_DIR;
 use crate::service::openai_service::{CreateMessage, Role};
 use crate::tables::general_data::GeneralData;
+use crate::{ensure, hex_to_string, method_router, string_to_hex, template, R};
+use crate::{render_fragment, Template, HTML, JSON, S};
 
 method_router!(
     get : "/chat/test" -> test_sse,
