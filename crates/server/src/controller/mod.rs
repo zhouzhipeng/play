@@ -13,7 +13,7 @@ mod pages_controller;
 mod shell_controller;
 mod files_controller;
 pub mod chat_controller;
-mod cache_controller;
+pub mod cache_controller;
 //PLACEHOLDER:CONTROLLER_MOD
 
 
