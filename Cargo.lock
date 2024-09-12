@@ -1805,6 +1805,7 @@ dependencies = [
 [[package]]
 name = "common"
 version = "0.1.0"
+source = "git+https://github.com/zhouzhipeng/rust-utils.git#6ecf8685b85c9ccb16a842f4f484df24aca0eb18"
 dependencies = [
  "base64 0.22.1",
  "md5",
@@ -6528,6 +6529,7 @@ dependencies = [
 [[package]]
 name = "rust-utils"
 version = "0.1.0"
+source = "git+https://github.com/zhouzhipeng/rust-utils.git#6ecf8685b85c9ccb16a842f4f484df24aca0eb18"
 dependencies = [
  "common",
 ]
