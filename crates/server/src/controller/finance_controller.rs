@@ -6,7 +6,6 @@ use chrono::TimeZone;
 use rand::Rng;
 use regex::Regex;
 use reqwest::Client;
-use scraper::{ Selector};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tracing::{error, info};

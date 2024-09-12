@@ -18,9 +18,7 @@ use http_body::Full;
 use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use sqlparser::ast::Statement;
-use sqlparser::dialect::GenericDialect;
-use sqlparser::parser::Parser;
+
 use sqlx::Executor;
 use sqlx::{Column, Row};
 #[cfg(feature = "use_mysql")]
@@ -142,6 +140,10 @@ async fn run_sql(s: S, Form(data): Form<RunSqlRequest>) -> HTML {
 }
 #[cfg(feature = "use_mysql")]
 async fn run_sql(s: S, Form(data): Form<RunSqlRequest>) -> HTML {
+    use sqlparser::ast::Statement;
+    use sqlparser::dialect::GenericDialect;
+    use sqlparser::parser::Parser;
+
     let sql = data.sql.trim();
     //parse sql
     let dialect = GenericDialect {}; // or AnsiDialect
