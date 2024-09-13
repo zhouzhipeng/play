@@ -116,14 +116,15 @@ async fn update_cache_in_remote(s: S,param: &CacheRequestParam) -> anyhow::Resul
     info!("cache result upload to : {} , resp: {:?}", param.save_cache_url,resp);
 
 
-    info!("html >> {:?}", html);
-
     //delete cf cache (again to make sure cache is latest)
     let resp = client.post(&s.config.cache_config.cf_purge_cache_url)
         .header("Authorization", &s.config.cache_config.cf_token)
         .json(&json!({"files": [&param.url]}))
         .send().await?;
     info!("delete cf cache again : resp: {:?}", resp);
+
+    //visit again to make new cache
+    client.get(&param.url).send().await?;
 
     Ok(())
 }
