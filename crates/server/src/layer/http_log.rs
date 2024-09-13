@@ -241,7 +241,21 @@ async fn serve_domain_folder(host: String, request: Request<Body>) -> anyhow::Re
     //use cache
     if let Ok(cache) = get_cache_content(&full_url).await{
         info!("use cache for host : {}", host);
-        return Ok(Html(cache.to_string()).into_response());
+
+        return Ok((
+            [
+                (
+                header::CONTENT_TYPE,
+                HeaderValue::from_static(mime::TEXT_HTML_UTF_8.as_ref()),
+                ),
+                (
+                HeaderName::from_static("x-play-cache"),
+                HeaderValue::from_str(&format!("{}:{}", cache.cache_key, cache.cache_time))?,
+                ),
+            ],
+            cache.cache_content.to_string(),
+        )
+            .into_response())
     }
 
     let dir = files_dir!().join(host);
@@ -280,7 +294,8 @@ fn extract_prefix(url: &str) -> String {
 }
 
 use futures::TryStreamExt;
-use http::{HeaderValue, Method, StatusCode, Uri};
+use http::{header, HeaderName, HeaderValue, Method, StatusCode, Uri};
+use mime_guess::mime;
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::set_status::SetStatus;
 use crate::config::AuthConfig;
