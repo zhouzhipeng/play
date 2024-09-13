@@ -22,8 +22,6 @@ use shared::constants::DATA_DIR;
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 10)]
 async fn main()->anyhow::Result<()> {
-    #[cfg(feature = "debug")]
-    set_var("RUST_BACKTRACE","1");
 
     // Set the custom panic hook
     panic::set_hook(Box::new(|panic_info| {

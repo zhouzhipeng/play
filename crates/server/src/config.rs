@@ -37,8 +37,17 @@ pub struct Config {
     pub auth_config: AuthConfig,
     #[serde(default)]
     pub misc_config: MiscConfig,
+    #[serde(default)]
+    pub cache_config: CacheConfig,
 }
 
+#[derive(Deserialize,Serialize, Debug, Clone, Default)]
+pub struct CacheConfig {
+    #[serde(default)]
+    pub cf_token: String,
+    #[serde(default)]
+    pub cf_purge_cache_url: String,
+}
 #[derive(Deserialize,Serialize, Debug, Clone, Default)]
 pub struct ShortLink {
     pub from: String,
