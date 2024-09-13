@@ -120,7 +120,8 @@ async fn update_cache_in_remote(s: S,param: &CacheRequestParam) -> anyhow::Resul
     //delete cf cache (again to make sure cache is latest)
     let resp = client.post(&s.config.cache_config.cf_purge_cache_url)
         .header("Authorization", &s.config.cache_config.cf_token)
-        .json(&json!({"files": [&param.url]}))
+        // .json(&json!({"files": [&param.url]}))
+        .json(&json!({"purge_everything": true}))
         .send().await?;
     info!("delete cf cache again : resp: {:?}", resp);
 
