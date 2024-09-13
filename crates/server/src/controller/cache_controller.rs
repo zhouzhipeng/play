@@ -1,6 +1,6 @@
 use std::time::Duration;
 use anyhow::{bail, ensure};
-use crate::{files_dir, method_router, HTML, S};
+use crate::{files_dir, get_file_modify_time, method_router, HTML, S};
 use axum::body::HttpBody;
 use axum::extract::Query;
 use axum::Form;
@@ -47,12 +47,24 @@ pub fn generate_cache_key(uri: &Uri) -> String {
 
 const CACHE_FOLDER: &'static str = "__cache__";
 
-pub async fn get_cache_content(uri: &Uri) -> anyhow::Result<String> {
+pub struct CacheContent{
+    pub cache_key : String,
+    pub cache_content : String,
+    pub cache_time: i64,
+}
+
+pub async fn get_cache_content(uri: &Uri) -> anyhow::Result<CacheContent> {
     let cache_file_name = generate_cache_key(uri);
     let cache_path = files_dir!().join(CACHE_FOLDER).join(&cache_file_name);
     if cache_path.exists() {
         let content = fs::read_to_string(&cache_path).await?;
-        Ok(content)
+
+        let cache_time = get_file_modify_time(&cache_path).await;
+        Ok(CacheContent{
+            cache_key: cache_file_name,
+            cache_content: content,
+            cache_time,
+        })
     } else {
         bail!("cache not found for uri : {}", uri)
     }
@@ -95,7 +107,8 @@ async fn update_cache_in_remote(s: S,param: &CacheRequestParam) -> anyhow::Resul
         .header(headers[0], headers[1])
         .form(&DeleteCacheParam { url: param.url.to_string()})
         .send().await?;
-    info!("delete cache : {} , resp: {:?}", param.delete_cache_url,resp);
+
+    info!("delete cache : {} , resp: {}", param.delete_cache_url, resp.status());
 
     //delete cf cache
     let resp = client.post(&s.config.cache_config.cf_purge_cache_url)
@@ -103,8 +116,9 @@ async fn update_cache_in_remote(s: S,param: &CacheRequestParam) -> anyhow::Resul
         // .json(&json!({"files": [&param.url]}))
         .json(&json!({"purge_everything": true}))
         .send().await?;
-    info!("delete cf cache : resp: {:?}", resp);
+    info!("delete cf cache : resp: {}",  resp.status());
 
+    tokio::time::sleep(Duration::from_secs(5)).await;
 
     //render html
     let html = play_cache::render_html_in_browser(&param.url).await?;
@@ -114,7 +128,7 @@ async fn update_cache_in_remote(s: S,param: &CacheRequestParam) -> anyhow::Resul
         .header(headers[0], headers[1])
         .form(&SaveCacheParam { url: param.url.to_string(), cache_content: html.to_string() })
         .send().await?;
-    info!("cache result upload to : {} , resp: {:?}", param.save_cache_url,resp);
+    info!("cache result upload to : {} , resp: {}", param.save_cache_url, resp.status());
 
 
     //delete cf cache (again to make sure cache is latest)
@@ -123,7 +137,9 @@ async fn update_cache_in_remote(s: S,param: &CacheRequestParam) -> anyhow::Resul
         // .json(&json!({"files": [&param.url]}))
         .json(&json!({"purge_everything": true}))
         .send().await?;
-    info!("delete cf cache again : resp: {:?}", resp);
+    info!("delete cf cache again : resp: {}",  resp.status());
+
+    tokio::time::sleep(Duration::from_secs(5)).await;
 
     //visit again to make new cache
     client.get(&param.url).send().await?;

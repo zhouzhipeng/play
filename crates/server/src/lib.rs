@@ -5,9 +5,9 @@ use std::env;
 use std::fmt::format;
 use std::net::SocketAddr;
 use std::ops::Deref;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, UNIX_EPOCH};
 use anyhow::{anyhow, bail};
 use anyhow::__private::kind::TraitKind;
 use async_channel::Receiver;
@@ -25,6 +25,7 @@ use include_dir::{Dir, include_dir};
 use lazy_static::lazy_static;
 use serde::Serialize;
 use serde_json::{json, Value};
+use tokio::fs;
 use tokio::time::sleep;
 use tower_http::compression::{CompressionLayer, DefaultPredicate, Predicate};
 use tower_http::compression::predicate::{NotForContentType, SizeAbove};
@@ -624,3 +625,17 @@ mod test {
 }
 
 
+pub async fn get_file_modify_time(path: &PathBuf)->i64{
+    if let Ok(metadata) = fs::metadata(&path).await {
+        if let Ok(modify_time) = metadata.modified() {
+            // 使用 chrono 来格式化时间
+            let modify_time = modify_time
+                .duration_since(UNIX_EPOCH)
+                .expect("Time went backwards")
+                .as_millis() as i64;  // 转换为毫秒
+            return modify_time
+        }
+    }
+
+    0
+}
