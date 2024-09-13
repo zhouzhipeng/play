@@ -113,7 +113,31 @@ impl CheckResponse for reqwest::Response {
 #[macro_export]
 macro_rules! mock_state {
     ()=>{
-       axum::extract::State(crate::init_app_state(&crate::config::init_config(true), true).await)
+        {
+
+
+           axum::extract::State(crate::init_app_state(&crate::config::init_config(true), true).await)
+
+        }
+    };
+}
+#[macro_export]
+macro_rules! init_log {
+    ()=>{
+        {
+             use tracing_subscriber::util::SubscriberInitExt;
+              tracing_subscriber::fmt()
+            .with_file(true)
+            .with_line_number(true)
+            .with_thread_names(true)
+            .pretty()
+            .with_writer(std::io::stdout)
+            .finish()
+            .init();
+
+
+
+        }
     };
 }
 #[macro_export]
