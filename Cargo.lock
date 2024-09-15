@@ -5577,6 +5577,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "play-macros"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "syn 2.0.75",
+]
+
+[[package]]
 name = "play-mail-server"
 version = "0.1.0"
 dependencies = [
@@ -5593,14 +5601,6 @@ dependencies = [
  "serde",
  "serde_json",
  "uuid 1.6.1",
-]
-
-[[package]]
-name = "play-proc-macros"
-version = "0.1.0"
-dependencies = [
- "quote",
- "syn 2.0.75",
 ]
 
 [[package]]
@@ -5644,7 +5644,7 @@ dependencies = [
  "cargo_metadata",
  "chrono",
  "include_dir",
- "play-proc-macros",
+ "play-macros",
  "reqwest",
  "serde",
  "serde_json",

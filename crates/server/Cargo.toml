@@ -37,7 +37,7 @@ harness = false
 
 [dependencies]
 # from libs
-play-shared = { path = "../play-shared", features = ["play-proc-macros", "utils"] }
+play-shared = { path = "../play-shared", features = ["play-macros", "utils"] }
 play-ui = { path = "../play-ui", optional = true }
 play-job = { path = "../play-job", optional = true }
 play-redis = {path = "../play-redis", optional = true }

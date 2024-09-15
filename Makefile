@@ -7,5 +7,5 @@ build_server:
 build_all_features:
 	cargo build --all-features
 
-build_all:build_macos build_server build_all_features
+check_before_merge:build_all_features build_macos build_server
 	echo "build all finished."
