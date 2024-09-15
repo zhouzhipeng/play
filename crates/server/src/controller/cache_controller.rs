@@ -94,7 +94,7 @@ async fn delete_cache(Form(param): Form<DeleteCacheParam>) -> HTML {
 
     Ok(Html("Ok.".to_string()))
 }
-#[cfg(feature = "play_cache")]
+#[cfg(feature = "play-cache")]
 async fn update_cache_in_remote(s: S,param: &CacheRequestParam) -> anyhow::Result<()> {
     //upload to remote server
     let headers: Vec<&str> = param.header.split("=").collect();
@@ -147,7 +147,7 @@ async fn update_cache_in_remote(s: S,param: &CacheRequestParam) -> anyhow::Resul
     Ok(())
 }
 
-#[cfg(feature = "play_cache")]
+#[cfg(feature = "play-cache")]
 async fn cache_html(s: S, Query(param): Query<CacheRequestParam>) -> HTML {
     let s_copy = s.clone();
     tokio::spawn(async move {
@@ -160,9 +160,9 @@ async fn cache_html(s: S, Query(param): Query<CacheRequestParam>) -> HTML {
 }
 
 
-#[cfg(not(feature = "play_cache"))]
+#[cfg(not(feature = "play-cache"))]
 async fn cache_html(Query(param): Query<CacheRequestParam>) -> HTML {
-    Ok(Html("play_cache feature is disabled.".to_owned()))
+    Ok(Html("play-cache feature is disabled.".to_owned()))
 }
 
 

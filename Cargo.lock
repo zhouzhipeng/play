@@ -5554,7 +5554,7 @@ dependencies = [
  "mime_guess",
  "multer 3.0.0",
  "notify",
- "play_cache",
+ "play-cache",
  "py_tpl",
  "rand 0.8.5",
  "redis 0.1.0",
@@ -5586,7 +5586,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "play_cache"
+name = "play-cache"
 version = "0.1.0"
 dependencies = [
  "anyhow",

@@ -15,7 +15,7 @@ fn main() {
 
 
 fn run()->anyhow::Result<()>{
-    build_dev("use_embed_python,ui,job,play_cache")?;
+    build_dev("use_embed_python,ui,job,play-cache")?;
 
     let root = get_workspace_root();
     let app_dir = Path::new(&root)
