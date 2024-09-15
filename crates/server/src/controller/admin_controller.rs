@@ -15,7 +15,7 @@ use serde_json::json;
 use tracing::info;
 use zip::ZipArchive;
 
-use shared::constants::DATA_DIR;
+use play_shared::constants::DATA_DIR;
 
 use crate::{ensure, HTML, method_router, R, S, template};
 use crate::config::{Config, get_config_path, read_config_file, save_config_file};

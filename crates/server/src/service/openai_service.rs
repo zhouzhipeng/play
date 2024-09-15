@@ -11,7 +11,7 @@ use futures_util::StreamExt;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use futures_util::TryStreamExt;
 use tokio::sync::mpsc::UnboundedSender;
-use shared::models::check_response;
+use play_shared::models::check_response;
 use crate::{ CheckResponse, ensure};
 use crate::types::openai_message::{Message, MessageList};
 use crate::types::openai_message_delta::MessageDelta;

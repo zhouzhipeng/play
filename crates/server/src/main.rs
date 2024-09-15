@@ -18,7 +18,7 @@ use tracing_subscriber::util::SubscriberInitExt;
 use play::{ files_dir, init_app_state, shutdown_another_instance, start_server};
 use play::config::init_config;
 use play::routers;
-use shared::constants::DATA_DIR;
+use play_shared::constants::DATA_DIR;
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 10)]
 async fn main()->anyhow::Result<()> {
@@ -173,12 +173,12 @@ async fn main()->anyhow::Result<()> {
 
 
     //start a mail server
-    #[cfg(feature = "mail_server")]
+    #[cfg(feature = "play-mail-server")]
     {
         let copy_appstate = app_state.clone();
         info!("starting mail server...");
         let addr = SocketAddr::from(([0, 0, 0, 0], config.email_server_config.port));
-        let (sever, rx) = mail_server::smtp::Builder::new().bind(addr).build(config.email_server_config.black_keywords.clone());
+        let (sever, rx) = play_mail_server::smtp::Builder::new().bind(addr).build(config.email_server_config.black_keywords.clone());
         tokio::spawn(async move {
             sever.serve().expect("create mail server failed!");
         });
@@ -200,8 +200,8 @@ async fn main()->anyhow::Result<()> {
     }
 
     //start job scheduler
-    #[cfg(feature = "job")]
-    tokio::spawn(job::run_job_scheduler(config.http_jobs.iter().map(|c|job::JobConfig{
+    #[cfg(feature = "play-job")]
+    tokio::spawn(play_job::run_job_scheduler(config.http_jobs.iter().map(|c|play_job::JobConfig{
         name: c.name.to_string(),
         enable: c.enable,
         cron: c.cron.to_string(),
@@ -220,7 +220,7 @@ async fn main()->anyhow::Result<()> {
             start_server(router, app_state).await.expect("start api server failed!");
         });
 
-        ui::start_window(&format!("http://127.0.0.1:{}",server_port))?;
+        play_ui::start_window(&format!("http://127.0.0.1:{}",server_port))?;
 
     }
 

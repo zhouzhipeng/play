@@ -5,8 +5,8 @@ use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use shared::{ file_path};
-use shared::constants::DATA_DIR;
+use play_shared::{ file_path};
+use play_shared::constants::DATA_DIR;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Config {

@@ -15,11 +15,11 @@ use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 
 use tracing::{error, info, warn};
-use shared::constants::DATA_DIR;
-use shared::file_path;
+use play_shared::constants::DATA_DIR;
+use play_shared::file_path;
 
-use shared::tpl_engine_api::{Template, TemplateData, TplEngineAPI};
-use shared::utils::{GenericDialect, parse_create_sql};
+use play_shared::tpl_engine_api::{Template, TemplateData, TplEngineAPI};
+use play_shared::utils::{GenericDialect, parse_create_sql};
 
 
 macro_rules! include_py {

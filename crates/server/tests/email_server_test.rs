@@ -1,4 +1,4 @@
-use mail_server::models::message::Message;
+use play_mail_server::models::message::Message;
 use play::handle_email_message;
 use play::init_app_state;
 use play::tables::email_inbox::EmailInbox;

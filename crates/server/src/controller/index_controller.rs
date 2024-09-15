@@ -9,8 +9,8 @@ use tokio::fs::File;
 use tokio_util::codec::{BytesCodec, FramedRead};
 use tracing::{info, warn};
 
-use shared::constants::CAT_FINGERPRINT;
-use shared::timestamp_to_date_str;
+use play_shared::constants::CAT_FINGERPRINT;
+use play_shared::timestamp_to_date_str;
 
 use crate::{method_router, return_error, template};
 use crate::{HTML, R, S};

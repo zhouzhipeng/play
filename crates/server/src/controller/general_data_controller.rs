@@ -7,7 +7,7 @@ use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json::Value;
 
-use crate::{ensure, JSON, method_router, return_error, S};
+use crate::{ensure, JSON, method_router, return_error, S, get_last_insert_id};
 use crate::tables::general_data::GeneralData;
 
 method_router!(
@@ -54,7 +54,7 @@ async fn insert_data(s: S, Path(cat): Path<String>, body: String) -> JSON<Vec<Qu
     let id = ret.rows_affected();
     ensure!(id==1, "insert failed!");
 
-    let data = GeneralData::query_by_id(ret.last_insert_rowid() as u32, &s.db).await?;
+    let data = GeneralData::query_by_id(get_last_insert_id!(ret) as u32, &s.db).await?;
     ensure!(data.len()==1, "data error! query_by_id not found.");
     Ok(Json(vec![QueryDataResp::Raw(data[0].clone())]))
 }
@@ -69,7 +69,7 @@ async fn override_data(s: S, Path(cat): Path<String>, body: String) -> JSON<Vec<
         //insert
         let ret = GeneralData::insert(&cat, &body.trim(), &s.db).await?;
         ensure!(ret.rows_affected()==1, "GeneralData::insert error!");
-        let data = GeneralData::query_by_id(ret.last_insert_rowid() as u32, &s.db).await?;
+        let data = GeneralData::query_by_id(get_last_insert_id!(ret) as u32, &s.db).await?;
         ensure!(data.len()==1, "data error! query_by_id not found.");
 
         Ok(Json(vec![QueryDataResp::Raw(data[0].clone())]))

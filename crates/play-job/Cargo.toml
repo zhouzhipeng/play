@@ -1,5 +1,5 @@
 [package]
-name = "job"
+name = "play-job"
 version = "0.1.0"
 edition = "2021"
 

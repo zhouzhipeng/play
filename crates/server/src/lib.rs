@@ -33,12 +33,12 @@ use tower_http::cors::{Any, CorsLayer};
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::{error, info};
-use shared::constants::{CAT_FINGERPRINT, CAT_MAIL, DATA_DIR};
+use play_shared::constants::{CAT_FINGERPRINT, CAT_MAIL, DATA_DIR};
 
-use shared::{current_timestamp, timestamp_to_date_str};
+use play_shared::{current_timestamp, timestamp_to_date_str};
 
-use shared::redis_api::RedisAPI;
-use shared::tpl_engine_api::{Template, TemplateData, TplEngineAPI};
+use play_shared::redis_api::RedisAPI;
+use play_shared::tpl_engine_api::{Template, TemplateData, TplEngineAPI};
 
 use crate::config::Config;
 use crate::config::init_config;
@@ -245,7 +245,7 @@ pub async fn start_server(router: Router, app_state: Arc<AppState>) -> anyhow::R
 
     let addr = SocketAddr::from(([0, 0, 0, 0], server_port as u16));
 
-    #[cfg(not(feature = "https"))]
+    #[cfg(not(feature = "play-https"))]
     // run it with hyper on localhost:3000
     axum_server::bind(addr)
         .serve(router.into_make_service_with_connect_info::<SocketAddr>())
@@ -255,8 +255,8 @@ pub async fn start_server(router: Router, app_state: Arc<AppState>) -> anyhow::R
     let certs_path = Path::new(env::var(DATA_DIR)?.as_str()).join("certs");
 
 
-    #[cfg(feature = "https")]
-    https::start_https_server(&https::HttpsConfig {
+    #[cfg(feature = "play-https")]
+    play_https::start_https_server(&play_https::HttpsConfig {
         domains: app_state.config.https_cert.domains.clone(),
         email: app_state.config.https_cert.emails.clone(),
         cache_dir: certs_path.to_str().unwrap().to_string(),
@@ -476,9 +476,9 @@ macro_rules! init_template {
             use std::fs;
 
             //for compiling time check file existed or not.
-            include_str!(shared::file_path!(concat!("/templates/",  $fragment)));
+            include_str!(play_shared::file_path!(concat!("/templates/",  $fragment)));
 
-            crate::Template::DynamicTemplate { name: $fragment.to_string(), content: fs::read_to_string(shared::file_path!(concat!("/templates/",  $fragment))).unwrap() }
+            crate::Template::DynamicTemplate { name: $fragment.to_string(), content: fs::read_to_string(play_shared::file_path!(concat!("/templates/",  $fragment))).unwrap() }
 
         }
 
@@ -535,8 +535,8 @@ async fn render_fragment(s: &S, fragment: Template, data: Value) -> R<Html<Strin
 }
 
 
-#[cfg(feature = "mail_server")]
-pub async fn handle_email_message(copy_appstate: &Arc<AppState>, msg: &mail_server::models::message::Message) {
+#[cfg(feature = "play-mail-server")]
+pub async fn handle_email_message(copy_appstate: &Arc<AppState>, msg: &play_mail_server::models::message::Message) {
     //double write
     if GeneralData::query_count(CAT_MAIL, &copy_appstate.db).await.unwrap_or_default()>=50{
         info!("delete emails");
@@ -592,7 +592,7 @@ macro_rules! string_to_hex {
 
 // Include the generated-file as a seperate module
 #[cfg(test)]
-#[cfg(feature = "mail_server")]
+#[cfg(feature = "play-mail-server")]
 mod test {
 
     use super::*;
@@ -600,9 +600,9 @@ mod test {
 
     #[ignore]
     #[tokio::test]
-    #[cfg(feature = "mail_server")]
+    #[cfg(feature = "play-mail-server")]
     async fn test_save_email() ->anyhow::Result<()>{
-        use mail_server::models::message::Message;
+        use play_mail_server::models::message::Message;
         let s = mock_state!();
         handle_email_message(&s, &Message{
             id: Some(1),

@@ -1,5 +1,5 @@
 [package]
-name = "redis"
+name = "play-redis"
 version = "0.1.0"
 edition = "2021"
 
@@ -17,5 +17,5 @@ anyhow = { workspace=true }
 futures = "0.3.29"
 futures-util = "0.3.29"
 tracing = "0.1"
-shared={path="../play_shared"}
+play-shared={path= "../play-shared" }
 async-trait = {workspace=true}

@@ -7,7 +7,7 @@ use bb8_redis::{
     RedisConnectionManager,
 };
 
-use shared::redis_api::RedisAPI;
+use play_shared::redis_api::RedisAPI;
 
 pub type RedisPool = bb8::Pool<RedisConnectionManager>;
 

@@ -1183,7 +1183,7 @@ checksum = "cd456361ba8e4e7f5fe58e1697ce078a149c85ebce13bf9c6b483d3f566fc9c3"
 dependencies = [
  "async-trait",
  "bb8",
- "redis 0.23.3",
+ "redis",
 ]
 
 [[package]]
@@ -1194,7 +1194,7 @@ checksum = "b17eaed7bfc685625383a734745a35ed03df7cac0463b744c4b510a289043356"
 dependencies = [
  "async-trait",
  "bb8",
- "redis 0.23.3",
+ "redis",
  "redis_cluster_async",
 ]
 
@@ -3716,18 +3716,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df3b46402a9d5adb4c86a0cf463f42e19994e3ee891101b1841f30a545cb49a9"
 
 [[package]]
-name = "https"
-version = "0.1.0"
-dependencies = [
- "axum",
- "axum-server",
- "log",
- "rustls-acme",
- "tokio",
- "tokio-stream",
-]
-
-[[package]]
 name = "humantime"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4107,18 +4095,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8eaf4bc02d17cbdd7ff4c7438cafcdf7fb9a4613313ad11b4f8fefe7d3fa0130"
 
 [[package]]
-name = "job"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "log",
- "reqwest",
- "tokio",
- "tokio-cron-scheduler",
-]
-
-[[package]]
 name = "jobserver"
 version = "0.1.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4399,25 +4375,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4158a1c18963244e083888b21465846dfb68d6170850ed1ab4742edd57c9d47"
 dependencies = [
  "encoding_rs",
-]
-
-[[package]]
-name = "mail_server"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-channel",
- "async-trait",
- "chrono",
- "futures",
- "http-body 0.4.6",
- "log",
- "mail-parser",
- "mailin",
- "mailin-embedded",
- "serde",
- "serde_json",
- "uuid 1.6.1",
 ]
 
 [[package]]
@@ -5544,20 +5501,22 @@ dependencies = [
  "hex",
  "http 0.2.11",
  "http-body 0.4.6",
- "https",
  "hyper 1.1.0",
  "include_dir",
  "infer 0.7.0",
- "job",
  "lazy_static",
- "mail_server",
  "mime_guess",
  "multer 3.0.0",
  "notify",
  "play-cache",
- "py_tpl",
+ "play-https",
+ "play-job",
+ "play-mail-server",
+ "play-py-tpl",
+ "play-redis",
+ "play-shared",
+ "play-ui",
  "rand 0.8.5",
- "redis 0.1.0",
  "redis-test",
  "regex",
  "reqwest",
@@ -5565,7 +5524,6 @@ dependencies = [
  "self-replace",
  "serde",
  "serde_json",
- "shared",
  "sqlparser",
  "sqlx",
  "tokio",
@@ -5578,7 +5536,6 @@ dependencies = [
  "tracing 0.2.0",
  "tracing-appender",
  "tracing-subscriber 0.3.0",
- "ui",
  "urlencoding",
  "walkdir",
  "zip",
@@ -5593,6 +5550,116 @@ dependencies = [
  "headless_chrome",
  "log",
  "tokio",
+]
+
+[[package]]
+name = "play-https"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "axum-server",
+ "log",
+ "rustls-acme",
+ "tokio",
+ "tokio-stream",
+]
+
+[[package]]
+name = "play-job"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "log",
+ "reqwest",
+ "tokio",
+ "tokio-cron-scheduler",
+]
+
+[[package]]
+name = "play-mail-server"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-channel",
+ "async-trait",
+ "chrono",
+ "futures",
+ "http-body 0.4.6",
+ "log",
+ "mail-parser",
+ "mailin",
+ "mailin-embedded",
+ "serde",
+ "serde_json",
+ "uuid 1.6.1",
+]
+
+[[package]]
+name = "play-proc-macros"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "syn 2.0.75",
+]
+
+[[package]]
+name = "play-py-tpl"
+version = "0.1.0"
+dependencies = [
+ "async-channel",
+ "async-trait",
+ "include_dir",
+ "lazy_static",
+ "play-shared",
+ "pyo3",
+ "serde_json",
+ "tracing 0.1.40",
+ "ureq",
+ "zip-extract",
+]
+
+[[package]]
+name = "play-redis"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bb8-redis",
+ "bb8-redis-cluster",
+ "dashmap",
+ "futures",
+ "futures-util",
+ "play-shared",
+ "tracing 0.1.40",
+]
+
+[[package]]
+name = "play-shared"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-channel",
+ "async-trait",
+ "cargo_metadata",
+ "chrono",
+ "include_dir",
+ "play-proc-macros",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sqlparser",
+ "zip-extract",
+]
+
+[[package]]
+name = "play-ui"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
 ]
 
 [[package]]
@@ -5747,30 +5814,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e719e8df665df0d1c8fbfd238015744736151d4445ec0836b8e628aae103b77"
 dependencies = [
  "unicode-ident",
-]
-
-[[package]]
-name = "proc_macros"
-version = "0.1.0"
-dependencies = [
- "quote",
- "syn 2.0.75",
-]
-
-[[package]]
-name = "py_tpl"
-version = "0.1.0"
-dependencies = [
- "async-channel",
- "async-trait",
- "include_dir",
- "lazy_static",
- "pyo3",
- "serde_json",
- "shared",
- "tracing 0.1.40",
- "ureq",
- "zip-extract",
 ]
 
 [[package]]
@@ -6127,21 +6170,6 @@ dependencies = [
 
 [[package]]
 name = "redis"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "bb8-redis",
- "bb8-redis-cluster",
- "dashmap",
- "futures",
- "futures-util",
- "shared",
- "tracing 0.1.40",
-]
-
-[[package]]
-name = "redis"
 version = "0.23.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4f49cdc0bb3f412bf8e7d1bd90fe1d9eb10bc5c399ba90973c14662a27b3f8ba"
@@ -6167,7 +6195,7 @@ version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aba266ca48ae66978bf439fd2ac0d7a36a8635823754e2bc73afaf9d2fc25272"
 dependencies = [
- "redis 0.23.3",
+ "redis",
 ]
 
 [[package]]
@@ -6181,7 +6209,7 @@ dependencies = [
  "log",
  "pin-project-lite",
  "rand 0.8.5",
- "redis 0.23.3",
+ "redis",
  "tokio",
 ]
 
@@ -6949,24 +6977,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f40ca3c46823713e0d4209592e8d6e826aa57e928f09752619fc696c499637f6"
 dependencies = [
  "lazy_static",
-]
-
-[[package]]
-name = "shared"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-channel",
- "async-trait",
- "cargo_metadata",
- "chrono",
- "include_dir",
- "proc_macros",
- "reqwest",
- "serde",
- "serde_json",
- "sqlparser",
- "zip-extract",
 ]
 
 [[package]]
@@ -8270,10 +8280,10 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "current_platform",
+ "play-shared",
  "pyo3",
  "pyoxidizer",
  "serde_json",
- "shared",
  "zip_archive",
 ]
 
@@ -8757,16 +8767,6 @@ name = "ucd-trie"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed646292ffc8188ef8ea4d1e0e0150fb15a5c2e12ad9b8fc191ae7a8a7f3c4b9"
-
-[[package]]
-name = "ui"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
-]
 
 [[package]]
 name = "unicase"

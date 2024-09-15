@@ -174,7 +174,7 @@ mod tests {
     use std::env;
     use std::path::Path;
     use anyhow::Context;
-    use shared::constants::DATA_DIR;
+    use play_shared::constants::DATA_DIR;
     use crate::{init_log, mock_state};
     use super::*;
 
