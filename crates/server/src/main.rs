@@ -203,6 +203,7 @@ async fn main()->anyhow::Result<()> {
     #[cfg(feature = "job")]
     tokio::spawn(job::run_job_scheduler(config.http_jobs.iter().map(|c|job::JobConfig{
         name: c.name.to_string(),
+        enable: c.enable,
         cron: c.cron.to_string(),
         url: c.url.to_string(),
         params: c.params.clone(),

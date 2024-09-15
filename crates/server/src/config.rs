@@ -82,9 +82,15 @@ pub struct MiscConfig {
 #[derive(Deserialize, Debug, Clone, Default)]
 pub struct LocalJobConfig {
     pub name: String,
+    #[serde(default="default_true")]
+    pub enable: bool,
     pub cron: String,
     pub url: String,
     pub params : Vec<(String/*key*/, String/*value*/)>
+}
+
+fn default_true() -> bool {
+    true
 }
 
 

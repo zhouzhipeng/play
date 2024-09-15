@@ -7,6 +7,7 @@ use tokio_cron_scheduler::{Job, JobScheduler};
 #[derive(Clone)]
 pub struct JobConfig{
     pub name: String,
+    pub enable: bool,
     pub cron: String,
     pub url: String,
     pub params: Vec<(String/*key*/, String/*value*/)>
@@ -18,6 +19,8 @@ pub async fn run_job_scheduler(job_configs : Vec<JobConfig>) -> anyhow::Result<(
     let mut sched = JobScheduler::new().await?;
 
     for config in job_configs {
+        if !config.enable{continue}
+
         let job_name = config.name.to_string();
         // Add async job
         let cron = config.cron.to_string();
