@@ -7,5 +7,15 @@ build_server:
 build_all_features:
 	cargo build --all-features
 
-check_before_merge:build_all_features build_macos build_server
+update_cargo_dep:
+	cargo  update
+
+check_before_merge:
+	# disable local `config.toml` temporarily
+	mv ~/.cargo/config.toml ~/.cargo/config.toml.bak
+	@$(shell $(MAKE) build_all_features) || (mv ~/.cargo/config.toml.bak ~/.cargo/config.toml; exit 1;)
+	@$(shell $(MAKE) build_macos)
+	@$(shell $(MAKE) build_server)
+	# resume local config.toml
+	mv ~/.cargo/config.toml.bak ~/.cargo/config.toml
 	echo "build all finished."

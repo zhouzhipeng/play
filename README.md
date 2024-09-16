@@ -105,3 +105,9 @@ curl -sSL https://raw.githubusercontent.com/zhouzhipeng/play/main/scripts/instal
 `dev2`: working for clean minimal server
 `dev3`: regular developing
 
+## add patch for local dev
+`vim ~/.cargo/config.toml`
+```toml
+[patch."https://github.com/zhouzhipeng/rust-utils"]
+rust-utils = { path = "/Users/zhouzhipeng/RustroverProjects/rust-utils"}
+```
