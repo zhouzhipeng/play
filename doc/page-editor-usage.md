@@ -58,7 +58,12 @@ the grammar is :
 
 
 ### global functions
-* local_http_get
+* http_get :   http get request
+```python
+resp = http_get("http://xxx")
+```
+
+* local_http_get :  visit current local http server 
 ```python
 % import json
 % email_list  = json.loads(local_http_get("/data/cat/mail_inbox?_json=true"))
