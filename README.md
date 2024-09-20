@@ -111,3 +111,8 @@ curl -sSL https://raw.githubusercontent.com/zhouzhipeng/play/main/scripts/instal
 [patch."https://github.com/zhouzhipeng/rust-utils"]
 rust-utils = { path = "/Users/zhouzhipeng/RustroverProjects/rust-utils"}
 ```
+
+
+todo:
+
+use justfile instead makefile

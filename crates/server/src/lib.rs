@@ -213,17 +213,17 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> Arc<AppStat
         openai_service: OpenAIService::new(config.open_ai.api_key.to_string()).unwrap(),
         elevenlabs_service: ElevenlabsService::new(config.elevenlabs.api_key.to_string(), config.elevenlabs.voice_id.to_string()).unwrap(),
         db: if final_test_pool { tables::init_test_pool().await } else { tables::init_pool(&config).await },
-        #[cfg(feature = "redis")]
-        redis_service: Box::new(redis::RedisService::new(config.redis_uri.clone(), final_test_pool).await.unwrap()),
-        #[cfg(not(feature = "redis"))]
+        #[cfg(feature = "play-redis")]
+        redis_service: Box::new(play_redis::RedisService::new(config.redis_uri.clone(), final_test_pool).await.unwrap()),
+        #[cfg(not(feature = "play-redis"))]
         redis_service: Box::new(crate::service::redis_fake_service::RedisFakeService::new(config.redis_uri.clone(), final_test_pool).await.unwrap()),
         config: config.clone(),
     });
 
 
-    #[cfg(feature = "tpl")]
-    start_template_backend_thread(Box::new(tpl::TplEngine {}), req_receiver);
-    #[cfg(not(feature = "tpl"))]
+    #[cfg(feature = "play-py-tpl")]
+    start_template_backend_thread(Box::new(play_py_tpl::TplEngine {}), req_receiver);
+    #[cfg(not(feature = "play-py-tpl"))]
     start_template_backend_thread(Box::new(crate::service::tpl_fake_engine::FakeTplEngine {}), req_receiver);
 
 
@@ -455,9 +455,9 @@ impl<E> From<E> for AppError
 macro_rules! init_template {
     ($fragment: expr) => {
         {
-            #[cfg(feature = "tpl")]
-            use tpl::TEMPLATES_DIR;
-            #[cfg(not(feature = "tpl"))]
+            #[cfg(feature = "play-py-tpl")]
+            use play_py_tpl::TEMPLATES_DIR;
+            #[cfg(not(feature = "play-py-tpl"))]
             use crate::service::tpl_fake_engine::TEMPLATES_DIR;
 
             let content = TEMPLATES_DIR.get_file($fragment).unwrap().contents_utf8().unwrap();

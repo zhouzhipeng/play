@@ -44,6 +44,7 @@ and u like visit like : /xxx?a=1&b=2
 it will be injected by `pages_controller`
 
 
+
 the grammar is :
 
 ```text
@@ -56,11 +57,21 @@ the grammar is :
 ```
 
 
+### global functions
+* local_http_get
+```python
+% import json
+% email_list  = json.loads(local_http_get("/data/cat/mail_inbox?_json=true"))
+
+```
+
+
+
 ### how to do CRUD in js code (using general data api)
 
 ```js
 // insert data on a category
-fetch(`/data/cat-${any_category}```, 
+fetch(`/data/cat/${any_category}```, 
     {   method: "POST",headers: {'Content-Type': 'application/json'},
         body: JSON.stringify("{}")
     })
@@ -72,7 +83,7 @@ fetch(`/data/cat-${any_category}```,
 
 ```js
 //delete data
-fetch('/data/id-'+ note.id, {method: "DELETE"})
+fetch('/data/cat/$CAT/id/'+ note.id, {method: "DELETE"})
 ```
 
 ```js

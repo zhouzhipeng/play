@@ -705,7 +705,7 @@
         // doc.open();
         // doc.close();
 
-        iframe.srcdoc = content;
+        iframe.src = 'data:text/html,'+ encodeURIComponent(content);
 
         //write 方式会导致js变量声明重复定义
         // doc.open();
