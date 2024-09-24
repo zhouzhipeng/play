@@ -41,14 +41,14 @@ fn gen_db_models_code() {
     //
 
 
-    let sql = include_str!("../../../doc/db_sqlite.sql");
+    let sql = include_str!("../../../docs/db_sqlite.sql");
     let table_info = parse_create_sql(sql,SQLiteDialect{});
     let ss = format!("table infos >> {:?}", table_info);
 
     pyo3::prepare_freethreaded_python();
     let py_app = include_str!("../../../play-py-tpl/python/simple_template.py");
-    let model_template = include_str!("../../../doc/tmpl/model_template.rs.txt");
-    let controller_template = include_str!("../../../doc/tmpl/controller_template.rs.txt");
+    let model_template = include_str!("../../../docs/tmpl/model_template.rs.txt");
+    let controller_template = include_str!("../../../docs/tmpl/controller_template.rs.txt");
 
     Python::with_gil(|py| -> PyResult<Py<PyAny>> {
         // let syspath: &PyList = py.import("sys")?.getattr("path")?.downcast()?;
@@ -101,7 +101,7 @@ fn gen_db_models_code() {
                 let template_dir  = Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("../server/templates/{}", info.table_name));
                 if !template_dir.exists(){
                     fs::create_dir(&template_dir).expect(&format!("create dir :{:?} failed", template_dir));
-                    let template = include_str!("../../../doc/tmpl/list_template.html.txt");
+                    let template = include_str!("../../../docs/tmpl/list_template.html.txt");
                     fs::write(template_dir.join("list.html"), template).expect("create list.html failed!");
 
                 }

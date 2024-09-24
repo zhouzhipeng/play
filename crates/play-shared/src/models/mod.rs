@@ -4,7 +4,7 @@ use crate::constants::HOST;
 
 pub mod user;
 pub mod article;
-
+pub  mod wasm_func;
 
 pub fn check_response(response: &Response) -> anyhow::Result<()> {
     if !response.status().is_success() {

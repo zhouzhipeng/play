@@ -19,3 +19,8 @@ check_before_merge:
 	# resume local config.toml
 	mv ~/.cargo/config.toml.bak ~/.cargo/config.toml
 	echo "build all finished."
+
+
+build_wasm_example:
+	./scripts/build_wasm_example.sh
+
