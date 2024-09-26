@@ -1,7 +1,7 @@
 use libloading::{Library, Symbol};
-use play_shared::models::http_abi::*;
 use std::error::Error;
 use tokio::task::JoinHandle;
+use play_abi::http_abi::*;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {

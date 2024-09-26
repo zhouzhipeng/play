@@ -5529,6 +5529,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "play-abi"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+]
+
+[[package]]
 name = "play-cache"
 version = "0.1.0"
 dependencies = [
@@ -5543,7 +5551,7 @@ name = "play-dylib-example"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "play-shared",
+ "play-abi",
  "reqwest",
  "tokio",
 ]
@@ -5554,7 +5562,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "libloading",
- "play-shared",
+ "play-abi",
  "reqwest",
  "tokio",
 ]

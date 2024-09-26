@@ -1,6 +1,6 @@
-use play_shared::models::http_abi::*;
 use tokio::runtime::Runtime;
-use play_shared::{async_request_handler, request_handler};
+use play_abi::http_abi::{Request, Response};
+use play_abi::request_handler;
 
 // 异步处理函数
 // async fn handle_request_impl(request: Request) -> anyhow::Result<Response> {

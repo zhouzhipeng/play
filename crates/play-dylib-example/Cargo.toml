@@ -9,7 +9,7 @@ crate-type = ["cdylib"]
 
 
 [dependencies]
-play-shared={path= "../play-shared" }
+play-abi={path= "../play-abi" }
 reqwest = {workspace = true}
 anyhow = {workspace = true}
 tokio = {workspace = true}
