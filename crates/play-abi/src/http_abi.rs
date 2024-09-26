@@ -30,12 +30,23 @@ macro_rules! async_request_handler {
     ($func:ident) => {
 
         #[no_mangle]
-        pub extern "C" fn handle_request(request: HttpRequest) -> anyhow::Result<HttpResponse> {
+        pub extern "C" fn handle_request(request: *const std::os::raw::c_char) -> *const std::os::raw::c_char {
+            use play_abi::*;
+            let name = c_char_to_string(request);
+            let request: HttpRequest = serde_json::from_str(&name).unwrap();
+
             use tokio::runtime::Runtime;
 
-            let rt = Runtime::new()?;
-            let resp = rt.block_on($func(request))?;
-            Ok(resp)
+            let rt = Runtime::new().unwrap();
+            let response = rt.block_on($func(request)).unwrap_or(HttpResponse {
+                headers: Default::default(),
+                body: "error".to_string(),
+                status_code: 0,
+                is_success: false,
+            });
+
+            let result = serde_json::to_string(&response).unwrap();
+            string_to_c_char(&result)
         }
     };
 }
@@ -50,8 +61,19 @@ macro_rules! request_handler {
     ($func:ident) => {
 
         #[no_mangle]
-        pub extern "C" fn handle_request(request: *const c_char) -> anyhow::Result<HttpResponse> {
-            $func(request)
+        pub extern "C" fn handle_request(request: *const std::os::raw::c_char) -> *const std::os::raw::c_char {
+            use play_abi::*;
+            let name = c_char_to_string(request);
+            let request: HttpRequest = serde_json::from_str(&name).unwrap();
+
+            let response = $func(request).unwrap_or(HttpResponse {
+                headers: Default::default(),
+                body: "error".to_string(),
+                status_code: 0,
+                is_success: false,
+            });
+            let result = serde_json::to_string(&response).unwrap();
+            string_to_c_char(&result)
         }
     };
 }
