@@ -33,12 +33,7 @@ fn handle_request_impl(request: HttpRequest) -> anyhow::Result<HttpResponse> {
     let params = request.parse_query::<Param>()?;
     // let response = reqwest::get("https://crab.rs").await?.text().await?;
 
-    Ok(HttpResponse {
-        headers: Default::default(),
-        body: format!("input : {:?}", params),
-        status_code: 200,
-        error: None,
-    })
+    Ok(HttpResponse::text(&format!("input : {:?}", params)))
 }
 
 request_handler!(handle_request_impl);

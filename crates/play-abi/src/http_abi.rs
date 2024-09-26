@@ -4,7 +4,7 @@ use anyhow::Context;
 use serde::de::DeserializeOwned;
 
 
-#[derive(Serialize,Deserialize,Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct HttpRequest {
     pub headers: HashMap<String, String>,
     pub query: String,
@@ -12,24 +12,29 @@ pub struct HttpRequest {
     pub body: String,
 }
 
-impl HttpRequest{
-    pub fn parse_query<T: DeserializeOwned>(&self)-> anyhow::Result<T>{
-        let p : T = serde_urlencoded::from_str(&self.query).context("parse query str error!")?;
+impl HttpRequest {
+    pub fn parse_query<T: DeserializeOwned>(&self) -> anyhow::Result<T> {
+        let p: T = serde_urlencoded::from_str(&self.query).context("parse query str error!")?;
         Ok(p)
     }
 }
 
-#[derive(Serialize,Deserialize,Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 pub struct HttpResponse {
     pub headers: HashMap<String, String>,
     pub body: String,
+    #[serde(default = "default_status_code")]
     pub status_code: u16,
     /// used to mark current plugin running is success or not (shoule left None for normal bussiness logic)
     /// will be used automatically when `?` triggered in your logic.
     pub error: Option<String>,
 }
 
-fn print_error(err: &anyhow::Error) ->String{
+fn default_status_code() -> u16 {
+    200
+}
+
+fn print_error(err: &anyhow::Error) -> String {
     // println!("Error: {}", err);
     let mut source = err.source();
     let mut level = 0;
@@ -48,8 +53,8 @@ fn print_error(err: &anyhow::Error) ->String{
 }
 
 
-impl HttpResponse{
-    pub fn from_anyhow(r: anyhow::Result<Self>)->HttpResponse{
+impl HttpResponse {
+    pub fn from_anyhow(r: anyhow::Result<Self>) -> HttpResponse {
         r.unwrap_or_else(|e| {
             HttpResponse {
                 error: Some(print_error(&e)),
@@ -57,10 +62,41 @@ impl HttpResponse{
             }
         })
     }
+
+    pub fn text(body: &str) -> Self {
+        let mut headers = HashMap::new();
+        headers.insert("Content-Type".to_string(), "text/plain;charset=UTF-8".to_string());
+        Self {
+            headers,
+            body: body.to_string(),
+            status_code: default_status_code(),
+            ..Self::default()
+        }
+    }
+    pub fn html(body: &str) -> Self {
+        let mut headers = HashMap::new();
+        headers.insert("Content-Type".to_string(), "text/html;charset=UTF-8".to_string());
+        Self {
+            headers,
+            body: body.to_string(),
+            status_code: default_status_code(),
+            ..Self::default()
+        }
+    }
+    pub fn json<T: Serialize>(body: &T) -> Self {
+        let mut headers = HashMap::new();
+        headers.insert("Content-Type".to_string(), "application/json;charset=UTF-8".to_string());
+        Self {
+            headers,
+            body: serde_json::to_string(body).unwrap(),
+            status_code: default_status_code(),
+            ..Self::default()
+        }
+    }
 }
 
-pub type HandleRequestFn =unsafe extern "C" fn(*const std::os::raw::c_char) ->  *const std::os::raw::c_char;
-pub const HANDLE_REQUEST_FN_NAME : &'static str = "handle_request";
+pub type HandleRequestFn = unsafe extern "C" fn(*const std::os::raw::c_char) -> *const std::os::raw::c_char;
+pub const HANDLE_REQUEST_FN_NAME: &'static str = "handle_request";
 
 /// needs tokio runtime.
 /// usage: `async_request_handler!(handle_request_impl);`
