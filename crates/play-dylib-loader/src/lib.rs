@@ -1,8 +1,11 @@
+use std::ffi::{CStr, CString};
+use std::os::raw::c_char;
 use anyhow::ensure;
 use libloading::{Library, Symbol};
 use tokio::fs;
 use log::info;
 pub use play_abi::http_abi::*;
+use play_abi::{c_char_to_string, string_to_c_char};
 
 /// load a dylib from `dylib_path` (absolute path)
 pub async fn load_and_run(dylib_path: &str, request: HttpRequest) -> anyhow::Result<HttpResponse> {
@@ -16,9 +19,16 @@ pub async fn load_and_run(dylib_path: &str, request: HttpRequest) -> anyhow::Res
             let lib = Library::new(&copy_path)?;
             info!("load_and_run lib load ok.  path : {}",copy_path);
             let handle_request: Symbol<HandleRequestFn> = lib.get(HANDLE_REQUEST_FN_NAME.as_ref())?;
+            let rust_string = serde_json::to_string(&request)?;
+            let request = string_to_c_char(&rust_string);
             let response = handle_request(request);
+
+            let response = c_char_to_string(response);
+
+            // let response = unsafe { CStr::from_ptr(response).to_str().unwrap() };
+            let response : HttpResponse =  serde_json::from_str(&response)?;
             info!("load_and_run finish  path : {}",copy_path);
-            response
+            Ok(response)
         }
     }).await?
 }

@@ -9,14 +9,15 @@ pub struct HttpRequest {
     pub url: String,
 }
 
-#[derive(Serialize,Deserialize,Debug)]
+#[derive(Serialize,Deserialize,Debug, Default)]
 pub struct HttpResponse {
     pub headers: HashMap<String, String>,
     pub body: String,
     pub status_code: u16,
+    pub is_success: bool,
 }
 
-pub type HandleRequestFn =unsafe extern "C"  fn(HttpRequest) -> anyhow::Result<HttpResponse>;
+pub type HandleRequestFn =unsafe extern "C" fn(*const std::os::raw::c_char) ->  *const std::os::raw::c_char;
 pub const HANDLE_REQUEST_FN_NAME : &'static str = "handle_request";
 
 /// needs tokio runtime.
@@ -49,7 +50,7 @@ macro_rules! request_handler {
     ($func:ident) => {
 
         #[no_mangle]
-        pub extern "C" fn handle_request(request: HttpRequest) -> anyhow::Result<HttpResponse> {
+        pub extern "C" fn handle_request(request: *const c_char) -> anyhow::Result<HttpResponse> {
             $func(request)
         }
     };
