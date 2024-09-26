@@ -28,8 +28,8 @@ pub async fn load_and_run(dylib_path: &str, request: HttpRequest) -> anyhow::Res
             // let response = unsafe { CStr::from_ptr(response).to_str().unwrap() };
             let response : HttpResponse =  serde_json::from_str(&response)?;
             info!("load_and_run finish  path : {}",copy_path);
-            if !response.is_success{
-                bail!("run plugin error >> {}", response.body);
+            if let Some(error) = &response.error {
+                bail!("run plugin error >> {}", error);
             }
             Ok(response)
         }

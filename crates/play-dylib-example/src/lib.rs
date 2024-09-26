@@ -21,8 +21,8 @@ use serde::Deserialize;
 
 
 #[derive(Deserialize, Debug)]
-struct Param{
-    a :String,
+struct Param {
+    a: String,
     b: i32,
 }
 
@@ -35,9 +35,9 @@ fn handle_request_impl(request: HttpRequest) -> anyhow::Result<HttpResponse> {
 
     Ok(HttpResponse {
         headers: Default::default(),
-        body: format!("input : {:?}",params),
+        body: format!("input : {:?}", params),
         status_code: 200,
-        is_success: true,
+        error: None,
     })
 }
 

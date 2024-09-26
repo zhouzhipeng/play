@@ -24,7 +24,9 @@ pub struct HttpResponse {
     pub headers: HashMap<String, String>,
     pub body: String,
     pub status_code: u16,
-    pub is_success: bool,
+    /// used to mark current plugin running is success or not (shoule left None for normal bussiness logic)
+    /// will be used automatically when `?` triggered in your logic.
+    pub error: Option<String>,
 }
 
 fn print_error(err: &anyhow::Error) ->String{
@@ -50,10 +52,8 @@ impl HttpResponse{
     pub fn from_anyhow(r: anyhow::Result<Self>)->HttpResponse{
         r.unwrap_or_else(|e| {
             HttpResponse {
-                headers: Default::default(),
-                body: print_error(&e),
-                status_code: 500,
-                is_success: false,
+                error: Some(print_error(&e)),
+                ..Self::default()
             }
         })
     }
