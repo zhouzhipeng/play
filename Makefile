@@ -24,3 +24,8 @@ check_before_merge:
 build_wasm_example:
 	./scripts/build_wasm_example.sh
 
+build_dylib_example:
+	cargo build --release -p play-dylib-example
+run_dylib_loader:
+	cargo run  -p play-dylib-loader
+
