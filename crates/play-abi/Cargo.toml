@@ -6,3 +6,5 @@ edition = "2021"
 [dependencies]
 serde = {workspace = true}
 anyhow= {workspace = true}
+serde_urlencoded = "0.7.1"
+serde_json = {workspace = true}

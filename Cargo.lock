@@ -5535,6 +5535,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "serde",
+ "serde_json",
+ "serde_urlencoded",
 ]
 
 [[package]]
@@ -5554,6 +5556,7 @@ dependencies = [
  "anyhow",
  "play-abi",
  "reqwest",
+ "serde",
  "serde_json",
  "tokio",
 ]
