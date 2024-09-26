@@ -3,7 +3,7 @@ use std::io;
 use std::io::{Cursor, Write};
 use std::path::{Component, PathBuf};
 use std::time::UNIX_EPOCH;
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 
 use axum::body::{Body, Bytes, HttpBody, StreamBody};
 use axum::{BoxError, Json};
@@ -82,7 +82,10 @@ async fn list_files() -> JSON<Vec<FileInfo>> {
 async fn pack_files() -> R<impl IntoResponse> {
     let folder_path = files_dir!();
     let target_file = data_dir!().join("packed_files.zip");
-    fs::remove_file(&target_file).await;
+    if target_file.exists(){
+        fs::remove_file(&target_file).await?;
+    }
+
     zip_dir(&folder_path, &target_file)?;
     match File::open(&target_file).await {
         Ok(file) => {
@@ -106,37 +109,15 @@ async fn pack_files() -> R<impl IntoResponse> {
 }
 use walkdir::WalkDir;
 use zip::write::{FileOptions, ZipWriter};
+use zip_extensions::zip_create_from_directory;
 
-fn zip_dir<T: AsRef<std::path::Path>>(src_dir: T, dst_file: T) -> zip::result::ZipResult<()> {
+fn zip_dir<T: AsRef<std::path::Path>>(src_dir: T, dst_file: T) -> anyhow::Result<()> {
     let src_path = src_dir.as_ref();
     let dst_path = dst_file.as_ref();
 
-    let file = std::fs::File::create(&dst_path)?;
-    let walkdir = WalkDir::new(&src_path);
-    let it = walkdir.into_iter();
+    // 创建一个 ZIP 文件并将整个目录添加到其中
+    zip_create_from_directory(&dst_path.to_path_buf(), &src_path.to_path_buf())?;
 
-    let mut zip = ZipWriter::new(file);
-    let options = FileOptions::default()
-        .compression_method(zip::CompressionMethod::Deflated)
-        .unix_permissions(0o755);
-
-    for entry in it.filter_map(|e| e.ok()) {
-        let path = entry.path();
-        let name = path.strip_prefix(&src_path).unwrap();
-
-        // 如果是文件，则添加文件到压缩包
-        if path.is_file() {
-            info!("Adding file: {:?}", name);
-            zip.start_file(name.display().to_string(), options)?;
-            let mut f = std::fs::File::open(path)?;
-            std::io::copy(&mut f, &mut zip)?;
-        } else if name.as_os_str().len() != 0 {
-            // 如果是目录，则添加目录到压缩包
-            info!("Adding directory: {:?}", name);
-            zip.start_file(name.display().to_string(), options)?;
-        }
-    }
-    zip.finish()?;
     Ok(())
 }
 

@@ -10,3 +10,4 @@ pkg
 build
 artifacts
 *.db*
+*.so
