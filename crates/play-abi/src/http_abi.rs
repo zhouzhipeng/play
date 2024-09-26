@@ -1,13 +1,22 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fmt::format;
+use anyhow::Context;
+use serde::de::DeserializeOwned;
+
 
 #[derive(Serialize,Deserialize,Debug)]
 pub struct HttpRequest {
     pub headers: HashMap<String, String>,
-    pub query: HashMap<String, String>,
+    pub query: String,
     pub url: String,
     pub body: String,
+}
+
+impl HttpRequest{
+    pub fn parse_query<T: DeserializeOwned>(&self)-> anyhow::Result<T>{
+        let p : T = serde_urlencoded::from_str(&self.query).context("parse query str error!")?;
+        Ok(p)
+    }
 }
 
 #[derive(Serialize,Deserialize,Debug, Default)]
@@ -18,13 +27,34 @@ pub struct HttpResponse {
     pub is_success: bool,
 }
 
+fn print_error(err: &anyhow::Error) ->String{
+    // println!("Error: {}", err);
+    let mut source = err.source();
+    let mut level = 0;
+    let mut error_str = format!("[plugin error] {}\n", err);
+    while let Some(cause) = source {
+        // println!("Cause {}: {}", level, cause);
+        error_str.push_str(&format!("Cause by : {} \n", cause));
+        source = cause.source();
+        level += 1;
+        if level >= 5 {
+            break;
+        }
+    }
+
+    error_str
+}
+
+
 impl HttpResponse{
     pub fn from_anyhow(r: anyhow::Result<Self>)->HttpResponse{
-        r.unwrap_or_else(|e| HttpResponse {
-            headers: Default::default(),
-            body: format!("{}", e),
-            status_code: 500,
-            is_success: false,
+        r.unwrap_or_else(|e| {
+            HttpResponse {
+                headers: Default::default(),
+                body: print_error(&e),
+                status_code: 500,
+                is_success: false,
+            }
         })
     }
 }

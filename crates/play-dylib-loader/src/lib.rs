@@ -1,9 +1,9 @@
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
-use anyhow::ensure;
+use anyhow::{bail, ensure};
 use libloading::{Library, Symbol};
 use tokio::fs;
-use log::info;
+use log::{error, info};
 pub use play_abi::http_abi::*;
 use play_abi::{c_char_to_string, string_to_c_char};
 
@@ -28,6 +28,9 @@ pub async fn load_and_run(dylib_path: &str, request: HttpRequest) -> anyhow::Res
             // let response = unsafe { CStr::from_ptr(response).to_str().unwrap() };
             let response : HttpResponse =  serde_json::from_str(&response)?;
             info!("load_and_run finish  path : {}",copy_path);
+            if !response.is_success{
+                bail!("run plugin error >> {}", response.body);
+            }
             Ok(response)
         }
     }).await?

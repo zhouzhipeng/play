@@ -7,7 +7,7 @@ use axum::extract::Query;
 use axum::response::{IntoResponse, Response};
 use http::{Request, StatusCode};
 use serde::Deserialize;
-
+use serde_json::Value;
 
 #[cfg(feature = "play-dylib-loader")]
 method_router!(
@@ -24,11 +24,10 @@ async fn run_plugin(s: S, request: Request<Body>) -> Result<Response, AppError> 
     //todo : pass headers to plugin system
     // request.headers();
     use play_dylib_loader::*;
-    let params: Query<HashMap<String, String>> = Query::try_from_uri(request.uri())?;
 
     let plugin_request = HttpRequest {
         headers: Default::default(),
-        query: params.0,
+        query: request.uri().query().unwrap_or_default().to_string(),
         url: url.to_string(),
         body: "".to_string(),
     };
