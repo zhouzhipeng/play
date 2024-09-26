@@ -14,6 +14,7 @@ pub async fn load_and_run(dylib_path: &str, request: HttpRequest) -> anyhow::Res
             info!("load_and_run begin  path : {}",copy_path);
             // 加载动态库
             let lib = Library::new(&copy_path)?;
+            info!("load_and_run lib load ok.  path : {}",copy_path);
             let handle_request: Symbol<HandleRequestFn> = lib.get(HANDLE_REQUEST_FN_NAME.as_ref())?;
             let response = handle_request(request);
             info!("load_and_run finish  path : {}",copy_path);
