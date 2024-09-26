@@ -29,7 +29,7 @@ fn handle_request_impl(request: HttpRequest) -> anyhow::Result<HttpResponse> {
 
     Ok(HttpResponse {
         headers: Default::default(),
-        body: "sss".to_string(),
+        body: format!("input : {:?}", request.query),
         status_code: 200,
         is_success: true,
     })

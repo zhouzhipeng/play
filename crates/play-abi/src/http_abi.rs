@@ -6,8 +6,8 @@ use std::fmt::format;
 pub struct HttpRequest {
     pub headers: HashMap<String, String>,
     pub query: HashMap<String, String>,
-    pub body: String,
     pub url: String,
+    pub body: String,
 }
 
 #[derive(Serialize,Deserialize,Debug, Default)]

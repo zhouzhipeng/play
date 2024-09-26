@@ -39,6 +39,8 @@ pub struct Config {
     pub misc_config: MiscConfig,
     #[serde(default)]
     pub cache_config: CacheConfig,
+    #[serde(default)]
+    pub plugin_config: Vec<PluginConfig>,
 }
 
 #[derive(Deserialize,Serialize, Debug, Clone, Default)]
@@ -48,6 +50,17 @@ pub struct CacheConfig {
     #[serde(default)]
     pub cf_purge_cache_url: String,
 }
+
+#[derive(Deserialize,Serialize, Debug, Clone, Default)]
+pub struct PluginConfig {
+    #[serde(default)]
+    pub url_prefix: String,
+    #[serde(default)]
+    pub file_path: String,
+    #[serde(default)]
+    pub name: String,
+}
+
 #[derive(Deserialize,Serialize, Debug, Clone, Default)]
 pub struct ShortLink {
     pub from: String,
