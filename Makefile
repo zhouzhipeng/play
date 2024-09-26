@@ -26,6 +26,4 @@ build_wasm_example:
 
 build_dylib_example:
 	cargo build --release -p play-dylib-example
-run_dylib_loader:
-	cargo run  -p play-dylib-loader
 
