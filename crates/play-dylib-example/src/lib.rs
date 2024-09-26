@@ -1,6 +1,5 @@
-use tokio::runtime::Runtime;
 use play_abi::http_abi::*;
-use play_abi::{async_request_handler, request_handler};
+use play_abi::*;
 
 // 异步处理函数
 async fn handle_request_impl(request: HttpRequest) -> anyhow::Result<HttpResponse> {
@@ -14,10 +13,13 @@ async fn handle_request_impl(request: HttpRequest) -> anyhow::Result<HttpRespons
         headers: Default::default(),
         body: "abcdefssss".to_string(),
         status_code: 200,
+        is_success: true,
     })
 }
 
 async_request_handler!(handle_request_impl);
+
+
 // fn handle_request_impl(request: HttpRequest) -> anyhow::Result<HttpResponse> {
 //     // 模拟一些异步操作
 //     println!("Request handled request : {:?}", request);
@@ -29,6 +31,7 @@ async_request_handler!(handle_request_impl);
 //         headers: Default::default(),
 //         body: "sss".to_string(),
 //         status_code: 200,
+//         is_success: true,
 //     })
 // }
 //

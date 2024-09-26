@@ -9,14 +9,15 @@ pub struct HttpRequest {
     pub url: String,
 }
 
-#[derive(Serialize,Deserialize,Debug)]
+#[derive(Serialize,Deserialize,Debug, Default)]
 pub struct HttpResponse {
     pub headers: HashMap<String, String>,
     pub body: String,
     pub status_code: u16,
+    pub is_success: bool,
 }
 
-pub type HandleRequestFn =fn(HttpRequest) -> anyhow::Result<HttpResponse>;
+pub type HandleRequestFn =unsafe extern "C" fn(*const std::os::raw::c_char) ->  *const std::os::raw::c_char;
 pub const HANDLE_REQUEST_FN_NAME : &'static str = "handle_request";
 
 /// needs tokio runtime.
@@ -29,12 +30,23 @@ macro_rules! async_request_handler {
     ($func:ident) => {
 
         #[no_mangle]
-        pub extern "C" fn handle_request(request: HttpRequest) -> anyhow::Result<HttpResponse> {
+        pub extern "C" fn handle_request(request: *const std::os::raw::c_char) -> *const std::os::raw::c_char {
+            use play_abi::*;
+            let name = c_char_to_string(request);
+            let request: HttpRequest = serde_json::from_str(&name).unwrap();
+
             use tokio::runtime::Runtime;
 
-            let rt = Runtime::new()?;
-            let resp = rt.block_on($func(request))?;
-            Ok(resp)
+            let rt = Runtime::new().unwrap();
+            let response = rt.block_on($func(request)).unwrap_or(HttpResponse {
+                headers: Default::default(),
+                body: "error".to_string(),
+                status_code: 0,
+                is_success: false,
+            });
+
+            let result = serde_json::to_string(&response).unwrap();
+            string_to_c_char(&result)
         }
     };
 }
@@ -49,8 +61,19 @@ macro_rules! request_handler {
     ($func:ident) => {
 
         #[no_mangle]
-        pub extern "C" fn handle_request(request: HttpRequest) -> anyhow::Result<HttpResponse> {
-            $func(request)
+        pub extern "C" fn handle_request(request: *const std::os::raw::c_char) -> *const std::os::raw::c_char {
+            use play_abi::*;
+            let name = c_char_to_string(request);
+            let request: HttpRequest = serde_json::from_str(&name).unwrap();
+
+            let response = $func(request).unwrap_or(HttpResponse {
+                headers: Default::default(),
+                body: "error".to_string(),
+                status_code: 0,
+                is_success: false,
+            });
+            let result = serde_json::to_string(&response).unwrap();
+            string_to_c_char(&result)
         }
     };
 }
