@@ -8,8 +8,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tracing::{error, info};
 
-use shared::timestamp_to_date_str;
-use shared::tpl_engine_api::Template;
+use play_shared::timestamp_to_date_str;
+use play_shared::tpl_engine_api::Template;
 
 use crate::{ensure, hex_to_string, method_router, render_fragment, render_page, template};
 use crate::{HTML, R, S};

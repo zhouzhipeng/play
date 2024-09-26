@@ -2,7 +2,7 @@ use std::env::set_var;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
-use shared::get_workspace_root;
+use play_shared::get_workspace_root;
 use tool::{build_dev, build_python_artifacts};
 
 fn main() {
@@ -15,7 +15,7 @@ fn main() {
 
 
 fn run()->anyhow::Result<()>{
-    build_dev("use_embed_python,ui,job,play_cache")?;
+    build_dev("use_embed_python,play-ui,play-job,play-cache")?;
 
     let root = get_workspace_root();
     let app_dir = Path::new(&root)
@@ -31,11 +31,11 @@ fn run()->anyhow::Result<()>{
     fs::create_dir_all(&MacOS_dir)?;
 
     fs::copy(Path::new(&root)
-        .join("crates/play_ui/res/Info.plist"), &Contents_dir.join("Info.plist"))?;
+        .join("crates/play-ui/res/Info.plist"), &Contents_dir.join("Info.plist"))?;
     fs::copy(Path::new(&root)
         .join("target/release/play"), &MacOS_dir.join("play"))?;
     fs::copy(Path::new(&root)
-                 .join("crates/play_ui/icon.icns"), &Resources_dir.join("icon.icns"))?;
+                 .join("crates/play-ui/icon.icns"), &Resources_dir.join("icon.icns"))?;
 
 
 

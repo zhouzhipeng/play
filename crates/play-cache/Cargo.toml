@@ -1,0 +1,10 @@
+[package]
+name = "play-cache"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+headless_chrome = "1.0.5"
+anyhow = { workspace = true }
+tokio = { workspace = true }
+log = "0.4.21"

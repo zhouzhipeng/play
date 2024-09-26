@@ -3,7 +3,7 @@ use axum_test::TestServer;
 use play::routers;
 use play::init_app_state;
 use play::tables::article::Article;
-use shared::models::article::{AddArticle, QueryArticle};
+use play_shared::models::article::{AddArticle, QueryArticle};
 
 mod common;
 

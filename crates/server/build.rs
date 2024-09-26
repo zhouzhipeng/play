@@ -8,7 +8,7 @@ use std::path::Path;
 use regex::Regex;
 use walkdir::WalkDir;
 
-use shared::current_timestamp;
+use play_shared::current_timestamp;
 
 const HOOKS_PATH: &str = "../.git/hooks";
 const PRE_COMMIT_HOOK: &str = "#!/bin/sh
@@ -33,7 +33,7 @@ fn main() {
     println!("cargo:rerun-if-changed=templates");
     println!("cargo:rerun-if-changed=static");
     println!("cargo:rerun-if-changed=config");
-    println!("cargo:rerun-if-changed=doc");
+    println!("cargo:rerun-if-changed=docs");
 
 }
 

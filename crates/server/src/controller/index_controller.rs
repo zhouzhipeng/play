@@ -9,8 +9,8 @@ use tokio::fs::File;
 use tokio_util::codec::{BytesCodec, FramedRead};
 use tracing::{info, warn};
 
-use shared::constants::CAT_FINGERPRINT;
-use shared::timestamp_to_date_str;
+use play_shared::constants::CAT_FINGERPRINT;
+use play_shared::timestamp_to_date_str;
 
 use crate::{method_router, return_error, template};
 use crate::{HTML, R, S};
@@ -24,7 +24,6 @@ method_router!(
     get : "/ping"-> ping,
     get : "/save-fingerprint"-> save_fingerprint,
     get : "/test-redis"-> redis_test,
-    get : "/test"-> test,
     get : "/download-db"-> serve_db_file,
     get : "/download-config"-> serve_config_file,
 );
@@ -84,13 +83,6 @@ async fn save_fingerprint(s: S, Query(req): Query<SaveFingerPrintReq>) -> R<Stri
     Ok("save ok,will reboot in a sec.".to_string())
 }
 
-async fn test(s: S, requst: Request<Body>) -> HTML {
-    let key = generate_cache_key(&requst.uri());
-    info!("cache key test : {}",key );
-    return_error!("fuck33 ");
-    // template!(s, "test.html", json!({"name":"zzp"}))
-    template!(s, "test.html", json!({"name":"zzp"}))
-}
 
 
 async fn serve_db_file(s: S) -> impl IntoResponse {

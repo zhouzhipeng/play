@@ -8,7 +8,7 @@ use sqlx::mysql::{MySqlPoolOptions, MySqlQueryResult};
 use sqlx::sqlite::SqliteQueryResult;
 use tracing::{info, warn};
 
-use shared::file_path;
+use play_shared::file_path;
 
 use crate::config::Config;
 
@@ -65,7 +65,7 @@ pub async fn init_pool(config: &Config) -> DBPool {
     }
 
     let db = SqlitePool::connect(db_url).await.unwrap();
-    let result = sqlx::query(include_str!(file_path!("/../../doc/db_sqlite.sql"))).execute(&db).await.unwrap();
+    let result = sqlx::query(include_str!(file_path!("/../../docs/db_sqlite.sql"))).execute(&db).await.unwrap();
     info!("Create  table result: {:?}", result);
     db
 }
@@ -75,7 +75,7 @@ pub async fn init_pool(config: &Config) -> DBPool {
 pub async fn init_test_pool() -> DBPool {
     let db_test_url = ":memory:";
     let db = SqlitePool::connect(db_test_url).await.unwrap();
-    let result = sqlx::query(include_str!(file_path!("/../../doc/db_sqlite.sql"))).execute(&db).await.unwrap();
+    let result = sqlx::query(include_str!(file_path!("/../../docs/db_sqlite.sql"))).execute(&db).await.unwrap();
     // info!("Create  table result: {:?}", result);
     db
 }
@@ -97,7 +97,7 @@ pub async fn init_pool(config: &Config) -> DBPool {
         .max_connections(5)
         .connect(db_url).await.unwrap();
 
-    for s in include_str!(file_path!("/../doc/db_mysql.sql")).split(";") {
+    for s in include_str!(file_path!("/../../docs/db_mysql.sql")).split(";") {
         if s.trim().is_empty() {
             continue;
         }
@@ -128,7 +128,7 @@ pub async fn init_test_pool() -> DBPool {
         .max_connections(5)
         .connect(DB_URL).await.unwrap();
 
-    for s in include_str!(file_path!("/../doc/db_mysql.sql")).split(";") {
+    for s in include_str!(file_path!("/../../docs/db_mysql.sql")).split(";") {
         if s.trim().is_empty() {
             continue;
         }

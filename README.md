@@ -54,7 +54,7 @@ harness = false
 after that, run `cargo bench` then check the report html in `target/criterion/report/index.html`
 
 ## check docs before developing
-[README.md](doc/README.md)
+[README.md](docs/README.md)
 
 
 ## pressure test using wrk
@@ -105,3 +105,14 @@ curl -sSL https://raw.githubusercontent.com/zhouzhipeng/play/main/scripts/instal
 `dev2`: working for clean minimal server
 `dev3`: regular developing
 
+## add patch for local dev
+`vim ~/.cargo/config.toml`
+```toml
+[patch."https://github.com/zhouzhipeng/rust-utils"]
+rust-utils = { path = "/Users/zhouzhipeng/RustroverProjects/rust-utils"}
+```
+
+
+todo:
+
+use justfile instead makefile

@@ -704,8 +704,9 @@
         // // 清空 iframe
         // doc.open();
         // doc.close();
-
-        iframe.srcdoc = content;
+        const blob = new Blob([content], { type: 'text/html' });
+        const blobUrl = URL.createObjectURL(blob);
+        iframe.src = blobUrl;
 
         //write 方式会导致js变量声明重复定义
         // doc.open();

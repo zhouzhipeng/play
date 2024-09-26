@@ -1,0 +1,21 @@
+[package]
+name = "play-redis"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+default=["single"]
+single=["bb8-redis"]
+cluster=["bb8-redis-cluster"]
+
+[dependencies]
+bb8-redis = { version = "0.13.1", optional = true }
+bb8-redis-cluster = { version = "0.1.1", optional = true }
+dashmap = "5.5.3"
+anyhow = { workspace=true }
+futures = "0.3.29"
+futures-util = "0.3.29"
+tracing = "0.1"
+play-shared={path= "../play-shared" }
+async-trait = {workspace=true}

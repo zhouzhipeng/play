@@ -5,8 +5,8 @@ use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use shared::{ file_path};
-use shared::constants::DATA_DIR;
+use play_shared::{ file_path};
+use play_shared::constants::DATA_DIR;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Config {
@@ -82,9 +82,15 @@ pub struct MiscConfig {
 #[derive(Deserialize, Debug, Clone, Default)]
 pub struct LocalJobConfig {
     pub name: String,
+    #[serde(default="default_true")]
+    pub enable: bool,
     pub cron: String,
     pub url: String,
     pub params : Vec<(String/*key*/, String/*value*/)>
+}
+
+fn default_true() -> bool {
+    true
 }
 
 

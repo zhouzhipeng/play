@@ -1,7 +1,7 @@
 use anyhow::bail;
 use async_trait::async_trait;
 
-use shared::redis_api::RedisAPI;
+use play_shared::redis_api::RedisAPI;
 
 pub struct RedisFakeService {}
 

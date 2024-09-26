@@ -10,15 +10,16 @@ before-packaging-command = "cargo dev_ui"
 
 [features]
 default = []
-debug = ["tower-livereload", "notify", "tpl", "tpl/debug", "play_cache"]
-use_embed_python = ["tpl", "tpl/use_embed_python"]
+debug = ["tower-livereload", "notify", "play-py-tpl", "play-py-tpl/debug", "play-cache", "play-job", "play-dylib-loader"]
+use_embed_python = ["play-py-tpl", "play-py-tpl/use_embed_python"]
 use_mysql=["sqlx/mysql", "sqlparser"]
+
 
 [build-dependencies]
 walkdir = "2"
 fs_extra = "1.3.0"
 anyhow = { workspace = true }
-shared = { path = "../play_shared", features = ["utils"] }
+play-shared = { path = "../play-shared", features = ["utils"] }
 regex = "1.10.2"
 serde_json = "1.0.68"
 chrono = { workspace = true }
@@ -37,17 +38,18 @@ harness = false
 
 [dependencies]
 # from libs
-shared = { path = "../play_shared", features = ["proc_macros", "utils"] }
-ui = { path = "../play_ui", optional = true }
-job = { path = "../play_job", optional = true }
-redis = { package = "redis", path = "../play_redis", optional = true }
-tpl = { package = "py_tpl", path = "../play_py_tpl", optional = true }
-mail_server = { path = "../play_mail_server", optional = true }
-https = { path = "../play_https", optional = true }
-play_cache = { path = "../play_cache", optional = true }
+play-shared = { path = "../play-shared", features = ["play-macros", "utils"] }
+play-ui = { path = "../play-ui", optional = true }
+play-job = { path = "../play-job", optional = true }
+play-redis = {path = "../play-redis", optional = true }
+play-py-tpl = { path = "../play-py-tpl", optional = true }
+play-mail-server = { path = "../play-mail-server", optional = true }
+play-https = { path = "../play-https", optional = true }
+play-cache = { path = "../play-cache", optional = true }
+play-dylib-loader = { path = "../play-dylib-loader", optional = true }
 
-# util
-rust-utils = {git = "https://github.com/zhouzhipeng/rust-utils.git"}
+# utils
+rust-utils = {git = "https://github.com/zhouzhipeng/rust-utils.git",features = ["sql-util", "common-crypt"]}
 
 
 # third parties
@@ -100,3 +102,5 @@ bytes = "1.5.0"
 cookie = { version = "0.18.1", features = ["percent-encode"] }
 tokio-stream = "0.1.15"
 difference = "2.0.0"
+
+

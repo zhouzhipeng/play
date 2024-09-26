@@ -4,7 +4,7 @@ use async_channel::{Receiver, RecvError, Sender};
 use async_trait::async_trait;
 use serde_json::Value;
 use tracing::error;
-use shared::tpl_engine_api::{TemplateData, TplEngineAPI};
+use play_shared::tpl_engine_api::{TemplateData, TplEngineAPI};
 
 use crate::Template;
 use tokio::time::{self, Duration};

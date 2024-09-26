@@ -140,21 +140,9 @@ async fn run_sql(s: S, Form(data): Form<RunSqlRequest>) -> HTML {
 }
 #[cfg(feature = "use_mysql")]
 async fn run_sql(s: S, Form(data): Form<RunSqlRequest>) -> HTML {
-    use sqlparser::ast::Statement;
-    use sqlparser::dialect::GenericDialect;
-    use sqlparser::parser::Parser;
 
-    let sql = data.sql.trim();
-    //parse sql
-    let dialect = GenericDialect {}; // or AnsiDialect
-    let statements = Parser::parse_sql(&dialect, sql)?;
-    ensure!(statements.len()==1, "Err >> can only pass one sql statement!");
-
-    let is_query = match statements[0] {
-        Statement::Query(_) => true,
-        _ => false,
-    };
-
+    let sql = &data.sql;
+    let is_query =  rust_utils::is_query_sql(sql);
     let data = query_mysql(&data.url.trim(), sql, is_query).await?;
     // println!("results >> {:?}", data);
 
