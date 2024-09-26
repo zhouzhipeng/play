@@ -252,6 +252,6 @@ pub fn init_config(use_memory: bool) -> Config {
 
     };
     let  config: Config = toml::from_str(&config_content).unwrap();
-    println!("using config file  content >>  {:?}",  config);
+    //println!("using config file  content >>  {:?}",  config);
     config
 }

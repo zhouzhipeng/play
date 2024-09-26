@@ -103,7 +103,7 @@ impl<S> Service<Request<Body>> for HttpLogMiddleware<S>
                                     if let Ok(cookie) = Cookie::parse(cookie_str) {
                                         if cookie.name() == "browserFingerprint" {
                                             fingerprint_from_cookie = cookie.value().to_string();
-                                            info!("The value of browserFingerprint is: {}", fingerprint_from_cookie);
+                                          //  info!("The value of browserFingerprint is: {}", fingerprint_from_cookie);
                                             break
                                         }
                                     }

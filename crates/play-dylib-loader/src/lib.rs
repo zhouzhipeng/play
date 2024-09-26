@@ -37,4 +37,16 @@ mod tests{
         let resp = load_and_run("/Users/zhouzhipeng/RustroverProjects/play/target/release/libplay_dylib_example.dylib", request).await;
         println!("resp >> {:?}", resp);
     }
+
+    #[tokio::test]
+    async fn test_load_and_run_in_docker(){
+        let request = HttpRequest {
+            headers: Default::default(),
+            query: Default::default(),
+            body: "sdfd".to_string(),
+            url: "sdf".to_string(),
+        };
+        let resp = load_and_run("/app/target/release/libplay_dylib_example.so", request).await;
+        println!("resp >> {:?}", resp);
+    }
 }
