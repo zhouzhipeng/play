@@ -2,6 +2,7 @@
 
 set  -eux
 
-rustup target add x86_64-unknown-linux-gnu
-
-cargo build --target x86_64-unknown-linux-gnu --release -p play-dylib-example
+cd ..
+docker build -f scripts/dockerfiles/build_linux_dylib_example.Dockerfile -t tmpimg .
+docker run --name tmpcontontainer tmpimg
+docker cp tmpcontontainer:/app/target/release/libplay_dylib_example.so . 
