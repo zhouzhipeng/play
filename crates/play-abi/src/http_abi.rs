@@ -16,7 +16,7 @@ pub struct HttpResponse {
     pub status_code: u16,
 }
 
-pub type HandleRequestFn =fn(HttpRequest) -> anyhow::Result<HttpResponse>;
+pub type HandleRequestFn =unsafe extern "C"  fn(HttpRequest) -> anyhow::Result<HttpResponse>;
 pub const HANDLE_REQUEST_FN_NAME : &'static str = "handle_request";
 
 /// needs tokio runtime.
