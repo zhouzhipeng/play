@@ -1,10 +1,10 @@
 use anyhow::ensure;
 use libloading::{Library, Symbol};
 use tokio::fs;
-use play_abi::http_abi::*;
+pub use play_abi::http_abi::*;
 
 /// load a dylib from `dylib_path` (absolute path)
-pub async fn load_and_run(dylib_path: &str, request: Request) -> anyhow::Result<Response> {
+pub async fn load_and_run(dylib_path: &str, request: HttpRequest) -> anyhow::Result<HttpResponse> {
     ensure!(fs::try_exists(dylib_path).await?);
 
     let copy_path = dylib_path.to_string();
@@ -14,6 +14,7 @@ pub async fn load_and_run(dylib_path: &str, request: Request) -> anyhow::Result<
             let lib = Library::new(copy_path)?;
             let handle_request: Symbol<HandleRequestFn> = lib.get(HANDLE_REQUEST_FN_NAME.as_ref())?;
             let response = handle_request(request);
+            lib.close()?;
             response
         }
     }).await?
@@ -24,7 +25,7 @@ mod tests{
     use super::*;
     #[tokio::test]
     async fn test_load_and_run(){
-        let request = Request {
+        let request = HttpRequest {
             headers: Default::default(),
             query: Default::default(),
             body: "sdfd".to_string(),

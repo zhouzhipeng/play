@@ -1769,6 +1769,7 @@ dependencies = [
 [[package]]
 name = "common-crypt"
 version = "0.1.0"
+source = "git+https://github.com/zhouzhipeng/rust-utils.git#58918ba4375aa08d4b9045ef39f300dd0381a966"
 dependencies = [
  "base64 0.22.1",
  "md5",
@@ -5495,6 +5496,7 @@ dependencies = [
  "multer 3.1.0",
  "notify",
  "play-cache",
+ "play-dylib-loader",
  "play-https",
  "play-job",
  "play-mail-server",
@@ -6446,6 +6448,7 @@ dependencies = [
 [[package]]
 name = "rust-utils"
 version = "0.1.0"
+source = "git+https://github.com/zhouzhipeng/rust-utils.git#58918ba4375aa08d4b9045ef39f300dd0381a966"
 dependencies = [
  "common-crypt",
  "sql-util",
@@ -7260,6 +7263,7 @@ dependencies = [
 [[package]]
 name = "sql-util"
 version = "0.1.0"
+source = "git+https://github.com/zhouzhipeng/rust-utils.git#58918ba4375aa08d4b9045ef39f300dd0381a966"
 dependencies = [
  "anyhow",
  "sqlparser",

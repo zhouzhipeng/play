@@ -10,7 +10,7 @@ before-packaging-command = "cargo dev_ui"
 
 [features]
 default = []
-debug = ["tower-livereload", "notify", "play-py-tpl", "play-py-tpl/debug", "play-cache", "play-job"]
+debug = ["tower-livereload", "notify", "play-py-tpl", "play-py-tpl/debug", "play-cache", "play-job", "play-dylib-loader"]
 use_embed_python = ["play-py-tpl", "play-py-tpl/use_embed_python"]
 use_mysql=["sqlx/mysql", "sqlparser"]
 
@@ -46,6 +46,7 @@ play-py-tpl = { path = "../play-py-tpl", optional = true }
 play-mail-server = { path = "../play-mail-server", optional = true }
 play-https = { path = "../play-https", optional = true }
 play-cache = { path = "../play-cache", optional = true }
+play-dylib-loader = { path = "../play-dylib-loader", optional = true }
 
 # utils
 rust-utils = {git = "https://github.com/zhouzhipeng/rust-utils.git",features = ["sql-util", "common-crypt"]}
