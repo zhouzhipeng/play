@@ -9,3 +9,4 @@ tokio = {workspace = true}
 play-abi={path= "../play-abi" }
 anyhow={workspace = true}
 reqwest = {workspace = true}
+log = "0.4.22"
