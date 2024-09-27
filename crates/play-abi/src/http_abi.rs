@@ -3,6 +3,12 @@ use std::collections::HashMap;
 use anyhow::Context;
 use serde::de::DeserializeOwned;
 
+/// env info provided by host
+#[derive(Serialize, Deserialize, Debug)]
+pub struct HostEnv {
+    /// host http url , eg. http://127.0.0.1:3000
+    pub host_url: String
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct HttpRequest {
@@ -10,6 +16,7 @@ pub struct HttpRequest {
     pub query: String,
     pub url: String,
     pub body: String,
+    pub host_env: HostEnv,
 }
 
 impl HttpRequest {

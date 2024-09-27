@@ -1,9 +1,7 @@
 [workspace]
 resolver="2"
 members = [
-    "crates/play-*",
-    "crates/server",
-    "crates/tool",
+    "crates/*",
 ]
 default-members=["crates/server"]
 

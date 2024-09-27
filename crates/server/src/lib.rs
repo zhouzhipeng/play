@@ -15,7 +15,7 @@ use async_trait::async_trait;
 
 use axum::extract::{DefaultBodyLimit, State};
 use axum::http::{Method, StatusCode};
-use axum::Json;
+use axum::{middleware, Json};
 use axum::response::{Html, IntoResponse, Response};
 use axum::Router;
 use axum_server::Handle;
@@ -43,7 +43,7 @@ use play_shared::tpl_engine_api::{Template, TemplateData, TplEngineAPI};
 use crate::config::Config;
 use crate::config::init_config;
 use crate::controller::{app_routers, shortlink_controller};
-use crate::layer::http_log::{HttpLogLayer};
+use crate::layer::http_log::{connection_info_middleware, HttpLogLayer};
 use crate::service::elevenlabs_service::ElevenlabsService;
 use crate::service::openai_service::OpenAIService;
 use crate::service::template_service;
@@ -188,7 +188,6 @@ macro_rules! app_error {
     };
 }
 
-
 pub struct AppState {
     pub template_service: TemplateService,
     pub openai_service: OpenAIService,
@@ -207,8 +206,8 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> Arc<AppStat
     //create a group of channels to handle python code running
     let (req_sender, req_receiver) = async_channel::unbounded::<TemplateData>();
 
-    // Create an instance of the shared state
-    let app_state = Arc::new(AppState {
+
+    let mut inner_app_state  = AppState {
         template_service: TemplateService::new(req_sender),
         openai_service: OpenAIService::new(config.open_ai.api_key.to_string()).unwrap(),
         elevenlabs_service: ElevenlabsService::new(config.elevenlabs.api_key.to_string(), config.elevenlabs.voice_id.to_string()).unwrap(),
@@ -218,13 +217,28 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> Arc<AppStat
         #[cfg(not(feature = "play-redis"))]
         redis_service: Box::new(crate::service::redis_fake_service::RedisFakeService::new(config.redis_uri.clone(), final_test_pool).await.unwrap()),
         config: config.clone(),
-    });
+    };
+
+    let mut auth_config = &mut inner_app_state.config.auth_config;
+    let mut shortlinks:Vec<String> = inner_app_state.config.shortlinks.clone().iter().map(|p|p.from.to_string()).collect();
+    auth_config.whitelist.append(&mut shortlinks);
+
+    info!("whitelist : {:?}", auth_config.whitelist);
+
+    let mut fingerprints = GeneralData::query_by_cat_simple(CAT_FINGERPRINT,1000,&inner_app_state.db).await.unwrap().iter().map(|f|f.data.to_string()).collect::<Vec<String>>();
+    auth_config.fingerprints.append(&mut fingerprints);
+
+
+    // Create an instance of the shared state
+    let app_state = Arc::new(inner_app_state);
 
 
     #[cfg(feature = "play-py-tpl")]
     start_template_backend_thread(Box::new(play_py_tpl::TplEngine {}), req_receiver);
     #[cfg(not(feature = "play-py-tpl"))]
     start_template_backend_thread(Box::new(crate::service::tpl_fake_engine::FakeTplEngine {}), req_receiver);
+
+
 
 
     app_state
@@ -366,31 +380,20 @@ pub async fn routers(app_state: Arc<AppState>) -> anyhow::Result<Router> {
     let max_body_size = 10 * 1024 * 1024; // For example, 10 MB
 
 
-
-    let mut auth_config = app_state.config.auth_config.clone();
-    let mut shortlinks:Vec<String> = app_state.config.shortlinks.iter().map(|p|p.from.to_string()).collect();
-    auth_config.whitelist.append(&mut shortlinks);
-
-    info!("whitelist : {:?}", auth_config.whitelist);
-
-    let mut fingerprints = GeneralData::query_by_cat_simple(CAT_FINGERPRINT,1000,&app_state.db).await?.iter().map(|f|f.data.to_string()).collect::<Vec<String>>();
-    auth_config.fingerprints.append(&mut fingerprints);
-
     // info!("fingerprints : {:?}", auth_config.fingerprints);
-
-
 
 
 
     let mut router = Router::new()
         .merge(shortlink_controller::init(app_state.clone()))
         .merge(app_routers())
-        .with_state(app_state)
+        .with_state(app_state.clone())
         // logging so we can see whats going on
         .layer(TraceLayer::new_for_http().make_span_with(DefaultMakeSpan::default().include_headers(true)))
         .layer(TimeoutLayer::new(Duration::from_secs(600)))
         .layer(DefaultBodyLimit::disable())
-        .layer(HttpLogLayer{ auth_config })
+        // .layer(HttpLogLayer{ auth_config })
+        .layer(middleware::from_fn_with_state(app_state.clone(), connection_info_middleware))
         .layer(cors);
 
     //

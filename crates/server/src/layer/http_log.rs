@@ -4,6 +4,7 @@ use std::net::SocketAddr;
 use std::path::Path;
 use std::pin::Pin;
 use std::str::FromStr;
+use std::sync::Arc;
 use axum::{
     response::Response,
     body::Body,
@@ -13,6 +14,8 @@ use futures_util::future::BoxFuture;
 use tower::{Service, Layer, ServiceExt};
 use std::task::{Context, Poll};
 use axum::body::{BoxBody};
+use axum::extract::{ConnectInfo, State};
+use axum::middleware::Next;
 use axum::response::{Html, IntoResponse};
 use axum::routing::get_service;
 use cookie::Cookie;
@@ -23,6 +26,16 @@ use tracing::{info, warn};
 #[derive(Clone)]
 pub struct HttpLogLayer{
     pub  auth_config : AuthConfig
+}
+
+pub async fn connection_info_middleware<B>(
+    State(state): State<Arc<AppState>>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    req: Request<B>,
+    next: Next<B>,
+) -> Response {
+    println!("Connection from: {}", addr);
+    next.run(req).await
 }
 
 impl<S> Layer<S> for HttpLogLayer {
@@ -66,7 +79,7 @@ impl<S> Service<Request<Body>> for HttpLogMiddleware<S>
 
         //serve other domains (support only static files now)
         if !self.auth_config.serve_domains.is_empty(){
-            if let Some(header) = request.headers().get(axum::http::header::HOST) {
+            if let Some(header) = request.headers().get(header::HOST) {
                 if let Ok(host) = header.to_str() {
                     let host = host.to_string();
                     if self.auth_config.serve_domains.contains(&host){
@@ -301,7 +314,7 @@ use tower_http::set_status::SetStatus;
 use crate::config::AuthConfig;
 use crate::controller::cache_controller::get_cache_content;
 use crate::controller::static_controller::STATIC_DIR;
-use crate::files_dir;
+use crate::{files_dir, AppState};
 // 提供 `try_concat` 方法来转换 body
 
 #[cfg(test)]
