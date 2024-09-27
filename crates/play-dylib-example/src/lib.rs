@@ -1,6 +1,7 @@
 use play_abi::http_abi::*;
 use play_abi::*;
 use serde::Deserialize;
+use serde_json::json;
 // 异步处理函数
 // async fn handle_request_impl(request: HttpRequest) -> anyhow::Result<HttpResponse> {
 //     // 模拟一些异步操作
@@ -33,7 +34,10 @@ fn handle_request_impl(request: HttpRequest) -> anyhow::Result<HttpResponse> {
     let params = request.parse_query::<Param>()?;
     // let response = reqwest::get("https://crab.rs").await?.text().await?;
 
-    Ok(HttpResponse::text(&format!("inputeee111 : {:?}", params)))
+    Ok(HttpResponse::json(&json!({
+        "name":"zzsss",
+        "age" : 18,
+    })))
 }
 
 request_handler!(handle_request_impl);

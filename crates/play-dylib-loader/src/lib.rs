@@ -1,7 +1,7 @@
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 use std::path::PathBuf;
-use anyhow::{bail, ensure};
+use anyhow::{bail, ensure, Context};
 use libloading::{Library, Symbol};
 use tokio::fs;
 use log::{error, info};
@@ -21,7 +21,7 @@ pub async fn load_and_run(dylib_path: &str, request: HttpRequest) -> anyhow::Res
     let temp_dir = Builder::new().prefix("play_dylib").tempdir()?;
 
     // 在临时目录中创建目标文件路径
-    let dest_path = temp_dir.path().join(source_path.file_name().unwrap());
+    let dest_path = temp_dir.path().join(source_path.file_name().context("tmp file error!")?);
 
     // 异步复制文件
     fs::copy(&source_path, &dest_path).await?;
