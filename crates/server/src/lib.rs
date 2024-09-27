@@ -43,7 +43,7 @@ use play_shared::tpl_engine_api::{Template, TemplateData, TplEngineAPI};
 use crate::config::Config;
 use crate::config::init_config;
 use crate::controller::{app_routers, shortlink_controller};
-use crate::layer::http_log::{connection_info_middleware, HttpLogLayer};
+use crate::layer::http_log::{connection_info_middleware};
 use crate::service::elevenlabs_service::ElevenlabsService;
 use crate::service::openai_service::OpenAIService;
 use crate::service::template_service;
