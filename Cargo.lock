@@ -5630,6 +5630,7 @@ dependencies = [
  "play-abi",
  "reqwest",
  "serde_json",
+ "tempfile",
  "tokio",
 ]
 
