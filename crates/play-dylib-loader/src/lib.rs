@@ -1,9 +1,11 @@
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
-use anyhow::{bail, ensure};
+use std::path::PathBuf;
+use anyhow::{bail, ensure, Context};
 use libloading::{Library, Symbol};
 use tokio::fs;
 use log::{error, info};
+use tempfile::Builder;
 pub use play_abi::http_abi::*;
 use play_abi::{c_char_to_string, string_to_c_char};
 
@@ -11,7 +13,21 @@ use play_abi::{c_char_to_string, string_to_c_char};
 pub async fn load_and_run(dylib_path: &str, request: HttpRequest) -> anyhow::Result<HttpResponse> {
     ensure!(fs::try_exists(dylib_path).await?);
     info!("load_and_run  path : {}",dylib_path);
-    let copy_path = dylib_path.to_string();
+
+    //copy to a tmp folder (to mock hot-reloading)
+    let source_path = PathBuf::from(dylib_path);
+
+    // 使用 tempfile 创建一个临时目录
+    let temp_dir = Builder::new().prefix("play_dylib").tempdir()?;
+
+    // 在临时目录中创建目标文件路径
+    let dest_path = temp_dir.path().join(source_path.file_name().context("tmp file error!")?);
+
+    // 异步复制文件
+    fs::copy(&source_path, &dest_path).await?;
+
+    let copy_path = dest_path.to_string_lossy().into_owned();
+
     tokio::spawn(async move {
         unsafe {
             info!("load_and_run begin  path : {}",copy_path);
@@ -23,7 +39,12 @@ pub async fn load_and_run(dylib_path: &str, request: HttpRequest) -> anyhow::Res
             let request = string_to_c_char(&rust_string);
             let response = handle_request(request);
 
+
             let response = c_char_to_string(response);
+
+
+            //delete temp file
+            fs::remove_file(&copy_path).await?;
 
             // let response = unsafe { CStr::from_ptr(response).to_str().unwrap() };
             let response : HttpResponse =  serde_json::from_str(&response)?;
