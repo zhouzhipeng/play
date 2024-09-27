@@ -43,7 +43,7 @@ use play_shared::tpl_engine_api::{Template, TemplateData, TplEngineAPI};
 use crate::config::Config;
 use crate::config::init_config;
 use crate::controller::{app_routers, shortlink_controller};
-use crate::layer::http_log::{connection_info_middleware};
+use crate::layer::custom_http_layer::{http_middleware};
 use crate::service::elevenlabs_service::ElevenlabsService;
 use crate::service::openai_service::OpenAIService;
 use crate::service::template_service;
@@ -393,7 +393,7 @@ pub async fn routers(app_state: Arc<AppState>) -> anyhow::Result<Router> {
         .layer(TimeoutLayer::new(Duration::from_secs(600)))
         .layer(DefaultBodyLimit::disable())
         // .layer(HttpLogLayer{ auth_config })
-        .layer(middleware::from_fn_with_state(app_state.clone(), connection_info_middleware))
+        .layer(middleware::from_fn_with_state(app_state.clone(), http_middleware))
         .layer(cors);
 
     //

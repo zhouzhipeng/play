@@ -24,13 +24,20 @@ use http_body::Full;
 use tracing::{info, warn};
 
 
-pub async fn connection_info_middleware(
+pub async fn http_middleware(
     State(state): State<Arc<AppState>>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     request: Request<Body>,
     next: Next<Body>,
 ) -> Response {
-    println!("Connection from: {}", addr);
+    // println!("Connection from: {}", addr);
+
+    let is_local_request = addr.ip().to_string() == "127.0.0.1";
+    info!("is_local_request >> {}", is_local_request);
+
+    if is_local_request{
+        return next.run(request).await
+    }
 
     let auth_config = &state.config.auth_config;
 
