@@ -12,7 +12,7 @@ default-members=["crates/server"]
 reqwest = { version = "0.11.22",default-features = false, features = ["json",  "rustls-tls"] }
 sqlx = {version = "0.7.2",features = ["runtime-tokio-rustls"]}
 
-## common libs
+## common libs:-
 anyhow = { version = "1"}
 chrono = { version = "0.4.31", features = ["serde"] }
 async-trait = "0.1.75"
