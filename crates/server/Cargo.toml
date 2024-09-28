@@ -49,8 +49,8 @@ play-cache = { path = "../play-cache", optional = true }
 play-dylib-loader = { path = "../play-dylib-loader", optional = true }
 
 # utils
-rust-utils = {git = "https://github.com/zhouzhipeng/rust-utils.git",features = ["sql-util", "common-crypt"]}
-
+sql-util = {git = "https://github.com/zhouzhipeng/rust-utils.git"}
+common-crypt = {git = "https://github.com/zhouzhipeng/rust-utils.git"}
 
 # third parties
 zip-extract = "0.1.2"

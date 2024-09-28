@@ -64,9 +64,10 @@ mod tests{
     async fn test_load_and_run(){
         let request = HttpRequest {
             headers: Default::default(),
-            query: Default::default(),
+            query: "a=1aa&b=2".to_string(),
             body: "sdfd".to_string(),
             url: "sdf".to_string(),
+            host_env: HostEnv { host_url: "http://127.0.0.1:3000".to_string() },
         };
         let resp = load_and_run("/Users/zhouzhipeng/RustroverProjects/play/target/release/libplay_dylib_example.dylib", request).await;
         println!("resp >> {:?}", resp);
@@ -79,6 +80,7 @@ mod tests{
             query: Default::default(),
             body: "sdfd".to_string(),
             url: "sdf".to_string(),
+            host_env: HostEnv { host_url: "http://127.0.0.1:3000".to_string() },
         };
         let resp = load_and_run("/app/target/release/libplay_dylib_example.so", request).await;
         println!("resp >> {:?}", resp);

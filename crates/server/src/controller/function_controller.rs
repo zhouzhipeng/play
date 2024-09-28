@@ -142,7 +142,7 @@ async fn run_sql(s: S, Form(data): Form<RunSqlRequest>) -> HTML {
 async fn run_sql(s: S, Form(data): Form<RunSqlRequest>) -> HTML {
 
     let sql = &data.sql;
-    let is_query =  rust_utils::is_query_sql(sql);
+    let is_query =  sql_util::is_query_sql(sql);
     let data = query_mysql(&data.url.trim(), sql, is_query).await?;
     // println!("results >> {:?}", data);
 

@@ -19,6 +19,9 @@ pub struct HttpRequest {
     pub host_env: HostEnv,
 }
 
+
+
+
 impl HttpRequest {
     pub fn parse_query<T: DeserializeOwned>(&self) -> anyhow::Result<T> {
         let p: T = serde_urlencoded::from_str(&self.query).context("parse query str error!")?;
