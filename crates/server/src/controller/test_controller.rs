@@ -23,6 +23,7 @@ async fn test(s: S, Query(param): Query<Param>) -> HTML {
         use play_dylib_loader::*;
 
         let request = HttpRequest {
+            method: HttpMethod::GET,
             headers: Default::default(),
             query: Default::default(),
             body: "sdfd".to_string(),
