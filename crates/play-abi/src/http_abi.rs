@@ -10,8 +10,16 @@ pub struct HostEnv {
     pub host_url: String
 }
 
+
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum HttpMethod {
+   GET,POST,PUT,DELETE
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct HttpRequest {
+    pub method:HttpMethod,
     pub headers: HashMap<String, String>,
     pub query: String,
     pub url: String,
@@ -25,6 +33,14 @@ pub struct HttpRequest {
 impl HttpRequest {
     pub fn parse_query<T: DeserializeOwned>(&self) -> anyhow::Result<T> {
         let p: T = serde_urlencoded::from_str(&self.query).context("parse query str error!")?;
+        Ok(p)
+    }
+    pub fn parse_body_form<T: DeserializeOwned>(&self) -> anyhow::Result<T> {
+        let p: T = serde_urlencoded::from_str(&self.body).context("parse body str error!")?;
+        Ok(p)
+    }
+    pub fn parse_body_json<T: DeserializeOwned>(&self) -> anyhow::Result<T> {
+        let p: T = serde_json::from_str(&self.body).context("parse body str error!")?;
         Ok(p)
     }
 }

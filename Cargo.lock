@@ -2228,7 +2228,6 @@ dependencies = [
 [[package]]
 name = "data-api"
 version = "0.1.0"
-source = "git+https://github.com/zhouzhipeng/rust-utils#06f1140677c0b15fe76e2d58ef00fab0734e9515"
 dependencies = [
  "anyhow",
  "reqwest 0.12.7",
@@ -3804,7 +3803,6 @@ dependencies = [
  "http 1.1.0",
  "http-body 1.0.1",
  "httparse",
- "httpdate",
  "itoa 1.0.11",
  "pin-project-lite",
  "smallvec",
@@ -5633,7 +5631,7 @@ dependencies = [
  "hex",
  "http 0.2.12",
  "http-body 0.4.6",
- "hyper 1.4.1",
+ "hyper 0.14.30",
  "include_dir",
  "infer 0.7.0",
  "lazy_static",
@@ -8228,9 +8226,9 @@ dependencies = [
 
 [[package]]
 name = "tempfile"
-version = "3.12.0"
+version = "3.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04cbcdd0c794ebb0d4cf35e88edd2f7d2c4c3e9a5a6dab322839b321c6a87a64"
+checksum = "f0f2c9fc62d0beef6951ccffd757e241266a2c833136efbe35af6cd2567dca5b"
 dependencies = [
  "cfg-if",
  "fastrand 2.1.1",
