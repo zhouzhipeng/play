@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::env;
 use crate::S;
 use crate::{method_router, AppError};
 use anyhow::Context;
@@ -30,7 +31,7 @@ async fn run_plugin(s: S, request: Request<Body>) -> Result<Response, AppError> 
         query: request.uri().query().unwrap_or_default().to_string(),
         url: url.to_string(),
         body: "".to_string(),
-        host_env: HostEnv { host_url: "".to_string() },
+        host_env: HostEnv { host_url: env::var("HOST")? },
     };
 
     let plugin_resp = load_and_run(&plugin.file_path, plugin_request).await?;
