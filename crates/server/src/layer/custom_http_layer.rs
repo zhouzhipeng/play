@@ -4,6 +4,7 @@ use std::net::SocketAddr;
 use std::path::Path;
 use std::pin::Pin;
 use std::str::FromStr;
+use std::sync::Arc;
 use axum::{
     response::Response,
     body::Body,
@@ -13,6 +14,8 @@ use futures_util::future::BoxFuture;
 use tower::{Service, Layer, ServiceExt};
 use std::task::{Context, Poll};
 use axum::body::{BoxBody};
+use axum::extract::{ConnectInfo, State};
+use axum::middleware::Next;
 use axum::response::{Html, IntoResponse};
 use axum::routing::get_service;
 use cookie::Cookie;
@@ -20,155 +23,103 @@ use cookie::Cookie;
 use http_body::Full;
 use tracing::{info, warn};
 
-#[derive(Clone)]
-pub struct HttpLogLayer{
-    pub  auth_config : AuthConfig
-}
 
-impl<S> Layer<S> for HttpLogLayer {
-    type Service = HttpLogMiddleware<S>;
+pub async fn http_middleware(
+    State(state): State<Arc<AppState>>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    request: Request<Body>,
+    next: Next<Body>,
+) -> Response {
+    // println!("Connection from: {}", addr);
 
-    fn layer(&self, inner: S) -> Self::Service {
-        HttpLogMiddleware { inner, auth_config: self.auth_config.clone() }
-    }
-}
+    let is_local_request = addr.ip().to_string() == "127.0.0.1";
+    info!("is_local_request >> {}", is_local_request);
 
-#[derive(Clone)]
-pub struct HttpLogMiddleware<S> {
-    auth_config : AuthConfig,
-    inner: S,
-}
-
-impl<S> Service<Request<Body>> for HttpLogMiddleware<S>
-    where
-        S: Service<Request<Body>, Response = Response> + Send + 'static,
-        S::Future: Send + 'static,
-{
-    type Response = S::Response;
-    type Error = S::Error;
-    // `BoxFuture` is a type alias for `Pin<Box<dyn Future + Send + 'a>>`
-    type Future = BoxFuture<'static, Result<Self::Response, Self::Error>>;
-
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.inner.poll_ready(cx)
+    if is_local_request{
+        return next.run(request).await
     }
 
+    let auth_config = &state.config.auth_config;
+
+    let uri = request.uri().to_string();
+    let prefix_log = format!("served request >> method: {} , url :{}",
+                             request.method(), uri);
+
+    let fingerprint = request.headers().get("X-Browser-Fingerprint");
+    // info!("fingerprint is : {:?}", fingerprint);
 
 
-    fn call(&mut self, request: Request<Body>) -> Self::Future {
-        let uri = request.uri().to_string();
-        let prefix_log = format!("served request >> method: {} , url :{}",
-                                 request.method(), uri);
-
-        let fingerprint = request.headers().get("X-Browser-Fingerprint");
-        // info!("fingerprint is : {:?}", fingerprint);
-
-
-        //serve other domains (support only static files now)
-        if !self.auth_config.serve_domains.is_empty(){
-            if let Some(header) = request.headers().get(axum::http::header::HOST) {
-                if let Ok(host) = header.to_str() {
-                    let host = host.to_string();
-                    if self.auth_config.serve_domains.contains(&host){
-                        return Box::pin(async move {
-                            match serve_domain_folder(host, request).await{
-                                Ok(res) => Ok(res),
-                                Err(e) =>  Ok((
-                                    StatusCode::INTERNAL_SERVER_ERROR,
-                                    format!("Unhandled internal error: {}", e),
-                                ).into_response())
-                            }
-                        })
-                    }
+    //serve other domains (support only static files now)
+    if !auth_config.serve_domains.is_empty(){
+        if let Some(header) = request.headers().get(header::HOST) {
+            if let Ok(host) = header.to_str() {
+                let host = host.to_string();
+                if auth_config.serve_domains.contains(&host){
+                    return serve_domain_folder(host, request).await.unwrap_or_else(|e| (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("Unhandled internal error: {}", e),
+                    ).into_response())
                 }
             }
         }
+    }
 
-        //check fingerprint only for main domain.
-        if self.auth_config.enabled{
-            let is_whitelist = uri == "/" || {
+    //check fingerprint only for main domain.
+    if auth_config.enabled{
+        let is_whitelist = uri == "/" || {
 
-                request.method() == &Method::GET && self.auth_config.whitelist.iter().any(|x| uri.starts_with(x))
-            };
+            request.method() == &Method::GET && auth_config.whitelist.iter().any(|x| uri.starts_with(x))
+        };
 
-            if !is_whitelist{
-                //begin to match fingerprint
-                let f = match fingerprint {
-                    None => {
-                        //read from cookie
-                        let mut fingerprint_from_cookie="".to_string();
-                        if let Some(cookie_header) = request.headers().get(axum::http::header::COOKIE) {
-                            if let Ok(cookie_string) = cookie_header.to_str() {
-                                for cookie_str in cookie_string.split(';').map(str::trim) {
-                                    if let Ok(cookie) = Cookie::parse(cookie_str) {
-                                        if cookie.name() == "browserFingerprint" {
-                                            fingerprint_from_cookie = cookie.value().to_string();
-                                          //  info!("The value of browserFingerprint is: {}", fingerprint_from_cookie);
-                                            break
-                                        }
+        if !is_whitelist{
+            //begin to match fingerprint
+            let f = match fingerprint {
+                None => {
+                    //read from cookie
+                    let mut fingerprint_from_cookie="".to_string();
+                    if let Some(cookie_header) = request.headers().get(axum::http::header::COOKIE) {
+                        if let Ok(cookie_string) = cookie_header.to_str() {
+                            for cookie_str in cookie_string.split(';').map(str::trim) {
+                                if let Ok(cookie) = Cookie::parse(cookie_str) {
+                                    if cookie.name() == "browserFingerprint" {
+                                        fingerprint_from_cookie = cookie.value().to_string();
+                                        //  info!("The value of browserFingerprint is: {}", fingerprint_from_cookie);
+                                        break
                                     }
                                 }
                             }
                         }
-
-                        fingerprint_from_cookie
                     }
-                    Some(v) => {v.to_str().unwrap_or("").to_string()}
-                };
 
-                if f.is_empty(){
-                    //refuse
-                    warn!("no fingerprint found, refuse to visit uri : {}", uri);
-                    return Box::pin(async move {
-                        let response = refuse_response();
-                        Ok(response)
-
-                    })
-                }else{
-                    //match fingerprint
-                    if !self.auth_config.fingerprints.contains(&f){
-                        warn!("fingerprint not match for : {}, refuse to visit  uri : {}", f,  uri);
-                        //refuse
-                        return Box::pin(async move {
-                            let response = refuse_response();
-                            Ok(response)
-
-                        })
-                    }
+                    fingerprint_from_cookie
                 }
+                Some(v) => {v.to_str().unwrap_or("").to_string()}
+            };
 
+            if f.is_empty(){
+                //refuse
+                warn!("no fingerprint found, refuse to visit uri : {}", uri);
+                return refuse_response()
+            }else{
+                //match fingerprint
+                if !auth_config.fingerprints.contains(&f){
+                    warn!("fingerprint not match for : {}, refuse to visit  uri : {}", f,  uri);
+                    //refuse
+                    return refuse_response();
+                }
             }
+
         }
-
-
-
-
-        // normal requests handle
-        let future = self.inner.call(request);
-        Box::pin(async move {
-            let response: Response = future.await?;
-
-            let prefix_log = format!("{}, response_status_code: {} , response_headers :{:?}",
-                                     prefix_log, response.status(), response.headers());
-            //
-            // if !response.status().is_success(){
-            //     info!("error response : {} , resp_content : {}", prefix_log, response.);
-            // }else{
-            //     info!("success response : {}", prefix_log);
-            // }
-            if !(uri.to_string().starts_with("/static")
-                || uri.to_string().starts_with("/files")
-                || uri.to_string().starts_with("/admin")
-            ){
-                info!("{}", prefix_log);
-            }
-
-
-
-            Ok(response)
-        })
     }
+
+    // normal requests handle
+    next.run(request).await
+
 }
+
+
+
+
 
 
 fn refuse_response() -> Response {
@@ -301,7 +252,7 @@ use tower_http::set_status::SetStatus;
 use crate::config::AuthConfig;
 use crate::controller::cache_controller::get_cache_content;
 use crate::controller::static_controller::STATIC_DIR;
-use crate::files_dir;
+use crate::{files_dir, AppState};
 // 提供 `try_concat` 方法来转换 body
 
 #[cfg(test)]

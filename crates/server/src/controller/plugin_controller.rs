@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::env;
 use crate::S;
 use crate::{method_router, AppError};
 use anyhow::Context;
@@ -9,12 +10,16 @@ use http::{Request, StatusCode};
 use serde::Deserialize;
 use serde_json::Value;
 
-#[cfg(feature = "play-dylib-loader")]
+
+
 method_router!(
     get : "/plugin/*url"-> run_plugin,
 );
 
-
+#[cfg(not(feature = "play-dylib-loader"))]
+async fn run_plugin(s: S, request: Request<Body>) -> Result<Response, AppError> {
+    crate::return_error!("play-dylib-loader feature not enabled!")
+}
 #[cfg(feature = "play-dylib-loader")]
 async fn run_plugin(s: S, request: Request<Body>) -> Result<Response, AppError> {
     let url = request.uri().path();
@@ -30,6 +35,7 @@ async fn run_plugin(s: S, request: Request<Body>) -> Result<Response, AppError> 
         query: request.uri().query().unwrap_or_default().to_string(),
         url: url.to_string(),
         body: "".to_string(),
+        host_env: HostEnv { host_url: env::var("HOST")? },
     };
 
     let plugin_resp = load_and_run(&plugin.file_path, plugin_request).await?;

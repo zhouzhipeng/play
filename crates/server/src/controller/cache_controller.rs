@@ -41,7 +41,7 @@ pub fn generate_cache_key(uri: &Uri) -> String {
         s = s[0..s.len() - 1].to_string();
     }
 
-    s = rust_utils::md5(&s);
+    s = common_crypt::md5(&s);
     s
 }
 

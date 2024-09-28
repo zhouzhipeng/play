@@ -48,7 +48,7 @@ pub async fn start_https_server(config : &HttpsConfig, app: Router){
         let http_port = config.http_port;
         tokio::spawn(async move{
             let addr = SocketAddr::from(([0, 0, 0, 0], http_port));
-            axum_server::bind(addr).serve(app_clone.into_make_service()).await.unwrap();
+            axum_server::bind(addr).serve(app_clone.into_make_service_with_connect_info::<SocketAddr>()).await.unwrap();
         });
     }
 
@@ -56,7 +56,7 @@ pub async fn start_https_server(config : &HttpsConfig, app: Router){
 
     let addr = SocketAddr::from(([0, 0, 0, 0], config.https_port));
     info!("start a https server at : {:?}", addr);
-    axum_server::bind(addr).acceptor(acceptor).serve(app.into_make_service()).await.unwrap();
+    axum_server::bind(addr).acceptor(acceptor).serve(app.into_make_service_with_connect_info::<SocketAddr>()).await.unwrap();
 }
 
 #[derive(Clone, Copy)]

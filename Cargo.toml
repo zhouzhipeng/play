@@ -1,9 +1,7 @@
 [workspace]
 resolver="2"
 members = [
-    "crates/play-*",
-    "crates/server",
-    "crates/tool",
+    "crates/*",
 ]
 default-members=["crates/server"]
 
@@ -12,7 +10,7 @@ default-members=["crates/server"]
 reqwest = { version = "0.11.22",default-features = false, features = ["json",  "rustls-tls"] }
 sqlx = {version = "0.7.2",features = ["runtime-tokio-rustls"]}
 
-## common libs
+## common libs:-
 anyhow = { version = "1"}
 chrono = { version = "0.4.31", features = ["serde"] }
 async-trait = "0.1.75"
@@ -23,4 +21,15 @@ axum = "0.6.20"
 pyo3 = { version = "0.21.2" }
 tokio = { version = "1", features = ["full"] }
 log = "0.4"
-
+data-api= {git = "https://github.com/zhouzhipeng/rust-utils"}
+play-abi={path= "crates/play-abi" }
+play-shared={path= "crates/play-shared" }
+play-macros={path= "crates/play-macros"}
+play-ui = { path = "crates/play-ui"}
+play-job = { path = "crates/play-job"}
+play-redis = {path = "crates/play-redis"}
+play-py-tpl = { path = "crates/play-py-tpl"}
+play-mail-server = { path = "crates/play-mail-server"}
+play-https = { path = "crates/play-https"}
+play-cache = { path = "crates/play-cache" }
+play-dylib-loader = { path = "crates/play-dylib-loader"}
