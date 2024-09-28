@@ -8,11 +8,10 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-play-abi={path= "../play-abi" }
+play-abi={workspace = true}
 reqwest = {workspace = true}
 anyhow = {workspace = true}
 tokio = {workspace = true}
 serde_json = {workspace = true}
 serde = { workspace = true }
-#data-api = {path="/Users/zhouzhipeng/RustroverProjects/rust-utils/crates/data-api"}
-data-api= {git = "https://github.com/zhouzhipeng/rust-utils"}
+data-api = {workspace = true}

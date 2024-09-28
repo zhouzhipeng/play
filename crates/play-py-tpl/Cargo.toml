@@ -10,7 +10,7 @@ use_embed_python=[]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-play-shared={path= "../play-shared" }
+play-shared={ workspace = true}
 
 pyo3 = { workspace=true }
 async-trait = {workspace=true}

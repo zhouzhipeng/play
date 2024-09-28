@@ -19,7 +19,7 @@ use_mysql=["sqlx/mysql", "sqlparser"]
 walkdir = "2"
 fs_extra = "1.3.0"
 anyhow = { workspace = true }
-play-shared = { path = "../play-shared", features = ["utils"] }
+play-shared = { workspace = true, features = ["utils"] }
 regex = "1.10.2"
 serde_json = "1.0.68"
 chrono = { workspace = true }
@@ -38,15 +38,15 @@ harness = false
 
 [dependencies]
 # from libs
-play-shared = { path = "../play-shared", features = ["play-macros", "utils"] }
-play-ui = { path = "../play-ui", optional = true }
-play-job = { path = "../play-job", optional = true }
-play-redis = {path = "../play-redis", optional = true }
-play-py-tpl = { path = "../play-py-tpl", optional = true }
-play-mail-server = { path = "../play-mail-server", optional = true }
-play-https = { path = "../play-https", optional = true }
-play-cache = { path = "../play-cache", optional = true }
-play-dylib-loader = { path = "../play-dylib-loader", optional = true }
+play-shared = {  workspace = true, features = ["play-macros", "utils"] }
+play-ui = { workspace = true, optional = true }
+play-job = { workspace = true, optional = true }
+play-redis = {workspace = true, optional = true }
+play-py-tpl = { workspace = true, optional = true }
+play-mail-server = { workspace = true, optional = true }
+play-https = {workspace = true, optional = true }
+play-cache = { workspace = true, optional = true }
+play-dylib-loader = { workspace = true, optional = true }
 
 # utils
 sql-util = {git = "https://github.com/zhouzhipeng/rust-utils.git"}

@@ -17,5 +17,5 @@ anyhow = { workspace=true }
 futures = "0.3.29"
 futures-util = "0.3.29"
 tracing = "0.1"
-play-shared={path= "../play-shared" }
+play-shared={ workspace = true}
 async-trait = {workspace=true}

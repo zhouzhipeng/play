@@ -19,7 +19,7 @@ async-channel = {workspace=true}
 # for server
 zip-extract = { version = "0.1.2", optional = true }
 
-play-macros={path= "../play-macros", optional = true}
+play-macros={workspace = true, optional = true}
 sqlparser = { version = "0.40.0", optional = true }
 include_dir = "0.7.3"
 chrono = {workspace=true}

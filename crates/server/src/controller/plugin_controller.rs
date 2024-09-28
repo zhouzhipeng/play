@@ -10,12 +10,16 @@ use http::{Request, StatusCode};
 use serde::Deserialize;
 use serde_json::Value;
 
-#[cfg(feature = "play-dylib-loader")]
+
+
 method_router!(
     get : "/plugin/*url"-> run_plugin,
 );
 
-
+#[cfg(not(feature = "play-dylib-loader"))]
+async fn run_plugin(s: S, request: Request<Body>) -> Result<Response, AppError> {
+    crate::return_error!("play-dylib-loader feature not enabled!")
+}
 #[cfg(feature = "play-dylib-loader")]
 async fn run_plugin(s: S, request: Request<Body>) -> Result<Response, AppError> {
     let url = request.uri().path();

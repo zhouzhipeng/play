@@ -10,5 +10,5 @@ current_platform="0.2.0"
 zip_archive = "1.2.2"
 anyhow = { workspace=true }
 pyo3 = { workspace=true }
-play-shared={path= "../play-shared", features = ["utils"]}
+play-shared={workspace = true, features = ["utils"]}
 serde_json = "1.0.109"

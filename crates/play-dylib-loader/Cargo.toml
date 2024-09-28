@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 libloading = "0.8"
 tokio = {workspace = true}
-play-abi={path= "../play-abi" }
+play-abi={workspace = true}
 anyhow={workspace = true}
 reqwest = {workspace = true}
 log = {workspace = true}
