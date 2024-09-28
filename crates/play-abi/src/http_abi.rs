@@ -12,7 +12,7 @@ pub struct HostEnv {
 
 
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub enum HttpMethod {
    GET,POST,PUT,DELETE
 }
