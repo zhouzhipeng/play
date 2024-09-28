@@ -1778,7 +1778,7 @@ dependencies = [
 [[package]]
 name = "common-crypt"
 version = "0.1.0"
-source = "git+https://github.com/zhouzhipeng/rust-utils.git#5be82b28a8ce7b29cd8bebfeb99a8efdfb12ef49"
+source = "git+https://github.com/zhouzhipeng/rust-utils#ae79f7c2552b7d92756d1746714cba9c8115c4ec"
 dependencies = [
  "base64 0.22.1",
  "md5",
@@ -2234,6 +2234,7 @@ dependencies = [
 [[package]]
 name = "data-api"
 version = "0.1.0"
+source = "git+https://github.com/zhouzhipeng/rust-utils#ae79f7c2552b7d92756d1746714cba9c8115c4ec"
 dependencies = [
  "anyhow",
  "reqwest 0.12.7",
@@ -7475,7 +7476,7 @@ dependencies = [
 [[package]]
 name = "sql-util"
 version = "0.1.0"
-source = "git+https://github.com/zhouzhipeng/rust-utils.git#5be82b28a8ce7b29cd8bebfeb99a8efdfb12ef49"
+source = "git+https://github.com/zhouzhipeng/rust-utils#ae79f7c2552b7d92756d1746714cba9c8115c4ec"
 dependencies = [
  "anyhow",
  "sqlparser",

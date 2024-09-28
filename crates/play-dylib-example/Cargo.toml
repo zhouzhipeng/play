@@ -14,4 +14,5 @@ anyhow = {workspace = true}
 tokio = {workspace = true}
 serde_json = {workspace = true}
 serde = { workspace = true }
-data-api = {path="/Users/zhouzhipeng/RustroverProjects/rust-utils/crates/data-api"}
+#data-api = {path="/Users/zhouzhipeng/RustroverProjects/rust-utils/crates/data-api"}
+data-api= {git = "https://github.com/zhouzhipeng/rust-utils"}
