@@ -148,7 +148,7 @@ impl HttpResponse {
     }
 }
 
-pub type HandleRequestFn = unsafe extern "C" fn(*const std::os::raw::c_char) -> *mut std::os::raw::c_char;
+pub type HandleRequestFn = unsafe extern "C" fn(*mut std::os::raw::c_char) -> *mut std::os::raw::c_char;
 pub type FreeCStringFn = unsafe extern "C" fn(*mut std::os::raw::c_char);
 pub const HANDLE_REQUEST_FN_NAME: &'static str = "handle_request";
 
@@ -162,7 +162,7 @@ macro_rules! async_request_handler {
     ($func:ident) => {
 
        #[no_mangle]
-        pub extern "C" fn handle_request(request: *const std::os::raw::c_char) -> *mut std::os::raw::c_char {
+        pub extern "C" fn handle_request(request: *mut std::os::raw::c_char) -> *mut std::os::raw::c_char {
 
             use play_abi::*;
             use std::panic::{self, AssertUnwindSafe};
@@ -218,7 +218,7 @@ macro_rules! request_handler {
     ($func:ident) => {
 
        #[no_mangle]
-        pub extern "C" fn handle_request(request: *const std::os::raw::c_char) -> *mut std::os::raw::c_char {
+        pub extern "C" fn handle_request(request: *mut std::os::raw::c_char) -> *mut std::os::raw::c_char {
 
             use play_abi::*;
             use std::panic::{self, AssertUnwindSafe};

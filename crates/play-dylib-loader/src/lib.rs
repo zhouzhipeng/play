@@ -7,7 +7,7 @@ use tokio::fs;
 use log::{error, info};
 use tempfile::Builder;
 pub use play_abi::http_abi::*;
-use play_abi::{c_char_to_string, string_to_c_char};
+use play_abi::{c_char_to_string, string_to_c_char, string_to_c_char_mut};
 use std::panic::{self, AssertUnwindSafe};
 
 /// load a dylib from `dylib_path` (absolute path)
@@ -56,12 +56,14 @@ unsafe fn run_plugin(copy_path: &str, request: HttpRequest) -> anyhow::Result<Ht
     info!("load_and_run lib load ok.  path : {}",copy_path);
     let handle_request: Symbol<HandleRequestFn> = lib.get(HANDLE_REQUEST_FN_NAME.as_ref())?;
     let free_c_string: Symbol<FreeCStringFn> = lib.get("free_c_string".as_ref())?;
+
     let rust_string = serde_json::to_string(&request)?;
-    let request = string_to_c_char(&rust_string);
+    let request = string_to_c_char_mut(&rust_string);
     let response_ptr = handle_request(request);
 
 
     let response = c_char_to_string(response_ptr);
+    free_c_string(request);
     free_c_string(response_ptr);
     drop(lib);
 
