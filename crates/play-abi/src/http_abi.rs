@@ -148,7 +148,8 @@ impl HttpResponse {
     }
 }
 
-pub type HandleRequestFn = unsafe extern "C" fn(*const std::os::raw::c_char) -> *const std::os::raw::c_char;
+pub type HandleRequestFn = unsafe extern "C" fn(*const std::os::raw::c_char) -> *mut std::os::raw::c_char;
+pub type FreeCStringFn = unsafe extern "C" fn(*mut std::os::raw::c_char);
 pub const HANDLE_REQUEST_FN_NAME: &'static str = "handle_request";
 
 /// needs tokio runtime.
@@ -161,7 +162,7 @@ macro_rules! async_request_handler {
     ($func:ident) => {
 
        #[no_mangle]
-        pub extern "C" fn handle_request(request: *const std::os::raw::c_char) -> *const std::os::raw::c_char {
+        pub extern "C" fn handle_request(request: *const std::os::raw::c_char) -> *mut std::os::raw::c_char {
 
             use play_abi::*;
             use std::panic::{self, AssertUnwindSafe};
@@ -172,6 +173,7 @@ macro_rules! async_request_handler {
                 use tokio::runtime::Runtime;
                 let rt = Runtime::new().unwrap();
                 let response = HttpResponse::from_anyhow(rt.block_on($func(request)));
+                drop(rt);
                 response
             });
 
@@ -190,7 +192,18 @@ macro_rules! async_request_handler {
 
             //convert response to c char string (make it compatible with ABI)
             let result = serde_json::to_string(&response).unwrap();
-            string_to_c_char(&result)
+            string_to_c_char_mut(&result)
+        }
+
+
+      #[no_mangle]
+        pub extern "C" fn free_c_string(ptr: *mut std::os::raw::c_char) {
+            if !ptr.is_null() {
+                // 将裸指针转换回 CString，并自动释放内存
+                unsafe {
+                    drop(std::ffi::CString::from_raw(ptr));
+                }
+            }
         }
     };
 }

@@ -46,5 +46,5 @@ fn handle_request_impl(request: HttpRequest) -> anyhow::Result<HttpResponse> {
     })))
 }
 
-// async_request_handler!(async_handle_request_impl);
-request_handler!(handle_request_impl);
+async_request_handler!(async_handle_request_impl);
+// request_handler!(handle_request_impl);
