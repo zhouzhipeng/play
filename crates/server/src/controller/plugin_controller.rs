@@ -39,7 +39,10 @@ async fn run_plugin(s: S, request: Request<Body>) -> Result<Response, AppError> 
     let url = request.uri().path();
     let url = remove_trailing_slash(url);
     let plugin = s.config.plugin_config.iter()
-        .find(|plugin|url.starts_with(&plugin.url_prefix)).context("plugin for found for url!")?;
+        .find(|plugin|{
+            let url = format!("")
+            url.startswith(&plugin.url_prefix)
+        }).context("plugin for found for url!")?;
 
     use play_dylib_loader::*;
 
@@ -63,7 +66,10 @@ async fn run_plugin(s: S, request: Request<Body>) -> Result<Response, AppError> 
         query: request.uri().query().unwrap_or_default().to_string(),
         url: url.to_string(),
         body: body_to_bytes(request.into_body()).await?,
-        host_env: HostEnv { host_url: env::var("HOST")? },
+        host_env: HostEnv {
+            host_url: env::var("HOST")?,
+            plugin_prefix_url: plugin.url_prefix.to_string()
+        },
     };
 
     let plugin_resp = load_and_run(&plugin.file_path, plugin_request).await?;

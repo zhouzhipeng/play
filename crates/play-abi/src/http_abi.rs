@@ -7,7 +7,8 @@ use serde::de::DeserializeOwned;
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct HostEnv {
     /// host http url , eg. http://127.0.0.1:3000
-    pub host_url: String
+    pub host_url: String,
+    pub plugin_prefix_url: String,
 }
 
 
@@ -42,6 +43,13 @@ impl HttpRequest {
     pub fn parse_body_json<T: DeserializeOwned>(&self) -> anyhow::Result<T> {
         let p: T = serde_json::from_str(&self.body).context("parse body str error!")?;
         Ok(p)
+    }
+    pub fn get_suffix_url(&self)->String{
+        self.url.strip_prefix(&self.host_env.plugin_prefix_url).unwrap().to_string()
+    }
+
+    pub fn match_suffix(&self, suffix: &str)->bool{
+        self.get_suffix_url().eq(suffix)
     }
 }
 
