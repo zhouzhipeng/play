@@ -14,31 +14,37 @@ use std::panic::{self, AssertUnwindSafe};
 pub async fn load_and_run(dylib_path: &str, request: HttpRequest) -> anyhow::Result<HttpResponse> {
     ensure!(fs::try_exists(dylib_path).await?);
     info!("load_and_run  path : {}",dylib_path);
+    let mut copy_path = dylib_path.to_string();
+    #[cfg(feature = "hot-reloading")]
+    let tmp_dir={
+        //copy to a tmp folder (to mock hot-reloading)
+        let source_path = PathBuf::from(dylib_path);
 
-    //copy to a tmp folder (to mock hot-reloading)
-    // let source_path = PathBuf::from(dylib_path);
+        // 使用 tempfile 创建一个临时目录
+        let temp_dir = Builder::new().prefix("play_dylib").tempdir()?;
 
-    // 使用 tempfile 创建一个临时目录
-    // let temp_dir = Builder::new().prefix("play_dylib").tempdir()?;
+        // 在临时目录中创建目标文件路径
+        let dest_path = temp_dir.path().join(source_path.file_name().context("tmp file error!")?);
 
-    // 在临时目录中创建目标文件路径
-    // let dest_path = temp_dir.path().join(source_path.file_name().context("tmp file error!")?);
+        // 异步复制文件
+        fs::copy(&source_path, &dest_path).await?;
 
-    // 异步复制文件
-    // fs::copy(&source_path, &dest_path).await?;
+        copy_path =  dest_path.to_string_lossy().into_owned();
+        temp_dir
+    };
 
-    let copy_path = dylib_path.to_string(); // dest_path.to_string_lossy().into_owned();
 
-    // let copy_path_clone = copy_path.clone();
+
+
+    let copy_path_clone = copy_path.clone();
 
     let result = tokio::spawn(async move {
         unsafe {
-            run_plugin(&copy_path, request)
+            run_plugin(&copy_path_clone, request)
         }
     }).await?;
 
-    //delete temp file
-    // fs::remove_file(&copy_path).await?;
+
     result
 }
 

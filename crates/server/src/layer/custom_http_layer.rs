@@ -33,7 +33,7 @@ pub async fn http_middleware(
     // println!("Connection from: {}", addr);
 
     let is_local_request = addr.ip().to_string() == "127.0.0.1";
-    info!("is_local_request >> {}", is_local_request);
+    // info!("is_local_request >> {}", is_local_request);
 
     if is_local_request{
         return next.run(request).await

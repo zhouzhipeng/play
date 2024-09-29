@@ -3,6 +3,9 @@ name = "play-dylib-loader"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+hot-reloading=[]
+
 [dependencies]
 libloading = "0.8"
 tokio = {workspace = true}
