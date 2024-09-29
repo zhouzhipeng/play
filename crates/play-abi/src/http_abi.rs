@@ -5,7 +5,7 @@ use serde::de::DeserializeOwned;
 
 /// env info provided by host
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct HostEnv {
+pub struct HostContext {
     /// host http url , eg. http://127.0.0.1:3000
     pub host_url: String,
     pub plugin_prefix_url: String,
@@ -25,7 +25,7 @@ pub struct HttpRequest {
     pub query: String,
     pub url: String,
     pub body: String,
-    pub host_env: HostEnv,
+    pub context: HostContext,
 }
 
 
@@ -45,11 +45,14 @@ impl HttpRequest {
         Ok(p)
     }
     pub fn get_suffix_url(&self)->String{
-        self.url.strip_prefix(&self.host_env.plugin_prefix_url).unwrap().to_string()
+        self.url.strip_prefix(&self.context.plugin_prefix_url).unwrap().to_string()
     }
 
     pub fn match_suffix(&self, suffix: &str)->bool{
         self.get_suffix_url().eq(suffix)
+    }
+    pub fn match_suffix_default(&self)->bool{
+        self.get_suffix_url().eq("")
     }
 }
 

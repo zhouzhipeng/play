@@ -28,7 +28,7 @@ async fn test(s: S, Query(param): Query<Param>) -> HTML {
             query: Default::default(),
             body: "sdfd".to_string(),
             url: "sdf".to_string(),
-            host_env: HostEnv { host_url: "".to_string(), plugin_prefix_url: "".to_string() },
+            context: HostContext { host_url: "".to_string(), plugin_prefix_url: "".to_string() },
         };
         let resp = load_and_run(&param.path, request).await?;
         return Ok(Html(resp.body.to_string()))
