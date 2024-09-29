@@ -59,7 +59,7 @@ impl HttpRequest {
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct HttpResponse {
     pub headers: HashMap<String, String>,
-    pub body: String,
+    pub body: Vec<u8>,
     #[serde(default = "default_status_code")]
     pub status_code: u16,
     /// used to mark current plugin running is success or not (shoule left None for normal bussiness logic)
@@ -111,7 +111,17 @@ impl HttpResponse {
         headers.insert("Content-Type".to_string(), "text/plain;charset=UTF-8".to_string());
         Self {
             headers,
-            body: body.to_string(),
+            body: body.as_bytes().to_vec(),
+            status_code: default_status_code(),
+            ..Self::default()
+        }
+    }
+    pub fn bytes(body: &[u8], content_type: &str) -> Self {
+        let mut headers = HashMap::new();
+        headers.insert("Content-Type".to_string(), content_type.to_string());
+        Self {
+            headers,
+            body: body.to_vec(),
             status_code: default_status_code(),
             ..Self::default()
         }
@@ -121,7 +131,7 @@ impl HttpResponse {
         headers.insert("Content-Type".to_string(), "text/html;charset=UTF-8".to_string());
         Self {
             headers,
-            body: body.to_string(),
+            body: body.as_bytes().to_vec(),
             status_code: default_status_code(),
             ..Self::default()
         }
@@ -131,7 +141,7 @@ impl HttpResponse {
         headers.insert("Content-Type".to_string(), "application/json;charset=UTF-8".to_string());
         Self {
             headers,
-            body: serde_json::to_string(body).unwrap(),
+            body: serde_json::to_string(body).unwrap().as_bytes().to_vec(),
             status_code: default_status_code(),
             ..Self::default()
         }
