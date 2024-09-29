@@ -38,7 +38,7 @@ fn handle_request_impl(request: HttpRequest) -> anyhow::Result<HttpResponse> {
     // let params = request.parse_query::<Param>()?;
 
     // let response = reqwest::get("https://crab.rs").await?.text().await?;
-    panic!("zzzz");
+    // panic!("zzzz");
 
     Ok(HttpResponse::json(&json!({
         "name":"zzsss",
