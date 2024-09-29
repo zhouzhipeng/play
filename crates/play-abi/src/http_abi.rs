@@ -151,6 +151,7 @@ impl HttpResponse {
 pub type HandleRequestFn = unsafe extern "C" fn(*mut std::os::raw::c_char) -> *mut std::os::raw::c_char;
 pub type FreeCStringFn = unsafe extern "C" fn(*mut std::os::raw::c_char);
 pub const HANDLE_REQUEST_FN_NAME: &'static str = "handle_request";
+pub const FREE_C_STRING_FN_NAME: &'static str = "free_c_string";
 
 /// needs tokio runtime.
 /// usage: `async_request_handler!(handle_request_impl);`

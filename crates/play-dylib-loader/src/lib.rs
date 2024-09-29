@@ -55,7 +55,7 @@ unsafe fn run_plugin(copy_path: &str, request: HttpRequest) -> anyhow::Result<Ht
     let lib = Library::new(&copy_path)?;
     info!("load_and_run lib load ok.  path : {}",copy_path);
     let handle_request: Symbol<HandleRequestFn> = lib.get(HANDLE_REQUEST_FN_NAME.as_ref())?;
-    let free_c_string: Symbol<FreeCStringFn> = lib.get("free_c_string".as_ref())?;
+    let free_c_string: Symbol<FreeCStringFn> = lib.get(FREE_C_STRING_FN_NAME.as_ref())?;
 
     let rust_string = serde_json::to_string(&request)?;
     let request = string_to_c_char_mut(&rust_string);
