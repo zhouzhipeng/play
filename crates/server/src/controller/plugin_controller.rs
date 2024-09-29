@@ -26,9 +26,18 @@ method_router!(
 async fn run_plugin(s: S, request: Request<Body>) -> Result<Response, AppError> {
     crate::return_error!("play-dylib-loader feature not enabled!")
 }
+
+fn remove_trailing_slash(uri: &str) -> String {
+    if uri.ends_with('/') && uri.len() > 1 {
+        uri[..uri.len() - 1].to_string()
+    } else {
+        uri.to_string()
+    }
+}
 #[cfg(feature = "play-dylib-loader")]
 async fn run_plugin(s: S, request: Request<Body>) -> Result<Response, AppError> {
     let url = request.uri().path();
+    let url = remove_trailing_slash(url);
     let plugin = s.config.plugin_config.iter()
         .find(|plugin|url.starts_with(&plugin.url_prefix)).context("plugin for found for url!")?;
 

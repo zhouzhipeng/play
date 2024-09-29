@@ -4,7 +4,7 @@ use anyhow::Context;
 use serde::de::DeserializeOwned;
 
 /// env info provided by host
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct HostEnv {
     /// host http url , eg. http://127.0.0.1:3000
     pub host_url: String
@@ -12,12 +12,12 @@ pub struct HostEnv {
 
 
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum HttpMethod {
    GET,POST,PUT,DELETE
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct HttpRequest {
     pub method:HttpMethod,
     pub headers: HashMap<String, String>,
