@@ -211,10 +211,10 @@ async fn main()->anyhow::Result<()> {
 
 
 
-    #[cfg(not(feature = "ui"))]
+    #[cfg(not(feature = "play-ui"))]
     start_server( router, app_state).await;
 
-    #[cfg(feature = "ui")]
+    #[cfg(feature = "play-ui")]
     {
         tokio::spawn(async move{
             start_server(router, app_state).await.expect("start api server failed!");

@@ -88,6 +88,12 @@ impl HttpResponse {
             }
         })
     }
+    pub fn from_panic_error(err: String) -> HttpResponse {
+        HttpResponse {
+            error: Some(err),
+            ..Self::default()
+        }
+    }
 
     pub fn text(body: &str) -> Self {
         let mut headers = HashMap::new();
@@ -133,17 +139,35 @@ pub const HANDLE_REQUEST_FN_NAME: &'static str = "handle_request";
 macro_rules! async_request_handler {
     ($func:ident) => {
 
-        #[no_mangle]
+       #[no_mangle]
         pub extern "C" fn handle_request(request: *const std::os::raw::c_char) -> *const std::os::raw::c_char {
+
             use play_abi::*;
-            let name = c_char_to_string(request);
-            let request: HttpRequest = serde_json::from_str(&name).unwrap();
+            use std::panic::{self, AssertUnwindSafe};
 
-            use tokio::runtime::Runtime;
+            let result = panic::catch_unwind(||{
+                let name = c_char_to_string(request);
+                let request: HttpRequest = serde_json::from_str(&name).unwrap();
+                use tokio::runtime::Runtime;
+                let rt = Runtime::new().unwrap();
+                let response = HttpResponse::from_anyhow(rt.block_on($func(request)));
+                response
+            });
 
-            let rt = Runtime::new().unwrap();
-            let response = HttpResponse::from_anyhow(rt.block_on($func(request)));
+            let response  = result.unwrap_or_else(|panic_info| {
+                let err_msg = if let Some(s) = panic_info.downcast_ref::<String>() {
+                    format!("Panic occurred: {}", s)
+                } else if let Some(s) = panic_info.downcast_ref::<&str>() {
+                    format!("Panic occurred: {}", s)
+                } else {
+                    "Panic occurred: Unknown panic info".to_string()
+                };
 
+                let response =HttpResponse::from_panic_error(err_msg);
+                response
+            });
+
+            //convert response to c char string (make it compatible with ABI)
             let result = serde_json::to_string(&response).unwrap();
             string_to_c_char(&result)
         }
@@ -159,13 +183,33 @@ macro_rules! async_request_handler {
 macro_rules! request_handler {
     ($func:ident) => {
 
-        #[no_mangle]
+       #[no_mangle]
         pub extern "C" fn handle_request(request: *const std::os::raw::c_char) -> *const std::os::raw::c_char {
-            use play_abi::*;
-            let name = c_char_to_string(request);
-            let request: HttpRequest = serde_json::from_str(&name).unwrap();
 
-            let response =  HttpResponse::from_anyhow($func(request));
+            use play_abi::*;
+            use std::panic::{self, AssertUnwindSafe};
+
+            let result = panic::catch_unwind(||{
+                let name = c_char_to_string(request);
+                let request: HttpRequest = serde_json::from_str(&name).unwrap();
+                let response = HttpResponse::from_anyhow($func(request));
+                response
+            });
+
+            let response  = result.unwrap_or_else(|panic_info| {
+                let err_msg = if let Some(s) = panic_info.downcast_ref::<String>() {
+                    format!("Panic occurred: {}", s)
+                } else if let Some(s) = panic_info.downcast_ref::<&str>() {
+                    format!("Panic occurred: {}", s)
+                } else {
+                    "Panic occurred: Unknown panic info".to_string()
+                };
+
+                let response =HttpResponse::from_panic_error(err_msg);
+                response
+            });
+
+            //convert response to c char string (make it compatible with ABI)
             let result = serde_json::to_string(&response).unwrap();
             string_to_c_char(&result)
         }

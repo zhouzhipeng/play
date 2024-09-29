@@ -8,6 +8,7 @@ use log::{error, info};
 use tempfile::Builder;
 pub use play_abi::http_abi::*;
 use play_abi::{c_char_to_string, string_to_c_char};
+use std::panic::{self, AssertUnwindSafe};
 
 /// load a dylib from `dylib_path` (absolute path)
 pub async fn load_and_run(dylib_path: &str, request: HttpRequest) -> anyhow::Result<HttpResponse> {
@@ -28,41 +29,51 @@ pub async fn load_and_run(dylib_path: &str, request: HttpRequest) -> anyhow::Res
 
     let copy_path = dest_path.to_string_lossy().into_owned();
 
-    tokio::spawn(async move {
+    let copy_path_clone = copy_path.clone();
+
+    let result = tokio::spawn(async move {
         unsafe {
-            info!("load_and_run begin  path : {}",copy_path);
-            // 加载动态库
-            let lib = Library::new(&copy_path)?;
-            info!("load_and_run lib load ok.  path : {}",copy_path);
-            let handle_request: Symbol<HandleRequestFn> = lib.get(HANDLE_REQUEST_FN_NAME.as_ref())?;
-            let rust_string = serde_json::to_string(&request)?;
-            let request = string_to_c_char(&rust_string);
-            let response = handle_request(request);
-
-
-            let response = c_char_to_string(response);
-
-
-            //delete temp file
-            fs::remove_file(&copy_path).await?;
-
-            // let response = unsafe { CStr::from_ptr(response).to_str().unwrap() };
-            let response : HttpResponse =  serde_json::from_str(&response)?;
-            info!("load_and_run finish  path : {}",copy_path);
-            if let Some(error) = &response.error {
-                bail!("run plugin error >> {}", error);
-            }
-            Ok(response)
+            run_plugin(&copy_path_clone, request)
         }
-    }).await?
+    }).await?;
+
+    //delete temp file
+    fs::remove_file(&copy_path).await?;
+    result
 }
 
+
+unsafe fn run_plugin(copy_path: &str, request: HttpRequest) -> anyhow::Result<HttpResponse> {
+    info!("load_and_run begin  path : {}",copy_path);
+    // 加载动态库
+    let lib = Library::new(&copy_path)?;
+    info!("load_and_run lib load ok.  path : {}",copy_path);
+    let handle_request: Symbol<HandleRequestFn> = lib.get(HANDLE_REQUEST_FN_NAME.as_ref())?;
+    let rust_string = serde_json::to_string(&request)?;
+    let request = string_to_c_char(&rust_string);
+    let response = handle_request(request);
+
+
+    let response = c_char_to_string(response);
+
+
+    // let response = unsafe { CStr::from_ptr(response).to_str().unwrap() };
+    let response: HttpResponse = serde_json::from_str(&response)?;
+    info!("load_and_run finish  path : {}",copy_path);
+    if let Some(error) = &response.error {
+        bail!("run plugin error >> {}", error);
+    }
+    Ok(response)
+}
+
+
 #[cfg(test)]
-mod tests{
+mod tests {
     use super::*;
     #[tokio::test]
-    async fn test_load_and_run(){
+    async fn test_load_and_run() {
         let request = HttpRequest {
+            method: HttpMethod::GET,
             headers: Default::default(),
             query: "a=1aa&b=2".to_string(),
             body: "sdfd".to_string(),
@@ -74,8 +85,9 @@ mod tests{
     }
 
     #[tokio::test]
-    async fn test_load_and_run_in_docker(){
+    async fn test_load_and_run_in_docker() {
         let request = HttpRequest {
+            method: HttpMethod::GET,
             headers: Default::default(),
             query: Default::default(),
             body: "sdfd".to_string(),

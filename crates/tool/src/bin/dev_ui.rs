@@ -15,7 +15,7 @@ fn main() {
 
 
 fn run()->anyhow::Result<()>{
-    build_dev("use_embed_python,play-ui,play-job,play-cache")?;
+    build_dev("use_embed_python,play-ui,play-job,play-cache,play-dylib-loader")?;
 
     let root = get_workspace_root();
     let app_dir = Path::new(&root)
