@@ -1,3 +1,16 @@
+use anyhow::anyhow;
+use axum::body::BoxBody;
+use axum::extract::{ConnectInfo, State};
+use axum::middleware::Next;
+use axum::response::{Html, IntoResponse};
+use axum::routing::get_service;
+use axum::{
+    body::Body,
+    http::Request,
+    response::Response,
+};
+use cookie::Cookie;
+use futures_util::future::BoxFuture;
 use std::convert::Infallible;
 use std::future::Future;
 use std::net::SocketAddr;
@@ -5,25 +18,21 @@ use std::path::Path;
 use std::pin::Pin;
 use std::str::FromStr;
 use std::sync::Arc;
-use axum::{
-    response::Response,
-    body::Body,
-    http::Request,
-};
-use futures_util::future::BoxFuture;
-use tower::{Service, Layer, ServiceExt};
 use std::task::{Context, Poll};
-use anyhow::anyhow;
-use axum::body::{BoxBody};
-use axum::extract::{ConnectInfo, State};
-use axum::middleware::Next;
-use axum::response::{Html, IntoResponse};
-use axum::routing::get_service;
-use cookie::Cookie;
+use tower::{Layer, Service, ServiceExt};
 
+use crate::config::AuthConfig;
+use crate::controller::cache_controller::get_cache_content;
+
+use crate::controller::static_controller::STATIC_DIR;
+use crate::{files_dir, AppState, S};
+use futures::TryStreamExt;
+use http::{header, HeaderName, HeaderValue, Method, StatusCode, Uri};
 use http_body::Full;
+use mime_guess::mime;
+use tower_http::services::{ServeDir, ServeFile};
+use tower_http::set_status::SetStatus;
 use tracing::{info, warn};
-
 
 pub async fn http_middleware(
     state: State<Arc<AppState>>,
@@ -192,6 +201,7 @@ async fn serve_domain_folder(state: S, host: String, request: Request<Body>) -> 
     //check if has plugin can handle this.
     #[cfg(feature = "play-dylib-loader")]
     {
+        use crate::controller::plugin_controller::inner_run_plugin;
         let plugin = state.config.plugin_config.iter().find(|plugin|plugin.proxy_domain.eq(&host));
         if let Some(plugin) = plugin{
             return Ok(inner_run_plugin(plugin, request).await.map_err(|e|anyhow!("{:?}", e))?)
@@ -255,16 +265,7 @@ fn extract_prefix(url: &str) -> String {
     }
 }
 
-use futures::TryStreamExt;
-use http::{header, HeaderName, HeaderValue, Method, StatusCode, Uri};
-use mime_guess::mime;
-use tower_http::services::{ServeDir, ServeFile};
-use tower_http::set_status::SetStatus;
-use crate::config::AuthConfig;
-use crate::controller::cache_controller::get_cache_content;
-use crate::controller::static_controller::STATIC_DIR;
-use crate::{files_dir, AppState, S};
-use crate::controller::plugin_controller::{inner_run_plugin};
+
 // 提供 `try_concat` 方法来转换 body
 
 #[cfg(test)]

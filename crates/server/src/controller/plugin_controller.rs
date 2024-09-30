@@ -27,7 +27,7 @@ async fn run_plugin(s: S, request: Request<Body>) -> Result<Response, AppError> 
 }
 
 fn remove_trailing_slash(uri: &str) -> String {
-    if uri.ends_with('/') && uri.len() > 1 {
+    if uri.ends_with('/') && uri.len() >= 1 {
         uri[..uri.len() - 1].to_string()
     } else {
         uri.to_string()
@@ -100,4 +100,15 @@ async fn body_to_bytes(body: Body) -> anyhow::Result<String> {
     let body_string = String::from_utf8(bytes)?;
 
     Ok(body_string)
+}
+
+#[cfg(test)]
+mod tests{
+    use super::*;
+    #[test]
+    fn test_convert(){
+
+        println!("Back to Rust String: {:?}", remove_trailing_slash("/sdfsdf/sf/"));
+    }
+
 }
