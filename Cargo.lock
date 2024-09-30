@@ -2230,9 +2230,19 @@ name = "data-api"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "data-api-macro",
  "reqwest 0.12.7",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "data-api-macro"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.79",
 ]
 
 [[package]]

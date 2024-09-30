@@ -13,6 +13,7 @@ use axum::{
 use futures_util::future::BoxFuture;
 use tower::{Service, Layer, ServiceExt};
 use std::task::{Context, Poll};
+use anyhow::anyhow;
 use axum::body::{BoxBody};
 use axum::extract::{ConnectInfo, State};
 use axum::middleware::Next;
@@ -25,7 +26,7 @@ use tracing::{info, warn};
 
 
 pub async fn http_middleware(
-    State(state): State<Arc<AppState>>,
+    state: State<Arc<AppState>>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     request: Request<Body>,
     next: Next<Body>,
@@ -55,7 +56,7 @@ pub async fn http_middleware(
             if let Ok(host) = header.to_str() {
                 let host = host.to_string();
                 if auth_config.serve_domains.contains(&host){
-                    return serve_domain_folder(host, request).await.unwrap_or_else(|e| (
+                    return serve_domain_folder(state.clone(), host, request).await.unwrap_or_else(|e| (
                         StatusCode::INTERNAL_SERVER_ERROR,
                         format!("Unhandled internal error: {}", e),
                     ).into_response())
@@ -187,7 +188,17 @@ impl Service<Request<Body>> for NotFoundService {
 }
 
 
-async fn serve_domain_folder(host: String, request: Request<Body>) -> anyhow::Result<Response> {
+async fn serve_domain_folder(state: S, host: String, request: Request<Body>) -> anyhow::Result<Response> {
+    //check if has plugin can handle this.
+    #[cfg(feature = "play-dylib-loader")]
+    {
+        let plugin = state.config.plugin_config.iter().find(|plugin|plugin.proxy_domain.eq(&host));
+        if let Some(plugin) = plugin{
+            return Ok(inner_run_plugin(plugin, request).await.map_err(|e|anyhow!("{:?}", e))?)
+        }
+    }
+
+
     let full_url = Uri::from_str(&format!("https://{}{}", host, request.uri().path()))?;
     //use cache
     if let Ok(cache) = get_cache_content(&full_url).await{
@@ -252,7 +263,8 @@ use tower_http::set_status::SetStatus;
 use crate::config::AuthConfig;
 use crate::controller::cache_controller::get_cache_content;
 use crate::controller::static_controller::STATIC_DIR;
-use crate::{files_dir, AppState};
+use crate::{files_dir, AppState, S};
+use crate::controller::plugin_controller::{inner_run_plugin};
 // 提供 `try_concat` 方法来转换 body
 
 #[cfg(test)]
