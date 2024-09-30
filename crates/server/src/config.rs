@@ -205,7 +205,7 @@ pub fn read_config_file()->anyhow::Result<String>{
     let file_path = format!("config.toml");
     let final_path = Path::new(env::var(DATA_DIR)?.as_str()).join(file_path.as_str());
 
-    info!("config path : {:?}", final_path);
+    // info!("config path : {:?}", final_path);
 
     let content = fs::read_to_string(&final_path)?;
     Ok(content)
@@ -215,7 +215,7 @@ pub fn save_config_file(content: &str)->anyhow::Result<()>{
     let file_path = format!("config.toml");
     let final_path = Path::new(env::var(DATA_DIR)?.as_str()).join(file_path.as_str());
 
-    info!("config path : {:?}", final_path);
+    // info!("config path : {:?}", final_path);
 
     fs::write(&final_path, content)?;
     Ok(())
@@ -226,7 +226,7 @@ pub fn get_config_path()->anyhow::Result<String>{
     let file_path = format!("config.toml");
     let final_path = Path::new(env::var(DATA_DIR)?.as_str()).join(file_path.as_str());
 
-    info!("config path : {:?}", final_path);
+    // info!("config path : {:?}", final_path);
     Ok(final_path.to_str().unwrap().to_string())
 }
 
@@ -237,7 +237,7 @@ pub fn init_config(use_memory: bool) -> Config {
         let file_path = format!("config.toml");
         let final_path = Path::new(env::var(DATA_DIR).unwrap().as_str()).join(file_path.as_str());
 
-        println!("config path : {:?}", final_path);
+        // println!("config path : {:?}", final_path);
 
         if !final_path.exists() {
             //copy content to output dir.
@@ -252,7 +252,7 @@ pub fn init_config(use_memory: bool) -> Config {
         let file_path = format!("config.toml");
         let final_path = Path::new(env::var(DATA_DIR).unwrap().as_str()).join(file_path.as_str());
 
-        println!("config path : {:?}", final_path);
+        // println!("config path : {:?}", final_path);
 
         if final_path.exists() {
             fs::read_to_string(&final_path).expect(format!("config file : {}  not existed!", file_path).as_str())

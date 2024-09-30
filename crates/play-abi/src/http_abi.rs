@@ -4,27 +4,28 @@ use anyhow::Context;
 use serde::de::DeserializeOwned;
 
 /// env info provided by host
-#[derive(Serialize, Deserialize, Debug)]
-pub struct HostEnv {
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct HostContext {
     /// host http url , eg. http://127.0.0.1:3000
-    pub host_url: String
+    pub host_url: String,
+    pub plugin_prefix_url: String,
 }
 
 
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum HttpMethod {
    GET,POST,PUT,DELETE
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct HttpRequest {
     pub method:HttpMethod,
     pub headers: HashMap<String, String>,
     pub query: String,
     pub url: String,
     pub body: String,
-    pub host_env: HostEnv,
+    pub context: HostContext,
 }
 
 
@@ -43,12 +44,22 @@ impl HttpRequest {
         let p: T = serde_json::from_str(&self.body).context("parse body str error!")?;
         Ok(p)
     }
+    pub fn get_suffix_url(&self)->String{
+        self.url.strip_prefix(&self.context.plugin_prefix_url).unwrap().to_string()
+    }
+
+    pub fn match_suffix(&self, suffix: &str)->bool{
+        self.get_suffix_url().eq(suffix)
+    }
+    pub fn match_suffix_default(&self)->bool{
+        self.get_suffix_url().eq("")
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct HttpResponse {
     pub headers: HashMap<String, String>,
-    pub body: String,
+    pub body: Vec<u8>,
     #[serde(default = "default_status_code")]
     pub status_code: u16,
     /// used to mark current plugin running is success or not (shoule left None for normal bussiness logic)
@@ -100,7 +111,17 @@ impl HttpResponse {
         headers.insert("Content-Type".to_string(), "text/plain;charset=UTF-8".to_string());
         Self {
             headers,
-            body: body.to_string(),
+            body: body.as_bytes().to_vec(),
+            status_code: default_status_code(),
+            ..Self::default()
+        }
+    }
+    pub fn bytes(body: &[u8], content_type: &str) -> Self {
+        let mut headers = HashMap::new();
+        headers.insert("Content-Type".to_string(), content_type.to_string());
+        Self {
+            headers,
+            body: body.to_vec(),
             status_code: default_status_code(),
             ..Self::default()
         }
@@ -110,7 +131,7 @@ impl HttpResponse {
         headers.insert("Content-Type".to_string(), "text/html;charset=UTF-8".to_string());
         Self {
             headers,
-            body: body.to_string(),
+            body: body.as_bytes().to_vec(),
             status_code: default_status_code(),
             ..Self::default()
         }
@@ -120,15 +141,17 @@ impl HttpResponse {
         headers.insert("Content-Type".to_string(), "application/json;charset=UTF-8".to_string());
         Self {
             headers,
-            body: serde_json::to_string(body).unwrap(),
+            body: serde_json::to_string(body).unwrap().as_bytes().to_vec(),
             status_code: default_status_code(),
             ..Self::default()
         }
     }
 }
 
-pub type HandleRequestFn = unsafe extern "C" fn(*const std::os::raw::c_char) -> *const std::os::raw::c_char;
+pub type HandleRequestFn = unsafe extern "C" fn(*mut std::os::raw::c_char) -> *mut std::os::raw::c_char;
+pub type FreeCStringFn = unsafe extern "C" fn(*mut std::os::raw::c_char);
 pub const HANDLE_REQUEST_FN_NAME: &'static str = "handle_request";
+pub const FREE_C_STRING_FN_NAME: &'static str = "free_c_string";
 
 /// needs tokio runtime.
 /// usage: `async_request_handler!(handle_request_impl);`
@@ -140,7 +163,7 @@ macro_rules! async_request_handler {
     ($func:ident) => {
 
        #[no_mangle]
-        pub extern "C" fn handle_request(request: *const std::os::raw::c_char) -> *const std::os::raw::c_char {
+        pub extern "C" fn handle_request(request: *mut std::os::raw::c_char) -> *mut std::os::raw::c_char {
 
             use play_abi::*;
             use std::panic::{self, AssertUnwindSafe};
@@ -151,6 +174,7 @@ macro_rules! async_request_handler {
                 use tokio::runtime::Runtime;
                 let rt = Runtime::new().unwrap();
                 let response = HttpResponse::from_anyhow(rt.block_on($func(request)));
+                drop(rt);
                 response
             });
 
@@ -169,7 +193,18 @@ macro_rules! async_request_handler {
 
             //convert response to c char string (make it compatible with ABI)
             let result = serde_json::to_string(&response).unwrap();
-            string_to_c_char(&result)
+            string_to_c_char_mut(&result)
+        }
+
+
+      #[no_mangle]
+        pub extern "C" fn free_c_string(ptr: *mut std::os::raw::c_char) {
+            if !ptr.is_null() {
+                // 将裸指针转换回 CString，并自动释放内存
+                unsafe {
+                    drop(std::ffi::CString::from_raw(ptr));
+                }
+            }
         }
     };
 }
@@ -184,7 +219,7 @@ macro_rules! request_handler {
     ($func:ident) => {
 
        #[no_mangle]
-        pub extern "C" fn handle_request(request: *const std::os::raw::c_char) -> *const std::os::raw::c_char {
+        pub extern "C" fn handle_request(request: *mut std::os::raw::c_char) -> *mut std::os::raw::c_char {
 
             use play_abi::*;
             use std::panic::{self, AssertUnwindSafe};
@@ -211,7 +246,17 @@ macro_rules! request_handler {
 
             //convert response to c char string (make it compatible with ABI)
             let result = serde_json::to_string(&response).unwrap();
-            string_to_c_char(&result)
+            string_to_c_char_mut(&result)
+        }
+
+         #[no_mangle]
+        pub extern "C" fn free_c_string(ptr: *mut std::os::raw::c_char) {
+            if !ptr.is_null() {
+                // 将裸指针转换回 CString，并自动释放内存
+                unsafe {
+                    drop(std::ffi::CString::from_raw(ptr));
+                }
+            }
         }
     };
 }

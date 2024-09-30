@@ -16,6 +16,11 @@ pub  fn string_to_c_char(rust_string: &str) -> *const c_char {
         .expect("Failed to create CString") // 确保输入字符串中没有 null 字符
         .into_raw() // 转换为原始指针
 }
+pub  fn string_to_c_char_mut(rust_string: &str) -> *mut c_char {
+    CString::new(rust_string) // 创建 CString
+        .expect("Failed to create CString") // 确保输入字符串中没有 null 字符
+        .into_raw() // 转换为原始指针
+}
 
 #[cfg(test)]
 mod tests{
