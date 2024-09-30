@@ -15,7 +15,7 @@ mod files_controller;
 pub mod chat_controller;
 pub mod cache_controller;
 mod test_controller;
-mod plugin_controller;
+pub mod plugin_controller;
 //PLACEHOLDER:CONTROLLER_MOD
 
 

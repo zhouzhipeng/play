@@ -12,8 +12,7 @@ use futures_util::{StreamExt, TryStreamExt};
 use http::{Request, StatusCode};
 use serde::Deserialize;
 use serde_json::Value;
-
-
+use crate::config::PluginConfig;
 
 method_router!(
     get : "/plugin/*url"-> run_plugin,
@@ -44,7 +43,16 @@ async fn run_plugin(s: S, request: Request<Body>) -> Result<Response, AppError> 
             url.starts_with(&format!("{}/", plugin.url_prefix))
         }).context("plugin for found for url!")?;
 
+    inner_run_plugin(plugin, request).await
+
+}
+
+#[cfg(feature = "play-dylib-loader")]
+pub async fn inner_run_plugin( plugin: &PluginConfig, request: Request<Body>)->Result<Response, AppError>{
     use play_dylib_loader::*;
+
+    let url = request.uri().path();
+    let url = remove_trailing_slash(url);
 
     let mut  headers = HashMap::new();
     for (name, value) in request.headers() {

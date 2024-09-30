@@ -54,6 +54,8 @@ pub struct CacheConfig {
 #[derive(Deserialize,Serialize, Debug, Clone, Default)]
 pub struct PluginConfig {
     #[serde(default)]
+    pub proxy_domain: String,
+    #[serde(default)]
     pub url_prefix: String,
     #[serde(default)]
     pub file_path: String,
