@@ -260,3 +260,16 @@ macro_rules! request_handler {
         }
     };
 }
+
+
+
+#[cfg(test)]
+mod tests{
+    use super::*;
+
+    #[test]
+    fn test_match_suffix(){
+
+        println!("Back to Rust String: {}", back_to_rust);
+    }
+}

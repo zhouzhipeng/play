@@ -36,4 +36,5 @@ mod tests{
         let back_to_rust = c_char_to_string(c_str);
         println!("Back to Rust String: {}", back_to_rust);
     }
+
 }
