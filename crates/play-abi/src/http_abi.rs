@@ -126,6 +126,16 @@ impl HttpResponse {
             ..Self::default()
         }
     }
+    pub fn page_404() -> Self {
+        let mut headers = HashMap::new();
+        headers.insert("Content-Type".to_string(), "text/plain;charset=UTF-8".to_string());
+        Self {
+            headers,
+            body: "page not found".as_bytes().to_vec(),
+            status_code: 404,
+            ..Self::default()
+        }
+    }
     pub fn html(body: &str) -> Self {
         let mut headers = HashMap::new();
         headers.insert("Content-Type".to_string(), "text/html;charset=UTF-8".to_string());
