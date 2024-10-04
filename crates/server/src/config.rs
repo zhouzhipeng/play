@@ -24,8 +24,6 @@ pub struct Config {
     #[serde(default)]
     pub email_server_config: EmailServerConfig,
     #[serde(default)]
-    pub finance: Finance,
-    #[serde(default)]
     pub shortlinks: Vec<ShortLink>,
     #[serde(default)]
     pub http_jobs: Vec<LocalJobConfig>,
@@ -126,65 +124,6 @@ pub struct HttpsCert {
     pub domains: Vec<String>,
     pub emails: Vec<String>,
 
-}
-
-#[derive(Deserialize, Debug, Clone, Default)]
-pub struct Finance {
-    #[serde(default)]
-    pub alphavantage_apikeys: Vec<String>,
-    #[serde(default)]
-    pub rate: Vec<RateItem>,
-    #[serde(default)]
-    pub portfolio: Vec<PortfolioItem>,
-
-}
-#[derive(Deserialize,Serialize, Debug, Clone, Default)]
-pub struct PortfolioItem {
-    #[serde(default)]
-    pub symbol: String,
-    #[serde(default)]
-    pub name: String,
-    #[serde(default)]
-    pub orders: Vec<(f64/*quantity*/, f64/*price*/, String/*date*/)>,
-    #[serde(default)]
-    pub quantity: f64,
-    #[serde(default)]
-    pub price: f64,
-    #[serde(default)]
-    pub tag: String,
-    #[serde(default)]
-    pub market: PortfolioMarket,
-    #[serde(default)]
-    pub positions: Vec<PortfolioItemPosition>,
-    #[serde(default)]
-    pub total_invest: f64,
-    #[serde(default)]
-    pub issued: bool,
-}
-#[derive(Deserialize,Serialize, Debug, Clone, Default)]
-pub struct PortfolioItemPosition {
-    #[serde(default)]
-    pub quantity: f64,
-    #[serde(default)]
-    pub price: f64,
-    #[serde(default)]
-    pub date: String,
-}
-#[derive(Deserialize,Serialize, Debug, Clone, Default)]
-pub struct RateItem {
-    #[serde(default)]
-    pub source: String,
-    #[serde(default)]
-    pub target: String,
-}
-
-#[derive(Deserialize,Serialize, Debug, Clone, Default,PartialEq)]
-pub enum PortfolioMarket {
-    #[default]
-    US_STOCK,
-    HK_STOCK,
-    CRYPTO,
-    FUND
 }
 
 #[derive(Deserialize, Debug, Clone, Default)]
