@@ -12,6 +12,7 @@
 
         <div>
             <button type="button" onclick="saveConfig(configText.value)">save config</button>
+            <button type="button" onclick="reboot()">reboot</button>
             <span id="saveResult"></span>
         </div>
 
@@ -35,6 +36,23 @@
         let data =new URLSearchParams();
         data.append("new_content", val);
         fetch('/admin/save-config', {method: "POST",body: data, headers: {"Content-Type": "application/x-www-form-urlencoded"}})
+            .then(response => {
+                // if (!response.ok) { // If the response status is not 200-299
+                //     throw new Error('Network response was not ok: ' + response.status);
+                // }
+                return response.text();
+            })
+            .then(data => {
+                // Process your data here
+                saveResult.innerText = data;
+            })
+            .catch(error => {
+                console.log()
+                saveResult.innerText = error.message;
+            });
+    }
+    function reboot(){
+        fetch('/admin/reboot', {method: "GET"})
             .then(response => {
                 // if (!response.ok) { // If the response status is not 200-299
                 //     throw new Error('Network response was not ok: ' + response.status);
