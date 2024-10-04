@@ -3,7 +3,6 @@ pub mod static_controller;
 mod ws_controller;
 pub mod function_controller;
 mod admin_controller;
-mod finance_controller;
 pub mod shortlink_controller;
 mod job_controller;
 
@@ -29,7 +28,6 @@ crate::register_routers!(
         ws_controller,
         function_controller,
         admin_controller,
-        finance_controller,
         job_controller,
         general_data_controller,
         pages_controller,
