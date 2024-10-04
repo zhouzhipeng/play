@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use anyhow::Context;
+use reqwest::Client;
 use serde::de::DeserializeOwned;
+use serde_json::{json, Value};
 
 /// env info provided by host
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -9,6 +11,7 @@ pub struct HostContext {
     /// host http url , eg. http://127.0.0.1:3000
     pub host_url: String,
     pub plugin_prefix_url: String,
+    pub config_text: Option<String>,
 }
 
 
@@ -32,6 +35,16 @@ pub struct HttpRequest {
 
 
 impl HttpRequest {
+    pub async fn render_template(&self, raw: &str, data : Value) -> anyhow::Result<String> {
+        let resp = Client::new().post(&format!("{}/functions/render-template", self.context.host_url.as_str()))
+            .form(&json!({
+                "raw_content": raw,
+                "data": data.to_string()
+            }))
+            .send().await?.text().await?;
+        Ok(resp)
+    }
+
     pub fn parse_query<T: DeserializeOwned>(&self) -> anyhow::Result<T> {
         let p: T = serde_urlencoded::from_str(&self.query).context("parse query str error!")?;
         Ok(p)
@@ -277,9 +290,27 @@ macro_rules! request_handler {
 mod tests{
     use super::*;
 
-    #[test]
-    fn test_match_suffix(){
+    #[tokio::test]
+    async fn test_render_template()->anyhow::Result<()>{
+        let req = HttpRequest{
+            method: HttpMethod::GET,
+            headers: Default::default(),
+            query: "".to_string(),
+            url: "".to_string(),
+            body: "".to_string(),
+            context: HostContext {
+                host_url: "http://127.0.0.1:3000".to_string(),
+                plugin_prefix_url: "".to_string(),
+                config_text: None,
+            },
+        };
 
-        println!("Back to Rust String: {}", back_to_rust);
+        let resp = req.render_template("11{{c}}{{a}}222", json!({
+            "a":"sdfs",
+            "c":"你好啊",
+        })).await?;
+
+        println!("{:#?}", resp);
+        Ok(())
     }
 }

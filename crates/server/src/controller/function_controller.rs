@@ -34,6 +34,7 @@ use crate::tables::general_data::GeneralData;
 
 method_router!(
     post : "/functions/str-joiner" -> str_joiner,
+    post : "/functions/render-template" -> render_template,
     post : "/functions/py-runner" -> py_runner,
     post : "/functions/run-sql" -> run_sql,
     post : "/functions/run-http-request" -> run_http_request,
@@ -44,6 +45,11 @@ method_router!(
 struct Data {
     s: String,
 }
+#[derive(Deserialize)]
+struct RenderTemplateReq {
+    raw_content: String,
+    data: String,
+}
 
 async fn str_joiner(s: S, Form(data): Form<Data>) -> HTML {
     render_fragment(&s, Template::DynamicTemplate {
@@ -52,6 +58,14 @@ async fn str_joiner(s: S, Form(data): Form<Data>) -> HTML {
     }, json!({
         "params":{}
     })).await
+}
+
+
+async fn render_template(s: S, Form(data): Form<RenderTemplateReq>) -> HTML {
+    render_fragment(&s, Template::DynamicTemplate {
+        name: "<string>".to_string(),
+        content: data.raw_content ,
+    }, serde_json::from_str(&data.data)?).await
 }
 
 async fn py_runner(s: S, Form(data): Form<Data>) -> HTML {
@@ -264,4 +278,25 @@ async fn query_mysql(url: &str, sql: &str, is_query: bool) -> anyhow::Result<Vec
 
 
     Ok(data)
+}
+
+
+#[cfg(test)]
+mod test {
+    use crate::{mock_server, mock_state};
+    use super::*;
+
+    #[cfg(feature = "play-py-tpl")]
+    #[tokio::test]
+    async fn test_render_template() -> anyhow::Result<()> {
+
+        let resp = render_template(mock_state!(), Form(RenderTemplateReq{ raw_content: "1 {{a}} b".to_string(), data: json!({
+            "a":"zz"
+        })})).await.unwrap();
+
+        println!("resp >> {:?}", resp);
+
+        Ok(())
+
+    }
 }
