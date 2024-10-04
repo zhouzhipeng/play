@@ -24,6 +24,7 @@ method_router!(
     get : "/admin" -> enter_admin_page,
     get : "/admin/upgrade" -> upgrade,
     post : "/admin/save-config" -> save_config,
+    get : "/admin/reboot" -> reboot,
     get : "/admin/logs" -> display_logs,
 );
 
@@ -68,10 +69,14 @@ async fn display_logs(s: S) -> HTML {
 async fn save_config(s: S, Form(req): Form<SaveConfigReq>) -> R<String> {
     toml::from_str::<Config>(&req.new_content)?;
     save_config_file(&req.new_content)?;
+
+    Ok("save ok.".to_string())
+}
+async fn reboot() -> R<String> {
     tokio::spawn(async {
         shutdown();
     });
-    Ok("save ok,will reboot in a sec.".to_string())
+    Ok("will reboot in a sec.".to_string())
 }
 
 
