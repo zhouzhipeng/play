@@ -220,7 +220,9 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> Arc<AppStat
     };
 
     let mut auth_config = &mut inner_app_state.config.auth_config;
-    let mut shortlinks:Vec<String> = inner_app_state.config.shortlinks.clone().iter().map(|p|p.from.to_string()).collect();
+    let mut shortlinks:Vec<String> = inner_app_state.config.shortlinks.clone().iter()
+        .filter(|p|!p.auth)
+        .map(|p|p.from.to_string()).collect();
     auth_config.whitelist.append(&mut shortlinks);
 
     info!("whitelist : {:?}", auth_config.whitelist);
