@@ -58,6 +58,8 @@ pub struct PluginConfig {
     /// if true, will load config.toml content and pass to plugin execution.
     #[serde(default)]
     pub need_config_file: bool,
+    #[serde(default)]
+    pub is_server: bool,
 
 }
 

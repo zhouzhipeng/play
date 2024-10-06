@@ -16,8 +16,9 @@ use tracing_subscriber::util::SubscriberInitExt;
 
 
 use play::{ files_dir, init_app_state, shutdown_another_instance, start_server};
-use play::config::init_config;
+use play::config::{init_config, PluginConfig};
 use play::routers;
+use play_dylib_loader::load_and_run_server;
 use play_shared::constants::DATA_DIR;
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 10)]
@@ -171,32 +172,48 @@ async fn main()->anyhow::Result<()> {
     info!("using debug mode, will auto reload templates and static pages.");
 
 
-    //start a mail server
-    #[cfg(feature = "play-mail-server")]
+    // //start a mail server
+    // #[cfg(feature = "play-mail-server")]
+    // {
+    //     let copy_appstate = app_state.clone();
+    //     info!("starting mail server...");
+    //     let addr = SocketAddr::from(([0, 0, 0, 0], config.email_server_config.port));
+    //     let (sever, rx) = play_mail_server::smtp::Builder::new().bind(addr).build(config.email_server_config.black_keywords.clone());
+    //     tokio::spawn(async move {
+    //         sever.serve().expect("create mail server failed!");
+    //     });
+    //     tokio::spawn(async move {
+    //         loop{
+    //             //handle message
+    //             info!("ready to handle message");
+    //             match rx.recv().await {
+    //                 Ok(msg) => {
+    //                     play::handle_email_message(&copy_appstate, &msg).await;
+    //                 }
+    //                 Err(e) => {
+    //                     error!("recv mail message error : {:?}", e);
+    //                 }
+    //             }
+    //         }
+    //
+    //     });
+    // }
+    #[cfg(feature = "play-dylib-loader")]
     {
         let copy_appstate = app_state.clone();
-        info!("starting mail server...");
-        let addr = SocketAddr::from(([0, 0, 0, 0], config.email_server_config.port));
-        let (sever, rx) = play_mail_server::smtp::Builder::new().bind(addr).build(config.email_server_config.black_keywords.clone());
-        tokio::spawn(async move {
-            sever.serve().expect("create mail server failed!");
-        });
-        tokio::spawn(async move {
-            loop{
-                //handle message
-                info!("ready to handle message");
-                match rx.recv().await {
-                    Ok(msg) => {
-                        play::handle_email_message(&copy_appstate, &msg).await;
-                    }
-                    Err(e) => {
-                        error!("recv mail message error : {:?}", e);
-                    }
-                }
-            }
+        let plugins : Vec<PluginConfig> =  copy_appstate.config.plugin_config.iter().filter(|plugin|plugin.is_server).collect();
+        for plugin in plugins {
+            tokio::spawn(async move {
 
-        });
+                if let Err(e) = load_and_run_server(&plugin.file_path).await{
+                    error!("email plugin load_and_run_server error: {:?}", e);
+                }
+            });
+        }
+
     }
+
+
 
     //start job scheduler
     #[cfg(feature = "play-job")]

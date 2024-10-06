@@ -4,11 +4,12 @@ use std::path::PathBuf;
 use anyhow::{bail, ensure, Context};
 use libloading::{Library, Symbol};
 use tokio::fs;
-use log::{error, info};
+use log::{error, info, warn};
 use tempfile::Builder;
 pub use play_abi::http_abi::*;
 use play_abi::{c_char_to_string, string_to_c_char, string_to_c_char_mut};
 use std::panic::{self, AssertUnwindSafe};
+use play_abi::server_abi::{RunFn, RUN_FN_NAME};
 
 /// load a dylib from `dylib_path` (absolute path)
 pub async fn load_and_run(dylib_path: &str, request: HttpRequest) -> anyhow::Result<HttpResponse> {
@@ -46,6 +47,27 @@ pub async fn load_and_run(dylib_path: &str, request: HttpRequest) -> anyhow::Res
 
 
     result
+}
+pub async fn load_and_run_server(dylib_path: &str) -> anyhow::Result<()> {
+    ensure!(fs::try_exists(dylib_path).await?);
+    info!("load_and_run_server  path : {}",dylib_path);
+
+    let copy_path = dylib_path.to_string();
+    tokio::spawn(async move {
+        unsafe {
+            // 加载动态库
+            let lib = Library::new(&copy_path).unwrap();
+            info!("load_and_run_server lib load ok.  path : {}",copy_path);
+            let run: Symbol<RunFn> = lib.get(RUN_FN_NAME.as_ref()).unwrap();
+
+            run();
+            warn!("run failed? dylib_path : {}",copy_path);
+
+            drop(lib);
+        }
+    });
+
+    Ok(())
 }
 
 
@@ -88,7 +110,7 @@ mod tests {
             query: "a=1aa&b=2".to_string(),
             body: "sdfd".to_string(),
             url: "sdf".to_string(),
-            context: HostContext { host_url: "http://127.0.0.1:3000".to_string(), plugin_prefix_url: "".to_string() },
+            context: HostContext { host_url: "http://127.0.0.1:3000".to_string(), plugin_prefix_url: "".to_string(), data_dir: "".to_string(), config_text: None },
         };
         let resp = load_and_run("/Users/zhouzhipeng/RustroverProjects/play/target/release/libplay_dylib_example.dylib", request).await;
         println!("resp >> {:?}", resp);
@@ -102,9 +124,16 @@ mod tests {
             query: Default::default(),
             body: "sdfd".to_string(),
             url: "sdf".to_string(),
-            context: HostContext { host_url: "http://127.0.0.1:3000".to_string(), plugin_prefix_url: "".to_string() },
+            context: HostContext { host_url: "http://127.0.0.1:3000".to_string(), plugin_prefix_url: "".to_string(), data_dir: "".to_string(), config_text: None },
         };
         let resp = load_and_run("/app/target/release/libplay_dylib_example.so", request).await;
+        println!("resp >> {:?}", resp);
+    }
+    #[tokio::test]
+    async fn test_load_and_run_server() {
+
+        let resp = load_and_run_server("/Users/zhouzhipeng/RustroverProjects/play/target/release/libplay_dylib_example.dylib").await;
+        tokio::time::sleep(std::time::Duration::from_secs(50)).await;
         println!("resp >> {:?}", resp);
     }
 }
