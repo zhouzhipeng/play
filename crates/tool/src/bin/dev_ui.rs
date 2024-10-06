@@ -13,7 +13,7 @@ fn main() {
 
 
 fn run()->anyhow::Result<()>{
-    build_dev("play-ui,play-job,play-cache,play-dylib-loader,play-dylib-loader/hot-reloading")?;
+    build_dev("play-ui,play-job,play-cache,play-dylib-loader")?;
 
     let root = get_workspace_root();
     let app_dir = Path::new(&root)
