@@ -33,7 +33,7 @@ use tower_http::cors::{Any, CorsLayer};
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::{error, info};
-use play_dylib_loader::{HostContext, HttpRequest};
+
 use play_shared::constants::{CAT_FINGERPRINT, CAT_MAIL, DATA_DIR};
 
 use play_shared::{current_timestamp, timestamp_to_date_str};
@@ -588,8 +588,9 @@ pub async fn get_file_modify_time(path: &PathBuf)->i64{
     0
 }
 
-
+#[cfg(feature = "play-dylib-loader")]
 pub async fn render_template_new(text: &str, data: Value)->anyhow::Result<String>{
+    use play_dylib_loader::{HostContext, HttpRequest};
     //host_url: env::var("HOST")?
     let req = HttpRequest{
         context: HostContext {
@@ -601,4 +602,9 @@ pub async fn render_template_new(text: &str, data: Value)->anyhow::Result<String
 
     let resp = req.render_template(text, data).await?;
     Ok(resp)
+}
+
+#[cfg(not(feature = "play-dylib-loader"))]
+pub async fn render_template_new(text: &str, data: Value)->anyhow::Result<String> {
+    bail!("feature `play-dylib-loader` not enabled")
 }
