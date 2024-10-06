@@ -483,35 +483,35 @@ async fn render_fragment(s: &S, fragment: Template, data: Value) -> R<Html<Strin
 }
 
 
-#[cfg(feature = "play-mail-server")]
-pub async fn handle_email_message(copy_appstate: &Arc<AppState>, msg: &play_mail_server::models::message::Message) {
-    //double write
-    if GeneralData::query_count(CAT_MAIL, &copy_appstate.db).await.unwrap_or_default()>=50{
-        info!("delete emails");
-        GeneralData::delete_by_cat(CAT_MAIL, &copy_appstate.db).await;
-    }
-    let r2 = GeneralData::insert(CAT_MAIL,
-        &json!({
-            "from_mail": msg.sender.to_string(),
-            "to_mail": msg.recipients.join(","),
-            "send_date": msg.created_at.as_ref().unwrap_or(&String::from("")).to_string(),
-            "subject": msg.subject.to_string(),
-            "plain_content": msg.plain.as_ref().unwrap_or(&String::from("")).to_string(),
-            "html_content": msg.html.as_ref().unwrap_or(&String::from("")).to_string(),
-            "full_body": "<TODO>".to_string(),
-            "attachments": "<TODO>".to_string(),
-            "create_time": current_timestamp!(),
-        }).to_string()
-    ,  &copy_appstate.db).await;
-    info!("email insert result2 : {:?}", r2);
-
-
-    //send push
-    let sender= urlencoding::encode(&msg.sender).into_owned();
-    let title= urlencoding::encode(&msg.subject).into_owned();
-    reqwest::get(format!("{}/{}/{}", &copy_appstate.config.misc_config.mail_notify_url, sender, title)).await;
-
-}
+// #[cfg(feature = "play-mail-server")]
+// pub async fn handle_email_message(copy_appstate: &Arc<AppState>, msg: &play_mail_server::models::message::Message) {
+//     //double write
+//     if GeneralData::query_count(CAT_MAIL, &copy_appstate.db).await.unwrap_or_default()>=50{
+//         info!("delete emails");
+//         GeneralData::delete_by_cat(CAT_MAIL, &copy_appstate.db).await;
+//     }
+//     let r2 = GeneralData::insert(CAT_MAIL,
+//         &json!({
+//             "from_mail": msg.sender.to_string(),
+//             "to_mail": msg.recipients.join(","),
+//             "send_date": msg.created_at.as_ref().unwrap_or(&String::from("")).to_string(),
+//             "subject": msg.subject.to_string(),
+//             "plain_content": msg.plain.as_ref().unwrap_or(&String::from("")).to_string(),
+//             "html_content": msg.html.as_ref().unwrap_or(&String::from("")).to_string(),
+//             "full_body": "<TODO>".to_string(),
+//             "attachments": "<TODO>".to_string(),
+//             "create_time": current_timestamp!(),
+//         }).to_string()
+//     ,  &copy_appstate.db).await;
+//     info!("email insert result2 : {:?}", r2);
+//
+//
+//     //send push
+//     let sender= urlencoding::encode(&msg.sender).into_owned();
+//     let title= urlencoding::encode(&msg.subject).into_owned();
+//     reqwest::get(format!("{}/{}/{}", &copy_appstate.config.misc_config.mail_notify_url, sender, title)).await;
+//
+// }
 
 
 
