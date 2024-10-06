@@ -87,15 +87,13 @@ async fn enter_admin_page(s: S) -> HTML {
     let config_path = get_config_path()?;
 
     let built_time = timestamp_to_date_str!(env!("BUILT_TIME").parse::<i64>()?);
+    let html = ADMIN_HTML.replace("{{title}}", "admin panel")
+        .replace("{{config_content}}", &config_content)
+        .replace("{{config_path}}", &config_path)
+        .replace("{{built_time}}", &built_time)
+        .replace("{{title}}", "admin panel");
 
-    template!(s, ADMIN_HTML, json!({
-        "title": "admin panel",
-        "upgrade_url" : &s.config.upgrade_url,
-        "config_content" : config_content,
-        "config_path" : config_path,
-        "built_time": built_time,
-        "title": "admin page",
-    }))
+    Ok(Html(html))
 }
 
 fn copy_me()->anyhow::Result<()>{
