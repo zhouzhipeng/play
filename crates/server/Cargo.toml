@@ -10,7 +10,7 @@ before-packaging-command = "cargo dev_ui"
 
 [features]
 default = []
-debug = ["tower-livereload", "notify", "play-py-tpl", "play-py-tpl/debug", "play-cache", "play-job", "play-dylib-loader", "play-dylib-loader/hot-reloading","play-ui"]
+debug = ["tower-livereload", "notify", "play-py-tpl", "play-py-tpl/debug", "play-cache", "play-job", "play-dylib-loader", "play-ui"]
 use_embed_python = ["play-py-tpl", "play-py-tpl/use_embed_python"]
 use_mysql=["sqlx/mysql", "sqlparser"]
 
