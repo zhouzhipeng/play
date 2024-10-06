@@ -35,6 +35,14 @@ pub struct HttpRequest {
 
 
 impl HttpRequest {
+    #[cfg(feature="need_config_file")]
+    pub  fn parse_config<T:DeserializeOwned>(&self) -> anyhow::Result<T> {
+        let config_text = self.context.config_text.as_ref().context("config file is required!")?;
+        let  config: T = toml::from_str(&config_text)?;
+        Ok(config)
+    }
+
+
     pub async fn render_template(&self, raw: &str, data : Value) -> anyhow::Result<String> {
         let resp = Client::new().post(&format!("{}/functions/render-template", self.context.host_url.as_str()))
             .form(&json!({

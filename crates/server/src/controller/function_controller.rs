@@ -3,34 +3,27 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::anyhow;
-use axum::{body, Form, Json};
-use axum::body::{Body, BoxBody, HttpBody, StreamBody};
-use axum::extract::Query;
+use axum::body::{HttpBody, StreamBody};
 use axum::http::HeaderMap;
-use axum::response::{Html, IntoResponse, Response};
+use axum::response::{Html, IntoResponse};
+use axum::{Form, Json};
 use bytes::Bytes;
 use either::Either;
 use futures_core::Stream;
-use futures_util::{stream, StreamExt, TryStreamExt};
+use futures_util::{StreamExt, TryStreamExt};
 use hex::ToHex;
-use http::{HeaderName, HeaderValue, StatusCode};
-use http_body::Full;
-use reqwest::{Client, ClientBuilder};
+use http::{HeaderName, HeaderValue};
+use reqwest::ClientBuilder;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use sqlx::Executor;
-use sqlx::{Column, Row};
 #[cfg(feature = "use_mysql")]
 use sqlx::mysql::{MySqlPoolOptions, MySqlQueryResult, MySqlRow};
-use tokio::fs::File;
-use tracing::{error, info};
+use sqlx::Executor;
+use sqlx::{Column, Row};
 
-use crate::{ensure, hex_to_string, method_router, R, string_to_hex, template};
-use crate::{HTML, JSON, render_fragment, S, Template};
-use crate::controller::static_controller::STATIC_DIR;
-use crate::service::openai_service::{CreateMessage, Role};
-use crate::tables::general_data::GeneralData;
+use crate::{ensure, method_router, template};
+use crate::{render_fragment, Template, HTML, JSON, S};
 
 method_router!(
     post : "/functions/str-joiner" -> str_joiner,
@@ -283,8 +276,8 @@ async fn query_mysql(url: &str, sql: &str, is_query: bool) -> anyhow::Result<Vec
 
 #[cfg(test)]
 mod test {
-    use crate::{mock_server, mock_state};
     use super::*;
+    use crate::mock_state;
 
     #[cfg(feature = "play-py-tpl")]
     #[tokio::test]

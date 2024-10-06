@@ -5694,6 +5694,7 @@ dependencies = [
  "serde_json",
  "serde_urlencoded",
  "tokio",
+ "toml 0.8.19",
 ]
 
 [[package]]
