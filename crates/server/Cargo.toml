@@ -103,5 +103,6 @@ cookie = { version = "0.18.1", features = ["percent-encode"] }
 tokio-stream = "0.1.15"
 difference = "2.0.0"
 zip-extensions = "0.8.1"
-
+dioxus-ssr = {version = "0.5.6"}
+dioxus = {version = "0.5.6"}
 

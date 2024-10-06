@@ -1,7 +1,8 @@
 use axum::body::Body;
 use axum::extract::Query;
-use axum::response::{IntoResponse, Response};
+use axum::response::{Html, IntoResponse, Response};
 use chrono::{TimeZone, Utc};
+use dioxus::prelude::*;
 use http::Request;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -17,6 +18,7 @@ use crate::{HTML, R, S};
 use crate::config::get_config_path;
 use crate::controller::admin_controller::shutdown;
 use crate::controller::cache_controller::generate_cache_key;
+use crate::controller::pages_controller::PageDto;
 use crate::tables::general_data::GeneralData;
 
 method_router!(
@@ -28,20 +30,52 @@ method_router!(
     get : "/download-config"-> serve_config_file,
 );
 
+
+static INDEX_NEW_HTML : &str = include_str!("../../templates/index-new.html");
+
 // #[axum::debug_handler]
 async fn root(s: S) -> HTML {
     let built_time = env!("BUILT_TIME").parse::<i64>()?;
     // return_error!("test");
     let data = GeneralData::query_by_cat("title,url", "pages",1000, &s.db).await?;
-    let pages: Vec<_> = data.iter().map(|p|serde_json::from_str::<Value>(&p.data).unwrap()).collect();
+    let pages = data.iter().map(|p|serde_json::from_str::<PageDto>(&p.data).unwrap()).collect::<Vec<PageDto>>();
+
+    let html = dioxus_ssr::render_element(rsx!{
+        div { class: "row",
+            div { class: "col",
+                h2 { "System Tools" }
+                ul {
+                    li {
+                        a { href: "/static/page-editor.html", "Page Editor" }
+                    }
+                }
+                h2 { "Short Links" }
+                ul {
+                    for item in &s.config.shortlinks{
+                    li {
+                        a { target: "_blank", href: "{item.from}", "{&item.from[1..]}" }
+                    }
+                    }
+                }
+            }
+            div { class: "col",
+                h2 { "Business Pages" }
+                ul {
+                    for item in pages{
+                    li {
+                        a { href: "/pages{item.url}", target: "_blank", "{item.title}" }
+                    }
+                    }
+                }
+            }
+        }
+    });
+
+    let html = INDEX_NEW_HTML.replace("{{content}}", &html)
+        .replace("{{built_time}}", built_time.to_string().as_str());
 
 
-
-    template!(s, "index.html", json!({
-        "built_time": built_time,
-        "pages": pages,
-        "shortlinks":  s.config.shortlinks
-    }))
+    Ok(Html(html))
 
 }
 
