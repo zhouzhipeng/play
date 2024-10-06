@@ -527,15 +527,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
-name = "base64-compat"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a8d4d2746f89841e49230dd26917df1876050f95abafafbe34f47cb534b88d7"
-dependencies = [
- "byteorder",
-]
-
-[[package]]
 name = "base64ct"
 version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -649,12 +640,6 @@ dependencies = [
  "memchr",
  "serde",
 ]
-
-[[package]]
-name = "bufstream-fresh"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c431e5d450eceb6f5096c371f502946ae1cc65407935bc2cae8f1d625a2035f"
 
 [[package]]
 name = "bumpalo"
@@ -3438,41 +3423,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c41e0c4fef86961ac6d6f8a82609f55f31b05e4fce149ac5710e439df7619ba4"
 
 [[package]]
-name = "mail-parser"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4158a1c18963244e083888b21465846dfb68d6170850ed1ab4742edd57c9d47"
-dependencies = [
- "encoding_rs",
-]
-
-[[package]]
-name = "mailin"
-version = "0.6.3"
-source = "git+https://github.com/zhouzhipeng/mailin.git#2ef0f728e5089fb60c3743faea1fcbc7dc159ca8"
-dependencies = [
- "base64-compat",
- "either",
- "log",
- "nom",
- "ternop",
-]
-
-[[package]]
-name = "mailin-embedded"
-version = "0.8.1"
-source = "git+https://github.com/zhouzhipeng/mailin.git#2ef0f728e5089fb60c3743faea1fcbc7dc159ca8"
-dependencies = [
- "bufstream-fresh",
- "cfg-if",
- "log",
- "mailin",
- "rustls 0.21.12",
- "rustls-pemfile 1.0.4",
- "scoped_threadpool",
-]
-
-[[package]]
 name = "malloc_buf"
 version = "0.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4340,7 +4290,6 @@ dependencies = [
  "play-dylib-loader",
  "play-https",
  "play-job",
- "play-mail-server",
  "play-redis",
  "play-shared",
  "play-ui",
@@ -4451,25 +4400,6 @@ version = "0.1.0"
 dependencies = [
  "quote",
  "syn 2.0.79",
-]
-
-[[package]]
-name = "play-mail-server"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-channel",
- "async-trait",
- "chrono",
- "futures",
- "http-body 0.4.6",
- "log",
- "mail-parser",
- "mailin",
- "mailin-embedded",
- "serde",
- "serde_json",
- "uuid 1.10.0",
 ]
 
 [[package]]
@@ -5277,12 +5207,6 @@ name = "scoped-tls"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e1cf6437eb19a8f4a6cc0f7dca544973b0b78843adbfeb3683d1a94a0024a294"
-
-[[package]]
-name = "scoped_threadpool"
-version = "0.1.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d51f5df5af43ab3f1360b429fa5e0152ac5ce8c0bd6485cae490332e96846a8"
 
 [[package]]
 name = "scopeguard"
@@ -6436,12 +6360,6 @@ dependencies = [
  "mac",
  "utf-8",
 ]
-
-[[package]]
-name = "ternop"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9d4ae32d0a4605a89c28534371b056919c12e7a070ee07505af75130ff030111"
 
 [[package]]
 name = "thin-slice"

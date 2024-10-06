@@ -168,36 +168,7 @@ async fn main()->anyhow::Result<()> {
 
 
 
-    #[cfg(feature = "debug")]
-    info!("using debug mode, will auto reload templates and static pages.");
 
-
-    // //start a mail server
-    // #[cfg(feature = "play-mail-server")]
-    // {
-    //     let copy_appstate = app_state.clone();
-    //     info!("starting mail server...");
-    //     let addr = SocketAddr::from(([0, 0, 0, 0], config.email_server_config.port));
-    //     let (sever, rx) = play_mail_server::smtp::Builder::new().bind(addr).build(config.email_server_config.black_keywords.clone());
-    //     tokio::spawn(async move {
-    //         sever.serve().expect("create mail server failed!");
-    //     });
-    //     tokio::spawn(async move {
-    //         loop{
-    //             //handle message
-    //             info!("ready to handle message");
-    //             match rx.recv().await {
-    //                 Ok(msg) => {
-    //                     play::handle_email_message(&copy_appstate, &msg).await;
-    //                 }
-    //                 Err(e) => {
-    //                     error!("recv mail message error : {:?}", e);
-    //                 }
-    //             }
-    //         }
-    //
-    //     });
-    // }
     #[cfg(feature = "play-dylib-loader")]
     {
         let copy_appstate = app_state.clone();
@@ -205,7 +176,7 @@ async fn main()->anyhow::Result<()> {
         for plugin in plugins {
             let path = plugin.file_path.to_string();
             tokio::spawn(async move {
-
+                info!("load_and_run_server >> {}", path);
                 if let Err(e) = load_and_run_server(&path).await{
                     error!("email plugin load_and_run_server error: {:?}", e);
                 }
