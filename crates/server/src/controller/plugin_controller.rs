@@ -13,6 +13,7 @@ use futures_util::{StreamExt, TryStreamExt};
 use http::{Request, StatusCode};
 use serde::Deserialize;
 use serde_json::Value;
+use play_shared::constants::DATA_DIR;
 use crate::config::{read_config_file, PluginConfig};
 
 // method_router!(
@@ -100,6 +101,7 @@ pub async fn inner_run_plugin( plugin: &PluginConfig, request: Request<Body>)->R
         context: HostContext {
             host_url: env::var("HOST")?,
             plugin_prefix_url: plugin.url_prefix.to_string(),
+            data_dir: env::var(DATA_DIR)?,
             config_text: if plugin.need_config_file{Some(read_config_file()?)}else{None},
         },
 

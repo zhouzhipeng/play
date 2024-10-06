@@ -152,32 +152,7 @@
     <a href="/">Home</a>
     <a href="/admin">Admin</a>
 </div>
-<div class="row">
-    <div class="col">
-        <h2>System Tools</h2>
-        <ul>
-            <li><a href="/static/page-editor.html">Page Editor</a></li>
-        </ul>
-        <h2>Short Links</h2>
-        <ul>
-            % for item in shortlinks :
-            <li>
-                <a target="_blank" href="{{item['from']}}">{{item['from'][1:]}}</a>
-            </li>
-            % end
-        </ul>
-    </div>
-    <div class="col">
-        <h2>Business Pages</h2>
-        <ul>
-            % for item in pages :
-            <li>
-                <a target="_blank" href="/pages{{item.url}}">{{item.title}}</a>
-            </li>
-            % end
-        </ul>
-    </div>
-</div>
+{{content}}
 <div class="footer">
     built time : <span id="builtTimeSpan"></span>
 

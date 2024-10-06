@@ -8,7 +8,7 @@ mod job_controller;
 
 
 mod general_data_controller;
-mod pages_controller;
+pub mod pages_controller;
 mod shell_controller;
 mod files_controller;
 pub mod cache_controller;

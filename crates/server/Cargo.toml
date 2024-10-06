@@ -10,7 +10,7 @@ before-packaging-command = "cargo dev_ui"
 
 [features]
 default = []
-debug = ["tower-livereload", "notify", "play-py-tpl", "play-py-tpl/debug", "play-cache", "play-job", "play-dylib-loader", "play-dylib-loader/hot-reloading","play-ui"]
+debug = ["tower-livereload", "notify", "play-py-tpl", "play-py-tpl/debug", "play-cache", "play-job", "play-dylib-loader", "play-ui"]
 use_embed_python = ["play-py-tpl", "play-py-tpl/use_embed_python"]
 use_mysql=["sqlx/mysql", "sqlparser"]
 
@@ -103,5 +103,6 @@ cookie = { version = "0.18.1", features = ["percent-encode"] }
 tokio-stream = "0.1.15"
 difference = "2.0.0"
 zip-extensions = "0.8.1"
-
+dioxus-ssr = {version = "0.5.6"}
+dioxus = {version = "0.5.6"}
 

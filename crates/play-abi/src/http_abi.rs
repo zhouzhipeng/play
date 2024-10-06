@@ -11,6 +11,7 @@ pub struct HostContext {
     /// host http url , eg. http://127.0.0.1:3000
     pub host_url: String,
     pub plugin_prefix_url: String,
+    pub data_dir: String,
     pub config_text: Option<String>,
 }
 

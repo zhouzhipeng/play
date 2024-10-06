@@ -23,10 +23,13 @@ method_router!(
 );
 
 #[derive(Deserialize)]
-struct PageDto {
-    title: String,
-    url: String,
-    content: String,
+pub struct PageDto {
+    #[serde(default)]
+    pub title: String,
+    #[serde(default)]
+    pub url: String,
+    #[serde(default)]
+    pub content: String,
 }
 
 #[derive(Deserialize)]
