@@ -156,7 +156,6 @@ async fn main()->anyhow::Result<()> {
         }).unwrap();
 
         watcher.watch(&Path::new(env!("CARGO_MANIFEST_DIR")).join("static"), notify::RecursiveMode::Recursive).unwrap();
-        watcher.watch(&Path::new(env!("CARGO_MANIFEST_DIR")).join("templates"), notify::RecursiveMode::Recursive).unwrap();
         router = router.layer(livereload);
     }
 

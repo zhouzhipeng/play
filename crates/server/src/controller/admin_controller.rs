@@ -16,7 +16,7 @@ use tracing::info;
 use zip::ZipArchive;
 
 use play_shared::constants::DATA_DIR;
-
+use play_shared::timestamp_to_date_str;
 use crate::{ensure, HTML, method_router, R, S, template};
 use crate::config::{Config, get_config_path, read_config_file, save_config_file};
 
@@ -79,18 +79,22 @@ async fn reboot() -> R<String> {
     Ok("will reboot in a sec.".to_string())
 }
 
+static ADMIN_HTML : &str = include_str!("templates/admin_new.html");
 
 async fn enter_admin_page(s: S) -> HTML {
     // let config = &CONFIG;
     let config_content = read_config_file()?;
     let config_path = get_config_path()?;
 
+    let built_time = timestamp_to_date_str!(env!("BUILT_TIME").parse::<i64>()?);
 
-    template!(s, "frame.html"+"fragments/admin.html", json!({
+    template!(s, ADMIN_HTML, json!({
         "title": "admin panel",
         "upgrade_url" : &s.config.upgrade_url,
         "config_content" : config_content,
         "config_path" : config_path,
+        "built_time": built_time,
+        "title": "admin page",
     }))
 }
 

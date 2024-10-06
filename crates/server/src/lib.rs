@@ -33,6 +33,7 @@ use tower_http::cors::{Any, CorsLayer};
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::{error, info};
+use play_dylib_loader::{HostContext, HttpRequest};
 use play_shared::constants::{CAT_FINGERPRINT, CAT_MAIL, DATA_DIR};
 
 use play_shared::{current_timestamp, timestamp_to_date_str};
@@ -226,14 +227,6 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> Arc<AppStat
 
     // Create an instance of the shared state
     let app_state = Arc::new(inner_app_state);
-
-
-    #[cfg(feature = "play-py-tpl")]
-    start_template_backend_thread(Box::new(play_py_tpl::TplEngine {}), req_receiver);
-    #[cfg(not(feature = "play-py-tpl"))]
-    start_template_backend_thread(Box::new(crate::service::tpl_fake_engine::FakeTplEngine {}), req_receiver);
-
-
 
 
     app_state
@@ -446,63 +439,19 @@ impl<E> From<E> for AppError
 
 
 
-
-
-
-#[cfg(not(feature = "debug"))]
-#[macro_export]
-macro_rules! init_template {
-    ($fragment: expr) => {
-        {
-            #[cfg(feature = "play-py-tpl")]
-            use play_py_tpl::TEMPLATES_DIR;
-            #[cfg(not(feature = "play-py-tpl"))]
-            use crate::service::tpl_fake_engine::TEMPLATES_DIR;
-
-            let content = TEMPLATES_DIR.get_file($fragment).unwrap().contents_utf8().unwrap();
-            crate::Template::StaticTemplate { name: $fragment, content: content }
-
-        }
-
-    };
-}
-
-#[cfg(feature = "debug")]
-#[macro_export]
-macro_rules! init_template {
-    ($fragment: expr) => {
-        {
-            use std::fs;
-
-            //for compiling time check file existed or not.
-            include_str!(play_shared::file_path!(concat!("/templates/",  $fragment)));
-
-            crate::Template::DynamicTemplate { name: $fragment.to_string(), content: fs::read_to_string(play_shared::file_path!(concat!("/templates/",  $fragment))).unwrap() }
-
-        }
-
-    };
-}
-
 #[macro_export]
 macro_rules! template {
-    ($s: ident, $fragment: literal, $json: expr) => {
+    ($s: ident, $fragment: expr, $json: expr) => {
         {
-            let t = crate::init_template!($fragment);
+
+            let t = crate::Template::DynamicTemplate { name: "<string>".to_string(), content:$fragment.to_string() };
             let content: axum::response::Html<String> = crate::render_fragment(&$s,t,  $json).await?;
             Ok(content)
         }
 
     };
-    ($s: ident, $page: literal + $fragment: literal, $json:expr) => {
-        {
-            let page = crate::init_template!($page);
-            let frag = crate::init_template!($fragment);
-            let content: axum::response::Html<String> = crate::render_page(&$s,page,frag, $json).await?;
-            Ok(content)
-        }
 
-    };
+
 }
 
 
@@ -637,4 +586,19 @@ pub async fn get_file_modify_time(path: &PathBuf)->i64{
     }
 
     0
+}
+
+
+pub async fn render_template_new(text: &str, data: Value)->anyhow::Result<String>{
+    //host_url: env::var("HOST")?
+    let req = HttpRequest{
+        context: HostContext {
+            host_url: env::var("HOST")?,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    let resp = req.render_template(text, data).await?;
+    Ok(resp)
 }

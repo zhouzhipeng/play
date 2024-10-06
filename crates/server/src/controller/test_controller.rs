@@ -36,7 +36,6 @@ async fn test(s: S, Query(param): Query<Param>) -> HTML {
 
     return_error!("fuck33 ");
     // template!(s, "test.html", json!({"name":"zzp"}))
-    template!(s, "test.html", json!({"name":"zzp"}))
 }
 
 

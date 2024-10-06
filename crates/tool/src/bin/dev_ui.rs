@@ -1,9 +1,7 @@
-use std::env::set_var;
+use play_shared::get_workspace_root;
 use std::fs;
 use std::path::Path;
-use std::process::Command;
-use play_shared::get_workspace_root;
-use tool::{build_dev, build_python_artifacts};
+use tool::build_dev;
 
 fn main() {
     std::env::set_var("RUST_BACKTRACE","1");
@@ -15,7 +13,7 @@ fn main() {
 
 
 fn run()->anyhow::Result<()>{
-    build_dev("use_embed_python,play-ui,play-job,play-cache,play-dylib-loader,play-dylib-loader/hot-reloading")?;
+    build_dev("play-ui,play-job,play-cache,play-dylib-loader,play-dylib-loader/hot-reloading")?;
 
     let root = get_workspace_root();
     let app_dir = Path::new(&root)

@@ -31,7 +31,7 @@ method_router!(
 );
 
 
-static INDEX_NEW_HTML : &str = include_str!("../../templates/index-new.html");
+static INDEX_NEW_HTML : &str = include_str!("templates/index-new.html");
 
 // #[axum::debug_handler]
 async fn root(s: S) -> HTML {
