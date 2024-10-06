@@ -9,7 +9,7 @@ use serde::Deserialize;
 use crate::{app_error, AppError, AppState, S};
 use crate::R;
 
-pub fn init(state: Arc<AppState>) -> axum::Router<std::sync::Arc<crate::AppState>> {
+pub fn init(state: Arc<AppState>) -> axum::Router<Arc<AppState>> {
     let mut router = axum::Router::new();
     for link in &state.config.shortlinks {
         router = router.route(&link.from, axum::routing::get(crate::controller::shortlink_controller::link));

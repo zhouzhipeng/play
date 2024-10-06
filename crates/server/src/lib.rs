@@ -42,7 +42,7 @@ use play_shared::tpl_engine_api::{Template, TemplateData, TplEngineAPI};
 
 use crate::config::Config;
 use crate::config::init_config;
-use crate::controller::{app_routers, shortlink_controller};
+use crate::controller::{app_routers, plugin_controller, shortlink_controller};
 use crate::layer::custom_http_layer::{http_middleware};
 use crate::service::elevenlabs_service::ElevenlabsService;
 use crate::service::openai_service::OpenAIService;
@@ -388,6 +388,7 @@ pub async fn routers(app_state: Arc<AppState>) -> anyhow::Result<Router> {
 
     let mut router = Router::new()
         .merge(shortlink_controller::init(app_state.clone()))
+        .merge(plugin_controller::init(app_state.clone()))
         .merge(app_routers())
         .with_state(app_state.clone())
         // logging so we can see whats going on
