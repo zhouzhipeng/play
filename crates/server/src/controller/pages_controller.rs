@@ -45,6 +45,7 @@ struct PageVersion {
     output_html: String,
     updated: chrono::NaiveDateTime,
 }
+static PAGE_VERSIONS_HTML : &str = include_str!("templates/page-versions.html");
 
 
 async fn page_versions(s: S, Query(q): Query<QueryPageVersion>) -> HTML {
@@ -84,7 +85,7 @@ async fn page_versions(s: S, Query(q): Query<QueryPageVersion>) -> HTML {
     }
 
 
-    template!(s, "change_log/page-versions.html", json!({ "items": data}))
+    template!(s, PAGE_VERSIONS_HTML, json!({ "items": data}))
 }
 
 async fn dynamic_pages(s: S, Path(url): Path<String>, Query(params): Query<HashMap<String, String>>) -> HTML {

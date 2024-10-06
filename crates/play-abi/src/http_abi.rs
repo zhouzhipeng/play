@@ -6,7 +6,7 @@ use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
 
 /// env info provided by host
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub struct HostContext {
     /// host http url , eg. http://127.0.0.1:3000
     pub host_url: String,
@@ -17,12 +17,16 @@ pub struct HostContext {
 
 
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub enum HttpMethod {
-   GET,POST,PUT,DELETE
+    #[default]
+    GET,
+    POST,
+    PUT,
+    DELETE
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 pub struct HttpRequest {
     pub method:HttpMethod,
     pub headers: HashMap<String, String>,
@@ -45,7 +49,7 @@ impl HttpRequest {
 
 
     pub async fn render_template(&self, raw: &str, data : Value) -> anyhow::Result<String> {
-        let resp = Client::new().post(&format!("{}/functions/render-template", self.context.host_url.as_str()))
+        let resp = Client::new().post(&format!("{}/plugin/pyo3", self.context.host_url.as_str()))
             .form(&json!({
                 "raw_content": raw,
                 "data": data.to_string()
@@ -301,22 +305,24 @@ mod tests{
 
     #[tokio::test]
     async fn test_render_template()->anyhow::Result<()>{
+        //host_url: env::var("HOST")?
         let req = HttpRequest{
-            method: HttpMethod::GET,
-            headers: Default::default(),
-            query: "".to_string(),
-            url: "".to_string(),
-            body: "".to_string(),
             context: HostContext {
                 host_url: "http://127.0.0.1:3000".to_string(),
-                plugin_prefix_url: "".to_string(),
-                config_text: None,
+                ..Default::default()
             },
+            ..Default::default()
         };
 
-        let resp = req.render_template("11{{c}}{{a}}222", json!({
+        let resp = req.render_template(r#"
+        11{{c}}{{a}}222
+        % if flag:
+        aaa
+        % end
+        "#, json!({
             "a":"sdfs",
-            "c":"你好啊",
+            "c":"你好啊332sss",
+            "flag":false,
         })).await?;
 
         println!("{:#?}", resp);

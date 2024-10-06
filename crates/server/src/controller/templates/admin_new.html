@@ -1,3 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{title}}</title>
+    <link rel="stylesheet" href="/static/css/classless.css">
+    <link rel="icon" href="/static/icon.png">
+    <link rel=stylesheet href="/static/font-awesome/5.15.1/css/all.min.css">
+    <link rel=stylesheet href="/static/css/floating_nav.css">
+
+</head>
+<body>
+<a href="/" >Home</a>
+<a href="/admin" >Admin</a>
+
+<!-- 浮动小球按钮 -->
+<a href="/" id="homeButton" class="floating-button">
+    <i class="fas fa-home"></i>
+</a>
 
 
 <h2>Admin operations be careful!</h2>
@@ -70,3 +89,7 @@
     }
 
 </script>
+<p>built time :  {{built_time}} (UTC)</p>
+<script src="/static/js/htmx.min.js"></script>
+</body>
+</html>

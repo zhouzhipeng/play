@@ -145,6 +145,9 @@ struct RunSqlRequest {
 async fn run_sql(s: S, Form(data): Form<RunSqlRequest>) -> HTML {
     Ok(Html("use_mysql feature is disabled.".to_string()))
 }
+
+static DATA_TABLE_HTML : &str = include_str!("templates/data-table.html");
+
 #[cfg(feature = "use_mysql")]
 async fn run_sql(s: S, Form(data): Form<RunSqlRequest>) -> HTML {
 
@@ -153,7 +156,7 @@ async fn run_sql(s: S, Form(data): Form<RunSqlRequest>) -> HTML {
     let data = query_mysql(&data.url.trim(), sql, is_query).await?;
     // println!("results >> {:?}", data);
 
-    template!(s, "fragments/data-table.html", json!({
+    template!(s, DATA_TABLE_HTML, json!({
         "sql": sql,
         "items" : data
     }))
@@ -279,17 +282,6 @@ mod test {
     use super::*;
     use crate::mock_state;
 
-    #[cfg(feature = "play-py-tpl")]
-    #[tokio::test]
-    async fn test_render_template() -> anyhow::Result<()> {
 
-        let resp = render_template(mock_state!(), Form(RenderTemplateReq{ raw_content: "1 {{a}} b".to_string(), data: json!({
-            "a":"zz"
-        })})).await.unwrap();
 
-        println!("resp >> {:?}", resp);
-
-        Ok(())
-
-    }
 }
