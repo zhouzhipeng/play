@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::env;
-use crate::{return_error, S};
+use std::sync::Arc;
+use crate::{return_error, AppState, S};
 use crate::{method_router, AppError};
 use anyhow::Context;
 use axum::body::Body;
@@ -14,12 +15,34 @@ use serde::Deserialize;
 use serde_json::Value;
 use crate::config::{read_config_file, PluginConfig};
 
-method_router!(
-    get : "/plugin/*url"-> run_plugin,
-    post : "/plugin/*url"-> run_plugin,
-    put : "/plugin/*url"-> run_plugin,
-    delete : "/plugin/*url"-> run_plugin,
-);
+// method_router!(
+//     get : "/plugin/*url"-> run_plugin,
+//     post : "/plugin/*url"-> run_plugin,
+//     put : "/plugin/*url"-> run_plugin,
+//     delete : "/plugin/*url"-> run_plugin,
+// );
+
+pub fn init(state: Arc<AppState>) -> axum::Router<Arc<AppState>> {
+    let mut router = axum::Router::new();
+    for plugin in &state.config.plugin_config {
+        if !plugin.url_prefix.is_empty(){
+            router = router.route(&format!("{}/*url", plugin.url_prefix),
+                  axum::routing::get(run_plugin)
+                      .post(run_plugin)
+                      .put(run_plugin)
+                      .delete(run_plugin)
+            );
+            router = router.route(&format!("{}", plugin.url_prefix),
+                  axum::routing::get(run_plugin)
+                      .post(run_plugin)
+                      .put(run_plugin)
+                      .delete(run_plugin)
+            );
+        }
+    }
+
+    router
+}
 
 #[cfg(not(feature = "play-dylib-loader"))]
 async fn run_plugin(s: S, request: Request<Body>) -> Result<Response, AppError> {

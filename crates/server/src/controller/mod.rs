@@ -36,7 +36,6 @@ crate::register_routers!(
         chat_controller,
         cache_controller,
         test_controller,
-        plugin_controller,
 //PLACEHOLDER:CONTROLLER_REGISTER
 
 
