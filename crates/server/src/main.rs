@@ -201,11 +201,12 @@ async fn main()->anyhow::Result<()> {
     #[cfg(feature = "play-dylib-loader")]
     {
         let copy_appstate = app_state.clone();
-        let plugins : Vec<PluginConfig> =  copy_appstate.config.plugin_config.iter().filter(|plugin|plugin.is_server).collect();
+        let plugins : Vec<&PluginConfig> =  copy_appstate.config.plugin_config.iter().filter(|plugin|plugin.is_server).collect();
         for plugin in plugins {
+            let path = plugin.file_path.to_string();
             tokio::spawn(async move {
 
-                if let Err(e) = load_and_run_server(&plugin.file_path).await{
+                if let Err(e) = load_and_run_server(&path).await{
                     error!("email plugin load_and_run_server error: {:?}", e);
                 }
             });
