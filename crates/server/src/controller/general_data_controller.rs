@@ -7,7 +7,7 @@ use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json::Value;
 
-use crate::{ensure, JSON, method_router, return_error, S, get_last_insert_id};
+use crate::{ensure, JSON, method_router, return_error, S, get_last_insert_id, AppError};
 use crate::tables::general_data::GeneralData;
 
 method_router!(
@@ -29,6 +29,7 @@ method_router!(
     put : "/data/cat/:cat"-> override_data,  // global data. insert or update.
     post : "/data/cat/:cat"-> insert_data,
     get : "/data/cat/:cat"-> query_data, // cat-pages?title=xxx&_select=title,url&_data_json=true
+    get : "/data/cat/:cat/count"-> query_data_count,
 
 );
 
@@ -161,6 +162,9 @@ async fn query_data(s: S, Path(cat): Path<String>, Query(mut params): Query<Hash
     }
 
 }
+async fn query_data_count(s: S, Path(cat): Path<String>) -> Result<String,AppError>{
+    Ok(GeneralData::query_count(&cat ,&s.db).await?.to_string())
+}
 
 async fn get_data(s: S, Path(data_id): Path<u32>, Query(mut params): Query<HashMap<String, String>>) -> JSON<Vec<QueryDataResp>>  {
     let select_fields = params.remove("_select").unwrap_or("*".to_string());
@@ -256,6 +260,19 @@ mod tests {
         "#.to_string()).await.unwrap();
         let result = get_data_under_cat(state, Path(("book".to_string()
                                         ,1)), Query(HashMap::new())).await;
+        println!("resp : {:?}", result);
+        assert!(result.is_ok());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_query_count() -> anyhow::Result<()> {
+        let state = mock_state!();
+        insert_data(state.clone(), Path("book".to_string()), r#"
+        {"name":"zzp"}
+        "#.to_string()).await.unwrap();
+        let result = query_data_count(state, Path("book".to_string())).await;
         println!("resp : {:?}", result);
         assert!(result.is_ok());
 

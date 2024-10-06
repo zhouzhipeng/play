@@ -1,4 +1,5 @@
 pub mod http_abi;
+pub mod server_abi;
 
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;

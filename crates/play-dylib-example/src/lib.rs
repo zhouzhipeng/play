@@ -48,3 +48,12 @@ fn handle_request_impl(request: HttpRequest) -> anyhow::Result<HttpResponse> {
 
 // async_request_handler!(async_handle_request_impl);
 request_handler!(handle_request_impl);
+
+async_run!(run_server);
+
+async fn run_server(){
+    loop{
+        tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+        println!("Play again in 5 seconds...");
+    }
+}
