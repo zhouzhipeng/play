@@ -28,10 +28,6 @@ pub struct Config {
     #[serde(default)]
     pub http_jobs: Vec<LocalJobConfig>,
     #[serde(default)]
-    pub open_ai: OpenAIConfig,
-    #[serde(default)]
-    pub elevenlabs: ElevenlabsConfig,
-    #[serde(default)]
     pub auth_config: AuthConfig,
     #[serde(default)]
     pub misc_config: MiscConfig,
