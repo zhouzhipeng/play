@@ -25,7 +25,6 @@ method_router!(
     get : "/"-> root,
     get : "/ping"-> ping,
     get : "/save-fingerprint"-> save_fingerprint,
-    get : "/test-redis"-> redis_test,
     get : "/download-db"-> serve_db_file,
     get : "/download-config"-> serve_config_file,
 );
@@ -80,16 +79,7 @@ async fn root(s: S) -> HTML {
 }
 
 
-// #[debug_handler]
-async fn redis_test(s: S) -> R<String> {
-    s.redis_service.set("testkey", "testval").await?;
-    let val = s.redis_service.get("testkey").await?;
 
-    // s.redis_service.unwrap().publish("a", "test123").await?;
-
-    Ok(val)
-    // Ok("sdf".to_string())
-}
 async fn ping() -> R<String> {
     Ok("pong".to_string())
 }
