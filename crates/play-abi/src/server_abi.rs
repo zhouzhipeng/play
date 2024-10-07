@@ -4,34 +4,36 @@ use anyhow::Context;
 use reqwest::Client;
 use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
+use crate::HostContext;
 
-
-
-
-pub type RunFn = unsafe extern "C" fn();
+pub type RunFn = unsafe extern "C" fn(*mut std::os::raw::c_char);
 pub const RUN_FN_NAME: &'static str = "run";
 
 
 /// needs tokio runtime.
 /// usage: `async_run!(run);`
 /// ```rust
-/// async fn run(){}
+/// use std::task::Context;
+///
+///  async fn run_impl(context: Context){}
 /// ```
 #[macro_export]
 macro_rules! async_run {
     ($func:ident) => {
 
        #[no_mangle]
-        pub extern "C" fn run(){
+        pub extern "C" fn run(request: *mut std::os::raw::c_char){
 
             use play_abi::*;
             use std::panic::{self, AssertUnwindSafe};
 
             let result = panic::catch_unwind(||{
+                 let name = c_char_to_string(request);
+                let request: HostContext = serde_json::from_str(&name).unwrap();
 
                 use tokio::runtime::Runtime;
                 let rt = Runtime::new().unwrap();
-                let result = rt.block_on($func());
+                let result = rt.block_on($func(request));
                 println!("{:?}", result);
                 drop(rt);
 

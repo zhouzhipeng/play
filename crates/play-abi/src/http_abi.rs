@@ -4,18 +4,7 @@ use anyhow::Context;
 use reqwest::Client;
 use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
-
-/// env info provided by host
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
-pub struct HostContext {
-    /// host http url , eg. http://127.0.0.1:3000
-    pub host_url: String,
-    pub plugin_prefix_url: String,
-    pub data_dir: String,
-    pub config_text: Option<String>,
-}
-
-
+use crate::HostContext;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub enum HttpMethod {
@@ -40,12 +29,6 @@ pub struct HttpRequest {
 
 
 impl HttpRequest {
-    #[cfg(feature="need_config_file")]
-    pub  fn parse_config<T:DeserializeOwned>(&self) -> anyhow::Result<T> {
-        let config_text = self.context.config_text.as_ref().context("config file is required!")?;
-        let  config: T = toml::from_str(&config_text)?;
-        Ok(config)
-    }
 
 
     pub async fn render_template(&self, raw: &str, data : Value) -> anyhow::Result<String> {

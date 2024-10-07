@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use axum::body::Body;
 use axum::http::Request;
-
+use tokio::task::JoinHandle;
 use tracing::{error, info};
 use tracing::level_filters::LevelFilter;
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
@@ -16,9 +16,9 @@ use tracing_subscriber::util::SubscriberInitExt;
 
 
 use play::{ files_dir, init_app_state, shutdown_another_instance, start_server};
-use play::config::{init_config, PluginConfig};
+use play::config::{init_config, read_config_file, PluginConfig};
 use play::routers;
-use play_dylib_loader::load_and_run_server;
+
 use play_shared::constants::DATA_DIR;
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 10)]
@@ -171,15 +171,24 @@ async fn main()->anyhow::Result<()> {
 
     #[cfg(feature = "play-dylib-loader")]
     {
+        use play_dylib_loader::{load_and_run_server, HostContext};
         let copy_appstate = app_state.clone();
         let plugins : Vec<&PluginConfig> =  copy_appstate.config.plugin_config.iter().filter(|plugin|plugin.is_server).collect();
         for plugin in plugins {
             let path = plugin.file_path.to_string();
-            tokio::spawn(async move {
+            let _:JoinHandle<anyhow::Result<()>> =  tokio::spawn(async move {
                 info!("load_and_run_server >> {}", path);
-                if let Err(e) = load_and_run_server(&path).await{
-                    error!("email plugin load_and_run_server error: {:?}", e);
+                let context = HostContext {
+                    host_url: env::var("HOST")?,
+                    plugin_prefix_url: "".to_string(),
+                    data_dir: env::var(DATA_DIR)?,
+                    config_text: Some(read_config_file()?),
+                };
+
+                if let Err(e) = load_and_run_server(&path,context).await{
+                    error!(" plugin load_and_run_server error: {:?}", e);
                 }
+                Ok(())
             });
         }
 
