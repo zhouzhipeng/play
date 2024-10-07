@@ -24,8 +24,6 @@ pub struct Config {
     #[serde(default)]
     pub shortlinks: Vec<ShortLink>,
     #[serde(default)]
-    pub http_jobs: Vec<LocalJobConfig>,
-    #[serde(default)]
     pub auth_config: AuthConfig,
     #[serde(default)]
     pub misc_config: MiscConfig,
@@ -94,19 +92,9 @@ pub struct AuthConfig {
 pub struct MiscConfig {
     pub mail_notify_url: String,
 }
-#[derive(Deserialize, Debug, Clone, Default)]
-pub struct LocalJobConfig {
-    pub name: String,
-    #[serde(default="default_true")]
-    pub enable: bool,
-    pub cron: String,
-    pub url: String,
-    pub params : Vec<(String/*key*/, String/*value*/)>
-}
 
-fn default_true() -> bool {
-    true
-}
+
+
 
 
 fn default_log_level()->String{
