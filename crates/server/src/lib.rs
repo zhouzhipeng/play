@@ -21,7 +21,7 @@ use axum::Router;
 use axum_server::Handle;
 use http_body::Body;
 use hyper::HeaderMap;
-use include_dir::{Dir, include_dir};
+use include_dir::{include_dir, Dir};
 use lazy_static::lazy_static;
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -33,7 +33,6 @@ use tower_http::cors::{Any, CorsLayer};
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::{error, info};
-
 use play_shared::constants::{CAT_FINGERPRINT, CAT_MAIL, DATA_DIR};
 
 use play_shared::{current_timestamp, timestamp_to_date_str};
@@ -44,9 +43,9 @@ use play_shared::tpl_engine_api::{Template, TemplateData, TplEngineAPI};
 use crate::config::Config;
 use crate::config::init_config;
 use crate::controller::{app_routers, plugin_controller, shortlink_controller};
-use crate::layer::custom_http_layer::{http_middleware};
+use crate::layer::custom_http_layer::http_middleware;
 use crate::service::template_service;
-use crate::service::template_service::{TemplateService};
+use crate::service::template_service::TemplateService;
 use crate::tables::DBPool;
 use crate::tables::general_data::GeneralData;
 
@@ -526,7 +525,8 @@ pub async fn get_file_modify_time(path: &PathBuf)->i64{
 
 #[cfg(feature = "play-dylib-loader")]
 pub async fn render_template_new(text: &str, data: Value)->anyhow::Result<String>{
-    use play_dylib_loader::{HostContext, HttpRequest};
+    use play_dylib_loader::HostContext;
+    use play_dylib_loader::{HttpRequest};
     //host_url: env::var("HOST")?
     let req = HttpRequest{
         context: HostContext {

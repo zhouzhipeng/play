@@ -22,8 +22,6 @@ pub struct Config {
     #[serde(default)]
     pub https_cert: HttpsCert,
     #[serde(default)]
-    pub email_server_config: EmailServerConfig,
-    #[serde(default)]
     pub shortlinks: Vec<ShortLink>,
     #[serde(default)]
     pub http_jobs: Vec<LocalJobConfig>,
@@ -126,16 +124,7 @@ pub struct HttpsCert {
 
 }
 
-#[derive(Deserialize, Debug, Clone, Default)]
-pub struct EmailServerConfig {
-    #[serde(default="default_email_server_port")]
-    pub port: u16,
-    pub black_keywords: Vec<String>,
-}
 
-fn default_email_server_port()->u16{
-    25
-}
 
 
 #[derive(Deserialize, Debug, Clone)]

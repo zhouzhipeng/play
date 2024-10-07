@@ -2,17 +2,13 @@ use std::collections::HashMap;
 use std::env;
 use std::sync::Arc;
 use crate::{return_error, AppState, S};
-use crate::{method_router, AppError};
+use crate::AppError;
 use anyhow::Context;
 use axum::body::Body;
-use axum::extract::Query;
-use axum::Form;
 use axum::response::{IntoResponse, Response};
-use bytes::Bytes;
 use futures_util::{StreamExt, TryStreamExt};
 use http::{Request, StatusCode};
 use serde::Deserialize;
-use serde_json::Value;
 use play_shared::constants::DATA_DIR;
 use crate::config::{read_config_file, PluginConfig};
 
@@ -73,6 +69,7 @@ async fn run_plugin(s: S, request: Request<Body>) -> Result<Response, AppError> 
 
 #[cfg(feature = "play-dylib-loader")]
 pub async fn inner_run_plugin( plugin: &PluginConfig, request: Request<Body>)->Result<Response, AppError>{
+    use play_dylib_loader::HostContext;
     use play_dylib_loader::*;
 
     let url = request.uri().path();

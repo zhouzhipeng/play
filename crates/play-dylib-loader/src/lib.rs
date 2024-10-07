@@ -1,3 +1,4 @@
+use std::env;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 use std::path::PathBuf;
@@ -7,8 +8,10 @@ use tokio::fs;
 use log::{error, info, warn};
 use tempfile::Builder;
 pub use play_abi::http_abi::*;
+pub use play_abi::HostContext;
 use play_abi::{c_char_to_string, string_to_c_char, string_to_c_char_mut};
 use std::panic::{self, AssertUnwindSafe};
+use tokio::task::JoinHandle;
 use play_abi::server_abi::{RunFn, RUN_FN_NAME};
 
 /// load a dylib from `dylib_path` (absolute path)
@@ -48,22 +51,25 @@ pub async fn load_and_run(dylib_path: &str, request: HttpRequest) -> anyhow::Res
 
     result
 }
-pub async fn load_and_run_server(dylib_path: &str) -> anyhow::Result<()> {
+pub async fn load_and_run_server(dylib_path: &str, host_context: HostContext) -> anyhow::Result<()> {
     ensure!(fs::try_exists(dylib_path).await?);
     info!("load_and_run_server  path : {}",dylib_path);
 
     let copy_path = dylib_path.to_string();
-    tokio::spawn(async move {
+    let _:JoinHandle<anyhow::Result<()>> = tokio::spawn(async move {
         unsafe {
             // 加载动态库
-            let lib = Library::new(&copy_path).unwrap();
+            let lib = Library::new(&copy_path)?;
             info!("load_and_run_server lib load ok.  path : {}",copy_path);
-            let run: Symbol<RunFn> = lib.get(RUN_FN_NAME.as_ref()).unwrap();
+            let run: Symbol<RunFn> = lib.get(RUN_FN_NAME.as_ref())?;
 
-            run();
+            let rust_string = serde_json::to_string(&host_context)?;
+            let request = string_to_c_char_mut(&rust_string);
+            run(request);
             warn!("run failed? dylib_path : {}",copy_path);
 
             drop(lib);
+            Ok(())
         }
     });
 
@@ -101,6 +107,7 @@ unsafe fn run_plugin(copy_path: &str, request: HttpRequest) -> anyhow::Result<Ht
 
 #[cfg(test)]
 mod tests {
+    use play_abi::HostContext;
     use super::*;
     #[tokio::test]
     async fn test_load_and_run() {
@@ -132,7 +139,12 @@ mod tests {
     #[tokio::test]
     async fn test_load_and_run_server() {
 
-        let resp = load_and_run_server("/Users/zhouzhipeng/RustroverProjects/play/target/release/libplay_dylib_example.dylib").await;
+        let resp = load_and_run_server("/Users/zhouzhipeng/RustroverProjects/play/target/release/libplay_dylib_example.dylib", HostContext{
+            host_url: "".to_string(),
+            plugin_prefix_url: "".to_string(),
+            data_dir: "".to_string(),
+            config_text: None,
+        }).await;
         tokio::time::sleep(std::time::Duration::from_secs(50)).await;
         println!("resp >> {:?}", resp);
     }
