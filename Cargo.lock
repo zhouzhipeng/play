@@ -533,41 +533,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8c3c1a368f70d6cf7302d78f8f7093da241fb8e8807c05cc9e51a125895a6d5b"
 
 [[package]]
-name = "bb8"
-version = "0.8.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b10cf871f3ff2ce56432fddc2615ac7acc3aa22ca321f8fea800846fbb32f188"
-dependencies = [
- "async-trait",
- "futures-util",
- "parking_lot",
- "tokio",
-]
-
-[[package]]
-name = "bb8-redis"
-version = "0.13.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd456361ba8e4e7f5fe58e1697ce078a149c85ebce13bf9c6b483d3f566fc9c3"
-dependencies = [
- "async-trait",
- "bb8",
- "redis",
-]
-
-[[package]]
-name = "bb8-redis-cluster"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b17eaed7bfc685625383a734745a35ed03df7cac0463b744c4b510a289043356"
-dependencies = [
- "async-trait",
- "bb8",
- "redis",
- "redis_cluster_async",
-]
-
-[[package]]
 name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -958,11 +923,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba5a308b75df32fe02788e748662718f03fde005016435c444eea572398219fd"
 dependencies = [
  "bytes",
- "futures-core",
  "memchr",
- "pin-project-lite",
- "tokio",
- "tokio-util",
 ]
 
 [[package]]
@@ -1099,12 +1060,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19d374276b40fb8bbdee95aef7c7fa6b5316ec764510eb64b8dd0e2ed0d7e7f5"
 
 [[package]]
-name = "crc16"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "338089f42c427b86394a5ee60ff321da23a5c89c9d89514c829687b26359fcff"
-
-[[package]]
 name = "crc32fast"
 version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1147,17 +1102,6 @@ checksum = "6b50826342786a51a89e2da3a28f1c32b06e387201bc2d19791f622c673706b1"
 dependencies = [
  "cast",
  "itertools",
-]
-
-[[package]]
-name = "cron"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f8c3e73077b4b4a6ab1ea5047c37c57aee77657bc8ecd6f29b0af082d0b0c07"
-dependencies = [
- "chrono",
- "nom",
- "once_cell",
 ]
 
 [[package]]
@@ -3718,17 +3662,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51d515d32fb182ee37cda2ccdcb92950d6a3c2893aa280e540671c2cd0f3b1d9"
 
 [[package]]
-name = "num-derive"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "876a53fff98e03a936a674b29568b0e605f06b29372c2489ff4de23f1949743d"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
 name = "num-integer"
 version = "0.1.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4289,8 +4222,6 @@ dependencies = [
  "play-cache",
  "play-dylib-loader",
  "play-https",
- "play-job",
- "play-redis",
  "play-shared",
  "play-ui",
  "rand 0.8.5",
@@ -4383,38 +4314,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "play-job"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "log",
- "reqwest 0.11.27",
- "tokio",
- "tokio-cron-scheduler",
-]
-
-[[package]]
 name = "play-macros"
 version = "0.1.0"
 dependencies = [
  "quote",
  "syn 2.0.79",
-]
-
-[[package]]
-name = "play-redis"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "bb8-redis",
- "bb8-redis-cluster",
- "dashmap",
- "futures",
- "futures-util",
- "play-shared",
- "tracing 0.1.40",
 ]
 
 [[package]]
@@ -4748,18 +4652,12 @@ version = "0.23.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4f49cdc0bb3f412bf8e7d1bd90fe1d9eb10bc5c399ba90973c14662a27b3f8ba"
 dependencies = [
- "async-trait",
- "bytes",
  "combine",
- "futures-util",
  "itoa 1.0.11",
  "percent-encoding",
- "pin-project-lite",
  "ryu",
  "sha1_smol",
  "socket2 0.4.10",
- "tokio",
- "tokio-util",
  "url",
 ]
 
@@ -4770,21 +4668,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aba266ca48ae66978bf439fd2ac0d7a36a8635823754e2bc73afaf9d2fc25272"
 dependencies = [
  "redis",
-]
-
-[[package]]
-name = "redis_cluster_async"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "093073cc58cbe376f3308c530edcda1a49ef980de1c32f3fa63622fc5c6f0fb9"
-dependencies = [
- "crc16",
- "futures",
- "log",
- "pin-project-lite",
- "rand 0.8.5",
- "redis",
- "tokio",
 ]
 
 [[package]]
@@ -6475,21 +6358,6 @@ dependencies = [
  "socket2 0.5.7",
  "tokio-macros",
  "windows-sys 0.52.0",
-]
-
-[[package]]
-name = "tokio-cron-scheduler"
-version = "0.10.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4c2e3a88f827f597799cf70a6f673074e62f3fc5ba5993b2873345c618a29af"
-dependencies = [
- "chrono",
- "cron",
- "num-derive",
- "num-traits",
- "tokio",
- "tracing 0.1.40",
- "uuid 1.10.0",
 ]
 
 [[package]]

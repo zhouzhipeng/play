@@ -23,9 +23,9 @@ use crate::tables::general_data::GeneralData;
 
 method_router!(
     get : "/"-> root,
+    get : "/robots.txt"-> robots,
     get : "/ping"-> ping,
     get : "/save-fingerprint"-> save_fingerprint,
-    get : "/test-redis"-> redis_test,
     get : "/download-db"-> serve_db_file,
     get : "/download-config"-> serve_config_file,
 );
@@ -33,7 +33,12 @@ method_router!(
 
 static INDEX_NEW_HTML : &str = include_str!("templates/index-new.html");
 
-// #[axum::debug_handler]
+static ROBOTS_TXT : &str = include_str!("templates/robots.txt");
+
+async fn robots() -> R<String> {
+    Ok(ROBOTS_TXT.to_string())
+}
+
 async fn root(s: S) -> HTML {
     let built_time = env!("BUILT_TIME").parse::<i64>()?;
     // return_error!("test");
@@ -80,16 +85,7 @@ async fn root(s: S) -> HTML {
 }
 
 
-// #[debug_handler]
-async fn redis_test(s: S) -> R<String> {
-    s.redis_service.set("testkey", "testval").await?;
-    let val = s.redis_service.get("testkey").await?;
 
-    // s.redis_service.unwrap().publish("a", "test123").await?;
-
-    Ok(val)
-    // Ok("sdf".to_string())
-}
 async fn ping() -> R<String> {
     Ok("pong".to_string())
 }

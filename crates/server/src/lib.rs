@@ -188,7 +188,6 @@ macro_rules! app_error {
 pub struct AppState {
     pub template_service: TemplateService,
     pub db: DBPool,
-    pub redis_service: Box<dyn RedisAPI + Send + Sync>,
     pub config: Config,
 }
 
@@ -205,10 +204,6 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> Arc<AppStat
     let mut inner_app_state  = AppState {
         template_service: TemplateService::new(req_sender),
         db: if final_test_pool { tables::init_test_pool().await } else { tables::init_pool(&config).await },
-        #[cfg(feature = "play-redis")]
-        redis_service: Box::new(play_redis::RedisService::new(config.redis_uri.clone(), final_test_pool).await.unwrap()),
-        #[cfg(not(feature = "play-redis"))]
-        redis_service: Box::new(crate::service::redis_fake_service::RedisFakeService::new(config.redis_uri.clone(), final_test_pool).await.unwrap()),
         config: config.clone(),
     };
 
