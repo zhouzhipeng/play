@@ -23,6 +23,7 @@ use crate::tables::general_data::GeneralData;
 
 method_router!(
     get : "/"-> root,
+    get : "/robots.txt"-> robots,
     get : "/ping"-> ping,
     get : "/save-fingerprint"-> save_fingerprint,
     get : "/download-db"-> serve_db_file,
@@ -32,7 +33,12 @@ method_router!(
 
 static INDEX_NEW_HTML : &str = include_str!("templates/index-new.html");
 
-// #[axum::debug_handler]
+static ROBOTS_TXT : &str = include_str!("templates/robots.txt");
+
+async fn robots() -> R<String> {
+    Ok(ROBOTS_TXT.to_string())
+}
+
 async fn root(s: S) -> HTML {
     let built_time = env!("BUILT_TIME").parse::<i64>()?;
     // return_error!("test");
