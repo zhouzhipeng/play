@@ -929,7 +929,7 @@ dependencies = [
 [[package]]
 name = "common-crypt"
 version = "0.1.0"
-source = "git+https://github.com/zhouzhipeng/rust-utils#f6061455e3e47e268847135b94a2e176e3f73bca"
+source = "git+https://github.com/zhouzhipeng/rust-utils#153e8a6487a2e37f6f4a89bfa660494f81e7c9ff"
 dependencies = [
  "base64 0.22.1",
  "md5",
@@ -1255,8 +1255,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "dashmap"
+version = "6.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5041cc499144891f3790297212f32a74fb938e5136a14943f338ef9e0ae276cf"
+dependencies = [
+ "cfg-if",
+ "crossbeam-utils",
+ "hashbrown 0.14.5",
+ "lock_api",
+ "once_cell",
+ "parking_lot_core",
+]
+
+[[package]]
 name = "data-api"
 version = "0.1.0"
+source = "git+https://github.com/zhouzhipeng/rust-utils#153e8a6487a2e37f6f4a89bfa660494f81e7c9ff"
 dependencies = [
  "anyhow",
  "data-api-macro",
@@ -1268,6 +1283,7 @@ dependencies = [
 [[package]]
 name = "data-api-macro"
 version = "0.1.0"
+source = "git+https://github.com/zhouzhipeng/rust-utils#153e8a6487a2e37f6f4a89bfa660494f81e7c9ff"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4199,7 +4215,7 @@ dependencies = [
  "common-crypt",
  "cookie",
  "criterion",
- "dashmap",
+ "dashmap 5.5.3",
  "difference",
  "dioxus",
  "dioxus-ssr",
@@ -4292,6 +4308,7 @@ name = "play-dylib-loader"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "dashmap 6.1.0",
  "libloading",
  "log",
  "play-abi",
@@ -5512,7 +5529,7 @@ dependencies = [
 [[package]]
 name = "sql-util"
 version = "0.1.0"
-source = "git+https://github.com/zhouzhipeng/rust-utils#f6061455e3e47e268847135b94a2e176e3f73bca"
+source = "git+https://github.com/zhouzhipeng/rust-utils#153e8a6487a2e37f6f4a89bfa660494f81e7c9ff"
 dependencies = [
  "anyhow",
  "sqlparser",

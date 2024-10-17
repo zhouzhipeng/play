@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::env;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
@@ -11,6 +12,9 @@ pub use play_abi::http_abi::*;
 pub use play_abi::HostContext;
 use play_abi::{c_char_to_string, string_to_c_char, string_to_c_char_mut};
 use std::panic::{self, AssertUnwindSafe};
+use std::sync::{Arc, LazyLock, OnceLock};
+use dashmap::DashMap;
+use tokio::sync::OnceCell;
 use tokio::task::JoinHandle;
 use play_abi::server_abi::{RunFn, RUN_FN_NAME};
 
@@ -77,13 +81,51 @@ pub async fn load_and_run_server(dylib_path: &str, host_context: HostContext) ->
 }
 
 
-unsafe fn run_plugin(copy_path: &str, request: HttpRequest) -> anyhow::Result<HttpResponse> {
-    info!("load_and_run begin  path : {}",copy_path);
-    // 加载动态库
-    let lib = Library::new(&copy_path)?;
-    info!("load_and_run lib load ok.  path : {}",copy_path);
-    let handle_request: Symbol<HandleRequestFn> = lib.get(HANDLE_REQUEST_FN_NAME.as_ref())?;
-    let free_c_string: Symbol<FreeCStringFn> = lib.get(FREE_C_STRING_FN_NAME.as_ref())?;
+// 1. 静态 HashMap
+static PLUGIN_CACHE: LazyLock<DashMap<String,Arc<PluginLib>>> = LazyLock::new(||{
+    DashMap::new()
+});
+
+struct PluginLib{
+    library: Library,
+}
+
+// 2. 初始化辅助函数
+unsafe fn get_plugin_lib(lib_path: &str) -> anyhow::Result<Arc<PluginLib>> {
+    match PLUGIN_CACHE.get(lib_path) {
+        None => {
+            //load
+            // 加载动态库
+            let lib = Library::new(&lib_path)?;
+            info!("no cache , load_and_run lib load ok.  path : {}",lib_path);
+            // println!("no cache , load_and_run lib load ok.  path : {}",lib_path);
+
+            let plugin_lib = PluginLib{
+                library: lib,
+            };
+
+            let lib_ref = Arc::new(plugin_lib);
+            PLUGIN_CACHE.insert(lib_path.to_string(), lib_ref.clone());
+            Ok(lib_ref.clone())
+        }
+        Some(s) => {
+            info!("hit cache , load_and_run lib load ok.  path : {}",lib_path);
+            // println!("hit cache , load_and_run lib load ok.  path : {}",lib_path);
+
+            Ok(s.clone())
+        },
+    }
+
+}
+
+
+unsafe fn run_plugin(lib_path: &str, request: HttpRequest) -> anyhow::Result<HttpResponse> {
+    info!("load_and_run begin  path : {}",lib_path);
+
+    let lib = get_plugin_lib(lib_path)?;
+    let handle_request: Symbol<HandleRequestFn> = lib.library.get(HANDLE_REQUEST_FN_NAME.as_ref())?;
+    let free_c_string: Symbol<FreeCStringFn> = lib.library.get(FREE_C_STRING_FN_NAME.as_ref())?;
+
 
     let rust_string = serde_json::to_string(&request)?;
     let request = string_to_c_char_mut(&rust_string);
@@ -93,11 +135,10 @@ unsafe fn run_plugin(copy_path: &str, request: HttpRequest) -> anyhow::Result<Ht
     let response = c_char_to_string(response_ptr);
     free_c_string(request);
     free_c_string(response_ptr);
-    drop(lib);
 
     // let response = unsafe { CStr::from_ptr(response).to_str().unwrap() };
     let response: HttpResponse = serde_json::from_str(&response)?;
-    info!("load_and_run finish  path : {}",copy_path);
+    info!("load_and_run finish  path : {}",lib_path);
     if let Some(error) = &response.error {
         bail!("run plugin error >> {}", error);
     }
@@ -119,7 +160,9 @@ mod tests {
             url: "sdf".to_string(),
             context: HostContext { host_url: "http://127.0.0.1:3000".to_string(), plugin_prefix_url: "".to_string(), data_dir: "".to_string(), config_text: None },
         };
-        let resp = load_and_run("/Users/zhouzhipeng/RustroverProjects/play/target/release/libplay_dylib_example.dylib", request).await;
+        let resp = load_and_run("/Users/ronnie/CLionProjects/play/target/release/libplay_dylib_example.dylib", request.clone()).await;
+        let resp = load_and_run("/Users/ronnie/CLionProjects/play/target/release/libplay_dylib_example.dylib", request.clone()).await;
+        let resp = load_and_run("/Users/ronnie/CLionProjects/play/target/release/libplay_dylib_example.dylib", request).await;
         println!("resp >> {:?}", resp);
     }
 
