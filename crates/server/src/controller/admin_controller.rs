@@ -4,20 +4,25 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, Cursor};
 use std::path::Path;
 use std::time::Duration;
+use anyhow::anyhow;
+use axum::body::StreamBody;
 
 use axum::extract::Query;
 use axum::Form;
-use axum::response::Html;
+use axum::response::{Html, IntoResponse, Response};
 use chrono::Local;
+use fs_extra::dir::CopyOptions;
+use futures_util::TryStreamExt;
 use reqwest::{ClientBuilder, Url};
 use serde::Deserialize;
 use serde_json::json;
+use tokio_util::codec::{BytesCodec, FramedRead};
 use tracing::info;
 use zip::ZipArchive;
 
 use play_shared::constants::DATA_DIR;
 use play_shared::timestamp_to_date_str;
-use crate::{ensure, HTML, method_router, R, S, template};
+use crate::{data_dir, ensure, files_dir, HTML, method_router, R, return_error, S, template};
 use crate::config::{Config, get_config_path, read_config_file, save_config_file};
 
 method_router!(
@@ -25,6 +30,7 @@ method_router!(
     get : "/admin/upgrade" -> upgrade,
     post : "/admin/save-config" -> save_config,
     get : "/admin/reboot" -> reboot,
+    get : "/admin/backup" -> backup,
     get : "/admin/logs" -> display_logs,
 );
 
@@ -77,6 +83,53 @@ async fn reboot() -> R<String> {
         shutdown();
     });
     Ok("will reboot in a sec.".to_string())
+}
+
+
+async fn backup(s: S) -> R<impl IntoResponse> {
+    let files_path = files_dir!();
+
+    //make a temp dir
+    let folder_path = data_dir!().join("backup");
+    if folder_path.exists(){
+        fs::remove_dir_all(&folder_path)?;
+    }
+    fs::create_dir(&folder_path)?;
+
+    //db file path
+    let raw = s.config.database.url.to_string();
+    let db_path = Path::new(&raw["sqlite://".len()..raw.len()]).to_path_buf();
+
+    //config file path
+    let config_file_path = get_config_path()?;
+
+    fs_extra::copy_items(&vec![files_path, db_path, config_file_path.into()], &folder_path, &CopyOptions::default())?;
+
+    let target_file = data_dir!().join("play.zip");
+    if target_file.exists(){
+        tokio::fs::remove_file(&target_file).await?;
+    }
+
+    crate::controller::files_controller::zip_dir(&folder_path, &target_file)?;
+    match tokio::fs::File::open(&target_file).await {
+        Ok(file) => {
+            // 使用 FramedRead 和 BytesCodec 将文件转换为 Stream
+            let stream = FramedRead::new(file, BytesCodec::new())
+                .map_ok(|bytes| bytes.freeze())
+                .map_err(|e| {
+                    info!("File streaming error: {}", e);
+                    // 在流中发生错误时，将错误转换为 HTTP 500 状态码
+                    anyhow!("file stream error")
+                });
+
+            let stream_body = StreamBody::new(stream);
+            Ok(Response::new(stream_body))
+        }
+        Err(_) => {
+            // 文件无法打开时，返回 HTTP 404 状态码
+            return_error!("file not found!")
+        }
+    }
 }
 
 static ADMIN_HTML : &str = include_str!("templates/admin_new.html");

@@ -34,6 +34,9 @@
             <button type="button" onclick="reboot()">reboot</button>
             <span id="saveResult"></span>
         </div>
+        <div>
+            <a href="/admin/backup" download>Backup</a>
+        </div>
 
 
     </form>
@@ -87,6 +90,7 @@
                 saveResult.innerText = error.message;
             });
     }
+
 
 </script>
 <p>built time :  {{built_time}} (UTC)</p>
