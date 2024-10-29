@@ -1,10 +1,10 @@
 
 use anyhow::bail;
 use async_channel::{Receiver, RecvError, Sender};
-use async_trait::async_trait;
+
 use serde_json::Value;
 use tracing::error;
-use play_shared::tpl_engine_api::{TemplateData, TplEngineAPI};
+use play_shared::tpl_engine_api::{TemplateData};
 
 use crate::{render_template_new, Template};
 use tokio::time::{self, Duration};

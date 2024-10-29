@@ -3,7 +3,6 @@ pub mod constants;
 
 #[cfg(feature = "utils")]
 pub mod utils;
-pub mod redis_api;
 pub mod tpl_engine_api;
 
 

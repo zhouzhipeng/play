@@ -1,5 +1,5 @@
 use async_channel::{Receiver, Sender};
-use async_trait::async_trait;
+
 use include_dir::Dir;
 use serde_json::Value;
 
@@ -27,9 +27,3 @@ pub enum Template {
 
 
 
-
-#[async_trait]
-pub trait TplEngineAPI {
-
-    async fn run_loop(&self, req_receiver: Receiver<TemplateData>);
-}
