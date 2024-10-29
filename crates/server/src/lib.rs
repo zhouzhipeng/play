@@ -11,7 +11,6 @@ use std::time::{Duration, UNIX_EPOCH};
 use anyhow::{anyhow, bail};
 use anyhow::__private::kind::TraitKind;
 use async_channel::Receiver;
-use async_trait::async_trait;
 
 use axum::extract::{DefaultBodyLimit, State};
 use axum::http::{Method, StatusCode};
@@ -22,7 +21,6 @@ use axum_server::Handle;
 use http_body::Body;
 use hyper::HeaderMap;
 use include_dir::{include_dir, Dir};
-use lazy_static::lazy_static;
 use serde::Serialize;
 use serde_json::{json, Value};
 use tokio::fs;
@@ -37,8 +35,7 @@ use play_shared::constants::{CAT_FINGERPRINT, CAT_MAIL, DATA_DIR};
 
 use play_shared::{current_timestamp, timestamp_to_date_str};
 
-use play_shared::redis_api::RedisAPI;
-use play_shared::tpl_engine_api::{Template, TemplateData, TplEngineAPI};
+use play_shared::tpl_engine_api::{Template, TemplateData};
 
 use crate::config::Config;
 use crate::config::init_config;
@@ -78,33 +75,8 @@ macro_rules! ensure {
 
 
 
-#[async_trait]
-trait CheckResponse{
-    async fn check(self)->anyhow::Result<Self>
-        where Self:Sized;
-}
 
 
-#[async_trait]
-impl CheckResponse for reqwest::Response {
-
-    ///
-    /// auto check http status code make sure it's 2xx
-    async fn check(self) -> anyhow::Result<Self> {
-        let url = self.url();
-        let status = self.status();
-        let msg = format!("request url : {},  status : {}",url , status);
-
-        if !self.status().is_success(){
-            let resp_text = self.text().await?;
-            error!("{} , error http response >> {}",msg, resp_text);
-            bail!(resp_text)
-        }else{
-            info!("{}", msg);
-            return Ok(self)
-        }
-    }
-}
 
 
 
@@ -224,12 +196,6 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> Arc<AppStat
 
 
     app_state
-}
-
-
-fn start_template_backend_thread(tpl_engine: Box<dyn TplEngineAPI + Send + Sync>, req_receiver: Receiver<TemplateData>) {
-    info!("ready to spawn py_runner");
-    tokio::spawn(async move { tpl_engine.run_loop(req_receiver).await; });
 }
 
 pub async fn start_server(router: Router, app_state: Arc<AppState>) -> anyhow::Result<()> {

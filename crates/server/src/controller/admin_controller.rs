@@ -103,7 +103,7 @@ async fn backup(s: S) -> R<impl IntoResponse> {
     //config file path
     let config_file_path = get_config_path()?;
 
-    fs_extra::copy_items(&vec![files_path, db_path, config_file_path.into()], &folder_path, &CopyOptions::default())?;
+    fs_extra::copy_items(&vec![files_path, db_path, config_file_path.into()], &folder_path, &CopyOptions{copy_inside:true, ..Default::default()})?;
 
     let target_file = data_dir!().join("play.zip");
     if target_file.exists(){
