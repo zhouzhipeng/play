@@ -10,7 +10,7 @@ before-packaging-command = "cargo dev_ui"
 
 [features]
 default = []
-debug = ["tower-livereload", "notify", "play-cache", "play-dylib-loader", "play-ui"]
+debug = ["tower-livereload", "notify", "play-cache", "play-dylib-loader"]
 use_mysql=["sqlx/mysql", "sqlparser"]
 
 
@@ -100,4 +100,5 @@ difference = "2.0.0"
 zip-extensions = "0.8.1"
 dioxus-ssr = {version = "0.5.6"}
 dioxus = {version = "0.5.6"}
+fs_extra = "1.3.0"
 

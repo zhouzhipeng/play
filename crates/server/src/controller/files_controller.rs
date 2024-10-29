@@ -111,7 +111,7 @@ use walkdir::WalkDir;
 use zip::write::{FileOptions, ZipWriter};
 use zip_extensions::zip_create_from_directory;
 
-fn zip_dir<T: AsRef<std::path::Path>>(src_dir: T, dst_file: T) -> anyhow::Result<()> {
+pub(crate) fn zip_dir<T: AsRef<std::path::Path>>(src_dir: T, dst_file: T) -> anyhow::Result<()> {
     let src_path = src_dir.as_ref();
     let dst_path = dst_file.as_ref();
 
