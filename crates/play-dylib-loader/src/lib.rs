@@ -123,8 +123,8 @@ unsafe fn run_plugin(lib_path: &str, request: HttpRequest) -> anyhow::Result<Htt
     info!("load_and_run begin  path : {}",lib_path);
 
     let lib = get_plugin_lib(lib_path)?;
-    let handle_request: Symbol<HandleRequestFn> = lib.library.get(HANDLE_REQUEST_FN_NAME.as_ref())?;
-    let free_c_string: Symbol<FreeCStringFn> = lib.library.get(FREE_C_STRING_FN_NAME.as_ref())?;
+    let handle_request: Symbol<HandleRequestFn> = lib.library.get(HANDLE_REQUEST_FN_NAME.as_ref()).context("`handle_request` method not found.")?;
+    let free_c_string: Symbol<FreeCStringFn> = lib.library.get(FREE_C_STRING_FN_NAME.as_ref()).context("`free_c_string` method not found.")?;
 
 
     let rust_string = serde_json::to_string(&request)?;
@@ -137,7 +137,7 @@ unsafe fn run_plugin(lib_path: &str, request: HttpRequest) -> anyhow::Result<Htt
     free_c_string(response_ptr);
 
     // let response = unsafe { CStr::from_ptr(response).to_str().unwrap() };
-    let response: HttpResponse = serde_json::from_str(&response)?;
+    let response: HttpResponse = serde_json::from_str(&response).context("response is not `HttpResponse` type json")?;
     info!("load_and_run finish  path : {}",lib_path);
     if let Some(error) = &response.error {
         bail!("run plugin error >> {}", error);
@@ -190,5 +190,13 @@ mod tests {
         }).await;
         tokio::time::sleep(std::time::Duration::from_secs(50)).await;
         println!("resp >> {:?}", resp);
+    }
+    #[tokio::test]
+    async fn test_load_golang_dylib() {
+
+        let resp = load_and_run("/Users/ronnie/IdeaProjects/zhouzhipeng/otpauth/libmylib.dylib", HttpRequest::default()).await;
+        println!("resp >> {:?}", resp);
+
+        println!("resp >> {:?}", String::from_utf8( resp.unwrap().body));
     }
 }
