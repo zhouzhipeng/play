@@ -110,6 +110,16 @@ func NewHttpResponse() HttpResponse {
 	}
 }
 
+func ErrResponse(err error) HttpResponse {
+	errStr := err.Error()
+	return HttpResponse{
+		Headers:    make(map[string]string),
+		Body:       make([]byte, 0),
+		StatusCode: 500,
+		Error:      &errStr,
+	}
+}
+
 // String returns a string representation of HttpResponse
 func (r HttpResponse) String() string {
 	// 创建一个用于JSON序列化的临时结构体
