@@ -195,7 +195,7 @@ mod tests {
     #[tokio::test]
     async fn test_load_golang_dylib() {
 
-        let resp = load_and_run("/Users/ronnie/IdeaProjects/zhouzhipeng/otpauth/libmylib.dylib", HttpRequest{
+        let resp = load_and_run("/Users/ronnie/IdeaProjects/zhouzhipeng/otpauth/libplugin_otpauth.dylib", HttpRequest{
             body: json!({"file_path":"/Users/ronnie/Downloads/IMG_1234.png"}).to_string(),
             ..Default::default()
         }).await;
