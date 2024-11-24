@@ -291,7 +291,7 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
- "webpki-roots 0.25.4",
+ "webpki-roots",
 ]
 
 [[package]]
@@ -358,20 +358,6 @@ name = "auto-future"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c1e7e457ea78e524f48639f551fd79703ac3f2237f5ecccdf4708f8a75ad373"
-
-[[package]]
-name = "auto_generate_cdp"
-version = "0.4.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7af08ed49930c50104b2f1699d257e5053fb1809e370647bde9c58b31d65d417"
-dependencies = [
- "convert_case 0.4.0",
- "proc-macro2",
- "quote",
- "serde",
- "serde_json",
- "ureq",
-]
 
 [[package]]
 name = "autocfg"
@@ -929,7 +915,7 @@ dependencies = [
 [[package]]
 name = "common-crypt"
 version = "0.1.0"
-source = "git+https://github.com/zhouzhipeng/rust-utils#153e8a6487a2e37f6f4a89bfa660494f81e7c9ff"
+source = "git+https://github.com/zhouzhipeng/rust-utils#830db430f66e83a9fbbd13e1817675914e0d273b"
 dependencies = [
  "base64 0.22.1",
  "md5",
@@ -1271,7 +1257,7 @@ dependencies = [
 [[package]]
 name = "data-api"
 version = "0.1.0"
-source = "git+https://github.com/zhouzhipeng/rust-utils#153e8a6487a2e37f6f4a89bfa660494f81e7c9ff"
+source = "git+https://github.com/zhouzhipeng/rust-utils#830db430f66e83a9fbbd13e1817675914e0d273b"
 dependencies = [
  "anyhow",
  "data-api-macro",
@@ -1283,7 +1269,7 @@ dependencies = [
 [[package]]
 name = "data-api-macro"
 version = "0.1.0"
-source = "git+https://github.com/zhouzhipeng/rust-utils#153e8a6487a2e37f6f4a89bfa660494f81e7c9ff"
+source = "git+https://github.com/zhouzhipeng/rust-utils#830db430f66e83a9fbbd13e1817675914e0d273b"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1345,37 +1331,6 @@ checksum = "67e77553c4162a157adbf834ebae5b415acbecbeafc7a74b0e886657506a7611"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.79",
-]
-
-[[package]]
-name = "derive_builder"
-version = "0.20.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd33f37ee6a119146a1781d3356a7c26028f83d779b2e04ecd45fdc75c76877b"
-dependencies = [
- "derive_builder_macro",
-]
-
-[[package]]
-name = "derive_builder_core"
-version = "0.20.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7431fa049613920234f22c47fdc33e6cf3ee83067091ea4277a3f8c4587aae38"
-dependencies = [
- "darling",
- "proc-macro2",
- "quote",
- "syn 2.0.79",
-]
-
-[[package]]
-name = "derive_builder_macro"
-version = "0.20.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4abae7035bf79b9877b779505d8cf3749285b80c43941eda66604841889451dc"
-dependencies = [
- "derive_builder_core",
  "syn 2.0.79",
 ]
 
@@ -2527,29 +2482,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e7f66481bfee273957b1f20485a4ff3362987f85b2c236580d81b4eb7a326429"
 dependencies = [
  "http 0.2.12",
-]
-
-[[package]]
-name = "headless_chrome"
-version = "1.0.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ff091d678f38868547c5ee26b5c4105a03ec2a2099463ebc48c4d5ccf239036"
-dependencies = [
- "anyhow",
- "auto_generate_cdp",
- "base64 0.22.1",
- "derive_builder",
- "log",
- "rand 0.8.5",
- "regex",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror",
- "tungstenite 0.24.0",
- "url",
- "which",
- "winreg 0.52.0",
 ]
 
 [[package]]
@@ -4233,7 +4165,6 @@ dependencies = [
  "mime_guess",
  "multer 3.1.0",
  "notify",
- "play-cache",
  "play-dylib-loader",
  "play-https",
  "play-shared",
@@ -4276,16 +4207,6 @@ dependencies = [
  "serde_urlencoded",
  "tokio",
  "toml 0.8.19",
-]
-
-[[package]]
-name = "play-cache"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "headless_chrome",
- "log",
- "tokio",
 ]
 
 [[package]]
@@ -4791,7 +4712,7 @@ dependencies = [
  "wasm-bindgen-futures",
  "wasm-streams",
  "web-sys",
- "webpki-roots 0.25.4",
+ "webpki-roots",
  "winreg 0.50.0",
 ]
 
@@ -4987,9 +4908,7 @@ version = "0.23.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "415d9944693cb90382053259f89fbb077ea730ad7273047ec63b19bc9b160ba8"
 dependencies = [
- "log",
  "once_cell",
- "ring 0.17.8",
  "rustls-pki-types",
  "rustls-webpki 0.102.8",
  "subtle",
@@ -5021,7 +4940,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-util",
- "webpki-roots 0.25.4",
+ "webpki-roots",
  "x509-parser",
 ]
 
@@ -5452,17 +5371,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "socks"
-version = "0.3.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0c3dbbd9ae980613c6dd8e28a9407b50509d3803b57624d5dfe8315218cd58b"
-dependencies = [
- "byteorder",
- "libc",
- "winapi",
-]
-
-[[package]]
 name = "soup2"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5527,7 +5435,7 @@ dependencies = [
 [[package]]
 name = "sql-util"
 version = "0.1.0"
-source = "git+https://github.com/zhouzhipeng/rust-utils#153e8a6487a2e37f6f4a89bfa660494f81e7c9ff"
+source = "git+https://github.com/zhouzhipeng/rust-utils#830db430f66e83a9fbbd13e1817675914e0d273b"
 dependencies = [
  "anyhow",
  "sqlparser",
@@ -5605,7 +5513,7 @@ dependencies = [
  "tokio-stream",
  "tracing 0.1.40",
  "url",
- "webpki-roots 0.25.4",
+ "webpki-roots",
 ]
 
 [[package]]
@@ -6437,7 +6345,7 @@ dependencies = [
  "futures-util",
  "log",
  "tokio",
- "tungstenite 0.20.1",
+ "tungstenite",
 ]
 
 [[package]]
@@ -6755,24 +6663,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tungstenite"
-version = "0.24.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18e5b8366ee7a95b16d32197d0b2604b43a0be89dc5fac9f8e96ccafbaedda8a"
-dependencies = [
- "byteorder",
- "bytes",
- "data-encoding",
- "http 1.1.0",
- "httparse",
- "log",
- "rand 0.8.5",
- "sha1",
- "thiserror",
- "utf-8",
-]
-
-[[package]]
 name = "typenum"
 version = "1.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6843,23 +6733,6 @@ name = "untrusted"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ecb6da28b8a351d773b68d5825ac39017e680750f980f3a1a85cd8dd28a47c1"
-
-[[package]]
-name = "ureq"
-version = "2.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b74fc6b57825be3373f7054754755f03ac3a8f5d70015ccad699ba2029956f4a"
-dependencies = [
- "base64 0.22.1",
- "flate2",
- "log",
- "once_cell",
- "rustls 0.23.14",
- "rustls-pki-types",
- "socks",
- "url",
- "webpki-roots 0.26.6",
-]
 
 [[package]]
 name = "url"
@@ -7137,15 +7010,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5f20c57d8d7db6d3b86154206ae5d8fba62dd39573114de97c2cb0578251f8e1"
 
 [[package]]
-name = "webpki-roots"
-version = "0.26.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "841c67bff177718f1d4dfefde8d8f0e78f9b6589319ba88312f567fc5841a958"
-dependencies = [
- "rustls-pki-types",
-]
-
-[[package]]
 name = "webview2-com"
 version = "0.19.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7181,18 +7045,6 @@ dependencies = [
  "windows 0.39.0",
  "windows-bindgen",
  "windows-metadata",
-]
-
-[[package]]
-name = "which"
-version = "6.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4ee928febd44d98f2f459a4a79bd4d928591333a494a10a868418ac1b39cf1f"
-dependencies = [
- "either",
- "home",
- "rustix 0.38.37",
- "winsafe",
 ]
 
 [[package]]
@@ -7611,12 +7463,6 @@ dependencies = [
  "cfg-if",
  "windows-sys 0.48.0",
 ]
-
-[[package]]
-name = "winsafe"
-version = "0.0.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d135d17ab770252ad95e9a872d365cf3090e3be864a34ab46f48555993efc904"
 
 [[package]]
 name = "wry"
