@@ -59,6 +59,7 @@ async fn run_plugin(s: S, request: Request<Body>) -> Result<Response, AppError> 
     let url = remove_trailing_slash(url);
     let plugin = s.config.plugin_config.iter()
         .find(|plugin|{
+            !plugin.disable &&
             !plugin.url_prefix.is_empty() &&
             (url.eq(&plugin.url_prefix) ||  url.starts_with(&format!("{}/", plugin.url_prefix)))
         }).context("plugin for found for url!")?;

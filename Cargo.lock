@@ -915,7 +915,7 @@ dependencies = [
 [[package]]
 name = "common-crypt"
 version = "0.1.0"
-source = "git+https://github.com/zhouzhipeng/rust-utils#153e8a6487a2e37f6f4a89bfa660494f81e7c9ff"
+source = "git+https://github.com/zhouzhipeng/rust-utils#830db430f66e83a9fbbd13e1817675914e0d273b"
 dependencies = [
  "base64 0.22.1",
  "md5",
@@ -1257,7 +1257,7 @@ dependencies = [
 [[package]]
 name = "data-api"
 version = "0.1.0"
-source = "git+https://github.com/zhouzhipeng/rust-utils#153e8a6487a2e37f6f4a89bfa660494f81e7c9ff"
+source = "git+https://github.com/zhouzhipeng/rust-utils#830db430f66e83a9fbbd13e1817675914e0d273b"
 dependencies = [
  "anyhow",
  "data-api-macro",
@@ -1269,7 +1269,7 @@ dependencies = [
 [[package]]
 name = "data-api-macro"
 version = "0.1.0"
-source = "git+https://github.com/zhouzhipeng/rust-utils#153e8a6487a2e37f6f4a89bfa660494f81e7c9ff"
+source = "git+https://github.com/zhouzhipeng/rust-utils#830db430f66e83a9fbbd13e1817675914e0d273b"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5435,7 +5435,7 @@ dependencies = [
 [[package]]
 name = "sql-util"
 version = "0.1.0"
-source = "git+https://github.com/zhouzhipeng/rust-utils#153e8a6487a2e37f6f4a89bfa660494f81e7c9ff"
+source = "git+https://github.com/zhouzhipeng/rust-utils#830db430f66e83a9fbbd13e1817675914e0d273b"
 dependencies = [
  "anyhow",
  "sqlparser",

@@ -56,6 +56,8 @@ pub struct PluginConfig {
     pub need_config_file: bool,
     #[serde(default)]
     pub is_server: bool,
+    #[serde(default)]
+    pub disable: bool,
 
 }
 
