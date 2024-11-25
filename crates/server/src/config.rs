@@ -58,6 +58,8 @@ pub struct PluginConfig {
     pub is_server: bool,
     #[serde(default)]
     pub disable: bool,
+    #[serde(default)]
+    pub create_process: bool,
 
 }
 

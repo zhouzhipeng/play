@@ -6,6 +6,7 @@ use std::time::Duration;
 
 use axum::body::Body;
 use axum::http::Request;
+use tokio::process::Command;
 use tokio::task::JoinHandle;
 use tracing::{error, info};
 use tracing::level_filters::LevelFilter;
@@ -176,18 +177,31 @@ async fn main()->anyhow::Result<()> {
         let plugins : Vec<&PluginConfig> =  copy_appstate.config.plugin_config.iter().filter(|plugin|!plugin.disable && plugin.is_server).collect();
         for plugin in plugins {
             let path = plugin.file_path.to_string();
+            let  create_process= plugin.create_process;
             let _:JoinHandle<anyhow::Result<()>> =  tokio::spawn(async move {
                 info!("load_and_run_server >> {}", path);
-                let context = HostContext {
-                    host_url: env::var("HOST")?,
-                    plugin_prefix_url: "".to_string(),
-                    data_dir: env::var(DATA_DIR)?,
-                    config_text: Some(read_config_file()?),
-                };
 
-                if let Err(e) = load_and_run_server(&path,context).await{
-                    error!(" plugin load_and_run_server error: {:?}", e);
+                //support external process
+                if create_process{
+                    info!("plugin.create_process is true");
+                    if let Err(e) = Command::new(&path)
+                        .output()
+                        .await{
+                        error!(" plugin process load_and_run_server error: {:?}", e);
+                    }
+                }else{
+                    let context = HostContext {
+                        host_url: env::var("HOST")?,
+                        plugin_prefix_url: "".to_string(),
+                        data_dir: env::var(DATA_DIR)?,
+                        config_text: Some(read_config_file()?),
+                    };
+
+                    if let Err(e) = load_and_run_server(&path,context).await{
+                        error!(" plugin load_and_run_server error: {:?}", e);
+                    }
                 }
+
                 Ok(())
             });
         }
