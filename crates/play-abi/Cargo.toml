@@ -8,7 +8,6 @@ serde = {workspace = true}
 anyhow= {workspace = true}
 serde_urlencoded = "0.7.1"
 serde_json = {workspace = true}
-#data-api = {git="https://github.com/zhouzhipeng/rust-utils.git"}
 reqwest = {workspace = true}
 toml = { version = "0.8.19"}
 

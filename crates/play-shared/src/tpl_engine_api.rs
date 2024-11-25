@@ -1,6 +1,6 @@
 use async_channel::{Receiver, Sender};
 
-use include_dir::Dir;
+
 use serde_json::Value;
 
 pub struct TemplateData {

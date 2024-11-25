@@ -9,7 +9,6 @@ crate-type = ["cdylib"]
 
 [dependencies]
 play-abi={workspace = true}
-reqwest = {workspace = true}
 anyhow = {workspace = true}
 tokio = {workspace = true}
 serde_json = {workspace = true}
