@@ -51,10 +51,10 @@ async fn link( s: S,OriginalUri(uri): OriginalUri) -> R<Response> {
             .status(resp.status());
 
         // 6. 复制所有响应头
-        let headers = response_builder.headers_mut().unwrap();
-        for (key, value) in resp.headers() {
-            headers.insert(key, value.clone());
-        }
+        // let headers = response_builder.headers_mut().unwrap();
+        // for (key, value) in resp.headers() {
+        //     headers.insert(key, value.clone());
+        // }
 
         // 7. 返回响应体
         Ok(response_builder
