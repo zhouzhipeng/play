@@ -39,28 +39,15 @@ impl IntoResponse for MyResponse {
 }
 
 // #[axum::debug_handler]
-async fn link( s: S,OriginalUri(uri): OriginalUri) -> R<Response> {
+async fn link( s: S,OriginalUri(uri): OriginalUri) -> R<MyResponse> {
     let path = uri.path();
     let shortlink = s.config.shortlinks.iter().find(|c| c.from == path).ok_or::<AppError>(app_error!("404 , link not found."))?;
     // s.config.finance
     if shortlink.download {
-        let resp = reqwest::get(&shortlink.to).await?;
-
-        // 5. 构建响应
-        let mut response_builder = Response::builder()
-            .status(resp.status());
-
-        // 6. 复制所有响应头
-        // let headers = response_builder.headers_mut().unwrap();
-        // for (key, value) in resp.headers() {
-        //     headers.insert(key, value.clone());
-        // }
-
-        // 7. 返回响应体
-        Ok(response_builder
-            .body(resp.text().await?)?.into_response())
+        let res = reqwest::get(&shortlink.to).await?.text().await?;
+        Ok(MyResponse::Text(res))
     } else {
-        Ok(MyResponse::Redirect(Redirect::temporary(&shortlink.to)).into_response())
+        Ok(MyResponse::Redirect(Redirect::temporary(&shortlink.to)))
     }
 }
 
