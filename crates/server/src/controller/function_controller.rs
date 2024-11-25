@@ -7,7 +7,6 @@ use axum::body::{HttpBody, StreamBody};
 use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum::{Form, Json};
-use bytes::Bytes;
 use either::Either;
 use futures_core::Stream;
 use futures_util::{StreamExt, TryStreamExt};
@@ -220,13 +219,6 @@ pub async fn text_compare(s: S, Form(mut data): Form<TextCompareReq>) -> HTML {
 
 const CAT_OPENAI_THREAD: &str="openai_thread";
 
-enum MyBodyStream<S>
-    where
-S: Stream<Item = Result<Bytes,  reqwest::Error>>,
-{
-    MyStreamBody(StreamBody<S>),
-    MyBytes(&'static [u8]),
-}
 
 
 
