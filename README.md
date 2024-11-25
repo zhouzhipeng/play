@@ -1,6 +1,13 @@
 ## Play
 A playground project writen in rust for fun.
 
+## install as linux service
+```bash
+curl -sSL https://raw.githubusercontent.com/zhouzhipeng/play/main/scripts/install_service.sh | sudo bash
+```
+
+
+
 ## general data api
 [genera-data-api.md](doc%2Fgenera-data-api.md)
 
@@ -30,10 +37,6 @@ https://github.com/rust-cross/rust-musl-cross
 25 : mail receive server
 ```
 
-## install as linux service
-```bash
-curl -sSL https://raw.githubusercontent.com/zhouzhipeng/play/main/scripts/install_service.sh | sudo bash
-```
 
 
 ## branches
