@@ -4151,6 +4151,7 @@ dependencies = [
  "notify",
  "play-dylib-loader",
  "play-https",
+ "play-macros",
  "play-shared",
  "play-ui",
  "redis-test",
@@ -4199,7 +4200,6 @@ dependencies = [
  "anyhow",
  "data-api",
  "play-abi",
- "reqwest 0.11.27",
  "serde",
  "serde_json",
  "tokio",
@@ -4214,7 +4214,6 @@ dependencies = [
  "libloading",
  "log",
  "play-abi",
- "reqwest 0.11.27",
  "serde_json",
  "tempfile",
  "tokio",
@@ -4246,11 +4245,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-channel",
- "async-trait",
  "cargo_metadata 0.15.4",
  "chrono",
- "include_dir",
- "play-macros",
  "reqwest 0.11.27",
  "serde",
  "serde_json",
@@ -4262,8 +4258,6 @@ dependencies = [
 name = "play-ui"
 version = "0.1.0"
 dependencies = [
- "serde",
- "serde_json",
  "tauri",
  "tauri-build",
 ]
