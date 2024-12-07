@@ -1,6 +1,6 @@
 ## plugin development
 
-we now support rust/golang/or any ther compatible wiht c style FFI  language
+we now support rust/golang/or any other compatible languages with C style ABI
 
 also u can run any external process as a sub-process if u want.
 
