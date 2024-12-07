@@ -4,15 +4,14 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use axum::body::{HttpBody, StreamBody};
-use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum::{Form, Json};
 use either::Either;
 use futures_core::Stream;
 use futures_util::{StreamExt, TryStreamExt};
 use hex::ToHex;
-use http::{HeaderName, HeaderValue};
 use reqwest::ClientBuilder;
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
