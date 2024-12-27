@@ -195,7 +195,7 @@ async fn download_file(Path(file_path): Path<String>) -> impl IntoResponse {
         return Err((StatusCode::FORBIDDEN, "Access denied"));
     }
 
-    let mime_type = mime_guess::from_path(&safe_path).first_or_text_plain();
+    let mime_type = mime_guess::from_path(&safe_path).first_or_octet_stream();
 
     if safe_path.is_dir(){
         // 要列举的目录路径

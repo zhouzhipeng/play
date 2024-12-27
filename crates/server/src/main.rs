@@ -1,6 +1,7 @@
 use std::{env, fs, io, panic};
 use std::env::set_var;
 use std::net::{SocketAddr, TcpListener};
+use std::os::unix::prelude::PermissionsExt;
 use std::path::Path;
 use std::time::Duration;
 
@@ -184,6 +185,7 @@ async fn main()->anyhow::Result<()> {
                 //support external process
                 if create_process{
                     info!("plugin.create_process is true");
+                    make_executable_if_needed(&path)?;
                     if let Err(e) = Command::new(&path)
                         .output()
                         .await{
@@ -235,5 +237,38 @@ pub fn local_port_available(port: u16) -> bool {
     match TcpListener::bind(("0.0.0.0", port)) {
         Ok(_) => true,
         Err(_) => false,
+    }
+}
+
+
+fn make_executable_if_needed(file_path: &str) -> std::io::Result<bool> {
+    let path = Path::new(file_path);
+
+    // 获取当前文件权限
+    let mut perms = fs::metadata(path)?.permissions();
+
+    // 获取当前权限模式
+    let mode = perms.mode();
+
+    // 检查是否已经有执行权限
+    // 检查所有者、组和其他用户的执行权限
+    let has_execute_permission =
+        (mode & 0o100 != 0) || // 所有者执行权限
+            (mode & 0o010 != 0) || // 组执行权限
+            (mode & 0o001 != 0);   // 其他用户执行权限
+
+    if !has_execute_permission {
+        // 如果没有执行权限，则添加
+        let new_mode = mode | 0o111; // 为所有者、组和其他用户添加执行权限
+        perms.set_mode(new_mode);
+
+        // 应用新权限
+        fs::set_permissions(path, perms)?;
+
+        info!("Added execute permissions to {}", file_path);
+        Ok(true)
+    } else {
+        info!("File already has execute permissions");
+        Ok(false)
     }
 }
