@@ -246,16 +246,20 @@ async fn download_file(Path(file_path): Path<String>) -> impl IntoResponse {
             // Read the file contents into a buffer
             if let Ok(_) = file.read_to_end(&mut contents).await {
                 // Create a response with the file contents
-                let  response = Response::builder()
+                let mut res_builder = Response::builder()
                     .status(StatusCode::OK)
                     .header(
                         header::CONTENT_TYPE,
                         HeaderValue::from_str(mime_type.as_ref()).unwrap()
                     )
                     .header("Cross-Origin-Opener-Policy", "same-origin")
-                    .header("Cross-Origin-Embedder-Policy", "require-corp")
-                    .header("x-compress", "1")
-                    .body(Body::from(contents))
+                    .header("Cross-Origin-Embedder-Policy", "require-corp");
+                if !mime_type.as_ref().contains("octet-stream"){
+                    //dont compress
+                    res_builder = res_builder.header("x-compress", "1");
+                }
+                let  response =
+                    res_builder.body(Body::from(contents))
                     .expect("Failed to build response"); // Convert Vec<u8> into Body
 
 
