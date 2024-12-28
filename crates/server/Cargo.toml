@@ -71,7 +71,7 @@ urlencoding = "2.1.3"
 anyhow = { workspace = true }
 toml = "0.8.8"
 hyper = { version = "0.14", features = ["server"] }
-tower-http = { version = "0.4.0", features = ["fs", "trace", "timeout", "cors", "compression-gzip"] }
+tower-http = { version = "0.4.0", features = ["fs", "trace", "timeout", "cors", "compression-br"] }
 futures = "0.3.29"
 futures-util = "0.3.29"
 reqwest = { workspace = true, features = ["blocking", "stream"] }
