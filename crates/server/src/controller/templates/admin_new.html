@@ -8,6 +8,36 @@
     <link rel=stylesheet href="/static/font-awesome/5.15.1/css/all.min.css">
     <link rel=stylesheet href="/static/css/floating_nav.css">
 
+    <style>
+        .upload-container {
+            max-width: 500px;
+            margin: 50px auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .upload-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .upload-btn:hover {
+            background-color: #45a049;
+        }
+        .progress {
+            margin-top: 20px;
+            display: none;
+        }
+        .error {
+            color: red;
+            margin-top: 10px;
+            display: none;
+        }
+    </style>
 </head>
 <body>
 <a href="/" >Home</a>
@@ -38,6 +68,48 @@
             <a href="/admin/backup" download>Backup</a>
         </div>
 
+        <div class="upload-container">
+            <h2>Restore from Backup</h2>
+            <input type="file" id="fileInput" accept=".zip" style="display: none;">
+            <button class="upload-btn" onclick="document.getElementById('fileInput').click()">Select Backup File</button>
+            <div id="fileName"></div>
+            <div id="progress" class="progress">Uploading...</div>
+            <div id="error" class="error"></div>
+        </div>
+
+        <script>
+            document.getElementById('fileInput').addEventListener('change', async function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                document.getElementById('fileName').textContent = `Selected file: ${file.name}`;
+
+                const formData = new FormData();
+                formData.append('file', file);
+
+                try {
+                    document.getElementById('progress').style.display = 'block';
+                    document.getElementById('error').style.display = 'none';
+
+                    const response = await fetch('/admin/restore', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Upload failed: ${response.statusText}`);
+                    }
+
+                    const result = await response.json();
+                    alert('Restore completed successfully!');
+                } catch (err) {
+                    document.getElementById('error').textContent = err.message;
+                    document.getElementById('error').style.display = 'block';
+                } finally {
+                    document.getElementById('progress').style.display = 'none';
+                }
+            });
+        </script>
 
     </form>
 

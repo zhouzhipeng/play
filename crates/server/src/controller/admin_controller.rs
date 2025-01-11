@@ -31,6 +31,7 @@ method_router!(
     post : "/admin/save-config" -> save_config,
     get : "/admin/reboot" -> reboot,
     get : "/admin/backup" -> backup,
+    get : "/admin/restore" -> restore,
     get : "/admin/logs" -> display_logs,
 );
 
@@ -219,6 +220,77 @@ async fn upgrade(s: S, Query(upgrade): Query<UpgradeRequest>) -> HTML {
 pub  fn shutdown() {
     info!("ready to shutdown...");
     std::process::exit(0);
+}
+
+
+// 处理文件上传和解压的路由处理函数
+async fn restore(mut multipart: Multipart) ->  R<impl IntoResponse>  {
+    // 获取上传的文件
+    let field = multipart
+        .next_field()
+        .await
+        .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?
+        .ok_or((StatusCode::BAD_REQUEST, "No file uploaded".to_string()))?;
+
+    // 检查文件名和类型
+    let file_name = field
+        .file_name()
+        .ok_or((StatusCode::BAD_REQUEST, "No filename provided".to_string()))?
+        .to_string();
+
+    if !file_name.ends_with(".zip") {
+        return Err((StatusCode::BAD_REQUEST, "Only .zip files are allowed".to_string()));
+    }
+
+    // 创建临时文件保存上传的内容
+    let mut temp_file = NamedTempFile::new()
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    // 将上传的内容写入临时文件
+    copy(&mut field.bytes().await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?.as_ref(),
+         &mut temp_file)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    // 解压文件
+    let target_dir = Path::new("./restore_target"); // 设置解压目标目录
+    extract_zip(temp_file.path(), target_dir)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    Ok(Json(json!({
+        "success": true,
+        "message": "File uploaded and extracted successfully"
+    })))
+}
+
+// 解压zip文件的辅助函数
+fn extract_zip(zip_path: &Path, target_dir: &Path) -> Result<()> {
+    // 确保目标目录存在
+    std::fs::create_dir_all(target_dir)?;
+
+    // 打开zip文件
+    let file = File::open(zip_path)?;
+    let mut archive = ZipArchive::new(file)?;
+
+    // 遍历并解压所有文件
+    for i in 0..archive.len() {
+        let mut file = archive.by_index(i)?;
+        let outpath = target_dir.join(file.mangled_name());
+
+        if file.name().ends_with('/') {
+            std::fs::create_dir_all(&outpath)?;
+        } else {
+            if let Some(p) = outpath.parent() {
+                if !p.exists() {
+                    std::fs::create_dir_all(p)?;
+                }
+            }
+            let mut outfile = File::create(&outpath)?;
+            copy(&mut file, &mut outfile)?;
+        }
+    }
+
+    Ok(())
 }
 
 
