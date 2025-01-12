@@ -11,7 +11,6 @@
     <style>
         .upload-container {
             max-width: 500px;
-            margin: 50px auto;
             padding: 20px;
             border: 1px solid #ccc;
             border-radius: 5px;
@@ -77,6 +76,7 @@
             <a href="/admin/backup" download>Backup</a>
         </div>
 
+
         <div class="upload-container">
             <h2>Restore from Backup</h2>
             <form id="uploadForm" onsubmit="return false;">
@@ -89,62 +89,6 @@
             </form>
         </div>
 
-        <script>
-            const fileInput = document.getElementById('fileInput');
-            const fileInfo = document.getElementById('fileInfo');
-            const uploadBtn = document.getElementById('uploadBtn');
-            const progress = document.getElementById('progress');
-            const error = document.getElementById('error');
-
-            fileInput.addEventListener('change', function(e) {
-                const file = e.target.files[0];
-                if (!file) {
-                    fileInfo.textContent = '';
-                    uploadBtn.style.display = 'none';
-                    return;
-                }
-
-                fileInfo.textContent = `Selected file: ${file.name}`;
-                uploadBtn.style.display = 'inline-block';
-            });
-
-            async function uploadFile() {
-                const file = fileInput.files[0];
-                if (!file) return;
-
-                const formData = new FormData();
-                formData.append('file', file);
-
-                try {
-                    uploadBtn.disabled = true;
-                    progress.style.display = 'block';
-                    error.style.display = 'none';
-
-                    const response = await fetch('/admin/restore', {
-                        method: 'POST',
-                        body: formData
-                    });
-
-                    if (!response.ok) {
-                        throw new Error(`Upload failed: ${response.statusText}`);
-                    }
-
-                    // const result = await response.text();
-                    alert('Restore completed successfully!');
-
-                    // 重置表单状态
-                    fileInput.value = '';
-                    fileInfo.textContent = '';
-                    uploadBtn.style.display = 'none';
-                } catch (err) {
-                    error.textContent = err.message;
-                    error.style.display = 'block';
-                } finally {
-                    progress.style.display = 'none';
-                    uploadBtn.disabled = false;
-                }
-            }
-        </script>
 
     </form>
 
@@ -156,6 +100,7 @@
 
         <button type="submit">load logs</button>
     </form>
+
 
 
 </div>
@@ -199,6 +144,62 @@
     }
 
 
+</script>
+<script>
+    const fileInput = document.getElementById('fileInput');
+    const fileInfo = document.getElementById('fileInfo');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const progress = document.getElementById('progress');
+    const error = document.getElementById('error');
+
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) {
+            fileInfo.textContent = '';
+            uploadBtn.style.display = 'none';
+            return;
+        }
+
+        fileInfo.textContent = `Selected file: ${file.name}`;
+        uploadBtn.style.display = 'inline-block';
+    });
+
+    async function uploadFile() {
+        const file = fileInput.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            uploadBtn.disabled = true;
+            progress.style.display = 'block';
+            error.style.display = 'none';
+
+            const response = await fetch('/admin/restore', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error(`Upload failed: ${response.statusText}`);
+            }
+
+            // const result = await response.text();
+            alert('Restore completed successfully!');
+
+            // 重置表单状态
+            fileInput.value = '';
+            fileInfo.textContent = '';
+            uploadBtn.style.display = 'none';
+        } catch (err) {
+            error.textContent = err.message;
+            error.style.display = 'block';
+        } finally {
+            progress.style.display = 'none';
+            uploadBtn.disabled = false;
+        }
+    }
 </script>
 <p>built time :  {{built_time}} (UTC)</p>
 <script src="/static/js/htmx.min.js"></script>
