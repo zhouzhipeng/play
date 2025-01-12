@@ -8,6 +8,44 @@
     <link rel=stylesheet href="/static/font-awesome/5.15.1/css/all.min.css">
     <link rel=stylesheet href="/static/css/floating_nav.css">
 
+    <style>
+        .upload-container {
+            max-width: 500px;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+        .btn:hover {
+            background-color: #45a049;
+        }
+        .btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .progress {
+            margin-top: 20px;
+            display: none;
+        }
+        .error {
+            color: red;
+            margin-top: 10px;
+            display: none;
+        }
+        .file-info {
+            margin: 10px 0;
+            color: #666;
+        }
+    </style>
 </head>
 <body>
 <a href="/" >Home</a>
@@ -39,6 +77,19 @@
         </div>
 
 
+        <div class="upload-container">
+            <h2>Restore from Backup</h2>
+            <form id="uploadForm" onsubmit="return false;">
+                <input type="file" id="fileInput" accept=".zip" style="display: none;">
+                <button type="button" class="btn" onclick="document.getElementById('fileInput').click()">Select Backup File</button>
+                <div id="fileInfo" class="file-info"></div>
+                <button type="button" id="uploadBtn" class="btn" style="display: none;" onclick="uploadFile()">Upload</button>
+                <div id="progress" class="progress">Uploading...</div>
+                <div id="error" class="error"></div>
+            </form>
+        </div>
+
+
     </form>
 
     <form hx-get="/admin/logs" hx-target="#logDiv">
@@ -49,6 +100,7 @@
 
         <button type="submit">load logs</button>
     </form>
+
 
 
 </div>
@@ -92,6 +144,62 @@
     }
 
 
+</script>
+<script>
+    const fileInput = document.getElementById('fileInput');
+    const fileInfo = document.getElementById('fileInfo');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const progress = document.getElementById('progress');
+    const error = document.getElementById('error');
+
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) {
+            fileInfo.textContent = '';
+            uploadBtn.style.display = 'none';
+            return;
+        }
+
+        fileInfo.textContent = `Selected file: ${file.name}`;
+        uploadBtn.style.display = 'inline-block';
+    });
+
+    async function uploadFile() {
+        const file = fileInput.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            uploadBtn.disabled = true;
+            progress.style.display = 'block';
+            error.style.display = 'none';
+
+            const response = await fetch('/admin/restore', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error(`Upload failed: ${response.statusText}`);
+            }
+
+            // const result = await response.text();
+            alert('Restore completed successfully!');
+
+            // 重置表单状态
+            fileInput.value = '';
+            fileInfo.textContent = '';
+            uploadBtn.style.display = 'none';
+        } catch (err) {
+            error.textContent = err.message;
+            error.style.display = 'block';
+        } finally {
+            progress.style.display = 'none';
+            uploadBtn.disabled = false;
+        }
+    }
 </script>
 <p>built time :  {{built_time}} (UTC)</p>
 <script src="/static/js/htmx.min.js"></script>
