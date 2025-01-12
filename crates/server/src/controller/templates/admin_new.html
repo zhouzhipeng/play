@@ -16,7 +16,7 @@
             border: 1px solid #ccc;
             border-radius: 5px;
         }
-        .upload-btn {
+        .btn {
             display: inline-block;
             padding: 10px 20px;
             background-color: #4CAF50;
@@ -24,9 +24,14 @@
             border: none;
             border-radius: 4px;
             cursor: pointer;
+            margin: 10px 0;
         }
-        .upload-btn:hover {
+        .btn:hover {
             background-color: #45a049;
+        }
+        .btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
         }
         .progress {
             margin-top: 20px;
@@ -36,6 +41,10 @@
             color: red;
             margin-top: 10px;
             display: none;
+        }
+        .file-info {
+            margin: 10px 0;
+            color: #666;
         }
     </style>
 </head>
@@ -70,26 +79,46 @@
 
         <div class="upload-container">
             <h2>Restore from Backup</h2>
-            <input type="file" id="fileInput" accept=".zip" style="display: none;">
-            <button class="upload-btn" onclick="document.getElementById('fileInput').click()">Select Backup File</button>
-            <div id="fileName"></div>
-            <div id="progress" class="progress">Uploading...</div>
-            <div id="error" class="error"></div>
+            <form id="uploadForm" onsubmit="return false;">
+                <input type="file" id="fileInput" accept=".zip" style="display: none;">
+                <button type="button" class="btn" onclick="document.getElementById('fileInput').click()">Select Backup File</button>
+                <div id="fileInfo" class="file-info"></div>
+                <button type="button" id="uploadBtn" class="btn" style="display: none;" onclick="uploadFile()">Upload</button>
+                <div id="progress" class="progress">Uploading...</div>
+                <div id="error" class="error"></div>
+            </form>
         </div>
 
         <script>
-            document.getElementById('fileInput').addEventListener('change', async function(e) {
-                const file = e.target.files[0];
-                if (!file) return;
+            const fileInput = document.getElementById('fileInput');
+            const fileInfo = document.getElementById('fileInfo');
+            const uploadBtn = document.getElementById('uploadBtn');
+            const progress = document.getElementById('progress');
+            const error = document.getElementById('error');
 
-                document.getElementById('fileName').textContent = `Selected file: ${file.name}`;
+            fileInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (!file) {
+                    fileInfo.textContent = '';
+                    uploadBtn.style.display = 'none';
+                    return;
+                }
+
+                fileInfo.textContent = `Selected file: ${file.name}`;
+                uploadBtn.style.display = 'inline-block';
+            });
+
+            async function uploadFile() {
+                const file = fileInput.files[0];
+                if (!file) return;
 
                 const formData = new FormData();
                 formData.append('file', file);
 
                 try {
-                    document.getElementById('progress').style.display = 'block';
-                    document.getElementById('error').style.display = 'none';
+                    uploadBtn.disabled = true;
+                    progress.style.display = 'block';
+                    error.style.display = 'none';
 
                     const response = await fetch('/admin/restore', {
                         method: 'POST',
@@ -100,15 +129,21 @@
                         throw new Error(`Upload failed: ${response.statusText}`);
                     }
 
-                    const result = await response.json();
+                    // const result = await response.text();
                     alert('Restore completed successfully!');
+
+                    // 重置表单状态
+                    fileInput.value = '';
+                    fileInfo.textContent = '';
+                    uploadBtn.style.display = 'none';
                 } catch (err) {
-                    document.getElementById('error').textContent = err.message;
-                    document.getElementById('error').style.display = 'block';
+                    error.textContent = err.message;
+                    error.style.display = 'block';
                 } finally {
-                    document.getElementById('progress').style.display = 'none';
+                    progress.style.display = 'none';
+                    uploadBtn.disabled = false;
                 }
-            });
+            }
         </script>
 
     </form>

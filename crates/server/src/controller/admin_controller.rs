@@ -1,27 +1,29 @@
-use std::{env, fs};
+use std::{env, fs, io};
 use std::env::temp_dir;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Cursor};
+use std::io::{BufRead, BufReader, copy, Cursor};
 use std::path::Path;
 use std::time::Duration;
-use anyhow::anyhow;
-use axum::body::StreamBody;
 
-use axum::extract::Query;
-use axum::Form;
+use anyhow::{anyhow, bail};
+use axum::{Form, Json};
+use axum::body::{Bytes, StreamBody};
+use axum::extract::{Multipart, Query};
 use axum::response::{Html, IntoResponse, Response};
 use chrono::Local;
 use fs_extra::dir::CopyOptions;
 use futures_util::TryStreamExt;
+use http::StatusCode;
 use reqwest::{ClientBuilder, Url};
 use serde::Deserialize;
-use serde_json::json;
+use serde_json::{json, Value};
 use tokio_util::codec::{BytesCodec, FramedRead};
 use tracing::info;
 use zip::ZipArchive;
 
+use play_shared::{current_timestamp, timestamp_to_date_str};
 use play_shared::constants::DATA_DIR;
-use play_shared::timestamp_to_date_str;
+
 use crate::{data_dir, ensure, files_dir, HTML, method_router, R, return_error, S, template};
 use crate::config::{Config, get_config_path, read_config_file, save_config_file};
 
@@ -31,7 +33,7 @@ method_router!(
     post : "/admin/save-config" -> save_config,
     get : "/admin/reboot" -> reboot,
     get : "/admin/backup" -> backup,
-    get : "/admin/restore" -> restore,
+    post : "/admin/restore" -> restore,
     get : "/admin/logs" -> display_logs,
 );
 
@@ -79,6 +81,7 @@ async fn save_config(s: S, Form(req): Form<SaveConfigReq>) -> R<String> {
 
     Ok("save ok.".to_string())
 }
+
 async fn reboot() -> R<String> {
     tokio::spawn(async {
         shutdown();
@@ -92,7 +95,7 @@ async fn backup(s: S) -> R<impl IntoResponse> {
 
     //make a temp dir
     let folder_path = data_dir!().join("backup");
-    if folder_path.exists(){
+    if folder_path.exists() {
         fs::remove_dir_all(&folder_path)?;
     }
     fs::create_dir(&folder_path)?;
@@ -104,10 +107,10 @@ async fn backup(s: S) -> R<impl IntoResponse> {
     //config file path
     let config_file_path = get_config_path()?;
 
-    fs_extra::copy_items(&vec![files_path, db_path, config_file_path.into()], &folder_path, &CopyOptions{copy_inside:true, ..Default::default()})?;
+    fs_extra::copy_items(&vec![files_path, db_path, config_file_path.into()], &folder_path, &CopyOptions { copy_inside: true, ..Default::default() })?;
 
     let target_file = data_dir!().join("play.zip");
-    if target_file.exists(){
+    if target_file.exists() {
         tokio::fs::remove_file(&target_file).await?;
     }
 
@@ -133,7 +136,7 @@ async fn backup(s: S) -> R<impl IntoResponse> {
     }
 }
 
-static ADMIN_HTML : &str = include_str!("templates/admin_new.html");
+static ADMIN_HTML: &str = include_str!("templates/admin_new.html");
 
 async fn enter_admin_page(s: S) -> HTML {
     // let config = &CONFIG;
@@ -150,14 +153,14 @@ async fn enter_admin_page(s: S) -> HTML {
     Ok(Html(html))
 }
 
-fn copy_me()->anyhow::Result<()>{
+fn copy_me() -> anyhow::Result<()> {
     // 获取当前执行文件的路径
     let current_exe = env::current_exe()?;
 
     // 创建目标文件名（在当前目录下，添加 "_copy" 后缀）
     let file_name = current_exe.file_name().unwrap().to_str().unwrap();
     let copy_name = format!("{}_bak", file_name);
-    let destination =  current_exe.parent().unwrap().join(copy_name);
+    let destination = current_exe.parent().unwrap().join(copy_name);
 
     // 复制文件
     fs::copy(&current_exe, &destination)?;
@@ -205,9 +208,9 @@ async fn upgrade(s: S, Query(upgrade): Query<UpgradeRequest>) -> HTML {
         info!("upgrade_in_background result >> {:?}", r);
 
 
-        let sender= urlencoding::encode("upgrade done").into_owned();
-        let title= urlencoding::encode(&format!("result : {:?}", r)).into_owned();
-        reqwest::get(format!("{}/{}/{}",&s.config.misc_config.mail_notify_url,  sender, title)).await;
+        let sender = urlencoding::encode("upgrade done").into_owned();
+        let title = urlencoding::encode(&format!("result : {:?}", r)).into_owned();
+        reqwest::get(format!("{}/{}/{}", &s.config.misc_config.mail_notify_url, sender, title)).await;
 
 
         shutdown();
@@ -217,76 +220,65 @@ async fn upgrade(s: S, Query(upgrade): Query<UpgradeRequest>) -> HTML {
     Ok(Html("upgrading in background, pls wait a minute and system will restart automatically later.".to_string()))
 }
 
-pub  fn shutdown() {
+pub fn shutdown() {
     info!("ready to shutdown...");
     std::process::exit(0);
 }
 
 
 // 处理文件上传和解压的路由处理函数
-async fn restore(mut multipart: Multipart) ->  R<impl IntoResponse>  {
-    // 获取上传的文件
-    let field = multipart
-        .next_field()
-        .await
-        .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?
-        .ok_or((StatusCode::BAD_REQUEST, "No file uploaded".to_string()))?;
+async fn restore(mut multipart: Multipart) -> R<String> {
+    if let Ok(Some(field)) = multipart.next_field().await {
+        let temp_dir = tempfile::tempdir()?;
 
-    // 检查文件名和类型
-    let file_name = field
-        .file_name()
-        .ok_or((StatusCode::BAD_REQUEST, "No filename provided".to_string()))?
-        .to_string();
-
-    if !file_name.ends_with(".zip") {
-        return Err((StatusCode::BAD_REQUEST, "Only .zip files are allowed".to_string()));
+        let archive = Cursor::new(field.bytes().await?);
+        extract_and_copy(archive, temp_dir.path(),data_dir!() )?;
     }
-
-    // 创建临时文件保存上传的内容
-    let mut temp_file = NamedTempFile::new()
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-
-    // 将上传的内容写入临时文件
-    copy(&mut field.bytes().await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?.as_ref(),
-         &mut temp_file)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-
-    // 解压文件
-    let target_dir = Path::new("./restore_target"); // 设置解压目标目录
-    extract_zip(temp_file.path(), target_dir)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-
-    Ok(Json(json!({
-        "success": true,
-        "message": "File uploaded and extracted successfully"
-    })))
+    Ok("ok".to_string())
 }
 
-// 解压zip文件的辅助函数
-fn extract_zip(zip_path: &Path, target_dir: &Path) -> Result<()> {
-    // 确保目标目录存在
-    std::fs::create_dir_all(target_dir)?;
 
-    // 打开zip文件
-    let file = File::open(zip_path)?;
-    let mut archive = ZipArchive::new(file)?;
+fn extract_and_copy(cursor: Cursor<Bytes>, extract_dir: &Path, target_dir: &Path) -> anyhow::Result<()> {
+    // 创建临时解压目录
+    fs::create_dir_all(extract_dir)?;
 
-    // 遍历并解压所有文件
-    for i in 0..archive.len() {
-        let mut file = archive.by_index(i)?;
-        let outpath = target_dir.join(file.mangled_name());
+    // 解压ZIP文件到临时目录
+    zip_extract::extract(cursor, extract_dir, true)?;
 
-        if file.name().ends_with('/') {
-            std::fs::create_dir_all(&outpath)?;
+    // 找到第一个子目录
+    if let Some(first_dir) = fs::read_dir(extract_dir)?
+        .filter_map(|entry| entry.ok())
+        .find(|entry| entry.path().is_dir())
+    {
+        // 复制文件到目标目录
+        copy_dir_contents(&first_dir.path(), target_dir)?;
+
+        // 清理临时解压目录
+        fs::remove_dir_all(extract_dir)?;
+    } else {
+        bail!("在目录A中没有找到子目录");
+    }
+
+
+
+    Ok(())
+}
+
+fn copy_dir_contents(src: &Path, dst: &Path) -> io::Result<()> {
+    if !dst.exists() {
+        fs::create_dir_all(dst)?;
+    }
+
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let file_type = entry.file_type()?;
+        let src_path = entry.path();
+        let dst_path = dst.join(entry.file_name());
+
+        if file_type.is_dir() {
+            copy_dir_contents(&src_path, &dst_path)?;
         } else {
-            if let Some(p) = outpath.parent() {
-                if !p.exists() {
-                    std::fs::create_dir_all(p)?;
-                }
-            }
-            let mut outfile = File::create(&outpath)?;
-            copy(&mut file, &mut outfile)?;
+            fs::copy(&src_path, &dst_path)?;
         }
     }
 
@@ -302,7 +294,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    pub async fn test_copy_me(){
+    pub async fn test_copy_me() {
         let r = copy_me();
         println!("{:?}", r);
     }
