@@ -202,7 +202,7 @@ async fn serve_domain_folder(state: S, host: String, request: Request<Body>) -> 
     #[cfg(feature = "play-dylib-loader")]
     {
         use crate::controller::plugin_controller::inner_run_plugin;
-        let plugin = state.config.plugin_config.iter().find(|plugin|plugin.proxy_domain.eq(&host));
+        let plugin = state.config.plugin_config.iter().find(|plugin|!plugin.disable && plugin.proxy_domain.eq(&host));
         if let Some(plugin) = plugin{
             return Ok(inner_run_plugin(plugin, request).await.map_err(|e|anyhow!("{:?}", e))?)
         }
