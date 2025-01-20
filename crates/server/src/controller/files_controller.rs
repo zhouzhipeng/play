@@ -184,7 +184,7 @@ async fn upload_file(
     };
 }
 
-async fn download_file(Path(file_path): Path<String>) -> impl IntoResponse {
+pub async fn download_file(Path(file_path): Path<String>) -> impl IntoResponse {
     // Sanitize file path and prevent directory traversal
     let safe_path = files_dir!().join(file_path.trim_start_matches('/'));
     if safe_path.components().any(|component| component == Component::ParentDir) {

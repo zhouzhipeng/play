@@ -33,6 +33,7 @@ use mime_guess::mime;
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::set_status::SetStatus;
 use tracing::{info, warn};
+use crate::controller::files_controller;
 
 pub async fn http_middleware(
     state: State<Arc<AppState>>,
@@ -230,17 +231,19 @@ async fn serve_domain_folder(state: S, host: String, request: Request<Body>) -> 
             .into_response())
     }
 
-    let dir = files_dir!().join(host);
-    let svc = get_service(ServeDir::new(dir).fallback(NotFoundService))
-        .handle_error(|error| async move {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Unhandled internal error: {}", error),
-            )
-        });
+    // let dir = files_dir!().join(host);
+
+    let resp  = files_controller::download_file(axum::extract::path::Path(format!("{}{}", host,request.uri().path()))).await;
+    // let svc = get_service(ServeDir::new(dir).fallback(NotFoundService))
+    //     .handle_error(|error| async move {
+    //         (
+    //             StatusCode::INTERNAL_SERVER_ERROR,
+    //             format!("Unhandled internal error: {}", error),
+    //         )
+    //     });
 
     // 转发请求到 ServeDir
-    Ok(svc.oneshot(request).await.into_response())
+    Ok(resp.into_response())
 }
 
 
