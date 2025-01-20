@@ -231,19 +231,24 @@ async fn serve_domain_folder(state: S, host: String, request: Request<Body>) -> 
             .into_response())
     }
 
-    // let dir = files_dir!().join(host);
+    let dir = files_dir!().join(host);
 
-    let resp  = files_controller::download_file(axum::extract::path::Path(format!("{}{}", host,request.uri().path()))).await;
-    // let svc = get_service(ServeDir::new(dir).fallback(NotFoundService))
-    //     .handle_error(|error| async move {
-    //         (
-    //             StatusCode::INTERNAL_SERVER_ERROR,
-    //             format!("Unhandled internal error: {}", error),
-    //         )
-    //     });
+    // let resp  = files_controller::download_file(axum::extract::path::Path(format!("{}{}", host,request.uri().path()))).await;
+    let svc = get_service(ServeDir::new(dir).fallback(NotFoundService))
+        .handle_error(|error| async move {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Unhandled internal error: {}", error),
+            )
+        });
 
     // 转发请求到 ServeDir
-    Ok(resp.into_response())
+    let mut resp = svc.oneshot(request).await.into_response();
+    let headers = resp.headers_mut();
+    headers.insert("Content-Encoding", HeaderValue::from_static("identity"));
+    headers.insert("Cache-Control",HeaderValue::from_static("no-transform"));
+    Ok(resp)
+
 }
 
 
