@@ -243,10 +243,15 @@ async fn serve_domain_folder(state: S, host: String, request: Request<Body>) -> 
         });
 
     // 转发请求到 ServeDir
+    let uri = request.uri().path().to_string();
     let mut resp = svc.oneshot(request).await.into_response();
-    let headers = resp.headers_mut();
-    headers.insert("Content-Encoding", HeaderValue::from_static("identity"));
-    headers.insert("Cache-Control",HeaderValue::from_static("no-transform"));
+
+    if uri.ends_with(".wasm"){
+        let headers = resp.headers_mut();
+        headers.insert("Content-Encoding", HeaderValue::from_static("identity"));
+        headers.insert("Cache-Control",HeaderValue::from_static("no-transform"));
+
+    }
     Ok(resp)
 
 }
