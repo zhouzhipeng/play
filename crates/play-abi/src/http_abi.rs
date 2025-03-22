@@ -37,6 +37,7 @@ pub struct HttpRequest {
 impl HttpRequest {
 
 
+    #[deprecated]
     pub async fn render_template(&self, raw: &str, data : Value) -> anyhow::Result<String> {
         let resp = Client::new().post(&format!("{}/plugin/pyo3", self.context.host_url.as_str()))
             .form(&json!({
