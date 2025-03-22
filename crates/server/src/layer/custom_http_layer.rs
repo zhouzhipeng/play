@@ -14,7 +14,7 @@ use futures_util::future::BoxFuture;
 use std::convert::Infallible;
 use std::future::Future;
 use std::net::SocketAddr;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -33,6 +33,7 @@ use mime_guess::mime;
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::set_status::SetStatus;
 use tracing::{info, warn};
+use crate::controller::files_controller;
 
 pub async fn http_middleware(
     state: State<Arc<AppState>>,
@@ -50,6 +51,7 @@ pub async fn http_middleware(
     }
 
     let auth_config = &state.config.auth_config;
+    let domain_proxy = &state.config.domain_proxy;
 
     let uri = request.uri().to_string();
     let prefix_log = format!("served request >> method: {} , url :{}",
@@ -60,12 +62,12 @@ pub async fn http_middleware(
 
 
     //serve other domains (support only static files now)
-    if !auth_config.serve_domains.is_empty(){
+    if !domain_proxy.is_empty(){
         if let Some(header) = request.headers().get(header::HOST) {
             if let Ok(host) = header.to_str() {
                 let host = host.to_string();
-                if auth_config.serve_domains.contains(&host){
-                    return serve_domain_folder(state.clone(), host, request).await.unwrap_or_else(|e| (
+                if let Some(domain) = domain_proxy.iter().find(|p|p.proxy_domain.eq(&host)){
+                    return serve_domain_folder(state.clone(), host, request, &domain.folder_path).await.unwrap_or_else(|e| (
                         StatusCode::INTERNAL_SERVER_ERROR,
                         format!("Unhandled internal error: {}", e),
                     ).into_response())
@@ -197,7 +199,7 @@ impl Service<Request<Body>> for NotFoundService {
 }
 
 
-async fn serve_domain_folder(state: S, host: String, request: Request<Body>) -> anyhow::Result<Response> {
+async fn serve_domain_folder(state: S, host: String, request: Request<Body>, folder_path: &str) -> anyhow::Result<Response> {
     //check if has plugin can handle this.
     #[cfg(feature = "play-dylib-loader")]
     {
@@ -209,28 +211,30 @@ async fn serve_domain_folder(state: S, host: String, request: Request<Body>) -> 
     }
 
 
-    let full_url = Uri::from_str(&format!("https://{}{}", host, request.uri().path()))?;
-    //use cache
-    if let Ok(cache) = get_cache_content(&full_url).await{
-        info!("use cache for host : {}", host);
+    // let full_url = Uri::from_str(&format!("https://{}{}", host, request.uri().path()))?;
+    // //use cache
+    // if let Ok(cache) = get_cache_content(&full_url).await{
+    //     info!("use cache for host : {}", host);
+    //
+    //     return Ok((
+    //         [
+    //             (
+    //             header::CONTENT_TYPE,
+    //             HeaderValue::from_static(mime::TEXT_HTML_UTF_8.as_ref()),
+    //             ),
+    //             (
+    //             HeaderName::from_static("x-play-cache"),
+    //             HeaderValue::from_str(&format!("{}:{}", cache.cache_key, cache.cache_time))?,
+    //             ),
+    //         ],
+    //         cache.cache_content.to_string(),
+    //     )
+    //         .into_response())
+    // }
 
-        return Ok((
-            [
-                (
-                header::CONTENT_TYPE,
-                HeaderValue::from_static(mime::TEXT_HTML_UTF_8.as_ref()),
-                ),
-                (
-                HeaderName::from_static("x-play-cache"),
-                HeaderValue::from_str(&format!("{}:{}", cache.cache_key, cache.cache_time))?,
-                ),
-            ],
-            cache.cache_content.to_string(),
-        )
-            .into_response())
-    }
+    let dir = PathBuf::from(folder_path);
 
-    let dir = files_dir!().join(host);
+    // let resp  = files_controller::download_file(axum::extract::path::Path(format!("{}{}", host,request.uri().path()))).await;
     let svc = get_service(ServeDir::new(dir).fallback(NotFoundService))
         .handle_error(|error| async move {
             (
@@ -240,7 +244,18 @@ async fn serve_domain_folder(state: S, host: String, request: Request<Body>) -> 
         });
 
     // 转发请求到 ServeDir
-    Ok(svc.oneshot(request).await.into_response())
+    let uri = request.uri().path().to_string();
+    let mut resp = svc.oneshot(request).await.into_response();
+
+    if uri.ends_with(".wasm"){
+        //let cloudflare dont compress wasm file (because ios safari has issue with it)
+        let headers = resp.headers_mut();
+        headers.insert("Content-Encoding", HeaderValue::from_static("identity"));
+        headers.insert("Cache-Control",HeaderValue::from_static("no-transform"));
+
+    }
+    Ok(resp)
+
 }
 
 

@@ -26,11 +26,14 @@ pub struct Config {
     #[serde(default)]
     pub auth_config: AuthConfig,
     #[serde(default)]
+    pub domain_proxy: Vec<DomainProxy>,
+    #[serde(default)]
     pub misc_config: MiscConfig,
     #[serde(default)]
     pub cache_config: CacheConfig,
     #[serde(default)]
     pub plugin_config: Vec<PluginConfig>,
+
 }
 
 #[derive(Deserialize,Serialize, Debug, Clone, Default)]
@@ -62,6 +65,13 @@ pub struct PluginConfig {
     pub create_process: bool,
 
 }
+#[derive(Deserialize,Serialize, Debug, Clone, Default)]
+pub struct DomainProxy {
+    #[serde(default)]
+    pub proxy_domain: String,
+    #[serde(default)]
+    pub folder_path: String,
+}
 
 #[derive(Deserialize,Serialize, Debug, Clone, Default)]
 pub struct ShortLink {
@@ -72,25 +82,14 @@ pub struct ShortLink {
     #[serde(default)]
     pub auth: bool,
 }
-#[derive(Deserialize, Debug, Clone, Default)]
-pub struct OpenAIConfig {
-    pub api_key: String,
-    pub assistant_id: String,
-    pub general_assistant_id: String,
-}
-#[derive(Deserialize, Debug, Clone, Default)]
-pub struct ElevenlabsConfig {
-    pub api_key: String,
-    pub voice_id: String,
-}
+
 #[derive(Deserialize, Debug, Clone, Default)]
 pub struct AuthConfig {
     pub enabled: bool,
     pub fingerprints: Vec<String>,
     pub whitelist: Vec<String>,
     pub passcode: String,
-    #[serde(default)]
-    pub serve_domains: Vec<String>,
+
 }
 #[derive(Deserialize, Debug, Clone, Default)]
 pub struct MiscConfig {

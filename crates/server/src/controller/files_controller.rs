@@ -184,7 +184,7 @@ async fn upload_file(
     };
 }
 
-async fn download_file(Path(file_path): Path<String>) -> impl IntoResponse {
+pub async fn download_file(Path(file_path): Path<String>) -> impl IntoResponse {
     // Sanitize file path and prevent directory traversal
     let safe_path = files_dir!().join(file_path.trim_start_matches('/'));
     if safe_path.components().any(|component| component == Component::ParentDir) {
@@ -254,11 +254,11 @@ async fn download_file(Path(file_path): Path<String>) -> impl IntoResponse {
                     )
                     .header("Cross-Origin-Opener-Policy", "same-origin")
                     .header("Cross-Origin-Embedder-Policy", "require-corp");
-                // if !mime_type.as_ref().contains("octet-stream")
-                //     && !mime_type.as_ref().contains("image"){
-                //     //dont compress
-                //     res_builder = res_builder.header("x-compress", "1");
-                // }
+                if mime_type.as_ref().contains("wasm"){
+                    //dont compress wasm file , because ios safari has issue with it.
+                    res_builder = res_builder.header("Content-Encoding", "identity")
+                        .header("Cache-Control","no-transform");
+                }
                 let  response =
                     res_builder.body(Body::from(contents))
                     .expect("Failed to build response"); // Convert Vec<u8> into Body

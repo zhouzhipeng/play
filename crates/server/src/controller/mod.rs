@@ -10,7 +10,7 @@ mod job_controller;
 mod general_data_controller;
 pub mod pages_controller;
 mod shell_controller;
-mod files_controller;
+pub mod files_controller;
 pub mod cache_controller;
 mod test_controller;
 pub mod plugin_controller;
