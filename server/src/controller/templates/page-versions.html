@@ -208,7 +208,7 @@
         class="messageForUser" style="display: none;"></span>
 
 
-    % for item in items:
+    % for i,item in ipairs(items) do
     <h2 id="update">修改时间(UTC)：{{item.updated}} </h2>
     <span style="display: none" id="data_before_{{item.id}}">{{item.data_before}}</span>
     <span style="display: none"  id="data_after_{{item.id}}">{{item.data_after}}</span>
