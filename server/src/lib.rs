@@ -486,7 +486,7 @@ pub async fn get_file_modify_time(path: &PathBuf)->i64{
 
 #[cfg(feature = "play-lua")]
 pub async fn render_template_new(text: &str, data: Value)->anyhow::Result<String>{
-    Ok(play_lua::lua_render(text, data)?)
+    Ok(play_lua::lua_render(text, data).await?)
 }
 
 #[cfg(not(feature = "play-lua"))]
