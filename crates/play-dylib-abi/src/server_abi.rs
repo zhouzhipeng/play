@@ -16,7 +16,7 @@ macro_rules! async_run {
        #[no_mangle]
         pub extern "C" fn run(request: *mut std::os::raw::c_char){
 
-            use play_abi::*;
+            use play_dylib_abi::*;
             use std::panic::{self, AssertUnwindSafe};
 
             let result = panic::catch_unwind(||{

@@ -8,7 +8,7 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-play-abi={workspace = true}
+play-dylib-abi={workspace = true}
 anyhow = {workspace = true}
 tokio = {workspace = true}
 serde_json = {workspace = true}

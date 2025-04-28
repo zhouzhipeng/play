@@ -8,15 +8,15 @@ use libloading::{Library, Symbol};
 use tokio::fs;
 use log::{error, info, warn};
 use tempfile::Builder;
-pub use play_abi::http_abi::*;
-pub use play_abi::HostContext;
-use play_abi::{c_char_to_string, string_to_c_char, string_to_c_char_mut};
+pub use play_dylib_abi::http_abi::*;
+pub use play_dylib_abi::HostContext;
+use play_dylib_abi::{c_char_to_string, string_to_c_char, string_to_c_char_mut};
 use std::panic::{self, AssertUnwindSafe};
 use std::sync::{Arc, LazyLock, OnceLock};
 use dashmap::DashMap;
 use tokio::sync::OnceCell;
 use tokio::task::JoinHandle;
-use play_abi::server_abi::{RunFn, RUN_FN_NAME};
+use play_dylib_abi::server_abi::{RunFn, RUN_FN_NAME};
 
 /// load a dylib from `dylib_path` (absolute path)
 pub async fn load_and_run(dylib_path: &str, request: HttpRequest) -> anyhow::Result<HttpResponse> {
@@ -149,7 +149,7 @@ unsafe fn run_plugin(lib_path: &str, request: HttpRequest) -> anyhow::Result<Htt
 #[cfg(test)]
 mod tests {
     use serde_json::json;
-    use play_abi::HostContext;
+    use play_dylib_abi::HostContext;
     use super::*;
     #[tokio::test]
     async fn test_load_and_run() {

@@ -1,5 +1,5 @@
-use play_abi::http_abi::*;
-use play_abi::*;
+use play_dylib_abi::http_abi::*;
+use play_dylib_abi::*;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 

@@ -21,7 +21,7 @@ async-channel = "2.3.1"
 axum = "0.6.20"
 tokio = { version = "1", features = ["full"] }
 log = "0.4"
-play-abi={path= "crates/play-abi" }
+play-dylib-abi={path= "crates/play-dylib-abi" }
 play-shared={path= "crates/play-shared" }
 play-macros={path= "crates/play-macros"}
 play-ui = { path = "crates/play-ui"}

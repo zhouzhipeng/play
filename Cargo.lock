@@ -4550,7 +4550,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "play-abi"
+name = "play-dylib-abi"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -4567,7 +4567,7 @@ name = "play-dylib-example"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "play-abi",
+ "play-dylib-abi",
  "serde",
  "serde_json",
  "tokio",
@@ -4581,7 +4581,7 @@ dependencies = [
  "dashmap 6.1.0",
  "libloading",
  "log",
- "play-abi",
+ "play-dylib-abi",
  "serde_json",
  "tempfile",
  "tokio",
