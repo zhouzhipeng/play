@@ -484,24 +484,12 @@ pub async fn get_file_modify_time(path: &PathBuf)->i64{
     0
 }
 
-#[cfg(feature = "play-dylib-loader")]
+#[cfg(feature = "play-lua")]
 pub async fn render_template_new(text: &str, data: Value)->anyhow::Result<String>{
-    use play_dylib_loader::HostContext;
-    use play_dylib_loader::{HttpRequest};
-    //host_url: env::var("HOST")?
-    let req = HttpRequest{
-        context: HostContext {
-            host_url: env::var("HOST")?,
-            ..Default::default()
-        },
-        ..Default::default()
-    };
-
-    let resp = req.render_template(text, data).await?;
-    Ok(resp)
+    Ok(play_lua::lua_render(text, data)?)
 }
 
-#[cfg(not(feature = "play-dylib-loader"))]
+#[cfg(not(feature = "play-lua"))]
 pub async fn render_template_new(text: &str, data: Value)->anyhow::Result<String> {
-    bail!("feature `play-dylib-loader` not enabled")
+    bail!("feature `play-lua` not enabled")
 }

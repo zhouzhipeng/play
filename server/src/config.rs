@@ -82,17 +82,7 @@ pub struct ShortLink {
     #[serde(default)]
     pub auth: bool,
 }
-#[derive(Deserialize, Debug, Clone, Default)]
-pub struct OpenAIConfig {
-    pub api_key: String,
-    pub assistant_id: String,
-    pub general_assistant_id: String,
-}
-#[derive(Deserialize, Debug, Clone, Default)]
-pub struct ElevenlabsConfig {
-    pub api_key: String,
-    pub voice_id: String,
-}
+
 #[derive(Deserialize, Debug, Clone, Default)]
 pub struct AuthConfig {
     pub enabled: bool,

@@ -12,6 +12,6 @@ fn run()->anyhow::Result<()>{
     // must use use_embed_python(not tpl , because the debian server may miss some python libs)
     // below error when startup:
     /// ModuleNotFoundError: No module named 'encodings'
-    build_dev("play-https,play-dylib-loader")?;
+    build_dev("play-https,play-dylib-loader,play-lua")?;
     Ok(())
 }

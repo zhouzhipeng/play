@@ -1,9 +1,11 @@
 [workspace]
 resolver="2"
 members = [
+    "server",
+    "tool",
     "crates/*",
 ]
-default-members=["crates/server"]
+default-members=["server"]
 
 [workspace.dependencies]
 # don't use native tls / openssl !!!  use rustls instead.
@@ -19,10 +21,10 @@ async-channel = "2.3.1"
 axum = "0.6.20"
 tokio = { version = "1", features = ["full"] }
 log = "0.4"
-data-api= {git = "https://github.com/zhouzhipeng/rust-utils"}
 play-abi={path= "crates/play-abi" }
 play-shared={path= "crates/play-shared" }
 play-macros={path= "crates/play-macros"}
 play-ui = { path = "crates/play-ui"}
 play-https = { path = "crates/play-https"}
 play-dylib-loader = { path = "crates/play-dylib-loader"}
+play-lua = { path = "crates/play-lua"}

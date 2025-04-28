@@ -43,6 +43,7 @@ play-shared = { workspace = true, features = ["utils"] }
 play-ui = { workspace = true, optional = true }
 play-https = { workspace = true, optional = true }
 play-dylib-loader = { workspace = true, optional = true }
+play-lua = { workspace = true, optional = true }
 
 # options
 tower-livereload = { version = "0.8.2", optional = true }

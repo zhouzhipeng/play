@@ -1,5 +1,7 @@
-FROM rust:1.81.0-bookworm
+FROM rust:1.85.0-bookworm
 
+# install basic packages
+RUN apt update && apt install -y lua5.4
 
 WORKDIR /app
 COPY . .

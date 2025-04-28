@@ -23,6 +23,9 @@ the `debug` feature will activate live-reload mode for `static` and `templates` 
 cargo debug
 ```
 
+## web export for ios safari
+* turn off compression on the server side!! (otherwise will "webkit encountered internal error)
+* 
 
 
 ## branches
@@ -30,4 +33,5 @@ cargo debug
 `dev2`: working for clean minimal server
 `dev3`: regular developing
 `master`: used for CICD
+
 
