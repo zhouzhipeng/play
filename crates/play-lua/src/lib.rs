@@ -100,7 +100,7 @@ fn json_to_lua_value(lua: &Lua, json: &serde_json::Value) -> Result<Value> {
         },
     }
 }
-pub  fn lua_render(tpl_code: &str, data: serde_json::Value) -> Result<String> {
+pub async  fn lua_render(tpl_code: &str, data: serde_json::Value) -> Result<String> {
     let (lua,output) = create_lua()?;
 
     // Get the package.loaded table
@@ -129,7 +129,7 @@ pub  fn lua_render(tpl_code: &str, data: serde_json::Value) -> Result<String> {
 
         "#;
 
-    let output:String = lua.load(lua_code).eval()?;
+    let output:String = lua.load(lua_code).eval_async().await?;
 
 
     Ok(output)
@@ -168,8 +168,10 @@ mod tests {
         let output = lua_render(r#"
         % a=1
         Hello,{{name}} {{a}}
+        %local response = http.get_json("https://httpbin.org/anything?arg0=val0")
+        {{response}}
         aa
-        "#, json!({"name":"zhou"})).unwrap();
+        "#, json!({"name":"zhou"})).await.unwrap();
 
         println!("{}", output);
     }
