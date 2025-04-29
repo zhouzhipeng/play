@@ -11,7 +11,7 @@ curl -sSL https://raw.githubusercontent.com/zhouzhipeng/play/main/scripts/instal
 
 
 ## general data api
-[genera-data-api.md](doc%2Fgenera-data-api.md)
+[general-data-api.md](docs/general-data-api.md)
 
 ## crates
 * tool : put your pre-build logic here.

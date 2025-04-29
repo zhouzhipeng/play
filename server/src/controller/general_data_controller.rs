@@ -6,8 +6,10 @@ use axum::response::IntoResponse;
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json::Value;
-
-use crate::{ensure, JSON, method_router, return_error, S, get_last_insert_id, AppError};
+use tracing::info;
+use play_shared::constants::LUA_DIR;
+use crate::{ensure, JSON, method_router, return_error, S, get_last_insert_id, AppError, files_dir};
+use crate::controller::pages_controller::PageDto;
 use crate::tables::general_data::GeneralData;
 
 method_router!(
@@ -57,7 +59,11 @@ async fn insert_data(s: S, Path(cat): Path<String>, body: String) -> JSON<Vec<Qu
 
     let data = GeneralData::query_by_id(get_last_insert_id!(ret) as u32, &s.db).await?;
     ensure!(data.len()==1, "data error! query_by_id not found.");
-    Ok(Json(vec![QueryDataResp::Raw(data[0].clone())]))
+
+    let data = data[0].clone();
+    after_update_data(&data).await?;
+    
+    Ok(Json(vec![QueryDataResp::Raw(data)]))
 }
 
 async fn override_data(s: S, Path(cat): Path<String>, body: String) -> JSON<Vec<QueryDataResp>> {
@@ -209,8 +215,32 @@ async fn get_data_under_cat(s: S, Path((cat,data_id)): Path<(String,u32)>, Query
 async fn update_data(s: S, Path(data_id): Path<u32>, body: String) -> JSON<Vec<QueryDataResp>> {
     let r = GeneralData::update_data_by_id(data_id, &body, &s.db).await?;
     ensure!(r.rows_affected()==1, "update_data failed!");
+    
+
+    
     let data = GeneralData::query_by_id(data_id as u32, &s.db).await?;
-    Ok(Json(vec![QueryDataResp::Raw(data[0].clone())]))
+    let data = data[0].clone();
+  
+    after_update_data(&data).await?;
+
+    Ok(Json(vec![QueryDataResp::Raw(data)]))
+}
+
+async fn after_update_data(data: &GeneralData) -> Result<(), AppError> {
+    //save *.lua page
+    if data.cat.eq_ignore_ascii_case("pages") {
+        let page_dto = serde_json::from_str::<PageDto>(&data.data)?;
+        if page_dto.title.ends_with(".lua") {
+            let save_path = std::path::Path::new(std::env::var(LUA_DIR).unwrap().as_str()).join(&page_dto.title);
+
+            info!("ready to save lua file to save_path : {save_path:?}");
+            let raw_content = String::from_utf8(hex::decode(&page_dto.content)?)?;
+
+            //save to local file system
+            tokio::fs::write(save_path, raw_content).await?;
+        }
+    }
+    Ok(())
 }
 
 async fn update_field(s: S, Path(data_id): Path<u32>, Query(params): Query<HashMap<String, String>>) -> JSON<Vec<QueryDataResp>> {

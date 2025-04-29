@@ -10,7 +10,7 @@ before-packaging-command = "cargo dev_ui"
 
 [features]
 default = []
-debug = ["tower-livereload", "notify", "play-dylib-loader"]
+debug = ["tower-livereload", "notify", "play-dylib-loader","play-lua"]
 use_mysql = ["sqlx/mysql", "sqlparser"]
 
 
@@ -18,7 +18,7 @@ use_mysql = ["sqlx/mysql", "sqlparser"]
 walkdir = "2"
 fs_extra = "1.3.0"
 anyhow = { workspace = true }
-play-shared = { workspace = true, features = ["utils"] }
+play-shared = { workspace = true }
 regex = "1.10.2"
 serde_json = "1.0.68"
 chrono = { workspace = true }
@@ -39,7 +39,7 @@ harness = false
 [dependencies]
 # local libs
 play-macros={workspace = true}
-play-shared = { workspace = true, features = ["utils"] }
+play-shared = { workspace = true }
 play-ui = { workspace = true, optional = true }
 play-https = { workspace = true, optional = true }
 play-dylib-loader = { workspace = true, optional = true }

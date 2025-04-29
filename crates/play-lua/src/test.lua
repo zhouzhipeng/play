@@ -1,4 +1,5 @@
 local template_engine = require("template_engine")
+local htmlutils = require("html_utils")
 
 
 -- Example usage
@@ -42,3 +43,10 @@ Products:
 end
 
 test_template_engine()
+
+
+print(11)
+-- 使用模块
+local escaped = htmlutils.escape("<Hello & World>")
+print(escaped)
+print(htmlutils.unescape(escaped))

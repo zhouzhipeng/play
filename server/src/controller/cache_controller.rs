@@ -45,7 +45,7 @@ pub fn generate_cache_key(uri: &Uri) -> String {
     s
 }
 
-const CACHE_FOLDER: &'static str = "__cache__";
+pub(crate) const CACHE_FOLDER: &'static str = "__cache__";
 
 pub struct CacheContent{
     pub cache_key : String,

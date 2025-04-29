@@ -3,11 +3,6 @@ name = "play-shared"
 version = "0.1.0"
 edition = "2021"
 
-[features]
-dev = []
-prod = []
-
-utils = ["zip-extract", "sqlparser"]
 
 [dependencies]
 serde = { workspace = true }
