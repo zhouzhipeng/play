@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::fs;
 use std::sync::{Arc, Mutex};
 use mlua::{ExternalResult, Lua, LuaSerdeExt, Result, Table, Value};
+use mlua::prelude::LuaError;
 use reqwest;
 use play_shared::constants::LUA_DIR;
 
@@ -34,15 +35,22 @@ pub  fn create_lua() -> Result<(Lua, Arc<Mutex<String>>)> {
     
     // 重定义 require 函数
     let require_override = lua.create_function(move |lua, lua_file: String| {
-        let file_dir = std::path::Path::new(std::env::var(LUA_DIR).unwrap().as_str()).join(&lua_file);
-        if fs::exists(&file_dir)?{
-            let template_engine: Table = lua.load(&fs::read_to_string(&file_dir)?).eval()?;
-            Ok(template_engine)
-        }else{
-            let package: Table = lua.globals().get("package")?;
-            let loaded: Table = package.get("loaded")?;
-            loaded.get(lua_file.as_str())
+        if let Ok(lua_dir) = std::env::var(LUA_DIR){
+            let file_dir = std::path::Path::new(lua_dir.as_str()).join(&lua_file);
+            if fs::exists(&file_dir)?{
+                let template_engine: Table = lua.load(&fs::read_to_string(&file_dir)?).eval()?;
+                return Ok(template_engine)
+            }
         }
+        
+   
+        let package: Table = lua.globals().get("package")?;
+        let loaded: Table = package.get("loaded")?;
+        if !loaded.contains_key(lua_file.as_str())?{
+            return Err(LuaError::external(format!("{} not found!", lua_file)))
+        }
+        loaded.get(lua_file.as_str())
+    
        
     })?;
 
@@ -199,15 +207,15 @@ mod tests {
     #[tokio::test]
     async fn test_require() {
         unsafe {
-            env::set_var("LUA_DIR", "/Users/ronnie/RustroverProjects/play/server/output_dir/files/lua_files");
+            env::set_var("LUA_DIR", "/Users/ronnie/RustroverProjects/play/server/output_dir/files/lua_files2");
         }
         let output = run_lua(r#"
             htmlutils = require("html_utils.lua")
             local escaped = htmlutils.escape("<Hello & World>")
             print(escaped)
             print(htmlutils.unescape(escaped))
-        "#).await.unwrap();
+        "#).await;
 
-        println!("{}", output);
+        println!("{:?}", output);
     }
 }
