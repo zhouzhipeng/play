@@ -45,7 +45,7 @@ async fn root(s: S) -> HTML {
     let data = GeneralData::query_by_cat("title,url", "pages",1000, &s.db).await?;
     let pages = data.iter()
         .map(|p|serde_json::from_str::<PageDto>(&p.data).unwrap())
-        .filter(|p| p.title.ends_with(".html"))
+        .filter(|p| !p.title.ends_with(".lua"))
         .collect::<Vec<PageDto>>();
 
     let html = dioxus_ssr::render_element(rsx!{
