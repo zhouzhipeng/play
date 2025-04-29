@@ -1,9 +1,11 @@
 use std::cell::RefCell;
+use std::fs;
 use std::sync::{Arc, Mutex};
 use mlua::{ExternalResult, Lua, LuaSerdeExt, Result, Table, Value};
 use reqwest;
+use play_shared::constants::LUA_DIR;
 
-pub  fn create_lua() -> Result<(Lua,Arc<Mutex<String>>)> {
+pub  fn create_lua() -> Result<(Lua, Arc<Mutex<String>>)> {
     let lua = Lua::new();
 
     // 创建一个用于存储输出的字符串容器
@@ -27,6 +29,21 @@ pub  fn create_lua() -> Result<(Lua,Arc<Mutex<String>>)> {
         }
         output.push_str("\n");  // print 默认在末尾添加换行符
         Ok(())
+    })?;
+    
+    
+    // 重定义 require 函数
+    let require_override = lua.create_function(move |lua, lua_file: String| {
+        let file_dir = std::path::Path::new(std::env::var(LUA_DIR).unwrap().as_str()).join(&lua_file);
+        if fs::exists(&file_dir)?{
+            let template_engine: Table = lua.load(&fs::read_to_string(&file_dir)?).eval()?;
+            Ok(template_engine)
+        }else{
+            let package: Table = lua.globals().get("package")?;
+            let loaded: Table = package.get("loaded")?;
+            loaded.get(lua_file.as_str())
+        }
+       
     })?;
 
     let get_json = lua.create_async_function(|lua, uri: String| async move {
@@ -55,6 +72,7 @@ pub  fn create_lua() -> Result<(Lua,Arc<Mutex<String>>)> {
     // 设置全局HTTP模块
     lua.globals().set("http", http_module)?;
     lua.globals().set("print", print_override)?;
+    lua.globals().set("require", require_override)?;
 
 
     Ok((lua, output))
@@ -137,7 +155,10 @@ pub async  fn lua_render(tpl_code: &str, data: serde_json::Value) -> Result<Stri
 }
 #[cfg(test)]
 mod tests {
+    use std::env;
+    use std::env::set_var;
     use serde_json::json;
+    use play_shared::constants::DATA_DIR;
     use super::*;
 
     #[tokio::test]
@@ -172,6 +193,20 @@ mod tests {
         {{response}}
         aa
         "#, json!({"name":"zhou"})).await.unwrap();
+
+        println!("{}", output);
+    }
+    #[tokio::test]
+    async fn test_require() {
+        unsafe {
+            env::set_var("LUA_DIR", "/Users/ronnie/RustroverProjects/play/server/output_dir/files/lua_files");
+        }
+        let output = run_lua(r#"
+            htmlutils = require("html_utils.lua")
+            local escaped = htmlutils.escape("<Hello & World>")
+            print(escaped)
+            print(htmlutils.unescape(escaped))
+        "#).await.unwrap();
 
         println!("{}", output);
     }

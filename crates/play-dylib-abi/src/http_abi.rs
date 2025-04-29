@@ -188,7 +188,7 @@ macro_rules! async_request_handler {
        #[no_mangle]
         pub extern "C" fn handle_request(request: *mut std::os::raw::c_char) -> *mut std::os::raw::c_char {
 
-            use play_abi::*;
+            use play_dylib_abi::*;
             use std::panic::{self, AssertUnwindSafe};
 
             let result = panic::catch_unwind(||{
@@ -244,7 +244,7 @@ macro_rules! request_handler {
        #[no_mangle]
         pub extern "C" fn handle_request(request: *mut std::os::raw::c_char) -> *mut std::os::raw::c_char {
 
-            use play_abi::*;
+            use play_dylib_abi::*;
             use std::panic::{self, AssertUnwindSafe};
 
             let result = panic::catch_unwind(||{

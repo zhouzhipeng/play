@@ -90,11 +90,13 @@ async fn page_versions(s: S, Query(q): Query<QueryPageVersion>) -> HTML {
 
 async fn dynamic_pages(s: S, Path(url): Path<String>, Query(params): Query<HashMap<String, String>>) -> HTML {
     info!("dynamic_pages >> url is : {}", url);
+    ensure!(!url.eq_ignore_ascii_case("null"), "null url cant visit.");
+
 
     let data = GeneralData::query_by_json_field("*", "pages", "url", &format!("/{}", url), 1,&s.db).await?;
     ensure!(data.len()==1, "url not found.");
     // Your hex string
-
+    
 
     let page_dto = serde_json::from_str::<PageDto>(&data[0].data)?;
     let raw_html = String::from_utf8(hex::decode(&page_dto.content)?)?;
@@ -108,7 +110,7 @@ async fn dynamic_pages(s: S, Path(url): Path<String>, Query(params): Query<HashM
             name: page_dto.title.to_string(),
             content: raw_html,
         }, json!({
-            "params": params
+            "params": params,
         })).await
     }
 }

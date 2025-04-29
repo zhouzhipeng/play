@@ -43,7 +43,10 @@ async fn root(s: S) -> HTML {
     let built_time = env!("BUILT_TIME").parse::<i64>()?;
     // return_error!("test");
     let data = GeneralData::query_by_cat("title,url", "pages",1000, &s.db).await?;
-    let pages = data.iter().map(|p|serde_json::from_str::<PageDto>(&p.data).unwrap()).collect::<Vec<PageDto>>();
+    let pages = data.iter()
+        .map(|p|serde_json::from_str::<PageDto>(&p.data).unwrap())
+        .filter(|p| p.title.ends_with(".html"))
+        .collect::<Vec<PageDto>>();
 
     let html = dioxus_ssr::render_element(rsx!{
         div { class: "row",
