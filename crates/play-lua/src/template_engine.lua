@@ -127,13 +127,7 @@ function template_engine.render(template, env)
     end})
 
     -- Execute the function with the environment
-    local success, result = pcall(func, sandbox)
-
-    if not success then
-        return nil, "Execution error: " .. result
-    end
-
-    return result
+    return pcall(func, sandbox)
 end
 
 -- Return the module

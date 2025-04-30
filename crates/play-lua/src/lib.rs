@@ -1,8 +1,8 @@
 use std::cell::RefCell;
 use std::fs;
 use std::sync::{Arc, Mutex};
-use mlua::{ExternalResult, Lua, LuaSerdeExt, Result, Table, Value};
-use mlua::prelude::LuaError;
+use mlua::{ExternalResult, Lua, LuaSerdeExt, MultiValue, Result, Table, Value};
+use mlua::prelude::{LuaError, LuaResult, LuaValue};
 use reqwest;
 use play_shared::constants::LUA_DIR;
 
@@ -31,8 +31,8 @@ pub  fn create_lua() -> Result<(Lua, Arc<Mutex<String>>)> {
         output.push_str("\n");  // print 默认在末尾添加换行符
         Ok(())
     })?;
-    
-    
+
+
     // 重定义 require 函数
     let require_override = lua.create_function(move |lua, lua_file: String| {
         if let Ok(lua_dir) = std::env::var(LUA_DIR){
@@ -42,16 +42,16 @@ pub  fn create_lua() -> Result<(Lua, Arc<Mutex<String>>)> {
                 return Ok(template_engine)
             }
         }
-        
-   
+
+
         let package: Table = lua.globals().get("package")?;
         let loaded: Table = package.get("loaded")?;
         if !loaded.contains_key(lua_file.as_str())?{
             return Err(LuaError::external(format!("{} not found!", lua_file)))
         }
         loaded.get(lua_file.as_str())
-    
-       
+
+
     })?;
 
     let get_json = lua.create_async_function(|lua, uri: String| async move {
@@ -146,19 +146,22 @@ pub async  fn lua_render(tpl_code: &str, data: serde_json::Value) -> Result<Stri
 
     let lua_code = r#"
         local template_engine = require("template_engine")
-        local result, err = template_engine.render(_param, _data)
-        if result then
-        return result
-        else
-        return err
-        end
-
+        return template_engine.render(_param, _data)
         "#;
 
-    let output:String = lua.load(lua_code).eval_async().await?;
-
-
-    Ok(output)
+    let (success, result) :(bool,LuaValue) = lua.load(lua_code).eval_async().await?;
+    if success{
+        Ok(result.as_string().unwrap().to_string_lossy().to_string())
+    }else{
+        if result.is_error(){
+            let error = result.as_error().unwrap();
+            Err(error.clone())
+        }else{
+            Err(LuaError::external(format!("{:?}", result)))
+        }
+      
+    }
+    
 
 }
 #[cfg(test)]
@@ -195,6 +198,8 @@ mod tests {
 
 
         let output = lua_render(r#"
+         %htmlutils = require("html_utils2.lua")
+
         % a=1
         Hello,{{name}} {{a}}
         %local response = http.get_json("https://httpbin.org/anything?arg0=val0")
