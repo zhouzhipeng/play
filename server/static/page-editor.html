@@ -557,7 +557,14 @@
 
 <script>
     let startX, startWidth;
-
+    window.addEventListener('beforeunload', function(e) {
+        // 取消事件
+        e.preventDefault();
+        // Chrome 需要 returnValue 设置
+        e.returnValue = '';
+        // 返回一个字符串（注意：现代浏览器通常会忽略自定义消息而显示标准消息）
+        return '确定要离开此页面吗？';
+    });
     function startResizing(e) {
         e.preventDefault();
         startX = e.clientX;
