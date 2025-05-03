@@ -2,7 +2,7 @@ use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize, Serializer};
 use sqlx::{Error, FromRow};
 use tracing::info;
-use crate::ensure;
+use crate::check_if;
 
 use crate::tables::{DBPool, DBQueryResult};
 use crate::tables::change_log::{ChangeLog, ChangeLogOp};
@@ -12,6 +12,8 @@ pub struct GeneralData {
     pub id: u32,
     pub cat: String,
     pub data: String,
+    #[sqlx(default)]
+    pub is_deleted: bool,
     #[serde(serialize_with = "serialize_as_timestamp")]
     pub created: NaiveDateTime,
     #[serde(serialize_with = "serialize_as_timestamp")]

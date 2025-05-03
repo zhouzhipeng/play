@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize, Serializer};
 use serde_json::Value;
 use tracing::info;
 use play_shared::constants::LUA_DIR;
-use crate::{ensure, JSON, method_router, return_error, S, get_last_insert_id, AppError, files_dir};
+use crate::{check_if, JSON, method_router, return_error, S, get_last_insert_id, AppError, files_dir};
 use crate::controller::pages_controller::PageDto;
 use crate::tables::general_data::GeneralData;
 
@@ -55,10 +55,10 @@ async fn insert_data(s: S, Path(cat): Path<String>, body: String) -> JSON<Vec<Qu
 
     let ret = GeneralData::insert(&cat,&body.trim(), &s.db).await?;
     let id = ret.rows_affected();
-    ensure!(id==1, "insert failed!");
+    check_if!(id==1, "insert failed!");
 
     let data = GeneralData::query_by_id(get_last_insert_id!(ret) as u32, &s.db).await?;
-    ensure!(data.len()==1, "data error! query_by_id not found.");
+    check_if!(data.len()==1, "data error! query_by_id not found.");
 
     let data = data[0].clone();
     after_update_data(&data).await?;
@@ -70,22 +70,22 @@ async fn override_data(s: S, Path(cat): Path<String>, body: String) -> JSON<Vec<
 
 
     let list_data = GeneralData::query_by_cat("*", &cat,10, &s.db).await?;
-    ensure!(list_data.len()<=1, "A global category should have only one item!");
+    check_if!(list_data.len()<=1, "A global category should have only one item!");
 
     if list_data.len() == 0 {
         //insert
         let ret = GeneralData::insert(&cat, &body.trim(), &s.db).await?;
-        ensure!(ret.rows_affected()==1, "GeneralData::insert error!");
+        check_if!(ret.rows_affected()==1, "GeneralData::insert error!");
         let data = GeneralData::query_by_id(get_last_insert_id!(ret) as u32, &s.db).await?;
-        ensure!(data.len()==1, "data error! query_by_id not found.");
+        check_if!(data.len()==1, "data error! query_by_id not found.");
 
         Ok(Json(vec![QueryDataResp::Raw(data[0].clone())]))
     } else {
         //update
         let r = GeneralData::update_data_by_cat(&cat, &body, &s.db).await?;
-        ensure!(r.rows_affected()==1, "update_data_by_cat error!");
+        check_if!(r.rows_affected()==1, "update_data_by_cat error!");
         let data = GeneralData::query_by_cat_simple(&cat,1, &s.db).await?;
-        ensure!(data.len()==1, "data error! query_by_id not found.");
+        check_if!(data.len()==1, "data error! query_by_id not found.");
         Ok(Json(vec![QueryDataResp::Raw(data[0].clone())]))
     }
 }
@@ -214,7 +214,7 @@ async fn get_data_under_cat(s: S, Path((cat,data_id)): Path<(String,u32)>, Query
 
 async fn update_data(s: S, Path(data_id): Path<u32>, body: String) -> JSON<Vec<QueryDataResp>> {
     let r = GeneralData::update_data_by_id(data_id, &body, &s.db).await?;
-    ensure!(r.rows_affected()==1, "update_data failed!");
+    check_if!(r.rows_affected()==1, "update_data failed!");
     
 
     
@@ -244,10 +244,10 @@ async fn after_update_data(data: &GeneralData) -> Result<(), AppError> {
 }
 
 async fn update_field(s: S, Path(data_id): Path<u32>, Query(params): Query<HashMap<String, String>>) -> JSON<Vec<QueryDataResp>> {
-    ensure!(params.len()==1, "must specify only one pair param !");
+    check_if!(params.len()==1, "must specify only one pair param !");
     for (k, v) in params {
         let r = GeneralData::update_json_field_by_id(data_id, &k, &v, &s.db).await?;
-        ensure!(r.rows_affected()==1, "update_json_field_by_id failed!");
+        check_if!(r.rows_affected()==1, "update_json_field_by_id failed!");
         let data = GeneralData::query_by_id(data_id as u32, &s.db).await?;
         return Ok(Json(vec![QueryDataResp::Raw(data[0].clone())]))
     }
@@ -258,9 +258,9 @@ async fn update_field(s: S, Path(data_id): Path<u32>, Query(params): Query<HashM
 
 async fn delete_data(s: S, Path(data_id): Path<u32>) -> JSON<Vec<QueryDataResp>> {
     let data = GeneralData::query_by_id(data_id as u32, &s.db).await?;
-    ensure!(data.len()==1, "query_by_id failed! length is not 1");
+    check_if!(data.len()==1, "query_by_id failed! length is not 1");
     let r = GeneralData::delete(data_id, &s.db).await?;
-    ensure!(r.rows_affected()==1, "delete failed!");
+    check_if!(r.rows_affected()==1, "delete failed!");
     Ok(Json(vec![QueryDataResp::Raw(data[0].clone())]))
 }
 

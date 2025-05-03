@@ -24,7 +24,7 @@ use zip::ZipArchive;
 use play_shared::{current_timestamp, timestamp_to_date_str};
 use play_shared::constants::DATA_DIR;
 
-use crate::{data_dir, ensure, files_dir, HTML, method_router, R, return_error, S, template};
+use crate::{data_dir, check_if, files_dir, HTML, method_router, R, return_error, S, template};
 use crate::config::{Config, get_config_path, read_config_file, save_config_file};
 
 method_router!(
@@ -180,7 +180,7 @@ async fn upgrade_in_background(url: Url) -> anyhow::Result<()> {
     let content = Cursor::new(response.bytes().await?);
 
     let mut archive = ZipArchive::new(BufReader::new(content))?;
-    ensure!( archive.len()==1, "upgrade_url for zip file is not valid, should have only one file inside!");
+    check_if!( archive.len()==1, "upgrade_url for zip file is not valid, should have only one file inside!");
     let mut inside_file = archive.by_index(0)?;
     std::io::copy(&mut inside_file, &mut file)?;
 
