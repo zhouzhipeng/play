@@ -6,7 +6,7 @@ use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 use tracing::{error, info};
  use futures_util::StreamExt;
-use crate::{check_if, HTML, R, S};
+use crate::{promise, HTML, R, S};
 use crate::method_router;
 
 method_router!(
@@ -60,7 +60,7 @@ async fn download_in_background(req : DownloadRemoteReq)->anyhow::Result<()>{
         client.get(url).send().await?
     }else{
         let vals: Vec<&str> = req.header.split("=").collect();
-        check_if!(vals.len()==2, "header is configured wrong!");
+        promise!(vals.len()==2, "header is configured wrong!");
         client.get(url).header(vals[0], vals[1]).send().await?
     };
 

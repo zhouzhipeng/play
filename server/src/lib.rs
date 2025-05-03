@@ -62,7 +62,7 @@ pub mod extractor;
 ///
 /// a replacement of `ensure!` in anyhow
 #[macro_export]
-macro_rules! check_if {
+macro_rules! promise {
     ($($tt:tt)*) => {
         {
             (||{

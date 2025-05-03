@@ -11,7 +11,7 @@ use tracing::{error, info};
 use play_shared::timestamp_to_date_str;
 use play_shared::tpl_engine_api::Template;
 
-use crate::{check_if, hex_to_string, method_router, render_fragment, render_page, template};
+use crate::{promise, hex_to_string, method_router, render_fragment, render_page, template};
 use crate::{HTML, R, S};
 use crate::controller::function_controller::{text_compare, TextCompareReq};
 use crate::tables::change_log::ChangeLog;
@@ -51,7 +51,7 @@ static PAGE_VERSIONS_HTML : &str = include_str!("templates/page-versions.html");
 async fn page_versions(s: S, Query(q): Query<QueryPageVersion>) -> HTML {
     let rows = GeneralData::query_by_id(q.data_id, &s.db).await?;
 
-    check_if!( rows.len()==1 && rows[0].cat=="pages", "invalid data id , not pages");
+    promise!( rows.len()==1 && rows[0].cat=="pages", "invalid data id , not pages");
 
     let logs = ChangeLog::query(q.data_id, &s.db).await?;
 
@@ -90,11 +90,11 @@ async fn page_versions(s: S, Query(q): Query<QueryPageVersion>) -> HTML {
 
 async fn dynamic_pages(s: S, Path(url): Path<String>, Query(params): Query<HashMap<String, String>>) -> HTML {
     info!("dynamic_pages >> url is : {}", url);
-    check_if!(!url.eq_ignore_ascii_case("null"), "null url cant visit.");
+    promise!(!url.eq_ignore_ascii_case("null"), "null url cant visit.");
 
 
     let data = GeneralData::query_by_json_field("*", "pages", "url", &format!("/{}", url), 1,&s.db).await?;
-    check_if!(data.len()==1, "url not found.");
+    promise!(data.len()==1, "url not found.");
     // Your hex string
     
 

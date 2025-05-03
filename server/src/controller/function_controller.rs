@@ -20,7 +20,7 @@ use sqlx::mysql::{MySqlPoolOptions, MySqlQueryResult, MySqlRow};
 use sqlx::Executor;
 use sqlx::{Column, Row};
 
-use crate::{check_if, method_router, template};
+use crate::{promise, method_router, template};
 use crate::{render_fragment, Template, HTML, JSON, S};
 
 method_router!(
@@ -209,7 +209,7 @@ pub async fn text_compare(s: S, Form(mut data): Form<TextCompareReq>) -> HTML {
 
 
     let resp = client.post("https://text-compare.com/").form(&data).send().await?;
-    check_if!(resp.status().is_success(), "call https://text-compare.com/ failed.");
+    promise!(resp.status().is_success(), "call https://text-compare.com/ failed.");
     // info!("resp >> {}", resp.text().await?);
     let res_body = resp.json::<TextCompareRes>().await?;
     Ok(Html(res_body.comparison.unwrap_or("<h2>No Diff!</h2>".to_string())))

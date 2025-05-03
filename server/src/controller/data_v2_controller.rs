@@ -1,8 +1,6 @@
 use crate::controller::pages_controller::PageDto;
 use crate::tables::general_data::GeneralData;
-use crate::{
-    check_if, files_dir, get_last_insert_id, method_router, return_error, AppError, JSON, R, S,
-};
+use crate::{promise, files_dir, get_last_insert_id, method_router, return_error, AppError, JSON, R, S, hex_to_string};
 use anyhow::{anyhow, bail, Context};
 use axum::extract::{Path, Query};
 use axum::response::IntoResponse;
@@ -14,6 +12,7 @@ use serde::{Deserialize, Serialize, Serializer};
 use serde_json::{Map, Value};
 use std::collections::HashMap;
 use http::Uri;
+use sqlx::Encode;
 use tracing::info;
 
 method_router!(
@@ -23,7 +22,7 @@ method_router!(
 #[derive(Serialize, Deserialize, Debug)]
 enum AllInOneActionEnum {
     #[serde(rename = "insert")]
-    INSERT(Value),
+    INSERT(HashMap<String, Value>),
     #[serde(rename = "update-full")]
     UPDATE_FULL,
     #[serde(rename = "update-field")]
@@ -38,10 +37,9 @@ enum AllInOneActionEnum {
 #[derive(Serialize, Deserialize, Debug)]
 struct GetAllParam {
     limit: u32,
-    order_by: String,
-    sort: String,
     #[serde(rename = "where")]
     _where: String,
+    order_by: String,
 }
 #[derive(Serialize, Deserialize, Debug)]
 struct GetByIdParam {
@@ -99,24 +97,46 @@ pub fn parse_query_with_types(str_params: HashMap<String, String> ) -> anyhow::R
 async fn all_in_one_api(
     s: S,
     Path((cat, action)): Path<(String,String)>,
-    Query(params): Query<HashMap<String, String>>,
+    Query(mut params): Query<HashMap<String, String>>,
 ) -> R<String> {
-    check_if!(
+    promise!(
         Regex::new(r"^[a-z0-9-]{2,10}$")?.is_match(&cat),
         "invalid `category` path : {} , not match with : {}",
         cat, "^[a-z0-9-]{2,10}$"
     );
 
+    if params.len() == 1 && params.contains_key("hex") {
+        let hex_params = params.remove("hex").unwrap_or_default();
+        let bytes = hex::decode(&hex_params)?;
+        let raw_query_str =  String::from_utf8(bytes)?;
+        params = serde_qs::from_str(&raw_query_str)?;
+    }
+
+
     // 获取查询字符串
     let params = parse_query_with_types(params)?;
-    // 使用serde_qs解析
 
     let mut new_params = HashMap::new();
     new_params.insert(action.to_string(), params);
 
     let action_enum: AllInOneActionEnum = serde_json::from_value(serde_json::to_value(new_params)?)?;
-
     info!("action: {:?}", action_enum);
+
+
+    match &action_enum {
+        AllInOneActionEnum::INSERT(val) => {
+            promise!(val.len()!=0, "query params cant be empty!");
+
+
+        }
+        AllInOneActionEnum::UPDATE_FULL => {}
+        AllInOneActionEnum::UPDATE_FIELD => {}
+        AllInOneActionEnum::GET_BY_ID(_) => {}
+        AllInOneActionEnum::GET_ALL(param) => {
+
+        }
+    }
+
 
     Ok(serde_json::to_string(&action_enum)?)
 }
@@ -128,10 +148,10 @@ async fn insert_data(s: S, Path(cat): Path<String>, body: String) -> JSON<Vec<Qu
 
     let ret = GeneralData::insert(&cat, &body.trim(), &s.db).await?;
     let id = ret.rows_affected();
-    check_if!(id == 1, "insert failed!");
+    promise!(id == 1, "insert failed!");
 
     let data = GeneralData::query_by_id(get_last_insert_id!(ret) as u32, &s.db).await?;
-    check_if!(data.len() == 1, "data error! query_by_id not found.");
+    promise!(data.len() == 1, "data error! query_by_id not found.");
 
     let data = data[0].clone();
     after_update_data(&data).await?;
@@ -141,7 +161,7 @@ async fn insert_data(s: S, Path(cat): Path<String>, body: String) -> JSON<Vec<Qu
 
 async fn override_data(s: S, Path(cat): Path<String>, body: String) -> JSON<Vec<QueryDataResp>> {
     let list_data = GeneralData::query_by_cat("*", &cat, 10, &s.db).await?;
-    check_if!(
+    promise!(
         list_data.len() <= 1,
         "A global category should have only one item!"
     );
@@ -149,17 +169,17 @@ async fn override_data(s: S, Path(cat): Path<String>, body: String) -> JSON<Vec<
     if list_data.len() == 0 {
         //insert
         let ret = GeneralData::insert(&cat, &body.trim(), &s.db).await?;
-        check_if!(ret.rows_affected() == 1, "GeneralData::insert error!");
+        promise!(ret.rows_affected() == 1, "GeneralData::insert error!");
         let data = GeneralData::query_by_id(get_last_insert_id!(ret) as u32, &s.db).await?;
-        check_if!(data.len() == 1, "data error! query_by_id not found.");
+        promise!(data.len() == 1, "data error! query_by_id not found.");
 
         Ok(Json(vec![QueryDataResp::Raw(data[0].clone())]))
     } else {
         //update
         let r = GeneralData::update_data_by_cat(&cat, &body, &s.db).await?;
-        check_if!(r.rows_affected() == 1, "update_data_by_cat error!");
+        promise!(r.rows_affected() == 1, "update_data_by_cat error!");
         let data = GeneralData::query_by_cat_simple(&cat, 1, &s.db).await?;
-        check_if!(data.len() == 1, "data error! query_by_id not found.");
+        promise!(data.len() == 1, "data error! query_by_id not found.");
         Ok(Json(vec![QueryDataResp::Raw(data[0].clone())]))
     }
 }
@@ -305,7 +325,7 @@ async fn get_data_under_cat(
 
 async fn update_data(s: S, Path(data_id): Path<u32>, body: String) -> JSON<Vec<QueryDataResp>> {
     let r = GeneralData::update_data_by_id(data_id, &body, &s.db).await?;
-    check_if!(r.rows_affected() == 1, "update_data failed!");
+    promise!(r.rows_affected() == 1, "update_data failed!");
 
     let data = GeneralData::query_by_id(data_id as u32, &s.db).await?;
     let data = data[0].clone();
@@ -338,10 +358,10 @@ async fn update_field(
     Path(data_id): Path<u32>,
     Query(params): Query<HashMap<String, String>>,
 ) -> JSON<Vec<QueryDataResp>> {
-    check_if!(params.len() == 1, "must specify only one pair param !");
+    promise!(params.len() == 1, "must specify only one pair param !");
     for (k, v) in params {
         let r = GeneralData::update_json_field_by_id(data_id, &k, &v, &s.db).await?;
-        check_if!(r.rows_affected() == 1, "update_json_field_by_id failed!");
+        promise!(r.rows_affected() == 1, "update_json_field_by_id failed!");
         let data = GeneralData::query_by_id(data_id as u32, &s.db).await?;
         return Ok(Json(vec![QueryDataResp::Raw(data[0].clone())]));
     }
@@ -351,9 +371,9 @@ async fn update_field(
 
 async fn delete_data(s: S, Path(data_id): Path<u32>) -> JSON<Vec<QueryDataResp>> {
     let data = GeneralData::query_by_id(data_id as u32, &s.db).await?;
-    check_if!(data.len() == 1, "query_by_id failed! length is not 1");
+    promise!(data.len() == 1, "query_by_id failed! length is not 1");
     let r = GeneralData::delete(data_id, &s.db).await?;
-    check_if!(r.rows_affected() == 1, "delete failed!");
+    promise!(r.rows_affected() == 1, "delete failed!");
     Ok(Json(vec![QueryDataResp::Raw(data[0].clone())]))
 }
 
