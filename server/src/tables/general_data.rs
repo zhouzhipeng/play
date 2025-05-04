@@ -246,10 +246,6 @@ impl GeneralData {
         query_val: &str,
         pool: &DBPool,
     ) -> Result<DBQueryResult, Error> {
-        let rows = Self::query_by_id(data_id, pool).await?;
-        if rows.is_empty() {
-            return Err(Error::RowNotFound);
-        }
 
         let r = sqlx::query(format!("update  general_data set data = json_set(data, '$.{}', ?), updated=CURRENT_TIMESTAMP where id = ?", query_field).as_str())
             .bind(query_val)
@@ -278,10 +274,6 @@ impl GeneralData {
         data: &str,
         pool: &DBPool,
     ) -> Result<DBQueryResult, Error> {
-        let rows = Self::query_by_id(data_id, pool).await?;
-        if rows.is_empty() {
-            return Err(Error::RowNotFound);
-        }
 
         sqlx::query("update  general_data set data = ?, updated=CURRENT_TIMESTAMP where id = ?")
             .bind(data)
@@ -294,11 +286,6 @@ impl GeneralData {
         data: &str,
         pool: &DBPool,
     ) -> Result<DBQueryResult, Error> {
-        let rows = Self::query_by_cat_simple(cat, 1, pool).await?;
-        if rows.is_empty() {
-            return Err(Error::RowNotFound);
-        }
-
         sqlx::query("update  general_data set data = ?, updated=CURRENT_TIMESTAMP where cat = ?")
             .bind(data)
             .bind(cat)

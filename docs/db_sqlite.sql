@@ -22,3 +22,17 @@ CREATE TABLE IF NOT EXISTS change_log
     data_after    text,
     created DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 创建触发器:自动保存修改记录
+CREATE TRIGGER IF NOT EXISTS after_general_data_update
+AFTER UPDATE ON general_data
+WHEN NEW.data != OLD.data
+BEGIN
+-- 插入新的记录
+INSERT INTO change_log (data_id, op, data_before, data_after)
+VALUES (OLD.id, 'UPDATE', OLD.data, NEW.data);
+
+-- 使用更高效的删除方法
+DELETE FROM change_log
+WHERE id <= (SELECT MAX(id) - 20000 FROM change_log WHERE (SELECT COUNT(*) FROM change_log) > 20000);
+END;
