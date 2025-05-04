@@ -130,12 +130,14 @@ impl GeneralData {
         fields: &str,
         cat: &str,
         limit: u32,
+        _where: &str,
         order_by: &str,
         pool: &DBPool,
     ) -> Result<Vec<GeneralData>, Error> {
         let sql = &format!(
-            "SELECT {} FROM general_data where cat = ? order by {} limit {}",
+            "SELECT {} FROM general_data where cat = ? and {} order by {} limit {}",
             Self::convert_fields(fields),
+            _where,
             order_by,
             limit
         );
@@ -147,11 +149,13 @@ impl GeneralData {
     pub async fn query_count_composite(
         cat: &str,
         limit: u32,
+        _where: &str,
         order_by: &str,
         pool: &DBPool,
     ) -> Result<u32, Error> {
         let sql = &format!(
-            "SELECT count(1) FROM general_data where cat = ? order by {} limit {}",
+            "SELECT count(1) FROM general_data where cat = ? and {}  order by {} limit {}",
+            _where,
             order_by,
             limit
         );

@@ -68,6 +68,102 @@ struct DeleteParam {
     hard_delete: bool,
 }
 
+fn parse_and_convert_to_json_extract(condition_str: &str) -> String {
+    // 分割条件字符串，忽略 "AND" 的大小写
+    let mut result = Vec::new();
+    let mut current_part = String::new();
+    let mut in_quotes = false;
+    let mut chars = condition_str.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        // 处理引号内的内容
+        if c == '\'' || c == '"' {
+            in_quotes = !in_quotes;
+            current_part.push(c);
+            continue;
+        }
+
+        // 在引号内，直接添加字符
+        if in_quotes {
+            current_part.push(c);
+            continue;
+        }
+
+        // 检查是否遇到 "AND"（忽略大小写）
+        if (c == 'a' || c == 'A') &&
+            chars.peek() == Some(&'n') || chars.peek() == Some(&'N') {
+            let mut lookahead = String::new();
+            lookahead.push(c);
+
+            // 尝试读取 "ND" 部分
+            if let Some(n) = chars.next() {
+                lookahead.push(n);
+                if let Some(d) = chars.next() {
+                    lookahead.push(d);
+
+                    // 检查是否是独立的 "AND" 词
+                    // 前后应该是空格或字符串的开始/结束
+                    let is_and = lookahead.to_lowercase() == "and" &&
+                        (current_part.is_empty() || current_part.ends_with(' ')) &&
+                        (chars.peek().is_none() || chars.peek() == Some(&' '));
+
+                    if is_and {
+                        // 找到一个 "AND"，处理当前部分并重置
+                        if !current_part.trim().is_empty() {
+                            result.push(convert_condition(&current_part.trim()));
+                            current_part = String::new();
+                        }
+
+                        // 跳过 "AND" 后的空格
+                        while let Some(&next) = chars.peek() {
+                            if next == ' ' {
+                                chars.next();
+                            } else {
+                                break;
+                            }
+                        }
+                    } else {
+                        // 不是 "AND"，添加到当前部分
+                        current_part.push_str(&lookahead);
+                    }
+                } else {
+                    current_part.push_str(&lookahead);
+                }
+            } else {
+                current_part.push(c);
+            }
+        } else {
+            // 普通字符，直接添加
+            current_part.push(c);
+        }
+    }
+
+    // 处理最后一部分
+    if !current_part.trim().is_empty() {
+        result.push(convert_condition(&current_part.trim()));
+    }
+
+    result.join(" AND ")
+}
+
+// 将单个条件转换为 json_extract 格式
+fn convert_condition(condition: &str) -> String {
+    // 支持常见操作符：=, !=, >, <, >=, <=
+    let operators = ["=", "!=", ">", "<", ">=", "<="];
+
+    for op in operators {
+        if let Some(pos) = condition.find(op) {
+            let key = condition[..pos].trim();
+            let value = condition[pos + op.len()..].trim();
+
+            return format!("json_extract(data, '$.{}') {} {}", key, op, value);
+        }
+    }
+
+    // 如果没有找到操作符，返回原始条件
+    condition.to_string()
+}
+
 fn check_action_valid(action: &str) -> Result<()> {
     let valid_actions = vec!["insert", "update", "query", "delete"];
     ensure!(
@@ -88,7 +184,7 @@ fn check_category_valid(category: &str) -> Result<()> {
 }
 fn check_set_param_valid(set_param: &str) -> Result<()> {
     let re = Regex::new(
-        r"^\|([a-zA-Z_][a-zA-Z0-9_]*\s*=\s*[^,]+)(\s*,\s*[a-zA-Z_][a-zA-Z0-9_]*\s*=\s*[^,]+)*\|$",
+        r"^([a-zA-Z_][a-zA-Z0-9_]*\s*=\s*[^,]+)(\s*,\s*[a-zA-Z_][a-zA-Z0-9_]*\s*=\s*[^,]+)*$",
     )?;
     ensure!(
         re.is_match(&set_param),
@@ -265,12 +361,18 @@ async fn handle_request(s: S, category: String, action: String, params: Value) -
                     "id desc"
                 };
                 
+                let _where =  if let Some(val)= &query_param._where{
+                    &parse_and_convert_to_json_extract(val)
+                }else {
+                    "1=1"
+                };
+                
                 if query_param.count{
-                    let count = GeneralData::query_count_composite(&category,query_param.limit,order_by, &s.db).await?;
+                    let count = GeneralData::query_count_composite(&category,query_param.limit,_where,order_by, &s.db).await?;
                     return Ok(count.to_string());
 
                 }else{
-                    let list = GeneralData::query_composite(select_fields,&category,query_param.limit,order_by, &s.db).await?;
+                    let list = GeneralData::query_composite(select_fields,&category,query_param.limit,_where,order_by, &s.db).await?;
                     if !query_param.less {
                         let mut new_arr = vec![];
                         for data in &list{
