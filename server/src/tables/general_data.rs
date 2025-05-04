@@ -1,9 +1,10 @@
 use crate::promise;
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize, Serializer};
-use serde_json::Value;
+use serde_json::{Map, Value};
 use sqlx::{Error, FromRow};
 use std::collections::HashMap;
+use anyhow::Context;
 use tracing::info;
 
 use crate::tables::change_log::{ChangeLog, ChangeLogOp};
@@ -31,6 +32,22 @@ where
 }
 
 impl GeneralData {
+    pub fn to_flat_map(&self)->anyhow::Result<Map<String, Value>>{
+        let data_val:Value = serde_json::from_str(&self.data)?;
+        let mut json_val = serde_json::to_value(&self)?;
+        let mut json_val = json_val.as_object_mut().context("Invalid JSON object")?;
+
+        json_val.remove("data");
+        for (k,v) in data_val.as_object().context("Invalid JSON object")? {
+            json_val.insert(k.to_string(), v.clone());
+        }
+
+        Ok(json_val.clone())
+    }
+    pub fn extract_data(&self)->anyhow::Result<Map<String, Value>>{
+        let data_val:Value = serde_json::from_str(&self.data)?;
+        Ok(data_val.as_object().context("Invalid JSON object")?.clone())
+    }
     pub fn new(cat: String, data: String) -> Self {
         GeneralData {
             cat,
@@ -102,6 +119,24 @@ impl GeneralData {
         let sql = &format!(
             "SELECT {} FROM general_data where cat = ? order by id desc limit {}",
             Self::convert_fields(fields),
+            limit
+        );
+        sqlx::query_as::<_, GeneralData>(sql)
+            .bind(cat)
+            .fetch_all(pool)
+            .await
+    }
+    pub async fn query_composite(
+        fields: &str,
+        cat: &str,
+        limit: u32,
+        order_by: &str,
+        pool: &DBPool,
+    ) -> Result<Vec<GeneralData>, Error> {
+        let sql = &format!(
+            "SELECT {} FROM general_data where cat = ? order by {} limit {}",
+            Self::convert_fields(fields),
+            order_by,
             limit
         );
         sqlx::query_as::<_, GeneralData>(sql)

@@ -40,13 +40,14 @@ enum ActionEnum {
 #[derive(Serialize, Deserialize, Debug)]
 struct QueryParam {
     id: Option<u32>,
+    select: Option<String>,
     #[serde(default = "default_limit")]
     limit: u32,
     #[serde(rename = "where")]
     _where: Option<String>,
     order_by: Option<String>,
     #[serde(default)]
-    full_data: bool,
+    less: bool,
 }
 
 fn default_limit() -> u32 {
@@ -221,6 +222,11 @@ async fn handle_request(s: S, category: String, action: String, params: Value) -
     match &action_enum {
         ActionEnum::INSERT(val) => {
             ensure!(val.len() != 0, "query params cant be empty!");
+            ensure!(!val.contains_key("id"), "cant use system field `id` when insert data.");
+            ensure!(!val.contains_key("cat"), "cant use system field `cat` when insert data.");
+            ensure!(!val.contains_key("is_deleted"), "cant use system field `is_deleted` when insert data.");
+            ensure!(!val.contains_key("created"), "cant use system field `created` when insert data.");
+            ensure!(!val.contains_key("updated"), "cant use system field `updated` when insert data.");
 
             let obj = insert_data(s, Path(category), serde_json::to_string(val)?).await?;
             return Ok(serde_json::to_string(&obj)?);
@@ -237,14 +243,42 @@ async fn handle_request(s: S, category: String, action: String, params: Value) -
                 let r = GeneralData::query_by_id(id, &s.db).await?;
                 ensure!(r.len() == 1, "data not found for id : {}", id);
 
-                if query_param.full_data {
-                    let json = GeneralDataJson::from_data(&r[0])?;
-                    return Ok(serde_json::to_string(&json)?);
+                if !query_param.less {
+                    let new_map = r[0].to_flat_map()?;
+                    return Ok(serde_json::to_string(&new_map)?);
                 } else {
                     return Ok(r[0].data.to_string());
                 }
             } else {
                 //todo: query list
+                let select_fields =  if let Some(select)= &query_param.select{
+                    select
+                }else {
+                    "*"
+                };
+                let order_by =  if let Some(val)= &query_param.order_by{
+                    val
+                }else {
+                    "id desc"
+                };
+
+
+
+                let list = GeneralData::query_composite(select_fields,&category,query_param.limit,order_by, &s.db).await?;
+                if !query_param.less {
+                    let mut new_arr = vec![];
+                    for data in &list{
+                        new_arr.push(data.to_flat_map()?);
+                    }
+                    return Ok(serde_json::to_string(&new_arr)?);
+                } else {
+                    let mut new_arr = vec![];
+                    for data in &list{
+                        new_arr.push(data.extract_data()?);
+                    }
+                    return Ok(serde_json::to_string(&new_arr)?);
+                }
+
             }
         }
         ActionEnum::DELETE(DeleteParam { id, hard_delete }) => {
