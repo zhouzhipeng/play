@@ -11,12 +11,15 @@ use regex::Regex;
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json::{Map, Value};
 use std::collections::HashMap;
+use dioxus::html::completions::CompleteWithBraces::param;
 use http::Uri;
 use sqlx::Encode;
 use tracing::info;
 
 method_router!(
     get : "/api/v2/data/:cat/:action"-> all_in_one_api,
+    post : "/api/v2/data/:cat/:action"-> all_in_one_api_post,
+    get : "/api/v2/data/:cat/:action/:hex"-> all_in_one_api_hex,
 );
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -94,6 +97,44 @@ pub fn parse_query_with_types(str_params: HashMap<String, String> ) -> anyhow::R
 }
 
 
+async fn all_in_one_api_hex(
+    s: S,
+    Path((cat, action, hex)): Path<(String,String, String)>,
+) -> R<String> {
+    promise!(
+        Regex::new(r"^[a-z0-9-]{2,10}$")?.is_match(&cat),
+        "invalid `category` path : {} , not match with : {}",
+        cat, "^[a-z0-9-]{2,10}$"
+    );
+    promise!(
+        Regex::new(r"^[a-f0-9A-F]+$")?.is_match(&hex),
+        "invalid `hex` path : {} , no match with : {}",
+        hex, "^[a-f0-9A-F]+$"
+    );
+
+    let bytes = hex::decode(&hex)?;
+    let raw_query_str =  String::from_utf8(bytes)?;
+    let params = serde_json::from_str(&raw_query_str)?;
+
+    handle_request(&action, params).await
+}
+async fn all_in_one_api_post(
+    s: S,
+    Path((cat, action)): Path<(String,String)>,
+    body:String
+) -> R<String> {
+    promise!(
+        Regex::new(r"^[a-z0-9-]{2,10}$")?.is_match(&cat),
+        "invalid `category` path : {} , not match with : {}",
+        cat, "^[a-z0-9-]{2,10}$"
+    );
+
+
+    // 获取查询字符串
+    let params = serde_json::from_str(&body)?;
+
+    handle_request(&action, params).await
+}
 async fn all_in_one_api(
     s: S,
     Path((cat, action)): Path<(String,String)>,
@@ -105,16 +146,15 @@ async fn all_in_one_api(
         cat, "^[a-z0-9-]{2,10}$"
     );
 
-    if params.len() == 1 && params.contains_key("hex") {
-        let hex_params = params.remove("hex").unwrap_or_default();
-        let bytes = hex::decode(&hex_params)?;
-        let raw_query_str =  String::from_utf8(bytes)?;
-        params = serde_qs::from_str(&raw_query_str)?;
-    }
 
 
     // 获取查询字符串
     let params = parse_query_with_types(params)?;
+
+    handle_request(&action, params).await
+}
+
+async fn handle_request(action: &str, params: Value)->R<String>{
 
     let mut new_params = HashMap::new();
     new_params.insert(action.to_string(), params);
