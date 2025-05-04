@@ -144,6 +144,20 @@ impl GeneralData {
             .fetch_all(pool)
             .await
     }
+    pub async fn query_count_composite(
+        cat: &str,
+        limit: u32,
+        order_by: &str,
+        pool: &DBPool,
+    ) -> Result<u32, Error> {
+        let sql = &format!(
+            "SELECT count(1) FROM general_data where cat = ? order by {} limit {}",
+            order_by,
+            limit
+        );
+        let result: (u32,) = sqlx::query_as(sql).bind(cat).fetch_one(pool).await?;
+        Ok(result.0)
+    }
     pub async fn query_count(cat: &str, pool: &DBPool) -> Result<i64, Error> {
         let sql = "SELECT count(*) FROM general_data where cat = ?";
         let result: (i64,) = sqlx::query_as(sql).bind(cat).fetch_one(pool).await?;

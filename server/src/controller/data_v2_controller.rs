@@ -48,6 +48,8 @@ struct QueryParam {
     order_by: Option<String>,
     #[serde(default)]
     less: bool,
+    #[serde(default)]
+    count: bool,
 }
 
 fn default_limit() -> u32 {
@@ -229,7 +231,7 @@ async fn handle_request(s: S, category: String, action: String, params: Value) -
             ensure!(!val.contains_key("updated"), "cant use system field `updated` when insert data.");
 
             let obj = insert_data(s, Path(category), serde_json::to_string(val)?).await?;
-            return Ok(serde_json::to_string(&obj)?);
+            return Ok(serde_json::to_string(&obj.to_flat_map()?)?);
         }
         ActionEnum::UPDATE(UpdateParam { set, id: id }) => {
             check_set_param_valid(&set)?;
@@ -239,8 +241,13 @@ async fn handle_request(s: S, category: String, action: String, params: Value) -
             return Ok(r.rows_affected().to_string().to_string());
         }
         ActionEnum::QUERY(query_param) => {
+            let select_fields =  if let Some(select)= &query_param.select{
+                select
+            }else {
+                "*"
+            };
             if let Some(id) = query_param.id {
-                let r = GeneralData::query_by_id(id, &s.db).await?;
+                let r = GeneralData::query_by_id_with_cat_select(select_fields,id,&category, &s.db).await?;
                 ensure!(r.len() == 1, "data not found for id : {}", id);
 
                 if !query_param.less {
@@ -250,33 +257,33 @@ async fn handle_request(s: S, category: String, action: String, params: Value) -
                     return Ok(r[0].data.to_string());
                 }
             } else {
-                //todo: query list
-                let select_fields =  if let Some(select)= &query_param.select{
-                    select
-                }else {
-                    "*"
-                };
+                //query list 
+                
                 let order_by =  if let Some(val)= &query_param.order_by{
                     val
                 }else {
                     "id desc"
                 };
+                
+                if query_param.count{
+                    let count = GeneralData::query_count_composite(&category,query_param.limit,order_by, &s.db).await?;
+                    return Ok(count.to_string());
 
-
-
-                let list = GeneralData::query_composite(select_fields,&category,query_param.limit,order_by, &s.db).await?;
-                if !query_param.less {
-                    let mut new_arr = vec![];
-                    for data in &list{
-                        new_arr.push(data.to_flat_map()?);
+                }else{
+                    let list = GeneralData::query_composite(select_fields,&category,query_param.limit,order_by, &s.db).await?;
+                    if !query_param.less {
+                        let mut new_arr = vec![];
+                        for data in &list{
+                            new_arr.push(data.to_flat_map()?);
+                        }
+                        return Ok(serde_json::to_string(&new_arr)?);
+                    } else {
+                        let mut new_arr = vec![];
+                        for data in &list{
+                            new_arr.push(data.extract_data()?);
+                        }
+                        return Ok(serde_json::to_string(&new_arr)?);
                     }
-                    return Ok(serde_json::to_string(&new_arr)?);
-                } else {
-                    let mut new_arr = vec![];
-                    for data in &list{
-                        new_arr.push(data.extract_data()?);
-                    }
-                    return Ok(serde_json::to_string(&new_arr)?);
                 }
 
             }
@@ -295,7 +302,7 @@ async fn handle_request(s: S, category: String, action: String, params: Value) -
     Ok(serde_json::to_string(&action_enum)?)
 }
 
-async fn insert_data(s: S, Path(cat): Path<String>, body: String) -> Result<GeneralDataJson> {
+async fn insert_data(s: S, Path(cat): Path<String>, body: String) -> Result<GeneralData> {
     //validation
     // ensure!(!vec!["id", "data","get","update","delete","list", "query"].contains(&cat.as_str()), "please use another category name ! ");
     // check!(serde_json::from_str::<Value>(&body).is_ok());
@@ -310,14 +317,7 @@ async fn insert_data(s: S, Path(cat): Path<String>, body: String) -> Result<Gene
     let data = data[0].clone();
     after_update_data(&data).await?;
 
-    Ok(GeneralDataJson {
-        id: data.id,
-        cat: data.cat.to_string(),
-        data: serde_json::from_str::<Value>(&data.data)?,
-        is_deleted: data.is_deleted,
-        created: data.created,
-        updated: data.updated,
-    })
+    Ok(data)
 }
 
 async fn override_data(s: S, Path(cat): Path<String>, body: String) -> JSON<Vec<QueryDataResp>> {
