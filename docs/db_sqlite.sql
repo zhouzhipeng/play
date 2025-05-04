@@ -31,8 +31,4 @@ BEGIN
 -- 插入新的记录
 INSERT INTO change_log (data_id, op, data_before, data_after)
 VALUES (OLD.id, 'UPDATE', OLD.data, NEW.data);
-
--- 使用更高效的删除方法
-DELETE FROM change_log
-WHERE id <= (SELECT MAX(id) - 20000 FROM change_log WHERE (SELECT COUNT(*) FROM change_log) > 20000);
 END;
