@@ -1,62 +1,103 @@
 use crate::controller::pages_controller::PageDto;
 use crate::tables::general_data::GeneralData;
-use crate::{promise, files_dir, get_last_insert_id, method_router, return_error, AppError, JSON, R, S, hex_to_string};
-use anyhow::{anyhow, bail, Context};
+use crate::{
+    files_dir, get_last_insert_id, hex_to_string, method_router, promise, return_error, AppError,
+    JSON, R, S,
+};
+use anyhow::{anyhow, bail, ensure, Context, Result};
 use axum::extract::{Path, Query};
 use axum::response::IntoResponse;
 use axum::Json;
 use chrono::NaiveDateTime;
+use dioxus::html::completions::CompleteWithBraces::param;
+use http::Uri;
 use play_shared::constants::LUA_DIR;
 use regex::Regex;
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json::{Map, Value};
-use std::collections::HashMap;
-use dioxus::html::completions::CompleteWithBraces::param;
-use http::Uri;
 use sqlx::Encode;
+use std::collections::HashMap;
 use tracing::info;
 
 method_router!(
-    get : "/api/v2/data/:cat/:action"-> all_in_one_api,
-    post : "/api/v2/data/:cat/:action"-> all_in_one_api_post,
-    get : "/api/v2/data/:cat/:action/:hex"-> all_in_one_api_hex,
+    get : "/api/v2/data/:category/:action"-> all_in_one_api,
+    post : "/api/v2/data/:category/:action"-> all_in_one_api_post,
+    get : "/api/v2/data/:category/:action/:hex"-> all_in_one_api_hex,
 );
 
 #[derive(Serialize, Deserialize, Debug)]
-enum AllInOneActionEnum {
+enum ActionEnum {
     #[serde(rename = "insert")]
     INSERT(HashMap<String, Value>),
-    #[serde(rename = "update-full")]
-    UPDATE_FULL,
-    #[serde(rename = "update-field")]
-    UPDATE_FIELD,
-    #[serde(rename = "get-by-id")]
-    GET_BY_ID(GetByIdParam),
-    #[serde(rename = "get-all")]
-    GET_ALL(GetAllParam),
+    #[serde(rename = "update")]
+    UPDATE(UpdateParam),
+    #[serde(rename = "query")]
+    QUERY(QueryParam),
+    #[serde(rename = "delete")]
+    DELETE(DeleteParam),
 }
 
-
 #[derive(Serialize, Deserialize, Debug)]
-struct GetAllParam {
+struct QueryParam {
+    id: Option<u32>,
+    #[serde(default = "default_limit")]
     limit: u32,
     #[serde(rename = "where")]
-    _where: String,
-    order_by: String,
+    _where: Option<String>,
+    order_by: Option<String>,
+    #[serde(default)]
+    full_data: bool,
+}
+
+fn default_limit() -> u32 {
+    10
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct UpdateParam {
+    id: u32,
+    set: String,
 }
 #[derive(Serialize, Deserialize, Debug)]
-struct GetByIdParam {
+struct DeleteParam {
     id: u32,
+    #[serde(default)]
+    hard_delete: bool,
 }
 
-const ACTION_NAME: &str = "_action";
-const DATA_NAME: &str = "_data";
-
-
+fn check_action_valid(action: &str) -> Result<()> {
+    let valid_actions = vec!["insert", "update", "query", "delete"];
+    ensure!(
+        valid_actions.contains(&action),
+        "invalid action : {}",
+        action
+    );
+    Ok(())
+}
+fn check_category_valid(category: &str) -> Result<()> {
+    ensure!(
+        Regex::new(r"^[a-z0-9-]{2,10}$")?.is_match(&category),
+        "invalid `category` path : {} , not match with : {}",
+        category,
+        "^[a-z0-9-]{2,10}$"
+    );
+    Ok(())
+}
+fn check_set_param_valid(set_param: &str) -> Result<()> {
+    let re = Regex::new(
+        r"^\|([a-zA-Z_][a-zA-Z0-9_]*\s*=\s*[^,]+)(\s*,\s*[a-zA-Z_][a-zA-Z0-9_]*\s*=\s*[^,]+)*\|$",
+    )?;
+    ensure!(
+        re.is_match(&set_param),
+        "invalid `set` parameter : {} , shoule be eg. : {}",
+        set_param,
+        "set=|a=1,b=2|"
+    );
+    Ok(())
+}
 
 /// 将查询字符串解析为JSON，并自动转换类型
-pub fn parse_query_with_types(str_params: HashMap<String, String> ) -> anyhow::Result<Value> {
-
+pub fn parse_query_with_types(str_params: HashMap<String, String>) -> Result<Value> {
     // 然后自动转换类型
     let mut json_map = Map::new();
     for (key, value) in str_params {
@@ -96,107 +137,153 @@ pub fn parse_query_with_types(str_params: HashMap<String, String> ) -> anyhow::R
     Ok(Value::Object(json_map))
 }
 
-
 async fn all_in_one_api_hex(
     s: S,
-    Path((cat, action, hex)): Path<(String,String, String)>,
+    Path((category, action, hex)): Path<(String, String, String)>,
 ) -> R<String> {
-    promise!(
-        Regex::new(r"^[a-z0-9-]{2,10}$")?.is_match(&cat),
-        "invalid `category` path : {} , not match with : {}",
-        cat, "^[a-z0-9-]{2,10}$"
-    );
+    check_category_valid(&category)?;
+    check_action_valid(&action)?;
     promise!(
         Regex::new(r"^[a-f0-9A-F]+$")?.is_match(&hex),
         "invalid `hex` path : {} , no match with : {}",
-        hex, "^[a-f0-9A-F]+$"
+        hex,
+        "^[a-f0-9A-F]+$"
     );
 
     let bytes = hex::decode(&hex)?;
-    let raw_query_str =  String::from_utf8(bytes)?;
+    let raw_query_str = String::from_utf8(bytes)?;
     let params = serde_json::from_str(&raw_query_str)?;
 
-    handle_request(&action, params).await
+    Ok(handle_request(s, category, action, params).await?)
 }
 async fn all_in_one_api_post(
     s: S,
-    Path((cat, action)): Path<(String,String)>,
-    body:String
+    Path((category, action)): Path<(String, String)>,
+    body: String,
 ) -> R<String> {
-    promise!(
-        Regex::new(r"^[a-z0-9-]{2,10}$")?.is_match(&cat),
-        "invalid `category` path : {} , not match with : {}",
-        cat, "^[a-z0-9-]{2,10}$"
-    );
-
+    check_category_valid(&category)?;
+    check_action_valid(&action)?;
 
     // 获取查询字符串
     let params = serde_json::from_str(&body)?;
 
-    handle_request(&action, params).await
+    Ok(handle_request(s, category, action, params).await?)
 }
 async fn all_in_one_api(
     s: S,
-    Path((cat, action)): Path<(String,String)>,
+    Path((category, action)): Path<(String, String)>,
     Query(mut params): Query<HashMap<String, String>>,
 ) -> R<String> {
-    promise!(
-        Regex::new(r"^[a-z0-9-]{2,10}$")?.is_match(&cat),
-        "invalid `category` path : {} , not match with : {}",
-        cat, "^[a-z0-9-]{2,10}$"
-    );
-
-
+    check_category_valid(&category)?;
+    check_action_valid(&action)?;
 
     // 获取查询字符串
     let params = parse_query_with_types(params)?;
 
-    handle_request(&action, params).await
+    Ok(handle_request(s, category, action, params).await?)
 }
 
-async fn handle_request(action: &str, params: Value)->R<String>{
+fn parse_set_string_to_hashmap(input: &str) -> HashMap<String, String> {
+    let mut result = HashMap::new();
 
-    let mut new_params = HashMap::new();
-    new_params.insert(action.to_string(), params);
+    // Trim the outer pipe characters and any whitespace
+    let trimmed = input
+        .trim()
+        .trim_start_matches('|')
+        .trim_end_matches('|')
+        .trim();
 
-    let action_enum: AllInOneActionEnum = serde_json::from_value(serde_json::to_value(new_params)?)?;
-    info!("action: {:?}", action_enum);
+    // Split by comma and process each key-value pair
+    for pair in trimmed.split(',') {
+        // Find the equals sign position
+        if let Some(pos) = pair.find('=') {
+            // Extract and trim the key and value
+            let key = pair[..pos].trim().to_string();
+            let value = pair[pos + 1..].trim().to_string();
 
-
-    match &action_enum {
-        AllInOneActionEnum::INSERT(val) => {
-            promise!(val.len()!=0, "query params cant be empty!");
-
-
-        }
-        AllInOneActionEnum::UPDATE_FULL => {}
-        AllInOneActionEnum::UPDATE_FIELD => {}
-        AllInOneActionEnum::GET_BY_ID(_) => {}
-        AllInOneActionEnum::GET_ALL(param) => {
-
+            // Add to HashMap if key is not empty
+            if !key.is_empty() {
+                result.insert(key, value);
+            }
         }
     }
 
+    result
+}
+
+async fn handle_request(s: S, category: String, action: String, params: Value) -> Result<String> {
+    let mut new_params = HashMap::new();
+    new_params.insert(action.to_string(), params);
+
+    let action_enum: ActionEnum = serde_json::from_value(serde_json::to_value(new_params)?)?;
+    info!("action: {:?}", action_enum);
+
+    match &action_enum {
+        ActionEnum::INSERT(val) => {
+            ensure!(val.len() != 0, "query params cant be empty!");
+
+            let obj = insert_data(s, Path(category), serde_json::to_string(val)?).await?;
+            return Ok(serde_json::to_string(&obj)?);
+        }
+        ActionEnum::UPDATE(UpdateParam { set, id: id }) => {
+            check_set_param_valid(&set)?;
+
+            let kv = parse_set_string_to_hashmap(set);
+            let r = GeneralData::update_with_json_patch(&s.db, *id, parse_query_with_types(kv)?).await?;
+            return Ok(r.rows_affected().to_string().to_string());
+        }
+        ActionEnum::QUERY(query_param) => {
+            if let Some(id) = query_param.id {
+                let r = GeneralData::query_by_id(id, &s.db).await?;
+                ensure!(r.len() == 1, "data not found for id : {}", id);
+
+                if query_param.full_data {
+                    let json = GeneralDataJson::from_data(&r[0])?;
+                    return Ok(serde_json::to_string(&json)?);
+                } else {
+                    return Ok(r[0].data.to_string());
+                }
+            } else {
+                //todo: query list
+            }
+        }
+        ActionEnum::DELETE(DeleteParam { id, hard_delete }) => {
+            return if *hard_delete {
+                let r = GeneralData::delete(*id, &s.db).await?;
+                Ok(r.rows_affected().to_string().to_string())
+            } else {
+                let r = GeneralData::soft_delete(*id, &s.db).await?;
+                Ok(r.rows_affected().to_string().to_string())
+            }
+        }
+    }
 
     Ok(serde_json::to_string(&action_enum)?)
 }
 
-async fn insert_data(s: S, Path(cat): Path<String>, body: String) -> JSON<Vec<QueryDataResp>> {
+async fn insert_data(s: S, Path(cat): Path<String>, body: String) -> Result<GeneralDataJson> {
     //validation
     // ensure!(!vec!["id", "data","get","update","delete","list", "query"].contains(&cat.as_str()), "please use another category name ! ");
     // check!(serde_json::from_str::<Value>(&body).is_ok());
 
     let ret = GeneralData::insert(&cat, &body.trim(), &s.db).await?;
     let id = ret.rows_affected();
-    promise!(id == 1, "insert failed!");
+    ensure!(id == 1, "insert failed!");
 
     let data = GeneralData::query_by_id(get_last_insert_id!(ret) as u32, &s.db).await?;
-    promise!(data.len() == 1, "data error! query_by_id not found.");
+    ensure!(data.len() == 1, "data error! query_by_id not found.");
 
     let data = data[0].clone();
     after_update_data(&data).await?;
 
-    Ok(Json(vec![QueryDataResp::Raw(data)]))
+    Ok(GeneralDataJson {
+        id: data.id,
+        cat: data.cat.to_string(),
+        data: serde_json::from_str::<Value>(&data.data)?,
+        is_deleted: data.is_deleted,
+        created: data.created,
+        updated: data.updated,
+    })
 }
 
 async fn override_data(s: S, Path(cat): Path<String>, body: String) -> JSON<Vec<QueryDataResp>> {
@@ -234,12 +321,24 @@ pub struct GeneralDataJson {
     pub id: u32,
     pub cat: String,
     pub data: Value,
+    pub is_deleted: bool,
     #[serde(serialize_with = "serialize_as_timestamp")]
     pub created: chrono::NaiveDateTime,
     #[serde(serialize_with = "serialize_as_timestamp")]
     pub updated: chrono::NaiveDateTime,
 }
-
+impl GeneralDataJson {
+    pub fn from_data(data: &GeneralData) -> Result<Self> {
+        Ok(Self {
+            id: data.id,
+            cat: data.cat.to_string(),
+            data: serde_json::from_str(&data.data)?,
+            is_deleted: data.is_deleted,
+            created: data.created,
+            updated: data.updated,
+        })
+    }
+}
 fn serialize_as_timestamp<S>(date: &NaiveDateTime, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
@@ -311,6 +410,7 @@ async fn query_data(
                     cat: d.cat.to_string(),
                     data: serde_json::from_str::<Value>(&d.data)
                         .unwrap_or(Value::String(d.data.to_string())),
+                    is_deleted: false,
                     created: d.created,
                     updated: d.updated,
                 })
@@ -333,7 +433,7 @@ async fn get_data_under_cat(
     s: S,
     Path((cat, data_id)): Path<(String, u32)>,
     Query(mut params): Query<HashMap<String, String>>,
-) -> JSON<Vec<QueryDataResp>> {
+) -> Result<Vec<QueryDataResp>> {
     let select_fields = params.remove("_select").unwrap_or("*".to_string());
 
     let data_to_json = params
@@ -351,15 +451,16 @@ async fn get_data_under_cat(
                     cat: d.cat.to_string(),
                     data: serde_json::from_str::<Value>(&d.data)
                         .unwrap_or(Value::String(d.data.to_string())),
+                    is_deleted: false,
                     created: d.created,
                     updated: d.updated,
                 })
             })
             .collect();
-        Ok(Json(data))
+        Ok(data)
     } else {
         let data = data.iter().map(|d| QueryDataResp::Raw(d.clone())).collect();
-        Ok(Json(data))
+        Ok(data)
     };
 }
 
@@ -375,7 +476,7 @@ async fn update_data(s: S, Path(data_id): Path<u32>, body: String) -> JSON<Vec<Q
     Ok(Json(vec![QueryDataResp::Raw(data)]))
 }
 
-async fn after_update_data(data: &GeneralData) -> Result<(), AppError> {
+async fn after_update_data(data: &GeneralData) -> Result<()> {
     //save *.lua page
     if data.cat.eq_ignore_ascii_case("pages") {
         let page_dto = serde_json::from_str::<PageDto>(&data.data)?;
@@ -424,7 +525,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_insert_data() -> anyhow::Result<()> {
+    async fn test_insert_data() -> Result<()> {
         let result = insert_data(
             mock_state!(),
             Path("book".to_string()),
@@ -441,7 +542,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_query() -> anyhow::Result<()> {
+    async fn test_query() -> Result<()> {
         let state = mock_state!();
         insert_data(
             state.clone(),
@@ -462,7 +563,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_query_count() -> anyhow::Result<()> {
+    async fn test_query_count() -> Result<()> {
         let state = mock_state!();
         insert_data(
             state.clone(),
