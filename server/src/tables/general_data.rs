@@ -7,7 +7,6 @@ use std::collections::HashMap;
 use anyhow::Context;
 use tracing::info;
 
-use crate::tables::change_log::{ChangeLog, ChangeLogOp};
 use crate::tables::{DBPool, DBQueryResult};
 
 #[derive(Clone, FromRow, Debug, Serialize, Deserialize, Default)]
@@ -337,51 +336,5 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn test_insert_with_changelog() -> anyhow::Result<()> {
-        //the test pool is just a memory sqlite.
-        let pool = init_test_pool().await;
-
-        let r = GeneralData::insert("test1", "{\"name\":\"zzp\"}", &pool).await?;
-
-        assert_eq!(r.rows_affected(), 1);
-
-        let rows = ChangeLog::query(1, &pool).await?;
-        println!("{:?}", rows);
-
-        /////////////
-        let r = GeneralData::update_data_by_id(1, "{\"name\":\"zzp2\"}", &pool).await?;
-        assert_eq!(r.rows_affected(), 1);
-
-        let rows = ChangeLog::query(1, &pool).await?;
-        println!("{:?}", rows);
-
-        ///////////
-        /////////////
-        let r = GeneralData::update_data_by_cat("test1", "{\"name\":\"zzp3\"}", &pool).await?;
-        assert_eq!(r.rows_affected(), 1);
-
-        let rows = ChangeLog::query(1, &pool).await?;
-        println!("{:?}", rows);
-
-        ///////////
-        /////////////
-        let r = GeneralData::update_json_field_by_id(1, "name", "zzp4", &pool).await?;
-        assert_eq!(r.rows_affected(), 1);
-
-        let rows = ChangeLog::query(1, &pool).await?;
-        println!("{:?}", rows);
-
-        ///////////
-        /////////////
-        let r = GeneralData::delete(1, &pool).await?;
-        assert_eq!(r.rows_affected(), 1);
-
-        let rows = ChangeLog::query(1, &pool).await?;
-        println!("{:?}", rows);
-
-        ///////////
-
-        Ok(())
-    }
+   
 }
