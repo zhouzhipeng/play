@@ -190,7 +190,7 @@ fn check_set_param_valid(set_param: &str) -> Result<()> {
         re.is_match(&set_param),
         "invalid `set` parameter : {} , shoule be eg. : {}",
         set_param,
-        "set=|a=1,b=2|"
+        "set=a=1,b=2"
     );
     Ok(())
 }
