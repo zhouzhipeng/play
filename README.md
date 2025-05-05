@@ -10,8 +10,9 @@ curl -sSL https://raw.githubusercontent.com/zhouzhipeng/play/main/scripts/instal
 [plugin-dev.md](docs/plugin-dev.md)
 
 
-## general data api
-[general-data-api.md](docs/general-data-api.md)
+## general data api v2
+* [English Doc](docs/api-v2-doc-en.md)
+* [中文文档](docs/api-v2-doc-cn.md)
 
 ## crates
 * tool : put your pre-build logic here.
@@ -22,16 +23,5 @@ the `debug` feature will activate live-reload mode for `static` and `templates` 
 ```bash
 cargo debug
 ```
-
-## web export for ios safari
-* turn off compression on the server side!! (otherwise will "webkit encountered internal error)
-* 
-
-
-## branches
-
-`dev2`: working for clean minimal server
-`dev3`: regular developing
-`master`: used for CICD
 
 
