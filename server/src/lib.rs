@@ -62,7 +62,7 @@ pub mod extractor;
 ///
 /// a replacement of `ensure!` in anyhow
 #[macro_export]
-macro_rules! ensure {
+macro_rules! promise {
     ($($tt:tt)*) => {
         {
             (||{
@@ -74,6 +74,21 @@ macro_rules! ensure {
 }
 
 
+///
+/// a replacement for `bail!` in anyhow
+#[macro_export]
+macro_rules! return_error {
+    ($msg:literal $(,)?) => {
+        // tracing::info!("Error: {} (file: {}, line: {})", error, file!(), line!());
+        return Err(anyhow::anyhow!($msg).into());
+    };
+    ($err:expr $(,)?) => {
+        return Err(anyhow::anyhow!($err).into())
+    };
+    ($fmt:expr, $($arg:tt)*) => {
+        return Err(anyhow::anyhow!($fmt, $($arg)*).into())
+    };
+}
 
 
 
@@ -129,21 +144,6 @@ macro_rules! mock_server_state {
 }
 
 
-///
-/// a replacement for `bail!` in anyhow
-#[macro_export]
-macro_rules! return_error {
-    ($msg:literal $(,)?) => {
-        // tracing::info!("Error: {} (file: {}, line: {})", error, file!(), line!());
-        return Err(anyhow::anyhow!($msg).into());
-    };
-    ($err:expr $(,)?) => {
-        return Err(anyhow::anyhow!($err).into())
-    };
-    ($fmt:expr, $($arg:tt)*) => {
-        return Err(anyhow::anyhow!($fmt, $($arg)*).into())
-    };
-}
 #[macro_export]
 macro_rules! app_error {
     ($msg:literal $(,)?) => {
@@ -396,6 +396,7 @@ impl<E> From<E> for AppError
         Self(err.into())
     }
 }
+
 
 
 

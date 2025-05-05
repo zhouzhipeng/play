@@ -14,6 +14,7 @@ pub mod files_controller;
 pub mod cache_controller;
 mod test_controller;
 pub mod plugin_controller;
+mod data_v2_controller;
 //PLACEHOLDER:CONTROLLER_MOD
 
 
@@ -34,6 +35,7 @@ crate::register_routers!(
         files_controller,
         cache_controller,
         test_controller,
+        data_v2_controller,
 //PLACEHOLDER:CONTROLLER_REGISTER
 
 
