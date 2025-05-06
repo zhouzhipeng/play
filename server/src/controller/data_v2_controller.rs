@@ -13,10 +13,12 @@ use dioxus::html::completions::CompleteWithBraces::param;
 use http::Uri;
 use play_shared::constants::LUA_DIR;
 use regex::Regex;
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{Map, Value};
 use sqlx::Encode;
 use std::collections::HashMap;
+use std::num::NonZeroU32;
+use serde::de::Error;
 use tracing::info;
 
 method_router!(
@@ -41,8 +43,8 @@ enum ActionEnum {
 struct QueryParam {
     id: Option<u32>,
     select: Option<String>,
-    #[serde(default = "default_limit")]
-    limit: u32,
+    #[serde(default="default_limit", deserialize_with = "deserialize_limit")]
+    limit: LimitParam,
     #[serde(rename = "where")]
     _where: Option<String>,
     order_by: Option<String>,
@@ -51,9 +53,52 @@ struct QueryParam {
     #[serde(default)]
     count: bool,
 }
+#[derive(Serialize, Debug)]
+struct LimitParam((u32,NonZeroU32));
 
-fn default_limit() -> u32 {
-    10
+impl LimitParam {
+    pub fn to_string(&self)->String{
+        format!("{},{}", self.0.0, self.0.1)
+    }
+}
+
+fn deserialize_limit<'de, D>(deserializer: D) -> Result<LimitParam, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = serde_json::Value::deserialize(deserializer)?;
+
+    match value {
+        serde_json::Value::String(s) => {
+                // return Err(D::Error::custom("invalid `limit` parameter,should have only two numbers. "))
+            let values:Vec<&str> =s.split(',').collect();
+            if values.len()!=2{
+                return Err(D::Error::custom("invalid `limit` parameter,should have only two numbers. "))
+            }
+
+              let num1  = values[0].parse::<u32>().map_err(|e|D::Error::custom("invalid `limit` parameter, should be positive integers "))?;
+              let num2  = values[1].parse::<NonZeroU32>().map_err(|e|D::Error::custom("invalid `limit` parameter, should be positive integers "))?;
+
+            Ok(LimitParam((num1, num2)))
+        },
+        serde_json::Value::Number(n) => {
+            if let Some(num) = n.as_u64() {
+                if let Some(num) = NonZeroU32::new(num as u32){
+                    Ok(LimitParam((0, num)))
+                }else{
+                    return Err(D::Error::custom("invalid `limit` parameter,should be positive integers. "))
+                }
+
+            } else {
+                return Err(D::Error::custom("invalid `limit` parameter,should be positive integers. "))
+            }
+        },
+        _ =>  return Err(D::Error::custom("invalid `limit` parameter. "))
+    }
+}
+
+fn default_limit() -> LimitParam {
+    LimitParam((0,NonZeroU32::new(10).unwrap()))
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -63,7 +108,11 @@ struct UpdateParam {
 }
 #[derive(Serialize, Deserialize, Debug)]
 struct DeleteParam {
-    id: u32,
+    id: Option<u32>,
+
+    #[serde(default)]
+    delete_all: bool,
+
     #[serde(default)]
     hard_delete: bool,
 }
@@ -368,11 +417,11 @@ async fn handle_request(s: S, category: String, action: String, params: Value) -
                 };
                 
                 if query_param.count{
-                    let count = GeneralData::query_count_composite(&category,query_param.limit,_where,order_by, &s.db).await?;
+                    let count = GeneralData::query_count_composite(&category,&query_param.limit.to_string(),_where,order_by, &s.db).await?;
                     return Ok(count.to_string());
 
                 }else{
-                    let list = GeneralData::query_composite(select_fields,&category,query_param.limit,_where,order_by, &s.db).await?;
+                    let list = GeneralData::query_composite(select_fields,&category,&query_param.limit.to_string(),_where,order_by, &s.db).await?;
                     if !query_param.less {
                         let mut new_arr = vec![];
                         for data in &list{
@@ -390,14 +439,28 @@ async fn handle_request(s: S, category: String, action: String, params: Value) -
 
             }
         }
-        ActionEnum::DELETE(DeleteParam { id, hard_delete }) => {
-            return if *hard_delete {
-                let r = GeneralData::delete(*id, &s.db).await?;
-                Ok(r.rows_affected().to_string().to_string())
-            } else {
-                let r = GeneralData::soft_delete(*id, &s.db).await?;
-                Ok(r.rows_affected().to_string().to_string())
+        ActionEnum::DELETE(DeleteParam { id,delete_all, hard_delete }) => {
+            if *delete_all{
+                return if *hard_delete {
+                    let r = GeneralData::delete_by_cat(&category, &s.db).await?;
+                    Ok(r.rows_affected().to_string().to_string())
+                } else {
+                    let r = GeneralData::soft_delete_by_cat(&category,&s.db).await?;
+                    Ok(r.rows_affected().to_string().to_string())
+                }
+
+            }else{
+                ensure!(id.is_some(), "id/delete_all cant be empty!");
+                let id = id.unwrap();
+                return if *hard_delete {
+                    let r = GeneralData::delete(id, &s.db).await?;
+                    Ok(r.rows_affected().to_string().to_string())
+                } else {
+                    let r = GeneralData::soft_delete(id, &s.db).await?;
+                    Ok(r.rows_affected().to_string().to_string())
+                }
             }
+
         }
     }
 
