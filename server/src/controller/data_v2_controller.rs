@@ -101,6 +101,8 @@ fn default_limit() -> LimitParam {
     LimitParam((0,NonZeroU32::new(10).unwrap()))
 }
 
+const SYSTEM_FIELDS:[&str;6] = ["id", "cat", "data", "is_deleted", "created","updated"];
+
 #[derive(Serialize, Deserialize, Debug)]
 struct UpdateParam {
     id: u32,
@@ -205,7 +207,12 @@ fn convert_condition(condition: &str) -> String {
             let key = condition[..pos].trim();
             let value = condition[pos + op.len()..].trim();
 
-            return format!("json_extract(data, '$.{}') {} {}", key, op, value);
+            if SYSTEM_FIELDS.contains(&key) {
+                return format!("{} {} {}", key, op, value);
+            }else{
+                return format!("json_extract(data, '$.{}') {} {}", key, op, value);
+            }
+
         }
     }
 
@@ -417,7 +424,7 @@ async fn handle_request(s: S, category: String, action: String, params: Value) -
                 };
                 
                 if query_param.count{
-                    let count = GeneralData::query_count_composite(&category,&query_param.limit.to_string(),_where,order_by, &s.db).await?;
+                    let count = GeneralData::query_count_composite(&category,_where,order_by, &s.db).await?;
                     return Ok(count.to_string());
 
                 }else{
