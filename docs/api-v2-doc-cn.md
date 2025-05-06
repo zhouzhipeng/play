@@ -18,7 +18,14 @@
 - `POST /api/v2/data/:category/:action` - 使用 JSON 正文执行操作
 - `GET /api/v2/data/:category/:action/:hex` - 使用十六进制编码参数执行操作
 
-## 操作类型
+## 请求方式
+`GET`和`POST`本质没有太大区别， get方式上的kv和post请求json体中的kv是一一对应的。几乎所有请求都可以用
+get方式来完成。
+
+## 数据类别 (category)
+符合名称要求即可，无需事先创建。
+
+## 操作类型 (action)
 
 API 支持四种主要操作类型：
 
