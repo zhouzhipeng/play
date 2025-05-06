@@ -343,17 +343,29 @@ pub async fn routers(app_state: Arc<AppState>) -> anyhow::Result<Router> {
         .layer(DefaultBodyLimit::disable())
         // .layer(HttpLogLayer{ auth_config })
         .layer(middleware::from_fn_with_state(app_state.clone(), http_middleware))
-        .layer(cors);
+        .layer(cors)
+        .layer(CompressionLayer::new().compress_when(CustomCompressPredict{}))
+        .fallback(handle_404)
+        ;
 
     //
     // #[cfg(not(feature = "debug"))]
     // {
-        router = router.layer(CompressionLayer::new().compress_when(CustomCompressPredict{}));
+        router = router;
     // }
 
 
     Ok(router)
 }
+
+// 创建自定义404处理函数
+async fn handle_404(uri: axum::http::Uri) -> impl IntoResponse {
+    (
+        StatusCode::NOT_FOUND,
+        format!("Server Error: url not found: {}", uri)
+    )
+}
+
 
 // Make our own error that wraps `anyhow::Error`.
 #[derive(Debug)]

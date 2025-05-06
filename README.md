@@ -1,6 +1,12 @@
 ## Play
 A playground project writen in rust for fun.
 
+## local debug
+the `debug` feature will activate live-reload mode for `static` and `templates` folders.
+```bash
+cargo debug
+```
+
 ## install as linux service
 ```bash
 curl -sSL https://raw.githubusercontent.com/zhouzhipeng/play/main/scripts/install_service.sh | sudo bash
@@ -10,28 +16,8 @@ curl -sSL https://raw.githubusercontent.com/zhouzhipeng/play/main/scripts/instal
 [plugin-dev.md](docs/plugin-dev.md)
 
 
-## general data api
-[general-data-api.md](docs/general-data-api.md)
-
-## crates
-* tool : put your pre-build logic here.
-* server : a http server providing APIs and static files and templates.
-
-## local debug
-the `debug` feature will activate live-reload mode for `static` and `templates` folders.
-```bash
-cargo debug
-```
-
-## web export for ios safari
-* turn off compression on the server side!! (otherwise will "webkit encountered internal error)
-* 
-
-
-## branches
-
-`dev2`: working for clean minimal server
-`dev3`: regular developing
-`master`: used for CICD
+## general data api v2
+* [English Doc](docs/api-v2-doc-en.md)
+* [中文文档](docs/api-v2-doc-cn.md)
 
 

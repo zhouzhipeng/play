@@ -2,8 +2,8 @@
 resolver="2"
 members = [
     "server",
-    "tool",
-    "crates/*",
+    "scripts",
+    "crates/play-*",
 ]
 default-members=["server"]
 
