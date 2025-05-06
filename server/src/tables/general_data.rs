@@ -147,6 +147,9 @@ impl GeneralData {
             order_by,
             limit
         );
+
+        info!("sql : {}", sql);
+
         sqlx::query_as::<_, GeneralData>(sql)
             .bind(cat)
             .fetch_all(pool)
@@ -154,17 +157,17 @@ impl GeneralData {
     }
     pub async fn query_count_composite(
         cat: &str,
-        limit: &str,
         _where: &str,
         order_by: &str,
         pool: &DBPool,
     ) -> Result<u32, Error> {
         let sql = &format!(
-            "SELECT count(1) FROM general_data where cat = ? and {}  order by {} limit {}",
+            "SELECT count(1) FROM general_data where cat = ? and {}  order by {}",
             _where,
-            order_by,
-            limit
+            order_by
         );
+        info!("sql : {}", sql);
+
         let result: (u32,) = sqlx::query_as(sql).bind(cat).fetch_one(pool).await?;
         Ok(result.0)
     }
