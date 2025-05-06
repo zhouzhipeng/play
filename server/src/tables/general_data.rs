@@ -89,6 +89,13 @@ impl GeneralData {
             .await;
         r
     }
+    pub async fn soft_delete_by_cat(cat: &str, pool: &DBPool) -> Result<DBQueryResult, Error> {
+        let r = sqlx::query("update  general_data set is_deleted=1, updated=CURRENT_TIMESTAMP WHERE cat =?")
+            .bind(cat)
+            .execute(pool)
+            .await;
+        r
+    }
 
     fn convert_fields(field: &str) -> String {
         let mut fields = "*".to_string();
@@ -128,7 +135,7 @@ impl GeneralData {
     pub async fn query_composite(
         fields: &str,
         cat: &str,
-        limit: u32,
+        limit: &str,
         _where: &str,
         order_by: &str,
         pool: &DBPool,
@@ -147,7 +154,7 @@ impl GeneralData {
     }
     pub async fn query_count_composite(
         cat: &str,
-        limit: u32,
+        limit: &str,
         _where: &str,
         order_by: &str,
         pool: &DBPool,
