@@ -371,16 +371,15 @@ async fn handle_request(s: S, category: String, action: String, params: Value) -
     new_params.insert(action.to_string(), params);
 
     let action_enum: ActionEnum = serde_json::from_value(serde_json::to_value(new_params)?)?;
-    info!("action: {:?}", action_enum);
+    // info!("action: {:?}", action_enum);
 
     match &action_enum {
         ActionEnum::INSERT(val) => {
             ensure!(val.len() != 0, "query params cant be empty!");
-            ensure!(!val.contains_key("id"), "cant use system field `id` when insert data.");
-            ensure!(!val.contains_key("cat"), "cant use system field `cat` when insert data.");
-            ensure!(!val.contains_key("is_deleted"), "cant use system field `is_deleted` when insert data.");
-            ensure!(!val.contains_key("created"), "cant use system field `created` when insert data.");
-            ensure!(!val.contains_key("updated"), "cant use system field `updated` when insert data.");
+            for field in SYSTEM_FIELDS{
+                ensure!(!val.contains_key(field), format!("cant use system field `{field}` when insert data."));
+            }
+
 
             let obj = insert_data(s, Path(category), serde_json::to_string(val)?).await?;
             return Ok(serde_json::to_string(&obj.to_flat_map()?)?);
