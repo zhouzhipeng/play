@@ -49,7 +49,7 @@ struct QueryParam {
     _where: Option<String>,
     order_by: Option<String>,
     #[serde(default)]
-    less: bool,
+    slim: bool,
     #[serde(default)]
     count: bool,
 }
@@ -402,7 +402,7 @@ async fn handle_request(s: S, category: String, action: String, params: Value) -
                 let r = GeneralData::query_by_id_with_cat_select(select_fields,id,&category, &s.db).await?;
                 ensure!(r.len() == 1, "data not found for id : {}", id);
 
-                if !query_param.less {
+                if !query_param.slim {
                     let new_map = r[0].to_flat_map()?;
                     return Ok(serde_json::to_string(&new_map)?);
                 } else {
@@ -429,7 +429,7 @@ async fn handle_request(s: S, category: String, action: String, params: Value) -
 
                 }else{
                     let list = GeneralData::query_composite(select_fields,&category,&query_param.limit.to_string(),_where,order_by, &s.db).await?;
-                    if !query_param.less {
+                    if !query_param.slim {
                         let mut new_arr = vec![];
                         for data in &list{
                             new_arr.push(data.to_flat_map()?);
