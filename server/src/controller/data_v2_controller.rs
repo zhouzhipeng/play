@@ -371,7 +371,7 @@ async fn handle_request(s: S, category: String, action: String, params: Value) -
     new_params.insert(action.to_string(), params);
 
     let action_enum: ActionEnum = serde_json::from_value(serde_json::to_value(new_params)?)?;
-    info!("action: {:?}", action_enum);
+    // info!("action: {:?}", action_enum);
 
     match &action_enum {
         ActionEnum::INSERT(val) => {
