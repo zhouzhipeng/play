@@ -52,6 +52,8 @@ struct QueryParam {
     slim: bool,
     #[serde(default)]
     count: bool,
+    #[serde(default)]
+    include_deleted: bool,
 }
 #[derive(Serialize, Debug)]
 struct LimitParam((u32,NonZeroU32));
@@ -423,11 +425,11 @@ async fn handle_request(s: S, category: String, action: String, params: Value) -
                 };
                 
                 if query_param.count{
-                    let count = GeneralData::query_count_composite(&category,_where,order_by, &s.db).await?;
+                    let count = GeneralData::query_count_composite(&category,_where, query_param.include_deleted,order_by, &s.db).await?;
                     return Ok(count.to_string());
 
                 }else{
-                    let list = GeneralData::query_composite(select_fields,&category,&query_param.limit.to_string(),_where,order_by, &s.db).await?;
+                    let list = GeneralData::query_composite(select_fields,&category,&query_param.limit.to_string(),_where,query_param.include_deleted,order_by, &s.db).await?;
                     if !query_param.slim {
                         let mut new_arr = vec![];
                         for data in &list{
