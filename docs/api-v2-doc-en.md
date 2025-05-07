@@ -1,341 +1,232 @@
 # General Data API Documentation
 
-## Overview
+This document outlines the REST API for a flexible data storage system. The API provides a generic way to store, retrieve, update, and delete data organized by categories.
 
-This API provides a flexible data storage system where data is organized by categories. It allows for storing, retrieving, updating, and deleting JSON data with various filtering and query options.
+## Table of Contents
 
-## Base URL
+1. [API Overview](#api-overview)
+2. [Endpoints](#endpoints)
+3. [Actions](#actions)
+4. [Parameters](#parameters)
+5. [Examples](#examples)
+6. [Error Handling](#error-handling)
 
-```
-/api/v2/data
-```
+## API Overview
+
+The General Data API uses a category-based structure to organize different types of data. Each data entry consists of:
+
+- A category (`cat`) which groups similar data
+- A JSON data payload
+- System fields for tracking (ID, creation time, update time, deletion status)
+
+Data can be manipulated through standardized actions (insert, query, update, delete) across all categories.
 
 ## Endpoints
 
-### Data Operations
+The API provides three main endpoints:
 
-- `GET /api/v2/data/:category/:action` - Perform query actions using query parameters
-- `POST /api/v2/data/:category/:action` - Perform actions using JSON body
-- `GET /api/v2/data/:category/:action/:hex` - Perform actions using hex-encoded parameters
+| Method | Endpoint                              | Description                                           |
+|--------|---------------------------------------|-------------------------------------------------------|
+| GET    | `/api/v2/data/:category/:action`      | Perform action using query string parameters          |
+| POST   | `/api/v2/data/:category/:action`      | Perform action using JSON request body                |
+| GET    | `/api/v2/data/:category/:action/:hex` | Perform action using hex-encoded parameter string     |
 
-## Action Types
+**Path Parameters:**
+- `:category` - Data category identifier (must match pattern `^[a-zA-Z0-9-_]{2,10}$`)
+- `:action` - One of: `insert`, `update`, `query`, or `delete`
+- `:hex` (optional) - Hex-encoded JSON parameters for the action
 
-The API supports four main action types:
+## Actions
 
-1. `insert` - Create new data entries
-2. `update` - Update existing data entries
-3. `query` - Retrieve data entries
-4. `delete` - Remove data entries (soft or hard delete)
+### 1. Insert
+
+Adds a new record to the specified category.
+
+**Parameters:**
+- Any valid JSON object containing key-value pairs
+- System fields (`id`, `cat`, `data`, `is_deleted`, `created`, `updated`) cannot be used as keys
+
+**Example:**
+```
+POST /api/v2/data/users/insert
+{
+  "name": "John Doe",
+  "email": "john@example.com",
+  "active": true
+}
+```
+
+**Response:**
+Returns the inserted data including system fields, in a flattened format.
+
+### 2. Query
+
+Retrieves data from the specified category.
+
+**Parameters:**
+- `id` (optional): Retrieve a specific record by ID
+- `select` (optional): Comma-separated list of fields to return (default: `*` for all fields)
+- `limit` (optional): Pagination control in format `offset,count` (default: `0,10`)
+- `where` (optional): SQL-like WHERE conditions (supports AND operator)
+- `order_by` (optional): SQL-like ORDER BY clause (default: `id desc`)
+- `slim` (optional): When true, returns only the data content without system fields (default: `false`)
+- `count` (optional): When true, returns only the count of matching records (default: `false`)
+- `include_deleted` (optional): When true, includes soft-deleted records (default: `false`)
+
+**Examples:**
+```
+GET /api/v2/data/users/query?id=123
+GET /api/v2/data/users/query?select=name,email&limit=0,20&where=active=true&order_by=name asc
+GET /api/v2/data/users/query?count=true&where=active=true
+```
+
+**Response:**
+- For single record queries: Returns the record as a JSON object
+- For list queries: Returns an array of records as JSON objects
+- For count queries: Returns the count as a plain number
+
+### 3. Update
+
+Updates an existing record in the specified category.
+
+**Parameters:**
+- `id`: ID of the record to update
+- `set`: Comma-separated list of field assignments in format `field1=value1,field2=value2`
+
+**Example:**
+```
+GET /api/v2/data/users/update?id=123&set=name=Jane Doe,active=false
+POST /api/v2/data/users/update
+{
+  "id": 123,
+  "set": "name=Jane Doe,active=false"
+}
+```
+
+**Response:**
+Returns the number of rows affected (usually 1).
+
+### 4. Delete
+
+Removes a record from the specified category.
+
+**Parameters:**
+- `id` (optional): ID of the record to delete
+- `delete_all` (optional): When true, deletes all records in the category (default: `false`)
+- `hard_delete` (optional): When true, permanently deletes the record(s); otherwise performs a soft delete (default: `false`)
+
+**Examples:**
+```
+GET /api/v2/data/users/delete?id=123
+GET /api/v2/data/users/delete?delete_all=true&hard_delete=true
+```
+
+**Response:**
+Returns the number of rows affected.
 
 ## Parameters
 
+### Category Parameter
+
+The `:category` path parameter must follow these rules:
+- Must be 2-10 characters long
+- Can only contain letters, numbers, hyphens, and underscores
+- Used to group related data together
+
 ### Query Parameters
 
-```
-{
-  "id": Optional<u32>,          // Specific record ID
-  "select": Optional<String>,   // Fields to select (comma-separated)
-  "limit": u32,                 // Default: 10
-  "where": Optional<String>,    // Filter condition
-  "order_by": Optional<String>, // Sort order
-  "less": bool,                 // Default: false - Return simplified data
-  "count": bool                 // Default: false - Return count instead of data
-}
-```
+#### Limit Parameter Format
+The `limit` parameter accepts two formats:
+- `offset,count` format: `0,10` means start from record 0 and return 10 records
+- Single number: `10` means return 10 records starting from offset 0
 
-### Update Parameters
+#### Where Condition Format
+The `where` parameter uses SQL-like syntax:
+- Basic conditions: `field=value`
+- Operators supported: `=`, `!=`, `>`, `<`, `>=`, `<=`
+- Multiple conditions: `field1=value1 AND field2=value2`
+- For JSON fields: `json_field=value` is automatically converted to `json_extract(data, '$.json_field')=value`
 
-```
-{
-  "id": u32,        // Record ID to update
-  "set": String     // Update expression (format: "field1=value1,field2=value2")
-}
-```
-
-### Delete Parameters
-
-```
-{
-  "id": u32,             // Record ID to delete
-  "hard_delete": bool    // Default: false - If true, permanently deletes the record
-}
-```
-
-## Data Model
-
-The API operates on the `GeneralData` model with the following structure:
-
-```
-{
-  "id": u32,                  // Unique identifier
-  "cat": String,              // Category name
-  "data": String,             // JSON data stored as string
-  "is_deleted": bool,         // Deletion flag
-  "created": NaiveDateTime,   // Creation timestamp
-  "updated": NaiveDateTime    // Last update timestamp
-}
-```
-
-## Detailed Usage
-
-### Insert Operation
-
-To insert new data:
-
-**Method:** `GET` or `POST`  
-**URL:** `/api/v2/data/:category/insert`  
-**Parameters:** JSON object containing the data to insert
-
-Notes:
-- System fields (`id`, `cat`, `is_deleted`, `created`, `updated`) cannot be included in insert operations
-- Returns the inserted data with all fields including the generated ID
-
-### Update Operation
-
-To update existing data:
-
-**Method:** `GET` or `POST`  
-**URL:** `/api/v2/data/:category/update`  
-**Parameters:**
-```
-{
-  "id": 123,
-  "set": "field1=value1,field2=value2"
-}
-```
-
-Notes:
-- The `set` parameter must follow the format `field1=value1,field2=value2`
-- Returns the number of affected rows
-
-### Query Operation
-
-To query data:
-
-**Method:** `GET` or `POST`  
-**URL:** `/api/v2/data/:category/query`  
-**Parameters:**
-```
-{
-  "id": 123,              // Optional: Query specific ID
-  "select": "field1,field2",  // Optional: Fields to select
-  "limit": 20,            // Default: 10
-  "where": "field1='value1' AND field2>100",  // Optional: Filter condition
-  "order_by": "id desc",  // Optional: Default "id desc"
-  "less": true,           // Optional: Return only data field content
-  "count": false          // Optional: Return count instead of data
-}
-```
-
-Notes:
-- If `id` is provided, it returns a single record
-- If no `id` is provided, it returns a list of records
-- The `where` condition supports SQL-like syntax with AND operators
-- The `less` parameter when true returns only the JSON data content
-- The `count` parameter when true returns the count of matching records
-
-### Delete Operation
-
-To delete data:
-
-**Method:** `GET` or `POST`  
-**URL:** `/api/v2/data/:category/delete`  
-**Parameters:**
-```
-{
-  "id": 123,
-  "hard_delete": false  // Optional: Default false
-}
-```
-
-Notes:
-- By default, performs a soft delete (sets is_deleted=1)
-- If `hard_delete` is true, removes the record permanently
-- Returns the number of affected rows
-
-## Advanced Features
-
-### Hex-Encoded Requests
-
-For more complex queries or to avoid URL encoding issues:
-
-**URL:** `/api/v2/data/:category/:action/:hex`
-
-Where `:hex` is a hexadecimal-encoded JSON string of parameters.
-
-Example:
-```
-/api/v2/data/users/query/7B226964223A313233...
-```
-
-The hex value is decoded as a JSON string containing the query parameters.
-
-### JSON Field Extraction
-
-The API provides two methods for handling the returned data:
-
-1. **to_flat_map()**: Merges system fields and JSON data into a flat structure
-2. **extract_data()**: Returns only the JSON data portion
-
-When using the query API:
-- If `less` is `false` (default), returns full data with system fields
-- If `less` is `true`, returns only the JSON data content
-
-### Field Selection
-
-The `select` parameter allows retrieving only specific fields:
-
-- `"*"` returns all fields (default)
-- `"field1,field2,field3"` returns only specified fields
-- Fields are extracted from the JSON data using `json_extract`
-- Selected fields are returned in a structured format
+#### Set Parameter Format
+The `set` parameter uses a comma-separated list of field assignments:
+- Format: `field1=value1,field2=value2`
+- Field names must be valid identifiers (letters, numbers, underscore, starting with letter/underscore)
 
 ## Examples
 
-### Insert Example
+### Basic Usage Examples
 
+**1. Insert a new record:**
 ```
-POST /api/v2/data/users/insert
-Content-Type: application/json
-
+POST /api/v2/data/tasks/insert
 {
-  "name": "John Doe",
-  "email": "john@example.com",
-  "age": 30
+  "title": "Complete documentation",
+  "due_date": "2025-05-15",
+  "priority": 1,
+  "completed": false
 }
 ```
 
-Response:
-```json
+**2. Query records:**
+```
+# Get a specific record
+GET /api/v2/data/tasks/query?id=42
+
+# List all high-priority incomplete tasks
+GET /api/v2/data/tasks/query?where=priority=1 AND completed=false&order_by=due_date asc
+
+# Count all completed tasks
+GET /api/v2/data/tasks/query?where=completed=true&count=true
+```
+
+**3. Update a record:**
+```
+POST /api/v2/data/tasks/update
 {
-  "id": 1,
-  "cat": "users",
-  "name": "John Doe",
-  "email": "john@example.com",
-  "age": 30,
-  "is_deleted": false,
-  "created": 1651234567890,
-  "updated": 1651234567890
+  "id": 42,
+  "set": "completed=true,completion_date=2025-05-07"
 }
 ```
 
-### Query Example
-
+**4. Delete a record:**
 ```
-GET /api/v2/data/users/query?id=1
-```
+# Soft delete (mark as deleted)
+GET /api/v2/data/tasks/delete?id=42
 
-Response:
-```json
-{
-  "id": 1,
-  "cat": "users",
-  "name": "John Doe",
-  "email": "john@example.com",
-  "age": 30,
-  "is_deleted": false,
-  "created": 1651234567890,
-  "updated": 1651234567890
-}
+# Hard delete (permanently remove)
+GET /api/v2/data/tasks/delete?id=42&hard_delete=true
+
+# Delete all records in a category
+GET /api/v2/data/old_tasks/delete?delete_all=true&hard_delete=true
 ```
 
-### List Query Example
-
+**5. Using hex-encoded parameters:**
 ```
-GET /api/v2/data/users/query?limit=10&where=age>25&order_by=name%20asc
-```
-
-Response:
-```json
-[
-  {
-    "id": 1,
-    "cat": "users",
-    "name": "John Doe",
-    "email": "john@example.com",
-    "age": 30,
-    "is_deleted": false,
-    "created": 1651234567890,
-    "updated": 1651234567890
-  },
-  {
-    "id": 2,
-    "cat": "users",
-    "name": "Jane Smith",
-    "email": "jane@example.com",
-    "age": 28,
-    "is_deleted": false,
-    "created": 1651234568890,
-    "updated": 1651234568890
-  }
-]
-```
-
-### Update Example
-
-```
-POST /api/v2/data/users/update
-Content-Type: application/json
-
-{
-  "id": 1,
-  "set": "name=Jane Doe,age=31"
-}
-```
-
-Response:
-```
-1
-```
-
-### Delete Example
-
-```
-POST /api/v2/data/users/delete
-Content-Type: application/json
-
-{
-  "id": 1,
-  "hard_delete": false
-}
-```
-
-Response:
-```
-1
+# Equivalent to a complex query with many parameters
+GET /api/v2/data/tasks/query/7B22736C696D223A747275652C227768657265223A22636F6D706C657465643D66616C7365227D
 ```
 
 ## Error Handling
 
-The API returns appropriate error messages for different scenarios:
+The API returns appropriate HTTP status codes and error messages for various error conditions:
 
-- Invalid category or action
-- Invalid parameters
-- Database errors
-- Data not found
-- Permission issues
+- 400 Bad Request: Invalid parameters or request format
+- 404 Not Found: Resource not found
+- 500 Internal Server Error: Server-side errors
 
-Errors follow a consistent format with descriptive messages to help diagnose issues.
+Error responses include a descriptive message to help diagnose issues:
 
-## Special Features
+```json
+{
+  "error": "invalid `category` path : inv@lid, not match with : ^[a-z0-9-]{2,10}$"
+}
+```
 
-### SQL Injection Prevention
+### Common Error Scenarios
 
-The API uses parameterized queries and input validation to prevent SQL injection attacks. All user inputs are sanitized and validated before being used in database operations.
-
-### JSON Extraction and Patching
-
-The API supports JSON path expressions for selective field updates and queries:
-- `json_extract`: Used for querying specific fields in JSON data
-- `json_set`: Used for updating specific fields in JSON data
-- `json_patch`: Used for applying multiple updates to JSON data
-
-### Category Restrictions
-
-Category names must match the regex pattern `^[a-zA-Z0-9-_]{2,10}$`:
-- Length between 2-10 characters
-- Only alphanumeric characters, hyphens, and underscores allowed
-
-### Auto-Updating Timestamps
-
-The `updated` timestamp is automatically refreshed whenever a record is modified, providing an audit trail of changes.
+1. Invalid category name (must match pattern `^[a-zA-Z0-9-_]{2,10}$`)
+2. Invalid action (must be one of: insert, update, query, delete)
+3. Missing required parameters (e.g., id for update/delete)
+4. Invalid set parameter format
+5. Using system field names in insert operations
+6. Invalid limit parameter format
