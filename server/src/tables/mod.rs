@@ -65,7 +65,7 @@ pub async fn init_pool(config: &Config) -> DBPool {
     }
 
     let db = SqlitePool::connect(db_url).await.unwrap();
-    let result = sqlx::query(include_str!(file_path!("/../docs/db_sqlite.sql"))).execute(&db).await.unwrap();
+    let result = sqlx::query(include_str!(file_path!("/../docs/db_sqlite.sql"))).execute(&db).await;
     info!("Create  table result: {:?}", result);
     db
 }
