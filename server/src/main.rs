@@ -62,30 +62,45 @@ async fn main()->anyhow::Result<()> {
     //inject env for py_runner
     set_var("HOST", format!("http://127.0.0.1:{}", config.server_port));
 
+    set_var("FP", &config.auth_config.fingerprints.get(0).unwrap_or(&"".to_string()));
 
+    let log_level = match config.log_level.as_str(){
+        "TRACE"=> LevelFilter::TRACE,
+        "DEBUG"=> LevelFilter::DEBUG,
+        "INFO"=> LevelFilter::INFO,
+        "ERROR"=> LevelFilter::ERROR,
+        _=> LevelFilter::INFO,
+    };
+
+
+
+    // initialize tracing
+    let filter = filter::Targets::new()
+        .with_target("rustls_acme", LevelFilter::TRACE)
+        .with_default(log_level)
+    ;
+
+
+    let file_appender = RollingFileAppender::builder()
+        .rotation(Rotation::DAILY) // rotate log files once every hour
+        .filename_prefix("play") // log file names will be prefixed with `myapp.`
+        .filename_suffix("log") // log file names will be suffixed with `.log`
+        .max_log_files(10)
+        .max_file_size(100*1024*1024 /*100MB*/)
+        .build(data_dir) // try to build an appender that stores log files in `/var/log`
+        .expect("initializing rolling file appender failed");
+
+    let (writer, _guard) = tracing_appender::non_blocking(file_appender);
 
     #[cfg(not(feature = "debug"))]
-    {
-        let file_appender = RollingFileAppender::builder()
-            .rotation(Rotation::DAILY) // rotate log files once every hour
-            .filename_prefix("play") // log file names will be prefixed with `myapp.`
-            .filename_suffix("log") // log file names will be suffixed with `.log`
-            .max_log_files(10)
-            .max_file_size(100*1024*1024 /*100MB*/)
-            .build(data_dir) // try to build an appender that stores log files in `/var/log`
-            .expect("initializing rolling file appender failed");
-        let (writer, _guard) = tracing_appender::non_blocking(file_appender);
-
-        tracing_subscriber::fmt()
-            .with_file(true)
-            .with_line_number(true)
-            .with_thread_names(true)
-            .pretty()
-            .with_writer(writer)
-            .finish()
-            .init();
-
-    }
+    tracing_subscriber::fmt()
+        .with_file(true)
+        .with_line_number(true)
+        .with_thread_names(true)
+        .pretty()
+        .with_writer(writer)
+        .finish()
+        .init();
 
 
 
@@ -100,6 +115,8 @@ async fn main()->anyhow::Result<()> {
         .init();
 
 
+
+    info!("using log level : {}", log_level);
 
     //init config
 
