@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::fs;
+use std::{env, fs};
 use std::sync::{Arc, Mutex};
 use mlua::{ExternalResult, Lua, LuaSerdeExt, MultiValue, Result, Table, Value};
 use mlua::prelude::{LuaError, LuaResult, LuaValue};
@@ -31,6 +31,23 @@ pub  fn create_lua() -> Result<(Lua, Arc<Mutex<String>>)> {
         output.push_str("\n");  // print 默认在末尾添加换行符
         Ok(())
     })?;
+    let to_string = lua.create_function(move |_, args: mlua::MultiValue| {
+        let mut output = String::new();
+        for (i, arg) in args.iter().enumerate() {
+            if i > 0 {
+                output.push_str("\t");  // print 默认使用 tab 分隔参数
+            }
+
+            if let mlua::Value::String(ss)= arg{
+                output.push_str(ss.to_str()?.to_string().as_str());
+            }else{
+                output.push_str(&format!("{arg:#?}"));
+            }
+
+        }
+        output.push_str("\n");  // print 默认在末尾添加换行符
+        Ok(output)
+    })?;
 
 
     // 重定义 require 函数
@@ -55,6 +72,11 @@ pub  fn create_lua() -> Result<(Lua, Arc<Mutex<String>>)> {
     })?;
 
     let get_json = lua.create_async_function(|lua, uri: String| async move {
+        let mut uri = uri;
+        if uri.starts_with("/"){
+            uri  = format!("{}{}", env::var("HOST").unwrap(), uri);
+        }
+
         let resp = reqwest::get(&uri)
             .await
             .and_then(|resp| resp.error_for_status())
@@ -63,6 +85,10 @@ pub  fn create_lua() -> Result<(Lua, Arc<Mutex<String>>)> {
         lua.to_value(&json)
     })?;
     let get_text = lua.create_async_function(|lua, uri: String| async move {
+        let mut uri = uri;
+        if uri.starts_with("/"){
+            uri  = format!("{}{}", env::var("HOST").unwrap(), uri);
+        }
         let resp = reqwest::get(&uri)
             .await
             .and_then(|resp| resp.error_for_status())
@@ -80,6 +106,7 @@ pub  fn create_lua() -> Result<(Lua, Arc<Mutex<String>>)> {
     // 设置全局HTTP模块
     lua.globals().set("http", http_module)?;
     lua.globals().set("print", print_override)?;
+    lua.globals().set("to_string", to_string)?;
     lua.globals().set("require", require_override)?;
 
 
