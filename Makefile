@@ -1,5 +1,6 @@
 build_macos:
 	cargo dev_ui
+	open target/release
 
 build_server:
 	cargo dev_server
