@@ -393,7 +393,9 @@ async fn handle_get(
         "*"
     };
 
-    let r = GeneralData::query_by_id_with_cat_select(select_fields, query_param.id, &category, &s.db).await?;
+    let r =
+        GeneralData::query_by_id_with_cat_select(select_fields, query_param.id, &category, &s.db)
+            .await?;
     promise!(r.len() == 1, "data not found for id : {}", query_param.id);
 
     if !query_param.slim {

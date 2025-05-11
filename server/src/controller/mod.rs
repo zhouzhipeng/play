@@ -7,7 +7,7 @@ pub mod shortlink_controller;
 mod job_controller;
 
 
-mod general_data_controller;
+mod data_v1_controller;
 pub mod pages_controller;
 mod shell_controller;
 pub mod files_controller;
@@ -30,7 +30,7 @@ crate::register_routers!(
         function_controller,
         admin_controller,
         job_controller,
-        general_data_controller,
+        data_v1_controller,
         pages_controller,
         shell_controller,
         files_controller,
