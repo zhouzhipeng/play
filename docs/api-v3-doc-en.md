@@ -1,5 +1,27 @@
 # General Data API Documentation
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Base URL](#base-url)
+- [Data Model](#data-model)
+- [Authentication](#authentication)
+- [Endpoints](#endpoints)
+    - [Create Data Entry](#create-data-entry)
+    - [Retrieve Data Entry](#retrieve-data-entry)
+    - [Query Data Entries](#query-data-entries)
+    - [Count Data Entries](#count-data-entries)
+    - [Update Data Entry](#update-data-entry)
+    - [Delete Data Entry](#delete-data-entry)
+- [Technical Notes](#technical-notes)
+    - [Category Validation](#category-validation)
+    - [JSON Field Extraction](#json-field-extraction)
+    - [JSON Patching](#json-patching)
+    - [Field Selection and Flattening](#field-selection-and-flattening)
+- [Error Handling](#error-handling)
+- [Special Behaviors](#special-behaviors)
+    - [Lua Pages](#lua-pages)
+
 ## Overview
 
 This API provides a comprehensive set of endpoints for managing general-purpose data storage with JSON capabilities. The API follows RESTful principles and supports CRUD operations (Create, Read, Update, Delete) on data categorized by user-defined categories.
@@ -278,10 +300,10 @@ Deletes data entries in the specified category.
 |-----------|------|-------------|
 | category | string | Category name |
 
-#### Query Parameters
+#### Request Body
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
+| Field | Type | Description |
+|-------|------|-------------|
 | id | integer | Optional. ID of the entry to delete. Required if delete_all is false |
 | delete_all | boolean | Optional. If true, deletes all entries in the category. Defaults to false |
 | hard_delete | boolean | Optional. If true, permanently deletes the entry(s). If false, performs a soft delete. Defaults to false |
@@ -289,14 +311,36 @@ Deletes data entries in the specified category.
 #### Example
 
 Request:
-```
-POST /api/v3/data/products/delete?id=42&hard_delete=false
+```json
+POST /api/v3/data/products/delete
+{
+  "id": 42,
+  "hard_delete": false
+}
 ```
 
 Response:
 ```json
 {
   "affected_rows": 1
+}
+```
+
+Delete all data example:
+
+Request:
+```json
+POST /api/v3/data/products/delete
+{
+  "delete_all": true,
+  "hard_delete": true
+}
+```
+
+Response:
+```json
+{
+  "affected_rows": 15
 }
 ```
 
