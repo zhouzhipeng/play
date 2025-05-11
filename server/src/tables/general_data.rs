@@ -161,14 +161,12 @@ impl GeneralData {
         cat: &str,
         _where: &str,
         include_deleted: bool,
-        order_by: &str,
         pool: &DBPool,
     ) -> Result<u32, Error> {
         let sql = &format!(
-            "SELECT count(1) FROM general_data where cat = ?  {} and {}  order by {}",
+            "SELECT count(1) FROM general_data where cat = ?  {} and {} ",
             if include_deleted{""}else{" and is_deleted = 0"},
             _where,
-            order_by
         );
         info!("sql : {}", sql);
 
@@ -272,11 +270,11 @@ impl GeneralData {
     pub async fn update_with_json_patch(
         pool: &DBPool,
         id: u32,
-        updates: Value,
+        updates: String,
     ) -> Result<DBQueryResult, Error> {
         // 开始构建查询
         let mut query = sqlx::query("UPDATE general_data SET data = json_patch(data, ?), updated=CURRENT_TIMESTAMP WHERE id = ?")
-            .bind(updates.to_string()).bind(id);
+            .bind(updates).bind(id);
         // 执行查询
         let r = query.execute(pool).await?;
 

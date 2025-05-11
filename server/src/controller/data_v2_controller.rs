@@ -10,40 +10,40 @@ use axum::response::IntoResponse;
 use axum::Json;
 use chrono::NaiveDateTime;
 use dioxus::html::completions::CompleteWithBraces::param;
+use either::Either;
 use http::Uri;
 use play_shared::constants::LUA_DIR;
 use regex::Regex;
+use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{Map, Value};
 use sqlx::Encode;
 use std::collections::HashMap;
 use std::num::NonZeroU32;
-use serde::de::Error;
 use tracing::info;
 
 method_router!(
-    get : "/api/v2/data/:category/:action"-> all_in_one_api,
-    post : "/api/v2/data/:category/:action"-> all_in_one_api_post,
-    get : "/api/v2/data/:category/:action/:hex"-> all_in_one_api_hex,
+    get : "/api/v2/data/:category/get"-> handle_get,
+    get : "/api/v2/data/:category/query"-> handle_query,
+    get : "/api/v2/data/:category/count"-> handle_count,
+    post : "/api/v2/data/:category/delete"-> handle_delete,
+    post : "/api/v2/data/:category/insert"-> handle_insert,
+    post : "/api/v2/data/:category/update"-> handle_update,
 );
 
 #[derive(Serialize, Deserialize, Debug)]
-enum ActionEnum {
-    #[serde(rename = "insert")]
-    INSERT(HashMap<String, Value>),
-    #[serde(rename = "update")]
-    UPDATE(UpdateParam),
-    #[serde(rename = "query")]
-    QUERY(QueryParam),
-    #[serde(rename = "delete")]
-    DELETE(DeleteParam),
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct QueryParam {
-    id: Option<u32>,
+#[serde(deny_unknown_fields)]
+struct GetParam {
+    id: u32,
     select: Option<String>,
-    #[serde(default="default_limit", deserialize_with = "deserialize_limit")]
+    #[serde(default)]
+    slim: bool,
+}
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+struct QueryParam {
+    select: Option<String>,
+    #[serde(default = "default_limit", deserialize_with = "deserialize_limit")]
     limit: LimitParam,
     #[serde(rename = "where")]
     _where: Option<String>,
@@ -55,12 +55,21 @@ struct QueryParam {
     #[serde(default)]
     include_deleted: bool,
 }
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+struct CountParam {
+    #[serde(rename = "where")]
+    _where: Option<String>,
+    #[serde(default)]
+    include_deleted: bool,
+}
+
 #[derive(Serialize, Debug)]
-struct LimitParam((u32,NonZeroU32));
+struct LimitParam((u32, NonZeroU32));
 
 impl LimitParam {
-    pub fn to_string(&self)->String{
-        format!("{},{}", self.0.0, self.0.1)
+    pub fn to_string(&self) -> String {
+        format!("{},{}", self.0 .0, self.0 .1)
     }
 }
 
@@ -72,44 +81,55 @@ where
 
     match value {
         serde_json::Value::String(s) => {
-                // return Err(D::Error::custom("invalid `limit` parameter,should have only two numbers. "))
-            let values:Vec<&str> =s.split(',').collect();
-            if values.len()!=2{
-                return Err(D::Error::custom("invalid `limit` parameter,should have only two numbers. "))
+            // return Err(D::Error::custom("invalid `limit` parameter,should have only two numbers. "))
+            let values: Vec<&str> = s.split(',').collect();
+            if values.len() != 2 {
+                return Err(D::Error::custom(
+                    "invalid `limit` parameter,should have only two numbers. ",
+                ));
             }
 
-              let num1  = values[0].parse::<u32>().map_err(|e|D::Error::custom("invalid `limit` parameter, should be positive integers "))?;
-              let num2  = values[1].parse::<NonZeroU32>().map_err(|e|D::Error::custom("invalid `limit` parameter, should be positive integers "))?;
+            let num1 = values[0].parse::<u32>().map_err(|e| {
+                D::Error::custom("invalid `limit` parameter, should be positive integers ")
+            })?;
+            let num2 = values[1].parse::<NonZeroU32>().map_err(|e| {
+                D::Error::custom("invalid `limit` parameter, should be positive integers ")
+            })?;
 
             Ok(LimitParam((num1, num2)))
-        },
+        }
         serde_json::Value::Number(n) => {
             if let Some(num) = n.as_u64() {
-                if let Some(num) = NonZeroU32::new(num as u32){
+                if let Some(num) = NonZeroU32::new(num as u32) {
                     Ok(LimitParam((0, num)))
-                }else{
-                    return Err(D::Error::custom("invalid `limit` parameter,should be positive integers. "))
+                } else {
+                    return Err(D::Error::custom(
+                        "invalid `limit` parameter,should be positive integers. ",
+                    ));
                 }
-
             } else {
-                return Err(D::Error::custom("invalid `limit` parameter,should be positive integers. "))
+                return Err(D::Error::custom(
+                    "invalid `limit` parameter,should be positive integers. ",
+                ));
             }
-        },
-        _ =>  return Err(D::Error::custom("invalid `limit` parameter. "))
+        }
+        _ => return Err(D::Error::custom("invalid `limit` parameter. ")),
     }
 }
 
 fn default_limit() -> LimitParam {
-    LimitParam((0,NonZeroU32::new(10).unwrap()))
+    LimitParam((0, NonZeroU32::new(10).unwrap()))
 }
 
-const SYSTEM_FIELDS:[&str;6] = ["id", "cat", "data", "is_deleted", "created","updated"];
+const SYSTEM_FIELDS: [&str; 6] = ["id", "cat", "data", "is_deleted", "created", "updated"];
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 struct UpdateParam {
     id: u32,
-    set: String,
+    set: HashMap<String, Value>,
 }
+
 #[derive(Serialize, Deserialize, Debug)]
 struct DeleteParam {
     id: Option<u32>,
@@ -119,6 +139,10 @@ struct DeleteParam {
 
     #[serde(default)]
     hard_delete: bool,
+}
+#[derive(Serialize, Deserialize, Debug)]
+struct AffectedResp {
+    affected_rows: u64,
 }
 
 fn parse_and_convert_to_json_extract(condition_str: &str) -> String {
@@ -143,8 +167,7 @@ fn parse_and_convert_to_json_extract(condition_str: &str) -> String {
         }
 
         // 检查是否遇到 "AND"（忽略大小写）
-        if (c == 'a' || c == 'A') &&
-            chars.peek() == Some(&'n') || chars.peek() == Some(&'N') {
+        if (c == 'a' || c == 'A') && chars.peek() == Some(&'n') || chars.peek() == Some(&'N') {
             let mut lookahead = String::new();
             lookahead.push(c);
 
@@ -156,9 +179,9 @@ fn parse_and_convert_to_json_extract(condition_str: &str) -> String {
 
                     // 检查是否是独立的 "AND" 词
                     // 前后应该是空格或字符串的开始/结束
-                    let is_and = lookahead.to_lowercase() == "and" &&
-                        (current_part.is_empty() || current_part.ends_with(' ')) &&
-                        (chars.peek().is_none() || chars.peek() == Some(&' '));
+                    let is_and = lookahead.to_lowercase() == "and"
+                        && (current_part.is_empty() || current_part.ends_with(' '))
+                        && (chars.peek().is_none() || chars.peek() == Some(&' '));
 
                     if is_and {
                         // 找到一个 "AND"，处理当前部分并重置
@@ -211,10 +234,9 @@ fn convert_condition(condition: &str) -> String {
 
             if SYSTEM_FIELDS.contains(&key) {
                 return format!("{} {} {}", key, op, value);
-            }else{
+            } else {
                 return format!("json_extract(data, '$.{}') {} {}", key, op, value);
             }
-
         }
     }
 
@@ -294,50 +316,176 @@ pub fn parse_query_with_types(str_params: HashMap<String, String>) -> Result<Val
     Ok(Value::Object(json_map))
 }
 
-async fn all_in_one_api_hex(
+async fn handle_insert(
     s: S,
-    Path((category, action, hex)): Path<(String, String, String)>,
-) -> R<String> {
+    Path((category)): Path<(String)>,
+    Json(val): Json<HashMap<String, Value>>,
+) -> R<Json<Map<String, Value>>> {
     check_category_valid(&category)?;
-    check_action_valid(&action)?;
-    promise!(
-        Regex::new(r"^[a-f0-9A-F]+$")?.is_match(&hex),
-        "invalid `hex` path : {} , no match with : {}",
-        hex,
-        "^[a-f0-9A-F]+$"
-    );
 
-    let bytes = hex::decode(&hex)?;
-    let raw_query_str = String::from_utf8(bytes)?;
-    let params = serde_json::from_str(&raw_query_str)?;
+    promise!(val.len() != 0, "query params cant be empty!");
+    for field in SYSTEM_FIELDS {
+        promise!(
+            !val.contains_key(field),
+            format!("cant use system field `{field}` when insert data.")
+        );
+    }
 
-    Ok(handle_request(s, category, action, params).await?)
+    let obj = insert_data(s, Path(category), serde_json::to_string(&val)?).await?;
+    Ok(Json(obj.to_flat_map()?))
 }
-async fn all_in_one_api_post(
+async fn handle_update(
     s: S,
-    Path((category, action)): Path<(String, String)>,
-    body: String,
-) -> R<String> {
+    Path((category)): Path<(String)>,
+    Json(UpdateParam { id, set }): Json<UpdateParam>,
+) -> R<Json<AffectedResp>> {
     check_category_valid(&category)?;
-    check_action_valid(&action)?;
 
-    // 获取查询字符串
-    let params = serde_json::from_str(&body)?;
-
-    Ok(handle_request(s, category, action, params).await?)
+    let r = GeneralData::update_with_json_patch(&s.db, id, serde_json::to_string(&set)?).await?;
+    Ok(Json(AffectedResp {
+        affected_rows: r.rows_affected(),
+    }))
 }
-async fn all_in_one_api(
+
+async fn handle_delete(
     s: S,
-    Path((category, action)): Path<(String, String)>,
-    Query(mut params): Query<HashMap<String, String>>,
+    Path((category)): Path<(String)>,
+    Query(DeleteParam {
+        id,
+        delete_all,
+        hard_delete,
+    }): Query<DeleteParam>,
+) -> R<Json<AffectedResp>> {
+    check_category_valid(&category)?;
+
+    let affected_rows = if delete_all {
+        if hard_delete {
+            let r = GeneralData::delete_by_cat(&category, &s.db).await?;
+            r.rows_affected()
+        } else {
+            let r = GeneralData::soft_delete_by_cat(&category, &s.db).await?;
+            r.rows_affected()
+        }
+    } else {
+        promise!(id.is_some(), "id/delete_all cant be empty!");
+        let id = id.unwrap();
+        if hard_delete {
+            let r = GeneralData::delete(id, &s.db).await?;
+            r.rows_affected()
+        } else {
+            let r = GeneralData::soft_delete(id, &s.db).await?;
+            r.rows_affected()
+        }
+    };
+
+    Ok(Json(AffectedResp { affected_rows }))
+}
+async fn handle_get(
+    s: S,
+    Path((category)): Path<(String)>,
+    Query(query_param): Query<GetParam>,
+) -> R<Json<Map<String, Value>>> {
+    check_category_valid(&category)?;
+
+    let select_fields = if let Some(select) = &query_param.select {
+        select
+    } else {
+        "*"
+    };
+
+    let r = GeneralData::query_by_id_with_cat_select(select_fields, query_param.id, &category, &s.db).await?;
+    promise!(r.len() == 1, "data not found for id : {}", query_param.id);
+
+    if !query_param.slim {
+        let new_map = r[0].to_flat_map()?;
+        Ok(Json(new_map))
+    } else {
+        Ok(Json(
+            serde_json::from_str::<Value>(&r[0].data)?
+                .as_object()
+                .context("not json obj")?
+                .clone(),
+        ))
+    }
+}
+async fn handle_query(
+    s: S,
+    Path((category)): Path<(String)>,
+    Query(query_param): Query<QueryParam>,
+) -> R<Json<Vec<Value>>> {
+    check_category_valid(&category)?;
+
+    let select_fields = if let Some(select) = &query_param.select {
+        select
+    } else {
+        "*"
+    };
+
+    //query list
+
+    let order_by = if let Some(val) = &query_param.order_by {
+        val
+    } else {
+        "id desc"
+    };
+
+    let _where = if let Some(val) = &query_param._where {
+        &parse_and_convert_to_json_extract(val)
+    } else {
+        "1=1"
+    };
+
+    let list = GeneralData::query_composite(
+        select_fields,
+        &category,
+        &query_param.limit.to_string(),
+        _where,
+        query_param.include_deleted,
+        order_by,
+        &s.db,
+    )
+    .await?;
+    if !query_param.slim {
+        let mut new_arr = vec![];
+        for data in &list {
+            new_arr.push(data.to_flat_map()?);
+        }
+        Ok(Json(
+            serde_json::to_value(&new_arr)?
+                .as_array()
+                .context("not map")?
+                .clone(),
+        ))
+    } else {
+        let mut new_arr = vec![];
+        for data in &list {
+            new_arr.push(data.extract_data()?);
+        }
+        Ok(Json(
+            serde_json::to_value(&new_arr)?
+                .as_array()
+                .context("not map")?
+                .clone(),
+        ))
+    }
+}
+async fn handle_count(
+    s: S,
+    Path((category)): Path<(String)>,
+    Query(query_param): Query<CountParam>,
 ) -> R<String> {
     check_category_valid(&category)?;
-    check_action_valid(&action)?;
 
-    // 获取查询字符串
-    let params = parse_query_with_types(params)?;
+    let _where = if let Some(val) = &query_param._where {
+        &parse_and_convert_to_json_extract(val)
+    } else {
+        "1=1"
+    };
 
-    Ok(handle_request(s, category, action, params).await?)
+    let count =
+        GeneralData::query_count_composite(&category, _where, query_param.include_deleted, &s.db)
+            .await?;
+    return Ok(count.to_string());
 }
 
 fn parse_set_string_to_hashmap(input: &str) -> HashMap<String, String> {
@@ -368,113 +516,6 @@ fn parse_set_string_to_hashmap(input: &str) -> HashMap<String, String> {
     result
 }
 
-async fn handle_request(s: S, category: String, action: String, params: Value) -> Result<String> {
-    let mut new_params = HashMap::new();
-    new_params.insert(action.to_string(), params);
-
-    let action_enum: ActionEnum = serde_json::from_value(serde_json::to_value(new_params)?)?;
-    // info!("action: {:?}", action_enum);
-
-    match &action_enum {
-        ActionEnum::INSERT(val) => {
-            ensure!(val.len() != 0, "query params cant be empty!");
-            for field in SYSTEM_FIELDS{
-                ensure!(!val.contains_key(field), format!("cant use system field `{field}` when insert data."));
-            }
-
-
-            let obj = insert_data(s, Path(category), serde_json::to_string(val)?).await?;
-            return Ok(serde_json::to_string(&obj.to_flat_map()?)?);
-        }
-        ActionEnum::UPDATE(UpdateParam { set, id: id }) => {
-            check_set_param_valid(&set)?;
-
-            let kv = parse_set_string_to_hashmap(set);
-            let r = GeneralData::update_with_json_patch(&s.db, *id, parse_query_with_types(kv)?).await?;
-            return Ok(r.rows_affected().to_string().to_string());
-        }
-        ActionEnum::QUERY(query_param) => {
-            let select_fields =  if let Some(select)= &query_param.select{
-                select
-            }else {
-                "*"
-            };
-            if let Some(id) = query_param.id {
-                let r = GeneralData::query_by_id_with_cat_select(select_fields,id,&category, &s.db).await?;
-                ensure!(r.len() == 1, "data not found for id : {}", id);
-
-                if !query_param.slim {
-                    let new_map = r[0].to_flat_map()?;
-                    return Ok(serde_json::to_string(&new_map)?);
-                } else {
-                    return Ok(r[0].data.to_string());
-                }
-            } else {
-                //query list 
-                
-                let order_by =  if let Some(val)= &query_param.order_by{
-                    val
-                }else {
-                    "id desc"
-                };
-                
-                let _where =  if let Some(val)= &query_param._where{
-                    &parse_and_convert_to_json_extract(val)
-                }else {
-                    "1=1"
-                };
-                
-                if query_param.count{
-                    let count = GeneralData::query_count_composite(&category,_where, query_param.include_deleted,order_by, &s.db).await?;
-                    return Ok(count.to_string());
-
-                }else{
-                    let list = GeneralData::query_composite(select_fields,&category,&query_param.limit.to_string(),_where,query_param.include_deleted,order_by, &s.db).await?;
-                    if !query_param.slim {
-                        let mut new_arr = vec![];
-                        for data in &list{
-                            new_arr.push(data.to_flat_map()?);
-                        }
-                        return Ok(serde_json::to_string(&new_arr)?);
-                    } else {
-                        let mut new_arr = vec![];
-                        for data in &list{
-                            new_arr.push(data.extract_data()?);
-                        }
-                        return Ok(serde_json::to_string(&new_arr)?);
-                    }
-                }
-
-            }
-        }
-        ActionEnum::DELETE(DeleteParam { id,delete_all, hard_delete }) => {
-            if *delete_all{
-                return if *hard_delete {
-                    let r = GeneralData::delete_by_cat(&category, &s.db).await?;
-                    Ok(r.rows_affected().to_string().to_string())
-                } else {
-                    let r = GeneralData::soft_delete_by_cat(&category,&s.db).await?;
-                    Ok(r.rows_affected().to_string().to_string())
-                }
-
-            }else{
-                ensure!(id.is_some(), "id/delete_all cant be empty!");
-                let id = id.unwrap();
-                return if *hard_delete {
-                    let r = GeneralData::delete(id, &s.db).await?;
-                    Ok(r.rows_affected().to_string().to_string())
-                } else {
-                    let r = GeneralData::soft_delete(id, &s.db).await?;
-                    Ok(r.rows_affected().to_string().to_string())
-                }
-            }
-
-        }
-    }
-
-    Ok(serde_json::to_string(&action_enum)?)
-}
-
 async fn insert_data(s: S, Path(cat): Path<String>, body: String) -> Result<GeneralData> {
     //validation
     // ensure!(!vec!["id", "data","get","update","delete","list", "query"].contains(&cat.as_str()), "please use another category name ! ");
@@ -493,7 +534,6 @@ async fn insert_data(s: S, Path(cat): Path<String>, body: String) -> Result<Gene
     Ok(data)
 }
 
-
 async fn after_update_data(data: &GeneralData) -> Result<()> {
     //save *.lua page
     if data.cat.eq_ignore_ascii_case("pages") {
@@ -511,4 +551,3 @@ async fn after_update_data(data: &GeneralData) -> Result<()> {
     }
     Ok(())
 }
-
