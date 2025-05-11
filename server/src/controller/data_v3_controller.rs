@@ -23,12 +23,12 @@ use std::num::NonZeroU32;
 use tracing::info;
 
 method_router!(
-    get : "/api/v2/data/:category/get"-> handle_get,
-    get : "/api/v2/data/:category/query"-> handle_query,
-    get : "/api/v2/data/:category/count"-> handle_count,
-    post : "/api/v2/data/:category/delete"-> handle_delete,
-    post : "/api/v2/data/:category/insert"-> handle_insert,
-    post : "/api/v2/data/:category/update"-> handle_update,
+    get : "/api/v3/data/:category/get"-> handle_get,
+    get : "/api/v3/data/:category/query"-> handle_query,
+    get : "/api/v3/data/:category/count"-> handle_count,
+    post : "/api/v3/data/:category/delete"-> handle_delete,
+    post : "/api/v3/data/:category/insert"-> handle_insert,
+    post : "/api/v3/data/:category/update"-> handle_update,
 );
 
 #[derive(Serialize, Deserialize, Debug)]
