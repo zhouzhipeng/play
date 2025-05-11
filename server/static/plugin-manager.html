@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plugin Management</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #09f;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .modal {
+            transition: opacity 0.25s ease;
+        }
+
+        body.modal-active {
+            overflow-x: hidden;
+            overflow-y: visible !important;
+        }
+
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            max-width: 400px;
+            min-width: 200px;
+            width: auto;
+            background-color: #555;
+            color: #fff;
+            text-align: left;
+            border-radius: 6px;
+            padding: 8px;
+            position: absolute;
+            z-index: 10;
+            bottom: 125%;
+            left: 0;
+            opacity: 0;
+            transition: opacity 0.3s;
+            word-break: break-all;
+            white-space: normal;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .actions-cell {
+            position: sticky;
+            right: 0;
+            background-color: white;
+            z-index: 1;
+            box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans leading-normal tracking-normal">
+<div class="flex flex-col min-h-screen">
+    <header class="bg-white shadow">
+        <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+            <h1 class="text-3xl font-bold text-gray-900">Plugin Management</h1>
+        </div>
+    </header>
+
+    <main class="flex-grow">
+        <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+            <!-- Loading Indicator -->
+            <div id="loading" class="flex justify-center items-center my-10 hidden">
+                <div class="spinner"></div>
+                <span class="ml-3 text-gray-700">Loading...</span>
+            </div>
+
+            <!-- Alert Messages -->
+            <div id="alert" class="hidden mb-4"></div>
+
+            <!-- Add New Plugin Button -->
+            <div class="mb-5">
+                <button id="addPluginBtn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                    <i class="fas fa-plus mr-2"></i>Add New Plugin
+                </button>
+            </div>
+
+            <!-- Plugins Table -->
+            <div class="bg-white shadow overflow-hidden sm:rounded-lg mb-5 overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200 table-fixed">
+                    <thead class="bg-gray-50">
+                    <tr>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-14">ID</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Name</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Proxy Domain</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">URL Prefix</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">File Path</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Status</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">Type</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">Config</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">Process</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28 sticky right-0 bg-gray-50">Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody id="pluginTableBody" class="bg-white divide-y divide-gray-200">
+                    <!-- Plugin rows will be inserted here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- No Plugins Message -->
+            <div id="noPluginsMessage" class="hidden bg-white shadow overflow-hidden sm:rounded-lg p-6 text-center text-gray-500">
+                No plugins found. Click "Add New Plugin" to create one.
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-white">
+        <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
+            <p class="text-center text-gray-400 text-sm">Plugin Management Interface</p>
+        </div>
+    </footer>
+</div>
+
+<!-- Add/Edit Plugin Modal -->
+<div id="pluginModal" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-50">
+    <div class="modal-overlay absolute w-full h-full bg-gray-900 opacity-50"></div>
+
+    <div class="modal-container bg-white w-11/12 md:max-w-md mx-auto rounded shadow-lg z-50 overflow-y-auto">
+        <div class="modal-content py-4 text-left px-6">
+            <!-- Modal Header -->
+            <div class="flex justify-between items-center pb-3 border-b">
+                <p id="modalTitle" class="text-2xl font-bold">Add New Plugin</p>
+                <button id="closeModal" class="modal-close cursor-pointer z-50">
+                    <i class="fas fa-times text-gray-500 hover:text-gray-800"></i>
+                </button>
+            </div>
+
+            <!-- Modal Body -->
+            <form id="pluginForm" class="mt-4">
+                <input type="hidden" id="isEditMode" value="false">
+                <input type="hidden" id="editId" value="">
+
+                <div class="mb-4">
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="name">
+                        Plugin Name*
+                    </label>
+                    <input id="name" type="text" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="proxyDomain">
+                        Proxy Domain
+                    </label>
+                    <input id="proxyDomain" type="text" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="urlPrefix">
+                        URL Prefix
+                    </label>
+                    <input id="urlPrefix" type="text" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="filePath">
+                        File Path*
+                    </label>
+                    <input id="filePath" type="text" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div class="flex items-center">
+                        <input id="needConfigFile" type="checkbox" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label class="ml-2 block text-gray-700 text-sm font-bold" for="needConfigFile">
+                            Need Config File
+                        </label>
+                    </div>
+
+                    <div class="flex items-center">
+                        <input id="isServer" type="checkbox" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label class="ml-2 block text-gray-700 text-sm font-bold" for="isServer">
+                            Is Server
+                        </label>
+                    </div>
+
+                    <div class="flex items-center">
+                        <input id="createProcess" type="checkbox" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label class="ml-2 block text-gray-700 text-sm font-bold" for="createProcess">
+                            Create Process
+                        </label>
+                    </div>
+
+                    <div class="flex items-center">
+                        <input id="disable" type="checkbox" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label class="ml-2 block text-gray-700 text-sm font-bold" for="disable">
+                            Disabled
+                        </label>
+                    </div>
+                </div>
+
+                <div class="flex justify-end pt-4 border-t">
+                    <button id="cancelBtn" type="button" class="px-4 bg-gray-200 p-3 rounded-lg text-gray-600 hover:bg-gray-300 mr-2">Cancel</button>
+                    <button id="savePluginBtn" type="submit" class="px-4 bg-blue-500 p-3 rounded-lg text-white hover:bg-blue-700">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-50">
+    <div class="modal-overlay absolute w-full h-full bg-gray-900 opacity-50"></div>
+
+    <div class="modal-container bg-white w-11/12 md:max-w-md mx-auto rounded shadow-lg z-50 overflow-y-auto">
+        <div class="modal-content py-4 text-left px-6">
+            <!-- Modal Header -->
+            <div class="flex justify-between items-center pb-3 border-b">
+                <p class="text-2xl font-bold text-red-500">Confirm Delete</p>
+                <button id="closeDeleteModal" class="modal-close cursor-pointer z-50">
+                    <i class="fas fa-times text-gray-500 hover:text-gray-800"></i>
+                </button>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="my-4">
+                <p class="text-gray-700">Are you sure you want to delete the plugin <span id="deletePluginName" class="font-bold"></span>?</p>
+                <p class="text-gray-700 mt-2">This action cannot be undone.</p>
+            </div>
+
+            <div class="flex justify-end pt-4 border-t">
+                <button id="cancelDeleteBtn" class="px-4 bg-gray-200 p-3 rounded-lg text-gray-600 hover:bg-gray-300 mr-2">Cancel</button>
+                <button id="confirmDeleteBtn" class="px-4 bg-red-500 p-3 rounded-lg text-white hover:bg-red-700">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Plugin Information View Modal -->
+<div id="viewModal" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-50">
+    <div class="modal-overlay absolute w-full h-full bg-gray-900 opacity-50"></div>
+
+    <div class="modal-container bg-white w-11/12 md:max-w-md mx-auto rounded shadow-lg z-50 overflow-y-auto">
+        <div class="modal-content py-3 text-left px-4">
+            <!-- Modal Header -->
+            <div class="flex justify-between items-center pb-2 border-b">
+                <p id="viewTitle" class="text-xl font-bold">Plugin Details</p>
+                <button id="closeViewModal" class="modal-close cursor-pointer z-50">
+                    <i class="fas fa-times text-gray-500 hover:text-gray-800"></i>
+                </button>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="my-2">
+                <dl class="grid grid-cols-2 gap-x-3 gap-y-2">
+                    <div class="col-span-1">
+                        <dt class="text-xs font-medium text-gray-500">Name</dt>
+                        <dd id="viewName" class="text-sm text-gray-900"></dd>
+                    </div>
+                    <div class="col-span-1">
+                        <dt class="text-xs font-medium text-gray-500">ID</dt>
+                        <dd id="viewId" class="text-sm text-gray-900"></dd>
+                    </div>
+                    <div class="col-span-1">
+                        <dt class="text-xs font-medium text-gray-500">Proxy Domain</dt>
+                        <dd id="viewProxyDomain" class="text-sm text-gray-900"></dd>
+                    </div>
+                    <div class="col-span-1">
+                        <dt class="text-xs font-medium text-gray-500">URL Prefix</dt>
+                        <dd id="viewUrlPrefix" class="text-sm text-gray-900"></dd>
+                    </div>
+                    <div class="col-span-2">
+                        <dt class="text-xs font-medium text-gray-500">File Path</dt>
+                        <dd id="viewFilePath" class="text-sm text-gray-900 break-all"></dd>
+                    </div>
+                    <div class="col-span-1">
+                        <dt class="text-xs font-medium text-gray-500">Status</dt>
+                        <dd id="viewStatus" class="text-sm text-gray-900"></dd>
+                    </div>
+                    <div class="col-span-1">
+                        <dt class="text-xs font-medium text-gray-500">Type</dt>
+                        <dd id="viewType" class="text-sm text-gray-900"></dd>
+                    </div>
+                    <div class="col-span-1">
+                        <dt class="text-xs font-medium text-gray-500">Need Config File</dt>
+                        <dd id="viewNeedConfigFile" class="text-sm text-gray-900"></dd>
+                    </div>
+                    <div class="col-span-1">
+                        <dt class="text-xs font-medium text-gray-500">Create Process</dt>
+                        <dd id="viewCreateProcess" class="text-sm text-gray-900"></dd>
+                    </div>
+                    <div class="col-span-1">
+                        <dt class="text-xs font-medium text-gray-500">Created</dt>
+                        <dd id="viewCreated" class="text-sm text-gray-900"></dd>
+                    </div>
+                    <div class="col-span-1">
+                        <dt class="text-xs font-medium text-gray-500">Updated</dt>
+                        <dd id="viewUpdated" class="text-sm text-gray-900"></dd>
+                    </div>
+                </dl>
+            </div>
+
+            <div class="flex justify-end pt-2 border-t">
+                <button id="closeViewBtn" class="px-4 bg-gray-200 p-2 rounded-lg text-gray-600 hover:bg-gray-300">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // API Base URL
+    const API_BASE_URL = '/api/v3/data';
+
+    // DOM Elements
+    const elements = {
+        loading: document.getElementById('loading'),
+        alert: document.getElementById('alert'),
+        pluginTableBody: document.getElementById('pluginTableBody'),
+        noPluginsMessage: document.getElementById('noPluginsMessage'),
+        addPluginBtn: document.getElementById('addPluginBtn'),
+        pluginModal: document.getElementById('pluginModal'),
+        modalTitle: document.getElementById('modalTitle'),
+        pluginForm: document.getElementById('pluginForm'),
+        isEditMode: document.getElementById('isEditMode'),
+        editId: document.getElementById('editId'),
+        closeModal: document.getElementById('closeModal'),
+        cancelBtn: document.getElementById('cancelBtn'),
+        deleteModal: document.getElementById('deleteModal'),
+        deletePluginName: document.getElementById('deletePluginName'),
+        closeDeleteModal: document.getElementById('closeDeleteModal'),
+        cancelDeleteBtn: document.getElementById('cancelDeleteBtn'),
+        confirmDeleteBtn: document.getElementById('confirmDeleteBtn'),
+        viewModal: document.getElementById('viewModal'),
+        closeViewModal: document.getElementById('closeViewModal'),
+        closeViewBtn: document.getElementById('closeViewBtn'),
+        editFromViewBtn: null,
+        formFields: {
+            name: document.getElementById('name'),
+            proxyDomain: document.getElementById('proxyDomain'),
+            urlPrefix: document.getElementById('urlPrefix'),
+            filePath: document.getElementById('filePath'),
+            needConfigFile: document.getElementById('needConfigFile'),
+            isServer: document.getElementById('isServer'),
+            disable: document.getElementById('disable'),
+            createProcess: document.getElementById('createProcess')
+        }
+    };
+
+    // Add viewFields after DOM is loaded to ensure elements exist
+    document.addEventListener('DOMContentLoaded', () => {
+        // This code was moved directly into the init function
+    });
+
+    // State
+    let plugins = [];
+    let pluginToDelete = null;
+    let currentViewedPluginId = null;
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', init);
+
+    function init() {
+        bindEventListeners();
+        fetchPlugins();
+
+        // Initialize viewFields
+        elements.viewFields = {
+            id: document.getElementById('viewId'),
+            name: document.getElementById('viewName'),
+            proxyDomain: document.getElementById('viewProxyDomain'),
+            urlPrefix: document.getElementById('viewUrlPrefix'),
+            filePath: document.getElementById('viewFilePath'),
+            status: document.getElementById('viewStatus'),
+            type: document.getElementById('viewType'),
+            needConfigFile: document.getElementById('viewNeedConfigFile'),
+            createProcess: document.getElementById('viewCreateProcess'),
+            created: document.getElementById('viewCreated'),
+            updated: document.getElementById('viewUpdated')
+        };
+    }
+
+    function bindEventListeners() {
+        // Add Plugin Button
+        elements.addPluginBtn.addEventListener('click', openAddPluginModal);
+
+        // Edit Plugin Modal Close Buttons
+        elements.closeModal.addEventListener('click', closePluginModal);
+        elements.cancelBtn.addEventListener('click', closePluginModal);
+
+        // Delete Modal Close Buttons
+        elements.closeDeleteModal.addEventListener('click', closeDeleteModal);
+        elements.cancelDeleteBtn.addEventListener('click', closeDeleteModal);
+
+        // View Modal Close Buttons
+        elements.closeViewModal.addEventListener('click', closeViewModal);
+        elements.closeViewBtn.addEventListener('click', closeViewModal);
+
+        // Edit from View Modal Button
+        elements.editFromViewBtn = null; // Removed
+
+        // Form Submit
+        elements.pluginForm.addEventListener('submit', handleFormSubmit);
+
+        // Delete Confirmation
+        elements.confirmDeleteBtn.addEventListener('click', confirmDelete);
+    }
+
+    // API Functions
+    async function fetchPlugins() {
+        showLoading(true);
+        try {
+            const response = await fetch(`${API_BASE_URL}/plugins/query`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            plugins = Array.isArray(data) ? data : [data];
+            renderPlugins();
+            showLoading(false);
+        } catch (error) {
+            console.error('Error fetching plugins:', error);
+            showAlert('Error loading plugins. Please try again.', 'error');
+            showLoading(false);
+        }
+    }
+
+    async function createPlugin(pluginData) {
+        showLoading(true);
+        try {
+            const response = await fetch(`${API_BASE_URL}/plugins/insert`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(pluginData)
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            await fetchPlugins();
+            showAlert(`Plugin "${pluginData.name}" created successfully!`, 'success');
+            closePluginModal();
+        } catch (error) {
+            console.error('Error creating plugin:', error);
+            showAlert('Error creating plugin. Please try again.', 'error');
+            showLoading(false);
+        }
+    }
+
+    async function updatePlugin(id, pluginData) {
+        showLoading(true);
+        try {
+            // In V3 API, set is now an object instead of a string
+            const payload = {
+                id: Number(id),
+                set: pluginData // Direct object instead of string
+            };
+
+            const response = await fetch(`${API_BASE_URL}/plugins/update`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            await fetchPlugins();
+            showAlert(`Plugin updated successfully!`, 'success');
+            closePluginModal();
+        } catch (error) {
+            console.error('Error updating plugin:', error);
+            showAlert('Error updating plugin. Please try again.', 'error');
+            showLoading(false);
+        }
+    }
+
+    async function deletePlugin(id) {
+        showLoading(true);
+        try {
+            // V3 API uses POST for delete with a request body
+            const payload = {
+                id: Number(id),
+                hard_delete: true
+            };
+
+            const response = await fetch(`${API_BASE_URL}/plugins/delete`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            await fetchPlugins();
+            showAlert(`Plugin deleted successfully!`, 'success');
+            closeDeleteModal();
+        } catch (error) {
+            console.error('Error deleting plugin:', error);
+            showAlert('Error deleting plugin. Please try again.', 'error');
+            showLoading(false);
+        }
+    }
+
+    async function togglePluginStatus(id, currentState) {
+        showLoading(true);
+        try {
+            const newState = !currentState;
+            const payload = {
+                id: Number(id),
+                set: {
+                    disable: newState
+                }
+            };
+
+            const response = await fetch(`${API_BASE_URL}/plugins/update`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            await fetchPlugins();
+            showAlert(`Plugin status toggled successfully!`, 'success');
+        } catch (error) {
+            console.error('Error toggling plugin status:', error);
+            showAlert('Error toggling plugin status. Please try again.', 'error');
+            showLoading(false);
+        }
+    }
+
+    // UI Functions
+    function renderPlugins() {
+        const tableBody = elements.pluginTableBody;
+        tableBody.innerHTML = '';
+
+        if (plugins.length === 0) {
+            elements.noPluginsMessage.classList.remove('hidden');
+            return;
+        }
+
+        elements.noPluginsMessage.classList.add('hidden');
+
+        plugins.forEach(plugin => {
+            const row = document.createElement('tr');
+
+            row.innerHTML = `
+                    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${escapeHtml(plugin.id)}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900 overflow-hidden overflow-ellipsis">
+                        <a href="#" class="view-link text-blue-600 hover:text-blue-800 hover:underline" data-id="${escapeHtml(plugin.id)}">
+                            ${escapeHtml(plugin.name)}
+                        </a>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 overflow-hidden overflow-ellipsis" title="${escapeHtml(plugin.proxy_domain || '')}">
+                        ${escapeHtml(plugin.proxy_domain || '-')}
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 overflow-hidden overflow-ellipsis" title="${escapeHtml(plugin.url_prefix || '')}">
+                        ${escapeHtml(plugin.url_prefix || '-')}
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 tooltip">
+                        <span class="truncate block max-w-full">${escapeHtml(plugin.file_path || '-')}</span>
+                        <span class="tooltiptext">${escapeHtml(plugin.file_path || '-')}</span>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${plugin.disable ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}">
+                            ${plugin.disable ? 'Disabled' : 'Enabled'}
+                        </span>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                        ${plugin.is_server ? '<span class="text-indigo-600">Server</span>' : '<span>Client</span>'}
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-center text-sm text-gray-500">
+                        ${plugin.need_config_file ? '<i class="fas fa-check text-green-500"></i>' : '<i class="fas fa-times text-red-500"></i>'}
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-center text-sm text-gray-500">
+                        ${plugin.create_process ? '<i class="fas fa-check text-green-500"></i>' : '<i class="fas fa-times text-red-500"></i>'}
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-right text-sm font-medium actions-cell">
+                        <div class="flex justify-end">
+                            <button class="toggle-btn text-indigo-600 hover:text-indigo-900 mr-2" data-id="${escapeHtml(plugin.id)}" data-disabled="${plugin.disable}" title="${plugin.disable ? 'Enable' : 'Disable'}">
+                                <i class="fas ${plugin.disable ? 'fa-toggle-off' : 'fa-toggle-on'}"></i>
+                            </button>
+                            <button class="edit-btn text-blue-600 hover:text-blue-900 mr-2" data-id="${escapeHtml(plugin.id)}" title="Edit">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="delete-btn text-red-600 hover:text-red-900" data-id="${escapeHtml(plugin.id)}" data-name="${escapeHtml(plugin.name)}" title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                `;
+
+            tableBody.appendChild(row);
+        });
+
+        // Add event listeners to buttons and links
+        document.querySelectorAll('.view-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const id = link.getAttribute('data-id');
+                openViewPluginModal(id);
+            });
+        });
+
+        document.querySelectorAll('.toggle-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.getAttribute('data-id');
+                const isDisabled = btn.getAttribute('data-disabled') === 'true';
+                togglePluginStatus(id, isDisabled);
+            });
+        });
+
+        document.querySelectorAll('.edit-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.getAttribute('data-id');
+                openEditPluginModal(id);
+            });
+        });
+
+        document.querySelectorAll('.delete-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.getAttribute('data-id');
+                const name = btn.getAttribute('data-name');
+                openDeleteConfirmation(id, name);
+            });
+        });
+    }
+
+    function showLoading(isLoading) {
+        if (isLoading) {
+            elements.loading.classList.remove('hidden');
+        } else {
+            elements.loading.classList.add('hidden');
+        }
+    }
+
+    function showAlert(message, type = 'info') {
+        const alertElement = elements.alert;
+        alertElement.innerHTML = '';
+
+        let alertClass = 'bg-blue-100 border-blue-500 text-blue-700'; // info
+        let icon = 'fa-info-circle';
+
+        if (type === 'success') {
+            alertClass = 'bg-green-100 border-green-500 text-green-700';
+            icon = 'fa-check-circle';
+        } else if (type === 'error') {
+            alertClass = 'bg-red-100 border-red-500 text-red-700';
+            icon = 'fa-exclamation-circle';
+        } else if (type === 'warning') {
+            alertClass = 'bg-yellow-100 border-yellow-500 text-yellow-700';
+            icon = 'fa-exclamation-triangle';
+        }
+
+        alertElement.innerHTML = `
+                <div class="border-l-4 p-4 ${alertClass}" role="alert">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <i class="fas ${icon}"></i>
+                        </div>
+                        <div class="ml-3">
+                            <p>${escapeHtml(message)}</p>
+                        </div>
+                        <div class="ml-auto pl-3">
+                            <div class="-mx-1.5 -my-1.5">
+                                <button type="button" id="closeAlert" class="inline-flex bg-${type === 'info' ? 'blue' : type === 'success' ? 'green' : type === 'error' ? 'red' : 'yellow'}-100 rounded-md p-1.5 text-${type === 'info' ? 'blue' : type === 'success' ? 'green' : type === 'error' ? 'red' : 'yellow'}-500 hover:bg-${type === 'info' ? 'blue' : type === 'success' ? 'green' : type === 'error' ? 'red' : 'yellow'}-200 focus:outline-none">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+        alertElement.classList.remove('hidden');
+
+        // Close button
+        document.getElementById('closeAlert').addEventListener('click', () => {
+            alertElement.classList.add('hidden');
+        });
+
+        // Auto close after 5 seconds
+        setTimeout(() => {
+            alertElement.classList.add('hidden');
+        }, 5000);
+    }
+
+    function openAddPluginModal() {
+        elements.modalTitle.textContent = 'Add New Plugin';
+        elements.isEditMode.value = 'false';
+        elements.editId.value = '';
+        resetForm();
+
+        elements.pluginModal.classList.remove('opacity-0', 'pointer-events-none');
+        document.body.classList.add('modal-active');
+    }
+
+    function openEditPluginModal(id) {
+        showLoading(true);
+
+        // In v3, fetch the plugin data from the server using the get endpoint
+        fetch(`${API_BASE_URL}/plugins/get?id=${Number(id)}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(plugin => {
+                elements.modalTitle.textContent = 'Edit Plugin';
+                elements.isEditMode.value = 'true';
+                elements.editId.value = id;
+
+                // Fill form fields
+                elements.formFields.name.value = plugin.name || '';
+                elements.formFields.proxyDomain.value = plugin.proxy_domain || '';
+                elements.formFields.urlPrefix.value = plugin.url_prefix || '';
+                elements.formFields.filePath.value = plugin.file_path || '';
+                elements.formFields.needConfigFile.checked = !!plugin.need_config_file;
+                elements.formFields.isServer.checked = !!plugin.is_server;
+                elements.formFields.disable.checked = !!plugin.disable;
+                elements.formFields.createProcess.checked = !!plugin.create_process;
+
+                elements.pluginModal.classList.remove('opacity-0', 'pointer-events-none');
+                document.body.classList.add('modal-active');
+                showLoading(false);
+            })
+            .catch(error => {
+                console.error('Error fetching plugin for edit:', error);
+                showAlert('Error loading plugin data. Please try again.', 'error');
+                showLoading(false);
+            });
+    }
+
+    function openViewPluginModal(id) {
+        const plugin = plugins.find(p => p.id == id);
+        if (!plugin) return;
+
+        currentViewedPluginId = id;
+
+        // Fill view fields
+        elements.viewFields.id.textContent = plugin.id || '-';
+        elements.viewFields.name.textContent = plugin.name || '-';
+        elements.viewFields.proxyDomain.textContent = plugin.proxy_domain || '-';
+        elements.viewFields.urlPrefix.textContent = plugin.url_prefix || '-';
+        elements.viewFields.filePath.textContent = plugin.file_path || '-';
+        elements.viewFields.status.textContent = plugin.disable ? 'Disabled' : 'Enabled';
+        elements.viewFields.status.innerHTML = `
+                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${plugin.disable ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}">
+                    ${plugin.disable ? 'Disabled' : 'Enabled'}
+                </span>
+            `;
+        elements.viewFields.type.textContent = plugin.is_server ? 'Server' : 'Client';
+        elements.viewFields.needConfigFile.textContent = plugin.need_config_file ? 'Yes' : 'No';
+        elements.viewFields.createProcess.textContent = plugin.create_process ? 'Yes' : 'No';
+        elements.viewFields.created.textContent = plugin.created ? new Date(plugin.created).toLocaleString() : '-';
+        elements.viewFields.updated.textContent = plugin.updated ? new Date(plugin.updated).toLocaleString() : '-';
+
+        elements.viewModal.classList.remove('opacity-0', 'pointer-events-none');
+        document.body.classList.add('modal-active');
+    }
+
+    function openDeleteConfirmation(id, name) {
+        pluginToDelete = id;
+        elements.deletePluginName.textContent = name;
+
+        elements.deleteModal.classList.remove('opacity-0', 'pointer-events-none');
+        document.body.classList.add('modal-active');
+    }
+
+    function closePluginModal() {
+        elements.pluginModal.classList.add('opacity-0', 'pointer-events-none');
+        document.body.classList.remove('modal-active');
+        resetForm();
+    }
+
+    function closeDeleteModal() {
+        elements.deleteModal.classList.add('opacity-0', 'pointer-events-none');
+        document.body.classList.remove('modal-active');
+        pluginToDelete = null;
+    }
+
+    function closeViewModal() {
+        elements.viewModal.classList.add('opacity-0', 'pointer-events-none');
+        document.body.classList.remove('modal-active');
+        currentViewedPluginId = null;
+    }
+
+    function resetForm() {
+        elements.pluginForm.reset();
+    }
+
+    function handleFormSubmit(event) {
+        event.preventDefault();
+
+        const pluginData = {
+            name: elements.formFields.name.value.trim(),
+            proxy_domain: elements.formFields.proxyDomain.value.trim(),
+            url_prefix: elements.formFields.urlPrefix.value.trim(),
+            file_path: elements.formFields.filePath.value.trim(),
+            need_config_file: elements.formFields.needConfigFile.checked,
+            is_server: elements.formFields.isServer.checked,
+            disable: elements.formFields.disable.checked,
+            create_process: elements.formFields.createProcess.checked
+        };
+
+        if (!pluginData.name || !pluginData.file_path) {
+            showAlert('Plugin name and file path are required!', 'error');
+            return;
+        }
+
+        const isEditMode = elements.isEditMode.value === 'true';
+
+        if (isEditMode) {
+            const id = elements.editId.value;
+            updatePlugin(id, pluginData);
+        } else {
+            createPlugin(pluginData);
+        }
+    }
+
+    function confirmDelete() {
+        if (pluginToDelete) {
+            deletePlugin(pluginToDelete);
+        }
+    }
+
+    // Helper Functions
+    function escapeHtml(unsafe) {
+        if (unsafe === null || unsafe === undefined) return '';
+        return unsafe
+            .toString()
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+</script>
+</body>
+</html>

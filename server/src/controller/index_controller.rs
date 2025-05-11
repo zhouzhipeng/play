@@ -56,6 +56,9 @@ async fn root(s: S) -> HTML {
                     li {
                         a { href: "/static/page-editor.html", "Page Editor" }
                     }
+                    li {
+                        a { href: "/static/plugin-manager.html", "Plugin Manager" }
+                    }
                 }
                 h2 { "Short Links" }
                 ul {
