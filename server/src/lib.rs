@@ -378,12 +378,14 @@ impl IntoResponse for AppError {
 
         let error = self.0;
 
-        error!("server error: {}", error);
+        let error_msg = format!("Server Error: {:?}", error);
+
+        error!("server error: {}", error_msg);
 
 
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Server Error: {}", error),
+            error_msg,
         )
             .into_response()
     }
