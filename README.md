@@ -16,8 +16,8 @@ curl -sSL https://raw.githubusercontent.com/zhouzhipeng/play/main/scripts/instal
 [plugin-dev.md](docs/plugin-dev.md)
 
 
-## general data api v2
-* [English Doc](docs/api-v2-doc-en.md)
-* [中文文档](docs/api-v2-doc-cn.md)
+## general data api v3
+* [English Doc](docs/api-v3-doc-en.md)
+* [中文文档](docs/api-v3-doc-cn.md)
 
 

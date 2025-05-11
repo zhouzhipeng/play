@@ -7,13 +7,14 @@ pub mod shortlink_controller;
 mod job_controller;
 
 
-mod general_data_controller;
+mod data_v1_controller;
 pub mod pages_controller;
 mod shell_controller;
 pub mod files_controller;
 pub mod cache_controller;
 mod test_controller;
 pub mod plugin_controller;
+mod data_v3_controller;
 mod data_v2_controller;
 //PLACEHOLDER:CONTROLLER_MOD
 
@@ -29,13 +30,14 @@ crate::register_routers!(
         function_controller,
         admin_controller,
         job_controller,
-        general_data_controller,
+        data_v1_controller,
         pages_controller,
         shell_controller,
         files_controller,
         cache_controller,
         test_controller,
         data_v2_controller,
+        data_v3_controller,
 //PLACEHOLDER:CONTROLLER_REGISTER
 
 
