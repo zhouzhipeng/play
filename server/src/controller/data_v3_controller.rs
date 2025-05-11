@@ -131,6 +131,7 @@ struct UpdateParam {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 struct DeleteParam {
     id: Option<u32>,
 
@@ -350,11 +351,11 @@ async fn handle_update(
 async fn handle_delete(
     s: S,
     Path((category)): Path<(String)>,
-    Query(DeleteParam {
+    Json(DeleteParam {
         id,
         delete_all,
         hard_delete,
-    }): Query<DeleteParam>,
+    }): Json<DeleteParam>,
 ) -> R<Json<AffectedResp>> {
     check_category_valid(&category)?;
 
