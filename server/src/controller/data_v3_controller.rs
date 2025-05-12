@@ -254,7 +254,10 @@ fn check_action_valid(action: &str) -> Result<()> {
     );
     Ok(())
 }
+
+
 fn check_category_valid(category: &str) -> Result<()> {
+
     ensure!(
         Regex::new(r"^[a-zA-Z0-9-_]{2,20}$")?.is_match(&category),
         "invalid `category` path : {} , not match with : {}",

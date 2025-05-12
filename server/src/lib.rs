@@ -37,7 +37,7 @@ use play_shared::{current_timestamp, timestamp_to_date_str};
 
 use play_shared::tpl_engine_api::{Template, TemplateData};
 
-use crate::config::Config;
+use crate::config::{Config, PluginConfig};
 use crate::config::init_config;
 use crate::controller::{app_routers, plugin_controller, shortlink_controller};
 use crate::layer::custom_http_layer::http_middleware;
@@ -164,7 +164,7 @@ pub struct AppState {
 }
 
 
-pub async fn init_app_state(config: &Config, use_test_pool: bool) -> Arc<AppState> {
+pub async fn init_app_state(config: &Config, use_test_pool: bool) -> anyhow::Result<Arc<AppState>> {
     let final_test_pool = use_test_pool || config.use_test_pool;
 
     info!("use test pool : {}", final_test_pool);
@@ -187,15 +187,39 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> Arc<AppStat
 
     info!("whitelist : {:?}", auth_config.whitelist);
 
-    let mut fingerprints = GeneralData::query_by_cat_simple(CAT_FINGERPRINT,1000,&inner_app_state.db).await.unwrap().iter().map(|f|f.data.to_string()).collect::<Vec<String>>();
+    let mut fingerprints = GeneralData::query_by_cat_simple(CAT_FINGERPRINT,1000,&inner_app_state.db).await?.iter().map(|f|f.data.to_string()).collect::<Vec<String>>();
     auth_config.fingerprints.append(&mut fingerprints);
+
+    //query plugin data
+    let mut plugin_config_list = &mut inner_app_state.config.plugin_config;
+
+    //remove disabled plugins
+    let mut new_plugin_config_list = vec![];
+    for plugin in plugin_config_list.iter_mut() {
+        if !plugin.disable {
+            new_plugin_config_list.push(plugin.clone());
+        }
+    }
+    plugin_config_list.clear();
+    plugin_config_list.append(&mut new_plugin_config_list);
+
+    let plugin_list = GeneralData::query_by_cat_simple("plugins",1000,&inner_app_state.db).await?;;
+    for data in &plugin_list {
+        let plugin_config = serde_json::from_value::<PluginConfig>(serde_json::from_str(&data.data)?)?;
+        if plugin_config.disable{continue}
+
+        plugin_config_list.push(plugin_config);
+
+    }
+    info!("active plugin_config_list: {:?}", plugin_config_list);
+
 
 
     // Create an instance of the shared state
     let app_state = Arc::new(inner_app_state);
 
 
-    app_state
+    Ok(app_state)
 }
 
 pub async fn start_server(router: Router, app_state: Arc<AppState>) -> anyhow::Result<()> {

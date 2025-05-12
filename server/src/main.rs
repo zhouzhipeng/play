@@ -123,7 +123,7 @@ async fn main()->anyhow::Result<()> {
     let server_port = config.server_port;
 
     //init app_state
-    let app_state = init_app_state(&config, false).await;
+    let app_state = init_app_state(&config, false).await.unwrap();
     info!("app state init ok.");
 
     info!("current path : {}", env!("CARGO_MANIFEST_DIR"));
