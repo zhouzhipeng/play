@@ -2,171 +2,582 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{title}}</title>
     <link rel="stylesheet" href="/static/css/classless.css">
     <link rel="icon" href="/static/icon.png">
-    <link rel=stylesheet href="/static/font-awesome/5.15.1/css/all.min.css">
-    <link rel=stylesheet href="/static/css/floating_nav.css">
+    <link rel="stylesheet" href="/static/font-awesome/5.15.1/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/floating_nav.css">
 
     <style>
-        .upload-container {
-            max-width: 500px;
+        :root {
+            --primary-color: #4361ee;
+            --secondary-color: #3f37c9;
+            --success-color: #4CAF50;
+            --danger-color: #ef476f;
+            --warning-color: #ffd166;
+            --light-color: #f8f9fa;
+            --dark-color: #212529;
+            --gray-color: #6c757d;
+            --border-radius: 8px;
+            --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--dark-color);
+            background-color: #f5f7fb;
             padding: 20px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
+            max-width: 1200px;
+            margin: 0 auto;
         }
+
+        /* 导航样式 */
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid #eaeaea;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--dark-color);
+            font-weight: 500;
+            transition: var(--transition);
+            padding: 0.5rem 1rem;
+            border-radius: var(--border-radius);
+        }
+
+        .nav-links a:hover {
+            background-color: var(--light-color);
+            color: var(--primary-color);
+        }
+
+        /* 主要内容区 */
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2rem;
+        }
+
+        /* 卡片样式 */
+        .card {
+            background-color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card-header {
+            border-bottom: 1px solid #eaeaea;
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--dark-color);
+            margin: 0;
+        }
+
+        /* 表单元素 */
+        textarea, input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: var(--border-radius);
+            font-family: inherit;
+            font-size: 1rem;
+            transition: var(--transition);
+        }
+
+        textarea:focus, input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1);
+        }
+
+        textarea {
+            min-height: 200px;
+            resize: vertical;
+        }
+
+        /* 按钮样式 */
         .btn {
-            display: inline-block;
-            padding: 10px 20px;
-            background-color: #4CAF50;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.675rem 1.25rem;
+            font-size: 1rem;
+            font-weight: 500;
             color: white;
+            background-color: var(--primary-color);
             border: none;
-            border-radius: 4px;
+            border-radius: var(--border-radius);
             cursor: pointer;
-            margin: 10px 0;
+            transition: var(--transition);
+            text-decoration: none;
+            gap: 0.5rem;
         }
+
         .btn:hover {
+            background-color: var(--secondary-color);
+            transform: translateY(-2px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-success {
+            background-color: var(--success-color);
+        }
+
+        .btn-success:hover {
             background-color: #45a049;
         }
+
+        .btn-danger {
+            background-color: var(--danger-color);
+        }
+
+        .btn-danger:hover {
+            background-color: #d64161;
+        }
+
+        .btn-outline {
+            background-color: transparent;
+            color: var(--primary-color);
+            border: 1px solid var(--primary-color);
+        }
+
+        .btn-outline:hover {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
         .btn:disabled {
-            background-color: #cccccc;
+            background-color: var(--gray-color);
             cursor: not-allowed;
+            transform: none;
         }
-        .progress {
-            margin-top: 20px;
-            display: none;
+
+        /* 按钮组 */
+        .btn-group {
+            display: flex;
+            gap: 0.75rem;
+            margin: 1rem 0;
+            flex-wrap: wrap;
         }
-        .error {
-            color: red;
-            margin-top: 10px;
-            display: none;
+
+        /* 文件上传 */
+        .upload-container {
+            width: 100%;
+            padding: 1.5rem;
+            border: 2px dashed #ddd;
+            border-radius: var(--border-radius);
+            text-align: center;
+            transition: var(--transition);
         }
+
+        .upload-container:hover {
+            border-color: var(--primary-color);
+        }
+
         .file-info {
-            margin: 10px 0;
-            color: #666;
+            margin: 1rem 0;
+            color: var(--gray-color);
+            font-size: 0.9rem;
+        }
+
+        .progress {
+            margin-top: 1rem;
+            padding: 0.5rem;
+            background-color: var(--light-color);
+            border-radius: var(--border-radius);
+            text-align: center;
+            display: none;
+        }
+
+        .error {
+            color: var(--danger-color);
+            margin-top: 1rem;
+            padding: 0.5rem;
+            background-color: rgba(239, 71, 111, 0.1);
+            border-radius: var(--border-radius);
+            display: none;
+        }
+
+        /* 日志区域 */
+        .log-container {
+            background-color: var(--dark-color);
+            color: white;
+            border-radius: var(--border-radius);
+            margin-top: 1rem;
+            overflow: hidden;
+        }
+
+        .log-header {
+            background-color: #2c3036;
+            padding: 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        pre {
+            background-color: #2c3036;
+            color: #f8f9fa;
+            padding: 1rem;
+            border-radius: var(--border-radius);
+            overflow-x: auto;
+            white-space: pre-wrap;
+            font-family: 'Consolas', monospace;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        /* 页脚样式 */
+        .footer {
+            margin-top: 3rem;
+            text-align: center;
+            color: var(--gray-color);
+            font-size: 0.9rem;
+            border-top: 1px solid #eaeaea;
+            padding-top: 1.5rem;
+        }
+
+        /* 浮动按钮 */
+        .floating-button {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 3.5rem;
+            height: 3.5rem;
+            border-radius: 50%;
+            background-color: var(--primary-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: var(--box-shadow);
+            transition: var(--transition);
+            z-index: 1000;
+            text-decoration: none;
+        }
+
+        .floating-button:hover {
+            transform: scale(1.1);
+            background-color: var(--secondary-color);
+        }
+
+        .floating-button i {
+            font-size: 1.5rem;
+        }
+
+        /* 提示和通知 */
+        .notification {
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: var(--border-radius);
+            background-color: var(--light-color);
+            border-left: 4px solid var(--primary-color);
+        }
+
+        .notification-success {
+            background-color: rgba(76, 175, 80, 0.1);
+            border-left-color: var(--success-color);
+        }
+
+        .notification-error {
+            background-color: rgba(239, 71, 111, 0.1);
+            border-left-color: var(--danger-color);
+        }
+
+        .notification-warning {
+            background-color: rgba(255, 209, 102, 0.1);
+            border-left-color: var(--warning-color);
+        }
+
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+
+            .btn-group {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+            }
+
+            .navbar {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .floating-button {
+                bottom: 1rem;
+                right: 1rem;
+                width: 3rem;
+                height: 3rem;
+            }
+
+            body {
+                padding: 10px;
+            }
+
+            .card {
+                padding: 1rem;
+            }
         }
     </style>
 </head>
 <body>
-<a href="/" >Home</a>
-<a href="/admin" >Admin</a>
+<!-- 导航栏 -->
+<nav class="navbar">
+    <h1 style = "    margin: 0 0 0 0;">Admin Panel</h1>
+    <div class="nav-links">
+        <a href="/" class="btn btn-outline"><i class="fas fa-home"></i> Home</a>
+        <a href="/admin" class="btn btn-outline"><i class="fas fa-cog"></i> Admin</a>
+    </div>
+</nav>
 
-<!-- 浮动小球按钮 -->
+
+<!-- 主要内容区 -->
+<div class="main-content">
+    <!-- 配置编辑卡片 -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title"><i class="fas fa-edit"></i> Edit Configuration</h2>
+        </div>
+        <p>{{config_path}}</p>
+        <div class="form-group">
+            <textarea id="configText" name="new_content">{{config_content}}</textarea>
+        </div>
+        <div class="btn-group">
+            <button type="button" class="btn btn-success" onclick="saveConfig(configText.value)">
+                <i class="fas fa-save"></i> Save Config
+            </button>
+            <button type="button" class="btn btn-danger" onclick="reboot()">
+                <i class="fas fa-sync"></i> Reboot System
+            </button>
+        </div>
+        <div id="saveResult" class="notification" style="display: none;"></div>
+    </div>
+
+    <!-- 备份和恢复卡片 -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title"><i class="fas fa-database"></i> Backup & Restore</h2>
+        </div>
+
+        <!-- 备份下载部分 -->
+        <div class="form-group">
+            <h3><i class="fas fa-download"></i> Backup System</h3>
+            <p>Download a complete backup of the system configuration.</p>
+            <a href="/admin/backup" download class="btn">
+                <i class="fas fa-download"></i> Download Backup
+            </a>
+        </div>
+
+        <!-- 恢复上传部分 -->
+        <div class="form-group" style="margin-top: 2rem;">
+            <h3><i class="fas fa-upload"></i> Restore System</h3>
+            <p>Upload a backup file to restore the system configuration.</p>
+
+            <div class="upload-container">
+                <form id="uploadForm" onsubmit="return false;">
+                    <input type="file" id="fileInput" accept=".zip" style="display: none;">
+                    <i class="fas fa-cloud-upload-alt" style="font-size: 3rem; color: #ddd; margin-bottom: 1rem;"></i>
+                    <p>Drag and drop backup file here or</p>
+                    <button type="button" class="btn" onclick="document.getElementById('fileInput').click()">
+                        <i class="fas fa-file-upload"></i> Select Backup File
+                    </button>
+                    <div id="fileInfo" class="file-info"></div>
+                    <button type="button" id="uploadBtn" class="btn btn-success" style="display: none;" onclick="uploadFile()">
+                        <i class="fas fa-upload"></i> Restore Now
+                    </button>
+                    <div id="progress" class="progress">
+                        <i class="fas fa-spinner fa-spin"></i> Uploading and restoring...
+                    </div>
+                    <div id="error" class="error"></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 日志查看卡片 -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title"><i class="fas fa-list-alt"></i> System Logs</h2>
+            <button type="button" class="btn" hx-get="/admin/logs" hx-target="#logDiv">
+                <i class="fas fa-sync-alt"></i> Refresh Logs
+            </button>
+        </div>
+
+        <div class="log-container">
+            <pre id="logDiv">Loading logs...</pre>
+        </div>
+    </div>
+</div>
+
+<!-- 页脚 -->
+<footer class="footer">
+    <p>System build time: {{built_time}} (UTC)</p>
+</footer>
+
+<!-- 浮动主页按钮 -->
 <a href="/" id="homeButton" class="floating-button">
     <i class="fas fa-home"></i>
 </a>
 
-
-<h2>Admin operations be careful!</h2>
-<div>
-
-
-    <form>
-        <p>{{config_path}}</p>
-        <label>
-            <textarea id="configText" name="new_content" style="width: 100% ; height: 300px">{{config_content}}</textarea>
-        </label>
-
-        <div>
-            <button type="button" onclick="saveConfig(configText.value)">save config</button>
-            <button type="button" onclick="reboot()">reboot</button>
-            <span id="saveResult"></span>
-        </div>
-        <div>
-            <a href="/admin/backup" download>Backup</a>
-        </div>
-
-
-        <div class="upload-container">
-            <h2>Restore from Backup</h2>
-            <form id="uploadForm" onsubmit="return false;">
-                <input type="file" id="fileInput" accept=".zip" style="display: none;">
-                <button type="button" class="btn" onclick="document.getElementById('fileInput').click()">Select Backup File</button>
-                <div id="fileInfo" class="file-info"></div>
-                <button type="button" id="uploadBtn" class="btn" style="display: none;" onclick="uploadFile()">Upload</button>
-                <div id="progress" class="progress">Uploading...</div>
-                <div id="error" class="error"></div>
-            </form>
-        </div>
-
-
-    </form>
-
-    <form hx-get="/admin/logs" hx-target="#logDiv">
-
-        <pre id="logDiv">
-
-        </pre>
-
-        <button type="submit">load logs</button>
-    </form>
-
-
-
-</div>
-
+<!-- JavaScript部分 -->
 <script>
+    // 保存配置函数
     function saveConfig(val){
-        let data =new URLSearchParams();
+        document.getElementById('saveResult').style.display = 'block';
+        document.getElementById('saveResult').className = 'notification';
+        document.getElementById('saveResult').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving configuration...';
+
+        let data = new URLSearchParams();
         data.append("new_content", val);
-        fetch('/admin/save-config', {method: "POST",body: data, headers: {"Content-Type": "application/x-www-form-urlencoded"}})
+        fetch('/admin/save-config', {
+            method: "POST",
+            body: data,
+            headers: {"Content-Type": "application/x-www-form-urlencoded"}
+        })
             .then(response => {
-                // if (!response.ok) { // If the response status is not 200-299
-                //     throw new Error('Network response was not ok: ' + response.status);
-                // }
                 return response.text();
             })
             .then(data => {
-                // Process your data here
-                saveResult.innerText = data;
+                document.getElementById('saveResult').innerHTML = '<i class="fas fa-check-circle"></i> ' + data;
+                document.getElementById('saveResult').className = 'notification notification-success';
+                setTimeout(() => {
+                    document.getElementById('saveResult').style.display = 'none';
+                }, 3000);
             })
             .catch(error => {
-                console.log()
-                saveResult.innerText = error.message;
+                document.getElementById('saveResult').innerHTML = '<i class="fas fa-times-circle"></i> ' + error.message;
+                document.getElementById('saveResult').className = 'notification notification-error';
             });
     }
+
+    // 重启系统函数
     function reboot(){
+        if (!confirm('Are you sure you want to reboot the system? This will disconnect all active users.')) {
+            return;
+        }
+
+        document.getElementById('saveResult').style.display = 'block';
+        document.getElementById('saveResult').className = 'notification';
+        document.getElementById('saveResult').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Rebooting system...';
+
         fetch('/admin/reboot', {method: "GET"})
             .then(response => {
-                // if (!response.ok) { // If the response status is not 200-299
-                //     throw new Error('Network response was not ok: ' + response.status);
-                // }
                 return response.text();
             })
             .then(data => {
-                // Process your data here
-                saveResult.innerText = data;
+                document.getElementById('saveResult').innerHTML = '<i class="fas fa-check-circle"></i> ' + data;
+                document.getElementById('saveResult').className = 'notification notification-success';
             })
             .catch(error => {
-                console.log()
-                saveResult.innerText = error.message;
+                document.getElementById('saveResult').innerHTML = '<i class="fas fa-times-circle"></i> ' + error.message;
+                document.getElementById('saveResult').className = 'notification notification-error';
             });
     }
 
-
-</script>
-<script>
+    // 文件上传处理
     const fileInput = document.getElementById('fileInput');
     const fileInfo = document.getElementById('fileInfo');
     const uploadBtn = document.getElementById('uploadBtn');
     const progress = document.getElementById('progress');
     const error = document.getElementById('error');
 
-    fileInput.addEventListener('change', function(e) {
-        const file = e.target.files[0];
+    // 拖放功能
+    const uploadContainer = document.querySelector('.upload-container');
+
+    uploadContainer.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        uploadContainer.style.borderColor = 'var(--primary-color)';
+        uploadContainer.style.backgroundColor = 'rgba(67, 97, 238, 0.05)';
+    });
+
+    uploadContainer.addEventListener('dragleave', function() {
+        uploadContainer.style.borderColor = '#ddd';
+        uploadContainer.style.backgroundColor = 'transparent';
+    });
+
+    uploadContainer.addEventListener('drop', function(e) {
+        e.preventDefault();
+        uploadContainer.style.borderColor = '#ddd';
+        uploadContainer.style.backgroundColor = 'transparent';
+
+        if (e.dataTransfer.files.length) {
+            fileInput.files = e.dataTransfer.files;
+            handleFileSelect();
+        }
+    });
+
+    fileInput.addEventListener('change', handleFileSelect);
+
+    function handleFileSelect() {
+        const file = fileInput.files[0];
         if (!file) {
             fileInfo.textContent = '';
             uploadBtn.style.display = 'none';
             return;
         }
 
-        fileInfo.textContent = `Selected file: ${file.name}`;
+        // 检查文件类型和大小
+        if (!file.name.endsWith('.zip')) {
+            fileInfo.innerHTML = '<i class="fas fa-exclamation-circle"></i> Error: Only .zip backup files are supported';
+            fileInfo.style.color = 'var(--danger-color)';
+            uploadBtn.style.display = 'none';
+            return;
+        }
+
+        fileInfo.innerHTML = `<i class="fas fa-file-archive"></i> Selected file: <strong>${file.name}</strong> (${formatFileSize(file.size)})`;
+        fileInfo.style.color = 'var(--success-color)';
         uploadBtn.style.display = 'inline-block';
-    });
+    }
+
+    function formatFileSize(bytes) {
+        if (bytes < 1024) return bytes + ' bytes';
+        else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+        else return (bytes / 1048576).toFixed(1) + ' MB';
+    }
 
     async function uploadFile() {
         const file = fileInput.files[0];
         if (!file) return;
+
+        if (!confirm('Are you sure you want to restore from this backup? Current configuration will be overwritten.')) {
+            return;
+        }
 
         const formData = new FormData();
         formData.append('file', file);
@@ -185,15 +596,26 @@
                 throw new Error(`Upload failed: ${response.statusText}`);
             }
 
-            // const result = await response.text();
-            alert('Restore completed successfully!');
+            alert('Restore completed successfully! The system will now reboot.');
 
             // 重置表单状态
             fileInput.value = '';
             fileInfo.textContent = '';
             uploadBtn.style.display = 'none';
+
+            // 显示成功消息
+            const successMessage = document.createElement('div');
+            successMessage.className = 'notification notification-success';
+            successMessage.innerHTML = '<i class="fas fa-check-circle"></i> Restore completed successfully! The system will reboot momentarily.';
+            uploadContainer.appendChild(successMessage);
+
+            // 3秒后刷新页面
+            setTimeout(() => {
+                window.location.reload();
+            }, 3000);
+
         } catch (err) {
-            error.textContent = err.message;
+            error.innerHTML = '<i class="fas fa-times-circle"></i> ' + err.message;
             error.style.display = 'block';
         } finally {
             progress.style.display = 'none';
@@ -201,7 +623,6 @@
         }
     }
 </script>
-<p>built time :  {{built_time}} (UTC)</p>
 <script src="/static/js/htmx.min.js"></script>
 </body>
 </html>
