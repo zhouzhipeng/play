@@ -162,7 +162,6 @@ GET /api/v3/data/:category/query
 | where | 字符串 | 可选。用于过滤的类 SQL 条件。JSON 字段会自动以正确的语法提取 |
 | order_by | 字符串 | 可选。排序字段。默认为 "id desc" |
 | slim | 布尔值 | 可选。如果为 true，则仅返回数据对象而不包含系统字段。默认为 false |
-| count | 布尔值 | 可选。如果为 true，同时返回总计数。默认为 false |
 | include_deleted | 布尔值 | 可选。如果为 true，包含已软删除的条目。默认为 false |
 
 #### Where 子句语法

@@ -142,7 +142,7 @@ impl GeneralData {
         pool: &DBPool,
     ) -> Result<Vec<GeneralData>, Error> {
         let sql = &format!(
-            "SELECT {} FROM general_data where cat = ? {} and {} order by {} limit {}",
+            "SELECT {} FROM general_data where cat = ? {} and ({}) order by {} limit {}",
             Self::convert_fields(fields),
             if include_deleted{""}else{" and is_deleted = 0"},
             _where,
@@ -164,7 +164,7 @@ impl GeneralData {
         pool: &DBPool,
     ) -> Result<u32, Error> {
         let sql = &format!(
-            "SELECT count(1) FROM general_data where cat = ?  {} and {} ",
+            "SELECT count(1) FROM general_data where cat = ?  {} and ({}) ",
             if include_deleted{""}else{" and is_deleted = 0"},
             _where,
         );
