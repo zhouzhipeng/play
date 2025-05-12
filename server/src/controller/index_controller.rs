@@ -68,6 +68,9 @@ async fn root(s: S) -> HTML {
                     li {
                         a { href: "/static/fileupload.html", "Upload File" }
                     }
+                    li {
+                        a { href: "/static/shell.html", "Web Shell" }
+                    }
                 }
                 h2 { "Short Links" }
                 ul {
