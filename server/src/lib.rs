@@ -37,7 +37,7 @@ use play_shared::{current_timestamp, timestamp_to_date_str};
 
 use play_shared::tpl_engine_api::{Template, TemplateData};
 
-use crate::config::{Config, PluginConfig};
+use crate::config::{Config, PluginConfig, ShortLink};
 use crate::config::init_config;
 use crate::controller::{app_routers, plugin_controller, shortlink_controller};
 use crate::layer::custom_http_layer::http_middleware;
@@ -213,6 +213,16 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> anyhow::Res
     }
     info!("active plugin_config_list: {:?}", plugin_config_list);
 
+
+    //query shortlinks data from db
+    let mut shortlinks = &mut inner_app_state.config.shortlinks;
+    let db_shortlinks = GeneralData::query_by_cat_simple("shortlinks",1000,&inner_app_state.db).await?;;
+    for data in &db_shortlinks {
+        let shortlink = serde_json::from_value::<ShortLink>(serde_json::from_str(&data.data)?)?;
+        shortlinks.push(shortlink);
+
+    }
+    info!("active shortlinks : {:?}", shortlinks);
 
 
     // Create an instance of the shared state

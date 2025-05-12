@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Short Link Manager</title>
+    <style>
+        :root {
+            --primary: #3498db;
+            --success: #2ecc71;
+            --danger: #e74c3c;
+            --warning: #f39c12;
+            --dark: #34495e;
+            --light: #ecf0f1;
+            --border: #bdc3c7;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f8f9fa;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: var(--dark);
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 8px 16px;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .btn-success {
+            background-color: var(--success);
+        }
+
+        .btn-danger {
+            background-color: var(--danger);
+        }
+
+        .btn-warning {
+            background-color: var(--warning);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin-top: 5px;
+        }
+
+        .checkbox-group input {
+            margin-right: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background-color: var(--light);
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background-color: rgba(236, 240, 241, 0.5);
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            width: 500px;
+            max-width: 90%;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid var(--border);
+            gap: 10px;
+        }
+
+        .close {
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--dark);
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 4px;
+            color: white;
+            background-color: var(--success);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            z-index: 1001;
+            display: none;
+            animation: fadeInOut 3s forwards;
+        }
+
+        @keyframes fadeInOut {
+            0% { opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        .error {
+            background-color: var(--danger);
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .search-container {
+            display: flex;
+            margin-bottom: 20px;
+            gap: 10px;
+        }
+
+        .search-input {
+            flex: 1;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+            gap: 5px;
+        }
+
+        .pagination button {
+            padding: 5px 10px;
+            border: 1px solid var(--border);
+            background-color: white;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .pagination button.active {
+            background-color: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .pagination button:hover:not(.active) {
+            background-color: var(--light);
+        }
+
+        .badges {
+            display: flex;
+            gap: 5px;
+        }
+
+        .badge {
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            background-color: var(--light);
+        }
+
+        .badge-download {
+            background-color: #3498db;
+            color: white;
+        }
+
+        .badge-auth {
+            background-color: #f39c12;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Short Link Manager</h1>
+
+    <div class="search-container">
+        <input type="text" id="searchInput" class="form-control search-input" placeholder="Search links...">
+        <button id="searchButton" class="btn">Search</button>
+        <button id="addButton" class="btn btn-success">New Link</button>
+    </div>
+
+    <table id="shortLinksTable">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Path</th>
+            <th>Target URL</th>
+            <th>Options</th>
+            <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody id="shortLinksBody">
+        <!-- Links will be loaded dynamically -->
+        </tbody>
+    </table>
+
+    <div class="pagination" id="pagination">
+        <!-- Pagination will be generated dynamically -->
+    </div>
+</div>
+
+<!-- Modal for adding/editing links -->
+<div id="shortLinkModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modalTitle">Add Short Link</h2>
+            <span class="close">&times;</span>
+        </div>
+
+        <form id="shortLinkForm">
+            <input type="hidden" id="linkId">
+
+            <div class="form-group">
+                <label for="fromInput">Path (short link)</label>
+                <input type="text" id="fromInput" class="form-control" required>
+            </div>
+
+            <div class="form-group">
+                <label for="toInput">Target URL (destination)</label>
+                <input type="url" id="toInput" class="form-control" required>
+            </div>
+
+            <div class="checkbox-group">
+                <input type="checkbox" id="downloadCheckbox">
+                <label for="downloadCheckbox">Download file</label>
+            </div>
+
+            <div class="checkbox-group">
+                <input type="checkbox" id="authCheckbox">
+                <label for="authCheckbox">Requires authentication</label>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn" id="cancelButton">Cancel</button>
+                <button type="submit" class="btn btn-success" id="saveButton">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Confirmation modal for deletion -->
+<div id="deleteModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Confirm Deletion</h2>
+            <span class="close">&times;</span>
+        </div>
+
+        <p>Are you sure you want to delete this short link?</p>
+        <p id="deleteInfo"></p>
+
+        <div class="modal-footer">
+            <button class="btn" id="cancelDeleteButton">Cancel</button>
+            <button class="btn btn-danger" id="confirmDeleteButton">Delete</button>
+        </div>
+    </div>
+</div>
+
+<div id="notification" class="notification"></div>
+
+<script>
+    // Configuration
+    const API_BASE_URL = '/api/v3/data/';
+    const CATEGORY = 'shortlinks'; // Category for short links
+    const ITEMS_PER_PAGE = 10;
+
+    // Application state
+    let currentPage = 1;
+    let totalItems = 0;
+    let currentSearchQuery = '';
+    let editingLinkId = null;
+
+    // DOM Elements
+    const shortLinksBody = document.getElementById('shortLinksBody');
+    const pagination = document.getElementById('pagination');
+    const shortLinkModal = document.getElementById('shortLinkModal');
+    const deleteModal = document.getElementById('deleteModal');
+    const notification = document.getElementById('notification');
+    const searchInput = document.getElementById('searchInput');
+    const searchButton = document.getElementById('searchButton');
+    const addButton = document.getElementById('addButton');
+    const shortLinkForm = document.getElementById('shortLinkForm');
+    const modalTitle = document.getElementById('modalTitle');
+    const linkIdInput = document.getElementById('linkId');
+    const fromInput = document.getElementById('fromInput');
+    const toInput = document.getElementById('toInput');
+    const downloadCheckbox = document.getElementById('downloadCheckbox');
+    const authCheckbox = document.getElementById('authCheckbox');
+    const saveButton = document.getElementById('saveButton');
+    const cancelButton = document.getElementById('cancelButton');
+    const deleteInfo = document.getElementById('deleteInfo');
+    const confirmDeleteButton = document.getElementById('confirmDeleteButton');
+    const cancelDeleteButton = document.getElementById('cancelDeleteButton');
+
+    // Utility functions
+    function showNotification(message, isError = false) {
+        notification.textContent = message;
+        notification.className = isError ? 'notification error' : 'notification';
+        notification.style.display = 'block';
+
+        setTimeout(() => {
+            notification.style.display = 'none';
+        }, 3000);
+    }
+
+    // API functions
+    async function fetchShortLinks() {
+        try {
+            let url = `${API_BASE_URL}${CATEGORY}/query?limit=${(currentPage - 1) * ITEMS_PER_PAGE},${ITEMS_PER_PAGE}`;
+
+            if (currentSearchQuery) {
+                // Search in 'from' or 'to' fields with proper SQL syntax for LIKE with single quotes
+                const searchTerm = encodeURIComponent(`'%${currentSearchQuery}%'`);
+                url += `&where=from LIKE ${searchTerm} OR to LIKE ${searchTerm}`;
+            }
+
+            const response = await fetch(url);
+
+            if (!response.ok) {
+                throw new Error('Error loading links');
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error:', error);
+            showNotification(error.message, true);
+            return [];
+        }
+    }
+
+    async function countShortLinks() {
+        try {
+            let url = `${API_BASE_URL}${CATEGORY}/count`;
+
+            if (currentSearchQuery) {
+                // Apply the same search filter with proper SQL syntax for LIKE with single quotes
+                const searchTerm = encodeURIComponent(`'%${currentSearchQuery}%'`);
+                url += `?where=from LIKE ${searchTerm} OR to LIKE ${searchTerm}`;
+            }
+
+            const response = await fetch(url);
+
+            if (!response.ok) {
+                throw new Error('Error counting links');
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error:', error);
+            showNotification(error.message, true);
+            return 0;
+        }
+    }
+
+    async function createShortLink(shortLink) {
+        try {
+            const response = await fetch(`${API_BASE_URL}${CATEGORY}/insert`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(shortLink)
+            });
+
+            if (!response.ok) {
+                throw new Error('Error creating link');
+            }
+
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('Error:', error);
+            showNotification(error.message, true);
+            throw error;
+        }
+    }
+
+    async function updateShortLink(id, shortLink) {
+        try {
+            const response = await fetch(`${API_BASE_URL}${CATEGORY}/update`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    id: id,
+                    set: shortLink
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Error updating link');
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error:', error);
+            showNotification(error.message, true);
+            throw error;
+        }
+    }
+
+    async function deleteShortLink(id) {
+        try {
+            const response = await fetch(`${API_BASE_URL}${CATEGORY}/delete`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    id: id,
+                    hard_delete: true
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Error deleting link');
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error:', error);
+            showNotification(error.message, true);
+            throw error;
+        }
+    }
+
+    // UI functions
+    function renderShortLinks(shortLinks) {
+        shortLinksBody.innerHTML = '';
+
+        if (shortLinks.length === 0) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = '<td colspan="5" style="text-align: center;">No links found</td>';
+            shortLinksBody.appendChild(tr);
+            return;
+        }
+
+        shortLinks.forEach(link => {
+            const tr = document.createElement('tr');
+
+            // Create badges for options
+            let badges = '<div class="badges">';
+            if (link.download) {
+                badges += '<span class="badge badge-download">Download</span>';
+            }
+            if (link.auth) {
+                badges += '<span class="badge badge-auth">Auth</span>';
+            }
+            badges += '</div>';
+
+            tr.innerHTML = `
+                    <td>${link.id}</td>
+                    <td>${link.from}</td>
+                    <td>${link.to}</td>
+                    <td>${badges}</td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn btn-warning edit-btn" data-id="${link.id}">Edit</button>
+                            <button class="btn btn-danger delete-btn" data-id="${link.id}">Delete</button>
+                        </div>
+                    </td>
+                `;
+
+            shortLinksBody.appendChild(tr);
+        });
+
+        // Add event listeners to buttons
+        document.querySelectorAll('.edit-btn').forEach(btn => {
+            btn.addEventListener('click', e => {
+                const id = parseInt(e.target.getAttribute('data-id'));
+                const link = shortLinks.find(link => link.id === id);
+                openEditModal(link);
+            });
+        });
+
+        document.querySelectorAll('.delete-btn').forEach(btn => {
+            btn.addEventListener('click', e => {
+                const id = parseInt(e.target.getAttribute('data-id'));
+                const link = shortLinks.find(link => link.id === id);
+                openDeleteModal(link);
+            });
+        });
+    }
+
+    function renderPagination() {
+        pagination.innerHTML = '';
+
+        const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+
+        if (totalPages <= 1) {
+            return;
+        }
+
+        // "Previous" button
+        const prevButton = document.createElement('button');
+        prevButton.innerHTML = '&laquo;';
+        prevButton.disabled = currentPage === 1;
+        prevButton.addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
+                loadShortLinks();
+            }
+        });
+        pagination.appendChild(prevButton);
+
+        // Page buttons
+        const startPage = Math.max(1, currentPage - 2);
+        const endPage = Math.min(totalPages, startPage + 4);
+
+        for (let i = startPage; i <= endPage; i++) {
+            const pageButton = document.createElement('button');
+            pageButton.textContent = i;
+            pageButton.className = i === currentPage ? 'active' : '';
+            pageButton.addEventListener('click', () => {
+                currentPage = i;
+                loadShortLinks();
+            });
+            pagination.appendChild(pageButton);
+        }
+
+        // "Next" button
+        const nextButton = document.createElement('button');
+        nextButton.innerHTML = '&raquo;';
+        nextButton.disabled = currentPage === totalPages;
+        nextButton.addEventListener('click', () => {
+            if (currentPage < totalPages) {
+                currentPage++;
+                loadShortLinks();
+            }
+        });
+        pagination.appendChild(nextButton);
+    }
+
+    function openModal() {
+        shortLinkModal.style.display = 'flex';
+    }
+
+    function closeModal() {
+        shortLinkModal.style.display = 'none';
+        resetForm();
+    }
+
+    function openAddModal() {
+        modalTitle.textContent = 'Add Short Link';
+        editingLinkId = null;
+        resetForm();
+        openModal();
+    }
+
+    function openEditModal(link) {
+        modalTitle.textContent = 'Edit Short Link';
+        editingLinkId = link.id;
+
+        linkIdInput.value = link.id;
+        fromInput.value = link.from;
+        toInput.value = link.to;
+        downloadCheckbox.checked = link.download || false;
+        authCheckbox.checked = link.auth || false;
+
+        openModal();
+    }
+
+    function resetForm() {
+        shortLinkForm.reset();
+        linkIdInput.value = '';
+        editingLinkId = null;
+    }
+
+    function openDeleteModal(link) {
+        deleteInfo.textContent = `ID: ${link.id}, Path: ${link.from}`;
+        deleteModal.style.display = 'flex';
+
+        confirmDeleteButton.setAttribute('data-id', link.id);
+    }
+
+    function closeDeleteModal() {
+        deleteModal.style.display = 'none';
+    }
+
+    // Main function to load links
+    async function loadShortLinks() {
+        // Fetch both links and total count in parallel
+        const [shortLinks, count] = await Promise.all([
+            fetchShortLinks(),
+            countShortLinks()
+        ]);
+
+        totalItems = count;
+        renderShortLinks(shortLinks);
+        renderPagination();
+    }
+
+    // Event Listeners
+    document.addEventListener('DOMContentLoaded', () => {
+        loadShortLinks();
+
+        // Search button
+        searchButton.addEventListener('click', () => {
+            currentSearchQuery = searchInput.value.trim();
+            currentPage = 1;
+            loadShortLinks();
+        });
+
+        // Search on Enter key
+        searchInput.addEventListener('keyup', e => {
+            if (e.key === 'Enter') {
+                currentSearchQuery = searchInput.value.trim();
+                currentPage = 1;
+                loadShortLinks();
+            }
+        });
+
+        // Add new link button
+        addButton.addEventListener('click', openAddModal);
+
+        // Close modals
+        document.querySelectorAll('.close').forEach(el => {
+            el.addEventListener('click', () => {
+                closeModal();
+                closeDeleteModal();
+            });
+        });
+
+        cancelButton.addEventListener('click', closeModal);
+        cancelDeleteButton.addEventListener('click', closeDeleteModal);
+
+        // Handle form submission
+        shortLinkForm.addEventListener('submit', async e => {
+            e.preventDefault();
+
+            const shortLink = {
+                from: fromInput.value.trim(),
+                to: toInput.value.trim(),
+                download: downloadCheckbox.checked,
+                auth: authCheckbox.checked
+            };
+
+            try {
+                if (editingLinkId) {
+                    // Update
+                    await updateShortLink(editingLinkId, shortLink);
+                    showNotification('Link updated successfully');
+                } else {
+                    // Create new
+                    await createShortLink(shortLink);
+                    showNotification('Link created successfully');
+                }
+
+                closeModal();
+                loadShortLinks();
+            } catch (error) {
+                // Error is already displayed in API functions
+            }
+        });
+
+        // Handle deletion
+        confirmDeleteButton.addEventListener('click', async () => {
+            const id = parseInt(confirmDeleteButton.getAttribute('data-id'));
+
+            try {
+                await deleteShortLink(id);
+                showNotification('Link deleted successfully');
+                closeDeleteModal();
+                loadShortLinks();
+            } catch (error) {
+                // Error is already displayed in API functions
+            }
+        });
+    });
+
+    // Close modals when clicking outside
+    window.addEventListener('click', e => {
+        if (e.target === shortLinkModal) {
+            closeModal();
+        }
+
+        if (e.target === deleteModal) {
+            closeDeleteModal();
+        }
+    });
+</script>
+</body>
+</html>

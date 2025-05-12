@@ -7,20 +7,20 @@
 - [Data Model](#data-model)
 - [Authentication](#authentication)
 - [Endpoints](#endpoints)
-    - [Create Data Entry](#create-data-entry)
-    - [Retrieve Data Entry](#retrieve-data-entry)
-    - [Query Data Entries](#query-data-entries)
-    - [Count Data Entries](#count-data-entries)
-    - [Update Data Entry](#update-data-entry)
-    - [Delete Data Entry](#delete-data-entry)
+  - [Create Data Entry](#create-data-entry)
+  - [Retrieve Data Entry](#retrieve-data-entry)
+  - [Query Data Entries](#query-data-entries)
+  - [Count Data Entries](#count-data-entries)
+  - [Update Data Entry](#update-data-entry)
+  - [Delete Data Entry](#delete-data-entry)
 - [Technical Notes](#technical-notes)
-    - [Category Validation](#category-validation)
-    - [JSON Field Extraction](#json-field-extraction)
-    - [JSON Patching](#json-patching)
-    - [Field Selection and Flattening](#field-selection-and-flattening)
+  - [Category Validation](#category-validation)
+  - [JSON Field Extraction](#json-field-extraction)
+  - [JSON Patching](#json-patching)
+  - [Field Selection and Flattening](#field-selection-and-flattening)
 - [Error Handling](#error-handling)
 - [Special Behaviors](#special-behaviors)
-    - [Lua Pages](#lua-pages)
+  - [Lua Pages](#lua-pages)
 
 ## Overview
 
@@ -162,7 +162,6 @@ Retrieves multiple data entries from the specified category based on query param
 | where | string | Optional. SQL-like conditions for filtering. JSON fields are automatically extracted with proper syntax |
 | order_by | string | Optional. Field(s) to sort by. Defaults to "id desc" |
 | slim | boolean | Optional. If true, returns only the data objects without system fields. Defaults to false |
-| count | boolean | Optional. If true, also returns the total count. Defaults to false |
 | include_deleted | boolean | Optional. If true, includes soft-deleted entries. Defaults to false |
 
 #### Where Clause Syntax

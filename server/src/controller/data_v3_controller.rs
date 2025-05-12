@@ -51,8 +51,6 @@ struct QueryParam {
     #[serde(default)]
     slim: bool,
     #[serde(default)]
-    count: bool,
-    #[serde(default)]
     include_deleted: bool,
 }
 #[derive(Serialize, Deserialize, Debug)]
@@ -147,7 +145,7 @@ struct AffectedResp {
 }
 
 fn parse_and_convert_to_json_extract(condition_str: &str) -> String {
-    // 分割条件字符串，忽略 "AND" 的大小写
+    // 存储条件和连接操作符
     let mut result = Vec::new();
     let mut current_part = String::new();
     let mut in_quotes = false;
@@ -167,47 +165,63 @@ fn parse_and_convert_to_json_extract(condition_str: &str) -> String {
             continue;
         }
 
-        // 检查是否遇到 "AND"（忽略大小写）
-        if (c == 'a' || c == 'A') && chars.peek() == Some(&'n') || chars.peek() == Some(&'N') {
+        // 检查是否遇到 "AND" 或 "OR"（忽略大小写）
+        if (c == 'a' || c == 'A' || c == 'o' || c == 'O') &&
+            ((c == 'a' || c == 'A') && (chars.peek() == Some(&'n') || chars.peek() == Some(&'N')) ||
+                (c == 'o' || c == 'O') && (chars.peek() == Some(&'r') || chars.peek() == Some(&'R'))) {
+
             let mut lookahead = String::new();
             lookahead.push(c);
 
-            // 尝试读取 "ND" 部分
-            if let Some(n) = chars.next() {
-                lookahead.push(n);
-                if let Some(d) = chars.next() {
-                    lookahead.push(d);
+            let is_operator = if c == 'a' || c == 'A' {
+                // 尝试读取 "ND" 部分
+                if let Some(n) = chars.next() {
+                    lookahead.push(n);
+                    if let Some(d) = chars.next() {
+                        lookahead.push(d);
 
-                    // 检查是否是独立的 "AND" 词
-                    // 前后应该是空格或字符串的开始/结束
-                    let is_and = lookahead.to_lowercase() == "and"
-                        && (current_part.is_empty() || current_part.ends_with(' '))
-                        && (chars.peek().is_none() || chars.peek() == Some(&' '));
-
-                    if is_and {
-                        // 找到一个 "AND"，处理当前部分并重置
-                        if !current_part.trim().is_empty() {
-                            result.push(convert_condition(&current_part.trim()));
-                            current_part = String::new();
-                        }
-
-                        // 跳过 "AND" 后的空格
-                        while let Some(&next) = chars.peek() {
-                            if next == ' ' {
-                                chars.next();
-                            } else {
-                                break;
-                            }
-                        }
+                        // 检查是否是独立的 "AND" 词
+                        lookahead.to_lowercase() == "and"
+                            && (current_part.is_empty() || current_part.ends_with(' '))
+                            && (chars.peek().is_none() || chars.peek() == Some(&' '))
                     } else {
-                        // 不是 "AND"，添加到当前部分
-                        current_part.push_str(&lookahead);
+                        false
                     }
                 } else {
-                    current_part.push_str(&lookahead);
+                    false
+                }
+            } else { // c == 'o' || c == 'O'
+                // 尝试读取 "R" 部分
+                if let Some(r) = chars.next() {
+                    lookahead.push(r);
+
+                    // 检查是否是独立的 "OR" 词
+                    lookahead.to_lowercase() == "or"
+                        && (current_part.is_empty() || current_part.ends_with(' '))
+                        && (chars.peek().is_none() || chars.peek() == Some(&' '))
+                } else {
+                    false
+                }
+            };
+
+            if is_operator {
+                // 找到一个操作符，处理当前部分并记录操作符
+                if !current_part.trim().is_empty() {
+                    result.push((convert_condition(&current_part.trim()), lookahead.to_lowercase()));
+                    current_part = String::new();
+                }
+
+                // 跳过操作符后的空格
+                while let Some(&next) = chars.peek() {
+                    if next == ' ' {
+                        chars.next();
+                    } else {
+                        break;
+                    }
                 }
             } else {
-                current_part.push(c);
+                // 不是操作符，添加到当前部分
+                current_part.push_str(&lookahead);
             }
         } else {
             // 普通字符，直接添加
@@ -217,19 +231,37 @@ fn parse_and_convert_to_json_extract(condition_str: &str) -> String {
 
     // 处理最后一部分
     if !current_part.trim().is_empty() {
-        result.push(convert_condition(&current_part.trim()));
+        // 最后一个条件后面没有操作符，使用默认的空字符串
+        result.push((convert_condition(&current_part.trim()), String::new()));
     }
 
-    result.join(" AND ")
+    // 构建结果字符串，正确应用每个操作符
+    if result.is_empty() {
+        return String::new();
+    }
+
+    let mut final_result = result[0].0.clone();
+    for i in 0..(result.len() - 1) {
+        let operator = &result[i].1;
+        let next_condition = &result[i+1].0;
+
+        if operator == "and" {
+            final_result = format!("{} AND {}", final_result, next_condition);
+        } else if operator == "or" {
+            final_result = format!("{} OR {}", final_result, next_condition);
+        }
+    }
+
+    final_result
 }
 
 // 将单个条件转换为 json_extract 格式
 fn convert_condition(condition: &str) -> String {
     // 支持常见操作符：=, !=, >, <, >=, <=
-    let operators = ["=", "!=", ">", "<", ">=", "<="];
+    let operators = ["=", "!=", ">", "<", ">=", "<=", "like"];
 
     for op in operators {
-        if let Some(pos) = condition.find(op) {
+        if let Some(pos) = condition.to_lowercase().find(op) {
             let key = condition[..pos].trim();
             let value = condition[pos + op.len()..].trim();
 
