@@ -62,6 +62,12 @@ async fn root(s: S) -> HTML {
                     li {
                         a { href: "/static/shortlink-manager.html", "Shortlinks Manager" }
                     }
+                    li {
+                        a { href: "/static/file-explorer.html", "File Browser" }
+                    }
+                    li {
+                        a { href: "/static/fileupload.html", "Upload File" }
+                    }
                 }
                 h2 { "Short Links" }
                 ul {

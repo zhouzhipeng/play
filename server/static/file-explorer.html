@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>文件浏览器</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+
+        h1 {
+            color: #0056b3;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #0056b3;
+            color: #ffffff;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+
+        button {
+            background-color: #0056b3;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            margin-right: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #003974;
+        }
+
+        a {
+            text-decoration: none;
+            color: white;
+            background-color: #28a745;
+            padding: 5px 10px;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+
+        a:hover {
+            background-color: #1c7430;
+        }
+
+        #preview {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+        }
+        /* 限定表格列宽度 */
+        td.filename {
+            max-width: 200px; /* 可以根据实际需要调整这个宽度 */
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .delete-button {
+            background-color: #ff0000; /* 红色背景 */
+            color: white; /* 白色文字，提高可读性 */
+            border: none;
+            padding: 5px 10px;
+            margin-right: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .delete-button:hover {
+            background-color: #cc0000; /* 悬停时的背景颜色稍暗 */
+        }
+
+    </style>
+</head>
+<body>
+<h1>文件浏览器</h1>
+<table>
+    <tr>
+        <th>文件名</th>
+        <th>修改时间</th>
+        <th>文件大小</th>
+        <th>操作</th>
+    </tr>
+    <!-- 示例数据，实际开发中应从服务器获取 -->
+    <tr>
+        <td>example.txt</td>
+        <td>2024-04-01 10:00</td>
+        <td>
+            <button onclick="previewFile('example.txt')">预览</button>
+            <a href="files/example.txt" download>下载</a>
+        </td>
+    </tr>
+    <tr>
+        <td>image.jpg</td>
+        <td>2024-04-02 11:30</td>
+        <td>
+            <a href="/files/1712737243266.jpeg" download>下载</a>
+        </td>
+    </tr>
+</table>
+<script src="/static/js/common.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        fetchFiles();
+    });
+
+    function fetchFiles() {
+        fetch('/files')
+            .then(response => response.json())
+            .then(files => {
+                updateFileTable(files);
+            });
+    }
+
+    function updateFileTable(files) {
+        const table = document.querySelector('table');
+        // 从第二行开始清空（保留表头）
+        table.innerHTML = table.rows[0].outerHTML;
+
+        files.forEach(file => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+            <td class="filename" title="${file.filename}">${file.filename}</td>
+            <td>${formatTimestamp(file.modify_time)}</td>
+            <td>${formatBytes(file.size)}</td>
+            <td>
+            	<a href="/files/${file.filename}" target="_blank" style="background-color: #0056b3">预览</a>
+                <a href="/files/${file.filename}" download>下载</a>
+                  <button class="delete-button" onclick="deleteFile('${file.filename}')">删除</button>
+
+  </td>
+        `;
+            table.appendChild(tr);
+        });
+    }
+
+    function formatTimestamp(timestamp) {
+        const date = new Date(timestamp);
+        return date.getFullYear() + '-' +
+            ('0' + (date.getMonth() + 1)).slice(-2) + '-' +
+            ('0' + date.getDate()).slice(-2) + ' ' +
+            ('0' + date.getHours()).slice(-2) + ':' +
+            ('0' + date.getMinutes()).slice(-2) + ':' +
+            ('0' + date.getSeconds()).slice(-2);
+    }
+    function deleteFile(filename) {
+        if (confirm(`确定要删除文件 ${filename} 吗？`)) {
+            fetch(`/files/${filename}`, { method: 'DELETE' })
+                .then(response => {
+                    if (response.ok) {
+                        //  alert(`文件 ${filename} 已被删除。`);
+                        fetchFiles(); // 重新获取文件列表
+                    } else {
+                        alert(`删除文件 ${filename} 失败。`);
+                    }
+                })
+                .catch(error => {
+                    console.error('删除文件时发生错误:', error);
+                });
+        }
+    }
+</script>
+</body>
+</html>
