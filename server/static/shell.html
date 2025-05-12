@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script type="text/javascript" src="/static/js/gen_fingerprint.js"></script>
+
+    <meta charset="UTF-8">
+    <title>模拟终端</title>
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+            background-color: #333;
+            font-family: 'Courier New', monospace;
+            overflow: hidden; /* Prevent scrollbars from appearing on the entire page */
+        }
+        #terminal {
+            background-color: #000;
+            color: #0f0;
+            padding: 20px;
+            height: calc(100% - 52px); /* Adjust based on the input height */
+            overflow-y: auto; /* Allow scrolling inside the terminal if necessary */
+            white-space: pre-wrap;
+            box-sizing: border-box;
+        }
+        #command {
+            width: 100%; /* Make the input take up the full width */
+            background-color: #222;
+            color: #0f0;
+            border: none;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            box-sizing: border-box;
+            outline: none; /* Remove the focus outline */
+            margin: 0; /* Remove default margins */
+            display: block; /* Ensure it's a block element */
+            line-height: 20px; /* Adjust for readability */
+            height: 32px; /* Adjust the height of the input */
+            caret-color: limegreen; /* Ensure the cursor is visible */
+            cursor: text; /* Changes the cursor to indicate text can be entered */
+            -webkit-appearance: none; /* Remove platform-specific styling */
+            -moz-appearance: none; /* Remove platform-specific styling */
+            appearance: none; /* Remove platform-specific styling */
+            border-radius: 0; /* Ensure the input doesn't have rounded corners */
+            caret-width: 2px; /* Make the cursor thicker */
+        }
+        /* Remove the clear and reveal buttons from inputs in MS Edge and IE */
+        #command::-ms-clear,
+        #command::-ms-reveal {
+            display: none;
+        }
+        /* Remove the spinner/up-down arrows from inputs in Firefox */
+        #command[type='number'] {
+            -moz-appearance: textfield;
+        }
+        /* Remove the clear button from input types in Chrome and Safari */
+        #command::-webkit-search-decoration,
+        #command::-webkit-search-cancel-button,
+        #command::-webkit-search-results-button,
+        #command::-webkit-search-results-decoration {
+            display: none;
+        }
+    </style>
+
+
+
+</head>
+<body>
+<div id="terminal"></div>
+<input type="text" id="command" autofocus autocomplete="off">
+<script type="text/javascript" src="/static/js/common.js"></script>
+
+<script>
+    const terminal = document.getElementById('terminal');
+    const commandInput = document.getElementById('command');
+    let start=false;
+    let finish = false;
+    let  currentNode = null; // 保持文本格式
+
+    commandInput.addEventListener('keypress', async function(event) {
+        if (event.key === 'Enter' && commandInput.value.trim() !== '') {
+            const command = commandInput.value;
+            commandInput.value = ''; // 清空输入框
+            appendToTerminal(`$ ${command}`); // 显示命令
+
+            let hexCommand = stringToHex(command);
+            // 发送命令到后端执行
+            const eventSource = new EventSource('/shell/execute?shell_hex='+hexCommand);
+            currentNode = document.createElement('p');
+            terminal.appendChild(currentNode)
+
+
+            eventSource.onmessage = function(event) {
+                if(!start){
+                    start=true;
+                    finish = false;
+
+
+                }
+
+                if(event.data){
+                    appendToTerminal(hexToString(event.data));
+                }else{
+                    appendToTerminal(event.data);
+                }
+
+            };
+
+
+            eventSource.onerror = function(error) {
+                start =false;
+                finish = true;
+                console.error('EventSource failed:', error);
+                eventSource.close();
+
+                //	appendToTerminal('Error executing command.');
+                updateText();
+                outputLines = [];
+
+            };
+
+
+
+        }
+    });
+
+    let outputLines = [];
+
+    setInterval(()=>{
+        if(start && !finish){
+            updateText();
+        }
+    }, 1000);
+
+    function updateText(){
+        //append to html
+        let text = outputLines.join("\n");
+        currentNode.innerText   = text;
+
+        terminal.scrollTop = terminal.scrollHeight; // 滚动到底部
+
+    }
+    function appendToTerminal(text) {
+        outputLines.push(text);
+        if(outputLines.length>200){
+            outputLines.shift();
+
+        }
+    }
+
+    document.addEventListener('keydown', (event) => {
+        // 检查是否按下了复制的快捷键: Cmd+C (Mac) 或 Ctrl+C (Windows)
+        if ((event.metaKey || event.ctrlKey) && event.key === 'c') {
+            // 如果是复制操作，就不执行任何操作
+            return;
+        }
+        // 检查按下的键是否是字符键，并且输入框当前不是焦点
+        // 这里我们排除了一些特殊按键以避免在使用快捷键等时切换焦点
+        const ignoredKeys = ['Command', 'Tab', 'Shift', 'Control', 'Alt', 'Meta', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Escape'];
+        if (!ignoredKeys.includes(event.key) && document.activeElement !== commandInput) {
+            commandInput.focus();
+        }
+    });
+</script>
+</body>
+</html>
