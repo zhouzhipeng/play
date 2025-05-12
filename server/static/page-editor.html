@@ -25,534 +25,481 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/css/css.min.js"></script>
     <script src="/static/js/common.js"></script>
     <style>
+        :root {
+            --primary-color: #4a6bdf;
+            --primary-hover: #3957c2;
+            --secondary-color: #f8f9fa;
+            --border-color: #e0e0e0;
+            --text-color: #333;
+            --sidebar-width: 240px;
+            --toolbar-height: 54px;
+            --danger-color: #dc3545;
+            --danger-hover: #c82333;
+            --success-color: #28a745;
+            --sidebar-hover: #f0f5ff;
+            --active-item: #edf2ff;
+            --active-text: #3957c2;
+            --light-gray: #f1f1f1;
+            --sidebar-bg: #f8f9fa;
+        }
+
         * {
             box-sizing: border-box;
+            margin: 0;
+            padding: 0;
         }
+
         body, html {
             height: 100%;
             margin: 0;
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--text-color);
+            overflow: hidden;
         }
+
+        /* Layout Components */
         .toolbar {
-            background-color: #f1f1f1;
-            padding: 10px 16px;
+            position: sticky;
+            top: 0;
+            background-color: white;
+            height: var(--toolbar-height);
+            padding: 0 16px;
             display: flex;
             align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            z-index: 1000;
+            transition: margin-left 0.3s ease;
         }
-        .save-btn, .search-input {
-            padding: 8px;
-            margin-right: 10px;
-            margin-left: 50px;
-        }
+
         .container {
             display: flex;
-            height: calc(100% - 40px);
+            height: calc(100% - var(--toolbar-height));
         }
-        .code-editor, .preview {
-            overflow: auto;
-            height: 100%;
-        }
-        .code-editor {
-            width: 50%; /* Default width */
-            height: 100%;
-            position: relative; /* For resizable handle */
-        }
-        .preview {
-            background-color: #fff;
-            width: 50%;
-            overflow: auto;
-            font-size: 18px; /* Adjust the font size as needed */
 
+        .sidebar {
+            position: fixed;
+            left: 0;
+            width: var(--sidebar-width);
+            height: 100%;
+            background-color: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            z-index: 100;
+            overflow: hidden;
+            transition: width 0.3s ease;
         }
+
+        .sidebar.collapsed {
+            width: 0;
+        }
+
+        .sidebar .search-box {
+            position: sticky;
+            top: 0;
+            background-color: white;
+            padding: 10px;
+            border-bottom: 1px solid var(--border-color);
+            z-index: 10;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 60px;
+        }
+
+        .sidebar .search-box input {
+            width: 90%;
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            font-size: 14px;
+            transition: all 0.2s;
+            outline: none;
+        }
+
+        .sidebar .search-box input:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(74, 107, 223, 0.25);
+        }
+
+        .titles {
+            list-style: none;
+            height: calc(100% - 60px);
+            overflow-y: auto;
+        }
+
+        .titles li {
+            padding: 12px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border-color);
+            transition: all 0.2s;
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .titles li:hover {
+            background-color: var(--sidebar-hover);
+        }
+
+        .titles li.active-item {
+            background-color: var(--active-item);
+            color: var(--active-text);
+            font-weight: 500;
+            border-left: 3px solid var(--primary-color);
+        }
+
+        .toggle-sidebar {
+            position: fixed;
+            top: 50%;
+            left: var(--sidebar-width);
+            z-index: 1001;
+            transform: translateY(-50%);
+            width: 22px;
+            height: 40px;
+            background: white;
+            border: 1px solid var(--border-color);
+            border-left: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border-radius: 0 4px 4px 0;
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
+            transition: left 0.3s ease;
+        }
+
+        .toggle-sidebar span {
+            font-size: 14px;
+            transition: transform 0.3s ease;
+        }
+
+        .collapsed + .toggle-sidebar {
+            left: 0;
+        }
+
+        .collapsed ~ .toolbar {
+            margin-left: 0;
+        }
+
+        /* Code Editor & Preview */
+        .code-editor, .preview {
+            height: 100%;
+            overflow: hidden;
+            position: relative;
+            transition: width 0.3s ease;
+        }
+
+        .code-editor {
+            width: 50%;
+            margin-left: var(--sidebar-width);
+            transition: margin-left 0.3s ease, width 0.3s ease;
+        }
+
+        .sidebar.collapsed ~ .container .code-editor {
+            margin-left: 0;
+        }
+
+        .preview {
+            width: 50%;
+            border-left: 1px solid var(--border-color);
+        }
+
+        #preview-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: white;
+        }
+
         .draggable {
-            background-color: #ccc;
-            width: 5px;
-            cursor: ew-resize;
             position: absolute;
             top: 0;
             right: 0;
             bottom: 0;
+            width: 5px;
+            background-color: var(--border-color);
+            cursor: ew-resize;
+            z-index: 10;
         }
+
+        /* CodeMirror Customization */
         .CodeMirror {
-            border: 1px solid #eee;
             height: 100%;
-            width: 100%;
-            font-size: 16px; /* Adjust the font size as needed */
-
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 15px;
+            line-height: 1.5;
         }
 
-        /* 增加光标的可见性 */
         .CodeMirror-cursor {
-            border-left: 2px solid black; /* 使光标更宽并更明显 */
-            border-right: none;
-            color: red; /* 也可以设置一个明显的颜色 */
-            background-color: yellow; /* 可以设置背景色增加可见性 */
+            border-left: 2px solid var(--primary-color);
         }
 
-        /* 当编辑器失去焦点时也显示光标（可选）*/
-        .CodeMirror div.CodeMirror-cursors {
-            visibility: visible;
+        /* Toolbar Elements */
+        .toolbar-item {
+            display: flex;
+            align-items: center;
+            margin-right: 20px;
         }
 
-
-        /* 定义特殊标签的样式 */
-        .cm-special-string { color: purple; font-weight: bold; }
-        .cm-python-delimiter { font-style: italic; }
-
-
-        /* 关键字 */
-        .cm-s-default .cm-keyword {
-            color: #708;
+        .toolbar-item label {
+            font-size: 14px;
+            font-weight: 500;
+            margin-right: 8px;
         }
 
-        /* 字符串 */
-        .cm-s-default .cm-string {
-            color: #a22;
-        }
-
-        /* 类和函数名 */
-        .cm-s-default .cm-def {
-            color: #00f;
-        }
-
-        /* 变量和属性 */
-        .cm-s-default .cm-variable {
-            color: #002b88;
-        }
-
-        /* 注释 */
-        .cm-s-default .cm-comment {
-            color: #a50;
-        }
-
-        /* 内置 */
-        .cm-s-default .cm-builtin {
-            color: #30a;
-        }
-
-        /* 数字 */
-        .cm-s-default .cm-number {
-            color: #164;
-        }
-
-
-        .search-results {
-            border: 1px solid #ccc;
-            position: absolute;
-            top: 50px; /* Adjust based on your layout */
-            width: 180px; /* Match the width of your search input */
-            display: none; /* Hide the box by default */
-            z-index: 100;
-        }
-
-        .search-results div {
-            padding: 5px;
-            cursor: pointer;
-        }
-
-        .search-results div:hover {
-            background-color: #f0f0f0;
-        }
-
-
-        /* 工具栏样式 */
-        .toolbar {
-            background-color: #f8f9fa; /* 设置工具栏背景颜色 */
-            padding: 10px 16px; /* 设置内边距 */
-            display: flex; /* 使用flex布局 */
-            align-items: center; /* 垂直居中对齐工具栏项 */
-            border-bottom: 1px solid #e0e0e0; /* 在工具栏底部添加边界线 */
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* 添加轻微的阴影 */
-        }
-
-        /* 搜索输入框样式 */
-        .toolbar .search-input {
-            padding: 8px 12px; /* 设置填充 */
-            border: 1px solid #ddd; /* 设置边界 */
-            border-radius: 20px; /* 设置边框圆角 */
-            margin-right: 8px; /* 设置右边距 */
-            width: 200px; /* 设置宽度 */
-            outline: none; /* 移除焦点轮廓 */
-        }
-
-        .toolbar .search-input:focus {
-            border-color: #80bdff; /* 输入框聚焦时改变边界颜色 */
-            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25); /* 添加聚焦时的阴影 */
-        }
-
-        /* 保存按钮样式 */
-        .toolbar .save-btn {
-            padding: 6px 12px; /* 设置填充 */
-            background-color: #007bff; /* 设置背景颜色 */
-            color: white; /* 设置文字颜色 */
-            border: none; /* 移除边界 */
-            border-radius: 4px; /* 设置边框圆角 */
-            cursor: pointer; /* 设置鼠标样式 */
-        }
-
-        .toolbar .save-btn:hover {
-            background-color: #0056b3; /* 鼠标悬停时改变背景颜色 */
-        }
-
-        /* 基础布局样式 */
-        .sidebar {
-            width: 200px;
-            border-right: 1px solid #ddd;
-            height: 100vh; /* 视口高度 */
-            overflow-y: auto; /* 添加滚动条 */
-            float: left;
-        }
-
-        .toolbar {
-            margin-left: 200px; /* 与侧边栏宽度一致 */
-            padding: 10px;
-            background-color: #f8f9fa;
-            border-bottom: 1px solid #ddd;
-        }
-
-        /* 标题列表样式 */
-        .titles {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-
-        .titles li {
-            padding: 10px;
-            cursor: pointer;
-            border-bottom: 1px solid #f0f0f0;
-        }
-
-        /*.titles li:hover {*/
-        /*    background-color: #f0f0f0;*/
-        /*}*/
-
-        /* 编辑器和输入框样式 */
-        .code-editor {
-            margin-left: 200px; /* 与侧边栏宽度一致 */
-            /*width: calc(100% - 200px); !* 减去侧边栏宽度 *!*/
-            height: calc(100vh - 42px); /* 调整高度 */
-            resize: none; /* 禁止调整大小 */
-        }
-
-        #title-input {
-            margin-left: 10px;
-            font-size: 20px;
-            display: none; /* 默认隐藏输入框 */
-        }
-
-        .toggle-sidebar {
-            position: absolute; /* 调整为你的页面布局 */
-            top: 50%; /* 根据需要调整 */
-            left: 200px; /* 侧边栏宽度，根据需要调整 */
-            transform: translateY(-50%);
-            cursor: pointer;
-            background-color: #f8f9fa; /* 背景颜色，提高可见性 */
-            padding: 5px; /* 调整大小，确保可以看见 */
-            z-index: 1000; /* 确保它在最前面 */
-            font-size: 20px; /* 增大图标字体大小 */
-            width: 30px; /* 调整宽度 */
-            height: 30px; /* 调整高度 */
-            text-align: center; /* 确保图标居中 */
-
-        }
-
-        .collapsed {
-            width: 0;
-            overflow: hidden; /* 折叠侧边栏时隐藏内容 */
-        }
-
-        /* 根据侧边栏状态调整编辑器和工具栏的边距 */
-        .collapsed + .toggle-sidebar {
-            left: 0;
-        }
-        .collapsed ~ .toolbar, .collapsed ~ #code-editor {
-            margin-left: 20px; /* 当侧边栏折叠时调整左边距 */
-        }
-
-        .sidebar {
-            position: fixed;
-            left: 0;
-            width: 200px;
-            bottom: 0;
-            overflow-y: auto;
-            background-color: #fff;
-            z-index: 500;
-            border-right: 1px solid #ddd;
-            /*padding: 10px 0; !* 添加顶部和底部的内边距 *!*/
-        }
-
-        /* 调整搜索框容器的样式 */
-        .search-box {
-            display: flex; /* 使用 Flexbox 布局 */
-            justify-content: center; /* 水平居中对齐 */
-            align-items: center; /* 垂直居中对齐 */
-            /*padding-bottom: 10px; !* 根据需要添加内边距 *!*/
-            border-bottom: 1px solid #ddd; /* 如果需要，添加底部边界线 */
-            height: 49px;
-        }
-
-        /* 调整搜索输入框的样式 */
-        .search-box input {
-            /*width: 80%; !* 控制宽度，根据需要调整 *!*/
-            padding: 8px; /* 添加足够的内边距使其易于点击 */
-            margin: 0; /* 移除外边距 */
-            box-sizing: border-box; /* 确保宽度包含内边距和边框 */
-            border: 1px solid #ccc; /* 添加边框，视觉上更加清晰 */
-            border-radius: 5px; /* 添加圆角，根据需要调整 */
-        }
-
-
-        .titles {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-
-        .titles li {
-            padding: 10px;
-            cursor: pointer;
-            border-bottom: 1px solid #f0f0f0;
-        }
-
-
-
-        /* 侧边栏样式 */
-        .sidebar {
-            position: fixed;
-            left: 0;
-            width: 200px; /* 或其他宽度，根据需要调整 */
-            bottom: 0;
-            overflow-y: auto;
-            /*transition: all 0.3s; !* 平滑过渡效果 *!*/
-        }
-
-        /* 侧边栏折叠时的样式 */
-        .sidebar.collapsed {
-            width: 0; /* 改变宽度来折叠侧边栏 */
-            overflow-x: hidden; /* 防止内容溢出 */
-        }
-
-        /* 调整折叠按钮的位置 */
-        .toggle-sidebar {
-            position: fixed;
-            top: 50%; /* 居中 */
-            left: 200px; /* 与侧边栏宽度相同 */
-            transform: translateY(-50%); /* 确保垂直居中 */
-            cursor: pointer;
-            /* 其他样式 */
-        }
-
-        /* 当侧边栏折叠时调整按钮位置 */
-        .sidebar.collapsed + .toggle-sidebar {
-            left: 0; /* 移动按钮到页面边缘 */
-        }
-
-
-        /* 左侧列表条目的基本样式 */
-        .titles li {
-            padding: 10px;
-            cursor: pointer;
-            border-bottom: 1px solid #f0f0f0;
-        }
-
-        /* 被点击条目的高亮样式 */
-        .titles li.active {
-            background-color: #007bff; /* 选择一个高亮颜色 */
-            color: white; /* 改变文字颜色以确保可读性 */
-        }
-
-
-        #title-display {
-            font-size: 20px; /* 调整大小以匹配您的设计 */
-            margin-right: 10px; /* 确保标签和图标之间有间距 */
-        }
-
-        #edit-icon {
-            margin-left: 5px;
-            font-size: 16px; /* 调整图标大小 */
-        }
-
-        #title-input {
-            margin-left: 10px;
-            font-size: 20px; /* 与标题显示相同的字体大小 */
-            display: none; /* 默认隐藏输入框 */
+        #title-display, #url-display {
+            font-size: 15px;
+            font-weight: 500;
+            margin-right: 8px;
+            color: var(--text-color);
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         #url-display {
-            font-size: 20px;
-            margin-right: 10px; /* 确保与图标有足够的间距 */
+            color: var(--primary-color);
+            text-decoration: none;
         }
 
-        #edit-url-icon {
-            margin-left: 5px;
-            font-size: 16px;
+        #url-display:hover {
+            text-decoration: underline;
         }
 
-        #url-input {
-            margin-left: 10px;
-            font-size: 20px;
-            display: none; /* 默认隐藏输入框 */
+        #title-input, #url-input {
+            padding: 6px 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 14px;
+            width: 200px;
+            outline: none;
         }
 
-        #title-display {
-            font-size: 20px;
-            margin-right: 10px; /* 增加与编辑图标的右边距 */
+        #title-input:focus, #url-input:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(74, 107, 223, 0.25);
         }
 
-        #edit-title-icon {
-            margin-right: 50px; /* 增加与URL标签的右边距 */
+        .edit-icon {
+            cursor: pointer;
+            color: #777;
+            margin-left: 4px;
+            transition: color 0.2s;
         }
 
-        #url-display {
-            font-size: 20px;
-            margin-right: 10px; /* 如有必要，确保与编辑图标有足够的间距 */
+        .edit-icon:hover {
+            color: var(--primary-color);
         }
 
-        /* 如果您想要更大的间距，可以调整上面的 margin-right 值 */
-
+        .toolbar-actions {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+        }
 
         #save-icon {
-            font-size: 24px; /* 调整图标大小 */
-            color: #007bff; /* 设置图标为蓝色 */
+            font-size: 20px;
+            color: var(--primary-color);
             cursor: pointer;
-            margin-left: 20px; /* 增加左边距，根据需要调整此值 */
+            transition: color 0.2s;
+            margin-right: 5px;
         }
 
         #save-icon:hover {
-            color: #0056b3; /* 鼠标悬停时的颜色 */
+            color: var(--primary-hover);
         }
 
-
-        .save-ok {
-            font-size: 20px; /* 调整“OK”字样的大小 */
-            color: #007bff; /* 与图标相同的蓝色 */
-            display: none; /* 默认不显示 */
-            margin-left: 10px; /* 与图标之间的间距 */
-        }
-
-        #delete-icon {
-            font-size: 20px; /* 或根据需要调整大小 */
-            color: #dc3545; /* 设置图标颜色，这里使用了Bootstrap的危险颜色 */
-            margin-left: auto; /* 在flex布局下推到右侧 */
-        }
-
-        #delete-icon:hover {
-            color: #c82333; /* 鼠标悬停时颜色加深 */
+        #save-result {
+            color: var(--success-color);
+            font-weight: 500;
+            margin-left: 5px;
         }
 
         #last-modified-time {
-            margin-left: 20px;
-            margin-right: 20px; /* 在标签和删除图标之间添加适当的间距 */
-            font-size: 16px; /* 根据需要调整字体大小 */
-            color: #666; /* 根据需要调整字体颜色 */
-            white-space: nowrap; /* 确保时间不会换行 */
+            font-size: 13px;
+            color: #777;
+            margin: 0 20px;
         }
 
-
-        .search-box {
-            position: -webkit-sticky; /* 为了兼容性考虑 */
-            position: sticky;
-            top: 0; /* 吸顶位置，0 表示顶部 */
-            background-color: white; /* 确保搜索框背景不透明 */
-            z-index: 10; /* 确保它在其他滚动内容上方 */
-            padding: 10px; /* 根据需要调整内边距 */
-            border-bottom: 1px solid #ccc; /* 添加底部边界以区分搜索框和列表项 */
+        #help-icon, #delete-icon {
+            font-size: 18px;
+            cursor: pointer;
+            transition: color 0.2s;
+            margin-left: 15px;
         }
 
-        .sidebar {
-            overflow-y: auto; /* 允许滚动 */
-            height: 100vh; /* 或其他根据您的布局需求设定的高度 */
+        #help-icon {
+            color: #777;
         }
 
-        .toolbar {
-            position: -webkit-sticky; /* Safari 浏览器兼容 */
-            position: sticky;
-            top: 0; /* 顶部固定 */
-            z-index: 1000; /* 确保工具栏在其他内容上方 */
-            background-color: white; /* 设置一个背景色以防背后内容透视显示 */
-            border-bottom: 1px solid #ccc; /* 添加边界线，如果需要的话 */
+        #help-icon:hover {
+            color: var(--primary-color);
         }
 
-        .active-item {
-            background-color: #007bff; /* 高亮颜色，您可以根据需要调整 */
-            color: white; /* 文字颜色，确保高亮项易于阅读 */
+        #delete-icon {
+            color: #777;
+        }
+
+        #delete-icon:hover {
+            color: var(--danger-color);
+        }
+
+        #versionsLink {
+            font-size: 14px;
+            color: var(--primary-color);
+            text-decoration: none;
+            margin-left: 15px;
+        }
+
+        #versionsLink:hover {
+            text-decoration: underline;
         }
 
         #loading-indicator {
-            position: absolute; /* 或其他布局方式，取决于编辑器的布局 */
+            position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background-color: rgba(255, 255, 255, 0.8);
-            padding: 10px;
-            border-radius: 5px;
-            text-align: center;
-            display: none; /* 默认不显示 */
-            z-index: 100;
-            color: #00bb00;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 15px 25px;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            color: var(--primary-color);
+            font-weight: 500;
         }
 
+        /* Home Button */
+        .floating-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background-color: var(--primary-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            transition: all 0.2s;
+        }
+
+        .floating-button i {
+            font-size: 20px;
+        }
+
+        .floating-button:hover {
+            background-color: var(--primary-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Syntax Highlighting */
+        .cm-special-string {
+            color: #9333ea;
+            font-weight: bold;
+        }
+
+        .cm-python-delimiter {
+            font-style: italic;
+            color: #4f46e5;
+        }
+
+        .cm-s-default .cm-keyword {
+            color: #8839ef;
+            font-weight: 500;
+        }
+
+        .cm-s-default .cm-string {
+            color: #d20f39;
+        }
+
+        .cm-s-default .cm-def {
+            color: #1e66f5;
+            font-weight: 500;
+        }
+
+        .cm-s-default .cm-variable {
+            color: #04a5e5;
+        }
+
+        .cm-s-default .cm-comment {
+            color: #7c7f93;
+            font-style: italic;
+        }
+
+        .cm-s-default .cm-builtin {
+            color: #fe640b;
+        }
+
+        .cm-s-default .cm-number {
+            color: #40a02b;
+        }
     </style>
 
     <link rel=stylesheet href="/static/css/floating_nav.css">
 </head>
-<body style="
-    overflow: hidden;
-">
-<!-- 浮动小球按钮 -->
+<body>
+<!-- Home Button -->
 <a href="/" id="homeButton" class="floating-button">
     <i class="fas fa-home"></i>
 </a>
+
+<!-- Sidebar -->
 <div class="sidebar">
     <div class="search-box">
-        <input type="text" id="search-input" placeholder="过滤标题...">
+        <input type="text" id="search-input" placeholder="Search pages...">
     </div>
     <ul class="titles" id="titles-list">
-        <!-- 列表项将通过JavaScript动态加载 -->
+        <!-- List items will be dynamically loaded by JavaScript -->
     </ul>
 </div>
 
+<!-- Sidebar Toggle Button -->
 <div class="toggle-sidebar" onclick="toggleSidebar()">
-    <span>&laquo;</span> <!-- 使用左箭头作为折叠图标，您可以替换为任何图标 -->
+    <span>&laquo;</span>
 </div>
 
-<div class="toolbar" style="    height: 49px;">
-    <span id="title-display">未知标题</span>
-    <span id="edit-title-icon" style="cursor: pointer;">✎</span>
-    <input type="text" id="title-input" placeholder="编辑标题..." style="display: none;">
-
-    <span style=" ">/pages</span>
-    <a id="url-display" href="/pages/null" target="_blank">/null</a>
-
-    <span id="edit-url-icon" style="cursor: pointer;">✎</span>
-    <input type="text" id="url-input" placeholder="编辑URL..." style="display: none;">
-
-    <span id="save-icon" class="fa fa-save"></span>
-    <span id="save-result" class="save-ok"></span> <!-- 用于显示保存结果的标签 -->
-
-
-    <span id="last-modified-time" ></span>
-
-    <span id="help-icon" title="see doc" class="fas fa-question-circle" style="cursor: pointer; float: right;" onclick="window.open('https://github.com/zhouzhipeng/play/blob/main/doc/page-editor-usage.md')"></span>
-    <a  id="versionsLink" target="_blank" href="/page-versions" style="margin-left: 10px">versions</a>
-    <span id="delete-icon" class="fas fa-trash" style="cursor: pointer; float: right;"></span>
-
-</div>
-<div class="container" id="container">
-
-    <div class="code-editor">
-        <div id="loading-indicator" style="display:none;">加载中...</div>
-        <div id="htmlCodeEditor" style="height: 100%"></div> <!-- CodeMirror will attach here -->
-<!--        <div class="draggable" onmousedown="startResizing(event)"></div>-->
-<!--        <div class="draggable"></div>-->
+<!-- Toolbar -->
+<div class="toolbar">
+    <div class="toolbar-item">
+        <span id="title-display">Untitled</span>
+        <span id="edit-title-icon" class="edit-icon fas fa-edit"></span>
+        <input type="text" id="title-input" placeholder="Edit title..." style="display: none;">
     </div>
-<!--    <div class="preview" id="htmlPreview"></div>-->
+
+    <div class="toolbar-item">
+        <span>/pages</span>
+        <a id="url-display" href="/pages/null" target="_blank">/null</a>
+        <span id="edit-url-icon" class="edit-icon fas fa-edit"></span>
+        <input type="text" id="url-input" placeholder="Edit URL..." style="display: none;">
+    </div>
+
+    <div class="toolbar-actions">
+        <span id="save-icon" class="fas fa-save"></span>
+        <span id="save-result" class="save-ok"></span>
+        <span id="last-modified-time"></span>
+        <a id="versionsLink" target="_blank" href="/page-versions">Versions</a>
+        <span id="help-icon" title="See documentation" class="fas fa-question-circle" onclick="window.open('https://github.com/zhouzhipeng/play/blob/main/doc/page-editor-usage.md')"></span>
+        <span id="delete-icon" class="fas fa-trash"></span>
+    </div>
+</div>
+
+<!-- Main Container -->
+<div class="container" id="container">
+    <div class="code-editor">
+        <div id="loading-indicator" style="display:none;">Loading...</div>
+        <div id="htmlCodeEditor" style="height: 100%"></div>
+    </div>
     <div class="preview">
-        <!-- 其他可能的内容 -->
         <iframe id="preview-iframe" style="width: 100%; height: 100%; border: none;"></iframe>
     </div>
-
 </div>
 
 <script>
@@ -623,15 +570,15 @@
     // 将自定义覆盖应用到现有的模式上
     CodeMirror.defineMode("myOverlay", function(config, parserConfig) {
         return CodeMirror.overlayMode(CodeMirror.getMode(config, parserConfig.backdrop || "htmlWithPython"),      {token: function(stream, state) {
-            // 正则表达式匹配 <special> 或 </special>
-            var re = /({{)|(}})|(%>)|%|(<%)|(^end$)/;
-            if (stream.match(re)) {
-                // 返回自定义样式
-                return "special-string";
-            }
-            while (stream.next() != null && !stream.match(re, false)) {}
-            return null;
-        }});
+                // 正则表达式匹配 <special> 或 </special>
+                var re = /({{)|(}})|(%>)|%|(<%)|(^end$)/;
+                if (stream.match(re)) {
+                    // 返回自定义样式
+                    return "special-string";
+                }
+                while (stream.next() != null && !stream.match(re, false)) {}
+                return null;
+            }});
     });
 
 
@@ -652,11 +599,11 @@
 
     editor.on("inputRead", function(cm, change) {
 
-         if (change.origin === "+input"
-             && change.text[0]!=="%"
-             && change.text[0]!==":"
-             && change.text[0]!==";"
-             && !cm.state.completionActive && !/\s/.test(change.text[0])) {
+        if (change.origin === "+input"
+            && change.text[0]!=="%"
+            && change.text[0]!==":"
+            && change.text[0]!==";"
+            && !cm.state.completionActive && !/\s/.test(change.text[0])) {
             CodeMirror.commands.autocomplete(cm, null, {completeSingle: false});
         }
     });
@@ -843,8 +790,8 @@
             toolbar.style.marginLeft = "0px";
         } else {
             // 还原编辑器的宽度，减去侧边栏的宽度
-            editor.style.marginLeft = "200px";
-            toolbar.style.marginLeft = "200px";
+            editor.style.marginLeft = "240px";
+            toolbar.style.marginLeft = "240px";
         }
 
         // 调整完大小后刷新CodeMirror实例
@@ -993,8 +940,8 @@
             })
             .catch(error => console.error('获取内容失败:', error))
             .finally(() => {
-                    // 隐藏加载指示器
-                    loadingIndicator.style.display = 'none';
+                // 隐藏加载指示器
+                loadingIndicator.style.display = 'none';
             });
     }
 
