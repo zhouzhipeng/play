@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文件上传</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f4f8;
+            color: #333;
+        }
+
+        .upload-container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 500px;
+        }
+
+        .upload-title {
+            margin: 0 0 20px 0;
+            text-align: center;
+            color: #333;
+        }
+
+        .upload-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 200px; /* 设置高度为200px */
+
+            padding: 10px;
+            margin: 10px 0;
+            border: 2px dashed #69c0ff;
+            border-radius: 5px;
+            background-color: #e6f7ff;
+            color: #1890ff;
+            text-align: center;
+            cursor: pointer;
+        }
+
+        .upload-btn:hover {
+            background-color: #bae7ff;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        #file-name {
+            text-align: center;
+        }
+
+        #result-link {
+            text-align: center;
+            margin-top: 15px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<div class="upload-container">
+    <h1 class="upload-title">文件上传</h1>
+    <form id="upload-form">
+        <label class="upload-btn" ondrop="dropHandler(event);" ondragover="dragOverHandler(event);">
+            点击或拖拽文件到这里上传
+            <input multiple hidden type="file" name="file" onchange="uploadFile()">
+        </label>
+        <label>
+            自动解压
+            <input type="checkbox" id="unzipOption" checked/>
+        </label>
+
+    </form>
+
+    <div id="result-link"></div>
+</div>
+
+<script>
+    function dragOverHandler(event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+
+    function dropHandler(event) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        var formData = new FormData();
+        let i=0;
+        for (let f of event.dataTransfer.files){
+            formData.append('file'+ (i++), f);
+
+        }
+
+        uploadFile(formData);
+    }
+    function uploadFile(formData = null) {
+        if (!formData) {
+            formData = new FormData(document.getElementById('upload-form'));
+        }
+        console.log("upload");
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/files/upload?unzip='+unzipOption.checked , true);
+
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                var response = xhr.responseText;
+                var link = document.getElementById('result-link');
+                let html_str="";
+                for(let uri of response.split(",")){
+                    html_str+=`<a href="${uri}" target="_blank">${uri}</a><br/>`;
+                }
+                link.innerHTML = html_str;
+                link.style.display = 'block';
+            } else {
+                alert('文件上传失败!');
+            }
+        };
+
+
+
+        xhr.send(formData);
+    }
+</script>
+</body>
+</html>
