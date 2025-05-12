@@ -168,9 +168,14 @@
 
                 <div class="mb-4">
                     <label class="block text-gray-700 text-sm font-bold mb-2" for="urlPrefix">
-                        URL Prefix
+                        URL Prefix <span class="text-xs text-gray-500">(must start with "/")</span>
                     </label>
-                    <input id="urlPrefix" type="text" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                    <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-500 opacity-75" id="urlPrefixSlash" style="display: none;">
+                                /
+                            </span>
+                        <input id="urlPrefix" type="text" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="e.g. /api/myPlugin">
+                    </div>
                 </div>
 
                 <div class="mb-4">
@@ -819,10 +824,19 @@
     function handleFormSubmit(event) {
         event.preventDefault();
 
+        let urlPrefix = elements.formFields.urlPrefix.value.trim();
+
+        // URL Prefix validation - must start with "/"
+        if (urlPrefix && !urlPrefix.startsWith('/')) {
+            urlPrefix = '/' + urlPrefix;
+            elements.formFields.urlPrefix.value = urlPrefix;
+            showAlert('URL Prefix must start with "/". It has been automatically corrected.', 'warning');
+        }
+
         const pluginData = {
             name: elements.formFields.name.value.trim(),
             proxy_domain: elements.formFields.proxyDomain.value.trim(),
-            url_prefix: elements.formFields.urlPrefix.value.trim(),
+            url_prefix: urlPrefix,
             file_path: elements.formFields.filePath.value.trim(),
             need_config_file: elements.formFields.needConfigFile.checked,
             is_server: elements.formFields.isServer.checked,
