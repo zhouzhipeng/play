@@ -180,12 +180,7 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> anyhow::Res
     };
 
     let mut auth_config = &mut inner_app_state.config.auth_config;
-    let mut shortlinks:Vec<String> = inner_app_state.config.shortlinks.clone().iter()
-        .filter(|p|!p.auth)
-        .map(|p|p.from.to_string()).collect();
-    auth_config.whitelist.append(&mut shortlinks);
 
-    info!("whitelist : {:?}", auth_config.whitelist);
 
     let mut fingerprints = GeneralData::query_by_cat_simple(CAT_FINGERPRINT,1000,&inner_app_state.db).await?.iter().map(|f|f.data.to_string()).collect::<Vec<String>>();
     auth_config.fingerprints.append(&mut fingerprints);
@@ -223,7 +218,12 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> anyhow::Res
 
     }
     info!("active shortlinks : {:?}", shortlinks);
+    let mut shortlinks:Vec<String> = inner_app_state.config.shortlinks.clone().iter()
+        .filter(|p|!p.auth)
+        .map(|p|p.from.to_string()).collect();
+    auth_config.whitelist.append(&mut shortlinks);
 
+    info!("whitelist : {:?}", auth_config.whitelist);
 
     // Create an instance of the shared state
     let app_state = Arc::new(inner_app_state);
