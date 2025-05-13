@@ -112,16 +112,16 @@ async fn dynamic_pages(s: S, Path(url): Path<String>, Query(params): Query<HashM
     if let Some(extension) = extension {
         // 根据后缀确定 content-type
         let content_type = match extension {
-            "html" => "text/html",
-            "css" => "text/css",
-            "js" => "application/javascript",
-            "json" => "application/json",
+            "html" => "text/html;charset=utf-8",
+            "css" => "text/css;charset=utf-8",
+            "js" => "application/javascript;charset=utf-8",
+            "json" => "application/json;charset=utf-8",
             "png" => "image/png",
             "jpg" | "jpeg" => "image/jpeg",
             "svg" => "image/svg+xml",
             "ico" => "image/x-icon",
             // 添加更多需要的文件类型...
-            _ => "text/html", // 默认二进制类型
+            _ => "text/html;charset=utf-8", // 默认二进制类型
         };
 
         Ok(Response::builder()
