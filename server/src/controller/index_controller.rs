@@ -90,7 +90,7 @@ async fn root(s: S) -> HTML {
                 ul {
                     for item in pages{
                     li {
-                        a { href: "/pages{item.url}", target: "_blank", "{item.title}" }
+                        a { href: "/pages{item.url}","{item.title}" }
                     }
                     }
                 }
