@@ -25,11 +25,11 @@
         // 创建选项
         const homeOption = document.createElement('div');
         homeOption.className = 'nav-menu-option';
-        homeOption.textContent = '跳转到首页';
+        homeOption.textContent = 'to Home Page';
 
         const rebootOption = document.createElement('div');
         rebootOption.className = 'nav-menu-option';
-        rebootOption.textContent = '重启服务';
+        rebootOption.textContent = 'Reboot Service';
 
         // 将选项添加到菜单中
         menuContainer.appendChild(rebootOption);
