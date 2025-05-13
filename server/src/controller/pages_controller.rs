@@ -1,9 +1,10 @@
 use std::collections::HashMap;
-
+use std::path::PathBuf;
 use axum::extract::{Path, Query};
 use axum::Form;
-use axum::response::Html;
+use axum::response::{Html, IntoResponse, Response};
 use chrono::{TimeZone, Utc};
+use http::{header, StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tracing::{error, info};
@@ -11,7 +12,7 @@ use tracing::{error, info};
 use play_shared::timestamp_to_date_str;
 use play_shared::tpl_engine_api::Template;
 
-use crate::{promise, hex_to_string, method_router, render_fragment, render_page, template};
+use crate::{promise, hex_to_string, method_router, render_fragment, render_page, template, AppError};
 use crate::{HTML, R, S};
 use crate::controller::function_controller::{text_compare, TextCompareReq};
 use crate::tables::change_log::ChangeLog;
@@ -88,7 +89,7 @@ async fn page_versions(s: S, Query(q): Query<QueryPageVersion>) -> HTML {
     template!(s, PAGE_VERSIONS_HTML, json!({ "items": data}))
 }
 
-async fn dynamic_pages(s: S, Path(url): Path<String>, Query(params): Query<HashMap<String, String>>) -> HTML {
+async fn dynamic_pages(s: S, Path(url): Path<String>, Query(params): Query<HashMap<String, String>>) ->  Result<impl IntoResponse, AppError>{
     info!("dynamic_pages >> url is : {}", url);
     promise!(!url.eq_ignore_ascii_case("null"), "null url cant visit.");
 
@@ -96,23 +97,51 @@ async fn dynamic_pages(s: S, Path(url): Path<String>, Query(params): Query<HashM
     let data = GeneralData::query_by_json_field("*", "pages", "url", &format!("/{}", url), 1,&s.db).await?;
     promise!(data.len()==1, "url not found.");
     // Your hex string
-    
 
+
+    // 获取文件后缀
+    let p = PathBuf::from(&url);
+    let extension =p
+        .extension()
+        .and_then(|ext| ext.to_str())
+        ;
     let page_dto = serde_json::from_str::<PageDto>(&data[0].data)?;
     let raw_html = String::from_utf8(hex::decode(&page_dto.content)?)?;
 
-    if url.ends_with(".html") {
-        Ok(Html(raw_html))
-    } else {
+
+    if let Some(extension) = extension {
+        // 根据后缀确定 content-type
+        let content_type = match extension {
+            "html" => "text/html",
+            "css" => "text/css",
+            "js" => "application/javascript",
+            "json" => "application/json",
+            "png" => "image/png",
+            "jpg" | "jpeg" => "image/jpeg",
+            "svg" => "image/svg+xml",
+            "ico" => "image/x-icon",
+            // 添加更多需要的文件类型...
+            _ => "text/html", // 默认二进制类型
+        };
+
+        Ok(Response::builder()
+            .status(StatusCode::OK)
+            .header(header::CONTENT_TYPE, content_type)
+            .body(raw_html)?.into_response())
+    }else{
         //pass through query params.
 
-        render_fragment(&s, Template::DynamicTemplate {
+        Ok(render_fragment(&s, Template::DynamicTemplate {
             name: page_dto.title.to_string(),
             content: raw_html,
         }, json!({
             "params": params,
-        })).await
+        })).await.into_response())
     }
+
+
+
+
 }
 fn escape_html(input: &str) -> String {
     input.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
