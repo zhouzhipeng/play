@@ -84,6 +84,7 @@ async fn save_config(s: S, Form(req): Form<SaveConfigReq>) -> R<String> {
 
 async fn reboot() -> R<String> {
     tokio::spawn(async {
+        tokio::time::sleep(Duration::from_secs(1)).await;
         shutdown();
     });
     Ok("will reboot in a sec.".to_string())
