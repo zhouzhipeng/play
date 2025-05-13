@@ -126,7 +126,9 @@ struct UploadOption{
     #[serde(default)]
     random_name: bool,
     #[serde(default)]
-    unzip: bool
+    unzip: bool,
+    #[serde(default)]
+    public: bool
 }
 
 // #[debug_handler]
@@ -161,14 +163,24 @@ async fn upload_file(
                     info!("new file name : {}", file_name);
                 }
 
+                let (target_dir, url_prefix) = if  option.public{
+                    (files_dir!().join("public"), "/files/public/")
+                }else{
+                    (files_dir!(), "/files/")
+                };
+
+                if !target_dir.exists(){
+                    fs::create_dir_all(&target_dir).await?;
+                }
+
 
                 if option.unzip && file_name.ends_with(".zip"){
                     let archive = Cursor::new(field.bytes().await?);
-                    zip_extract::extract(archive, &files_dir!(), false).unwrap();
-                    target_path.push(format!("/files/{}", &file_name.as_str()[0..(file_name.len()-".zip".len())]));
+                    zip_extract::extract(archive, &target_dir, false).unwrap();
+                    target_path.push(format!("{}{}",url_prefix, &file_name.as_str()[0..(file_name.len()-".zip".len())]));
                 }else{
-                    stream_to_file(&file_name, field).await?;
-                    target_path.push(format!("/files/{}", file_name));
+                    stream_to_file(&target_dir.join(&file_name), field).await?;
+                    target_path.push(format!("{}{}",url_prefix, file_name));
                 }
 
 
@@ -177,7 +189,7 @@ async fn upload_file(
             Ok(target_path.join(","))
         }
         CustomFileExtractor::BODYSTREAM(bodystream) => {
-            let local_path = stream_to_file(&format!("{}", current_timestamp!()), bodystream).await?;
+            let local_path = stream_to_file(&files_dir!().join(format!("{}", current_timestamp!())), bodystream).await?;
             let new_path = rename_file_with_correct_extension(&local_path).await?;
             Ok(format!("/files/{}", new_path))
         }
@@ -303,7 +315,7 @@ fn extract_extension(filename: &str) -> &str {
 }
 
 // Save a `Stream` to a file
-async fn stream_to_file<S, E>(path: &str, stream: S) -> anyhow::Result<PathBuf>
+async fn stream_to_file<S, E>(path: &PathBuf, stream: S) -> anyhow::Result<PathBuf>
     where
         S: Stream<Item=Result<Bytes, E>>,
         E: Into<BoxError>,
@@ -315,13 +327,12 @@ async fn stream_to_file<S, E>(path: &str, stream: S) -> anyhow::Result<PathBuf>
     futures::pin_mut!(body_reader);
 
     // Create the file. `File` implements `AsyncWrite`.
-    let path = files_dir!().join(path);
     let mut file = BufWriter::new(File::create(&path).await?);
 
     // Copy the body into the file.
     tokio::io::copy(&mut body_reader, &mut file).await?;
 
-    Ok(path)
+    Ok(path.clone())
 }
 
 async fn rename_file_with_correct_extension(path: &std::path::Path) -> anyhow::Result<String> {
