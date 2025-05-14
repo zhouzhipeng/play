@@ -82,7 +82,7 @@ fetch(location.pathname).then(res=>{
 
 async function submitPasscode() {
     const fingerprint = await generateBrowserFingerprint();
-    var passcode = document.getElementById("passcodeInput").value;
+    var passcode = sha256(document.getElementById("passcodeInput").value);
     fetch(`/save-fingerprint?fingerprint=${fingerprint}&passcode=${passcode}`)
         .then(response => {
             if (response.ok) {
