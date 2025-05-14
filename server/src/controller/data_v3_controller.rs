@@ -55,6 +55,12 @@ struct QueryParam {
 }
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
+struct InsertOptionParam {
+    #[serde(default)]
+    unique: bool,
+}
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 struct CountParam {
     #[serde(rename = "where")]
     _where: Option<String>,
@@ -355,11 +361,13 @@ pub fn parse_query_with_types(str_params: HashMap<String, String>) -> Result<Val
 async fn handle_insert(
     s: S,
     Path((category)): Path<(String)>,
+    Query(option) : Query<InsertOptionParam>,
     Json(val): Json<HashMap<String, Value>>,
 ) -> R<Json<Map<String, Value>>> {
     check_category_valid(&category)?;
 
     promise!(val.len() != 0, "query params cant be empty!");
+
     for field in SYSTEM_FIELDS {
         promise!(
             !val.contains_key(field),
@@ -367,8 +375,33 @@ async fn handle_insert(
         );
     }
 
-    let obj = insert_data(s, Path(category), serde_json::to_string(&val)?).await?;
-    Ok(Json(obj.to_flat_map()?))
+
+    if option.unique{
+        //should be only one record for this category.
+        let count = GeneralData::query_count(&category, &s.db).await?;
+        promise!(count <=1, "`unique`  is true , but there is more than one ({}) row under category :{}.", count, category);
+
+        if count==0{
+            //insert record
+            let obj = insert_data(s, Path(category), serde_json::to_string(&val)?).await?;
+            Ok(Json(obj.to_flat_map()?))
+        }else{
+            //update record
+            GeneralData::update_data_by_cat(&category, &serde_json::to_string(&val)? ,&s.db).await?;
+            let records = GeneralData::query_by_cat_simple(&category, 1,&s.db).await?;
+            promise!(records.len() ==1 , "{category} not found , expected one record under it!");
+
+            Ok(Json(records[0].to_flat_map()?))
+        }
+
+    }else{
+        //just insert
+        let obj = insert_data(s, Path(category), serde_json::to_string(&val)?).await?;
+        Ok(Json(obj.to_flat_map()?))
+    }
+
+
+
 }
 async fn handle_update(
     s: S,
