@@ -71,10 +71,15 @@ async fn page_versions(s: S, Query(q): Query<QueryPageVersion>) -> HTML {
                 use_str_joiner: false,
                 format_json: false,
             })).await.unwrap_or(Html("server error".to_string())).0;
+
+            let mut encoded_before = String::new();
+            html_escape::encode_text_to_string(before,&mut encoded_before);
+            let mut encoded_after = String::new();
+            html_escape::encode_text_to_string(after,&mut encoded_after);
             PageVersion {
                 id: log.id,
-                data_before: before,
-                data_after: after,
+                data_before:encoded_before,
+                data_after: encoded_after,
                 output_html,
                 updated: log.created,
             }
