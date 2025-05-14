@@ -34,7 +34,8 @@ method_router!(
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 struct GetParam {
-    id: u32,
+
+    id: Option<u32>,
     select: Option<String>,
     #[serde(default)]
     slim: bool,
@@ -462,10 +463,19 @@ async fn handle_get(
         "*"
     };
 
-    let r =
-        GeneralData::query_by_id_with_cat_select(select_fields, query_param.id, &category, &s.db)
-            .await?;
-    promise!(r.len() == 1, "data not found for id : {}", query_param.id);
+
+    let r = if let Some(id) = query_param.id{
+        let r =
+            GeneralData::query_by_id_with_cat_select(select_fields, id, &category, &s.db)
+                .await?;
+        promise!(r.len() == 1, "data not found for id : {}", id);
+        r
+
+    }else{
+        let records = GeneralData::query_by_cat_simple(&category, 1,&s.db).await?;
+        promise!(records.len() ==1 , "{category} not found , expected one record under it!");
+        records
+    };
 
     if !query_param.slim {
         let new_map = r[0].to_flat_map()?;
