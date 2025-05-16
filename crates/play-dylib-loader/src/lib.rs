@@ -92,8 +92,8 @@ struct PluginLib{
 
 // 2. 初始化辅助函数
 unsafe fn get_plugin_lib(lib_path: &str) -> anyhow::Result<Arc<PluginLib>> {
-    match PLUGIN_CACHE.get(lib_path) {
-        None => {
+    // match PLUGIN_CACHE.get(lib_path) {
+    //     None => {
             //load
             // 加载动态库
             let lib = Library::new(&lib_path)?;
@@ -107,14 +107,14 @@ unsafe fn get_plugin_lib(lib_path: &str) -> anyhow::Result<Arc<PluginLib>> {
             let lib_ref = Arc::new(plugin_lib);
             PLUGIN_CACHE.insert(lib_path.to_string(), lib_ref.clone());
             Ok(lib_ref.clone())
-        }
-        Some(s) => {
-            info!("hit cache , load_and_run lib load ok.  path : {}",lib_path);
-            // println!("hit cache , load_and_run lib load ok.  path : {}",lib_path);
-
-            Ok(s.clone())
-        },
-    }
+        // }
+        // Some(s) => {
+        //     info!("hit cache , load_and_run lib load ok.  path : {}",lib_path);
+        //     // println!("hit cache , load_and_run lib load ok.  path : {}",lib_path);
+        //
+        //     Ok(s.clone())
+        // },
+    // }
 
 }
 
