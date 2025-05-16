@@ -36,18 +36,6 @@ pub struct HttpRequest {
 
 impl HttpRequest {
 
-
-    #[deprecated]
-    pub async fn render_template(&self, raw: &str, data : Value) -> anyhow::Result<String> {
-        let resp = Client::new().post(&format!("{}/plugin/pyo3", self.context.host_url.as_str()))
-            .form(&json!({
-                "raw_content": raw,
-                "data": data.to_string()
-            }))
-            .send().await?.text().await?;
-        Ok(resp)
-    }
-
     pub fn parse_query<T: DeserializeOwned>(&self) -> anyhow::Result<T> {
         let p: T = serde_urlencoded::from_str(&self.query).context("parse query str error!")?;
         Ok(p)

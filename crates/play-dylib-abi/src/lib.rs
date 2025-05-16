@@ -4,8 +4,10 @@ pub mod server_abi;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 use anyhow::Context;
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde::de::DeserializeOwned;
+use serde_json::{json, Value};
 
 pub fn c_char_to_string(c_str: *const c_char) -> String {
     unsafe {
@@ -59,5 +61,15 @@ impl HostContext {
         let config_text = self.config_text.as_ref().context("config file is required!")?;
         let  config: T = toml::from_str(&config_text)?;
         Ok(config)
+    }
+
+    pub async fn render_template(&self, raw: &str, data : Value) -> anyhow::Result<String> {
+        let resp = Client::new().post(&format!("{}/functions/render-template", self.host_url.as_str()))
+            .form(&json!({
+                "raw_content": raw,
+                "data": data.to_string()
+            }))
+            .send().await?.text().await?;
+        Ok(resp)
     }
 }
