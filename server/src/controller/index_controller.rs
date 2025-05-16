@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use axum::body::Body;
 use axum::extract::Query;
 use axum::response::{Html, IntoResponse, Response};
@@ -39,6 +40,15 @@ async fn robots() -> R<String> {
     Ok(ROBOTS_TXT.to_string())
 }
 
+
+fn has_extension(url: &str)->bool{
+    let p = PathBuf::from(&url);
+    let extension =p
+        .extension()
+        .and_then(|ext| ext.to_str());
+    extension.is_some()
+}
+
 async fn root(s: S) -> HTML {
     let built_time = env!("BUILT_TIME").parse::<i64>()?;
     // return_error!("test");
@@ -46,10 +56,7 @@ async fn root(s: S) -> HTML {
     let pages = data.iter()
         .map(|p|serde_json::from_str::<PageDto>(&p.data).unwrap())
         .filter(|p|
-            !p.url.ends_with(".lua")
-            && !p.url.ends_with(".js")
-            &&!p.url.ends_with(".json")
-            &&!p.url.ends_with(".css")
+            p.url.ends_with(".html")  || !has_extension(p.url.as_str())
         )
         .collect::<Vec<PageDto>>();
 

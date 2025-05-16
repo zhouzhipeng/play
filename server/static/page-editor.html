@@ -721,7 +721,7 @@
     var isCallingAPI=false
     function generate_preview_page(){
         const urlElement = document.getElementById('url-display');
-        if(urlElement.innerText.endsWith(".html")){
+        if(urlElement.innerText.indexOf(".")!==-1){
             //static pages
             updatePreview(editor.getValue());
             isCallingAPI=false
