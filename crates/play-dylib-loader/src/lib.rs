@@ -92,8 +92,8 @@ struct PluginLib{
 
 // 2. 初始化辅助函数
 unsafe fn get_plugin_lib(lib_path: &str) -> anyhow::Result<Arc<PluginLib>> {
-    // match PLUGIN_CACHE.get(lib_path) {
-    //     None => {
+    match PLUGIN_CACHE.get(lib_path) {
+        None => {
             //load
             // 加载动态库
             let lib = Library::new(&lib_path)?;
@@ -107,14 +107,14 @@ unsafe fn get_plugin_lib(lib_path: &str) -> anyhow::Result<Arc<PluginLib>> {
             let lib_ref = Arc::new(plugin_lib);
             PLUGIN_CACHE.insert(lib_path.to_string(), lib_ref.clone());
             Ok(lib_ref.clone())
-        // }
-        // Some(s) => {
-        //     info!("hit cache , load_and_run lib load ok.  path : {}",lib_path);
-        //     // println!("hit cache , load_and_run lib load ok.  path : {}",lib_path);
-        //
-        //     Ok(s.clone())
-        // },
-    // }
+        }
+        Some(s) => {
+            info!("hit cache , load_and_run lib load ok.  path : {}",lib_path);
+            // println!("hit cache , load_and_run lib load ok.  path : {}",lib_path);
+
+            Ok(s.clone())
+        },
+    }
 
 }
 
@@ -122,9 +122,10 @@ unsafe fn get_plugin_lib(lib_path: &str) -> anyhow::Result<Arc<PluginLib>> {
 unsafe fn run_plugin(lib_path: &str, request: HttpRequest) -> anyhow::Result<HttpResponse> {
     info!("load_and_run begin  path : {}",lib_path);
 
-    let lib = get_plugin_lib(lib_path)?;
-    let handle_request: Symbol<HandleRequestFn> = lib.library.get(HANDLE_REQUEST_FN_NAME.as_ref()).context("`handle_request` method not found.")?;
-    let free_c_string: Symbol<FreeCStringFn> = lib.library.get(FREE_C_STRING_FN_NAME.as_ref()).context("`free_c_string` method not found.")?;
+    let lib = Library::new(&lib_path)?;
+    // let lib = get_plugin_lib(lib_path)?;
+    let handle_request: Symbol<HandleRequestFn> = lib.get(HANDLE_REQUEST_FN_NAME.as_ref()).context("`handle_request` method not found.")?;
+    let free_c_string: Symbol<FreeCStringFn> = lib.get(FREE_C_STRING_FN_NAME.as_ref()).context("`free_c_string` method not found.")?;
 
 
     let rust_string = serde_json::to_string(&request)?;
@@ -142,6 +143,7 @@ unsafe fn run_plugin(lib_path: &str, request: HttpRequest) -> anyhow::Result<Htt
     if let Some(error) = &response.error {
         bail!("run plugin error >> {}", error);
     }
+    drop(lib);
     Ok(response)
 }
 
