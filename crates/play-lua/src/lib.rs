@@ -1,10 +1,10 @@
 use std::cell::RefCell;
 use std::{env, fs};
 use std::sync::{Arc, Mutex};
-use mlua::{ExternalResult, Lua, LuaSerdeExt, MultiValue, Result, Table, Value};
+use mlua::{ExternalResult, Function, Lua, LuaSerdeExt, MultiValue, Result, Table, Value};
 use mlua::prelude::{LuaError, LuaResult, LuaValue};
 use reqwest;
-use play_shared::constants::LUA_DIR;
+
 
 pub  fn create_lua() -> Result<(Lua, Arc<Mutex<String>>)> {
     let lua = Lua::new();
@@ -51,23 +51,17 @@ pub  fn create_lua() -> Result<(Lua, Arc<Mutex<String>>)> {
 
 
     // 重定义 require 函数
-    let require_override = lua.create_function(move |lua, lua_file: String| {
-        if let Ok(lua_dir) = std::env::var(LUA_DIR){
-            let file_dir = std::path::Path::new(lua_dir.as_str()).join(&lua_file);
-            if fs::exists(&file_dir)?{
-                let template_engine: Table = lua.load(&fs::read_to_string(&file_dir)?).eval()?;
-                return Ok(template_engine)
-            }
-        }
-
-
+    let require_override = lua.create_async_function(|lua, lua_file: String| async move  {
         let package: Table = lua.globals().get("package")?;
         let loaded: Table = package.get("loaded")?;
         if !loaded.contains_key(lua_file.as_str())?{
-            return Err(LuaError::external(format!("{} not found!", lua_file)))
+            //load from pages
+            let uri =format!("/pages/{}",&lua_file );
+            let lua_code: String  = lua.globals().get::<Table>("http")?.get::<Function>("get_text")?.call_async(uri.as_str()).await?;
+            let lua_table: Table  =  lua.load(&lua_code).eval()?;
+            loaded.set(lua_file.as_str(), lua_table)?;
         }
-        loaded.get(lua_file.as_str())
-
+        loaded.get::<Table>(lua_file.as_str())
 
     })?;
 
@@ -238,9 +232,7 @@ mod tests {
     }
     #[tokio::test]
     async fn test_require() {
-        unsafe {
-            env::set_var("LUA_DIR", "/Users/ronnie/RustroverProjects/play/server/output_dir/files/lua_files2");
-        }
+
         let output = run_lua(r#"
             htmlutils = require("html_utils.lua")
             local escaped = htmlutils.escape("<Hello & World>")

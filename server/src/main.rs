@@ -21,7 +21,7 @@ use play::{ files_dir, init_app_state, shutdown_another_instance, start_server};
 use play::config::{init_config, read_config_file, PluginConfig};
 use play::routers;
 
-use play_shared::constants::{DATA_DIR, LUA_DIR};
+use play_shared::constants::{DATA_DIR};
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 10)]
 async fn main()->anyhow::Result<()> {
@@ -49,11 +49,6 @@ async fn main()->anyhow::Result<()> {
     //init dir
     fs::create_dir_all(&data_dir).expect("create data dir failed.");
     fs::create_dir_all(files_dir!()).expect("create files dir failed.");
-
-
-    let lua_path = files_dir!().join("lua_files");
-    fs::create_dir_all(&lua_path).expect("create lua_files dir failed.");
-    env::set_var(LUA_DIR, &lua_path);
 
 
     // init config

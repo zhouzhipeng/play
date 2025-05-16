@@ -8,11 +8,7 @@ use anyhow::{anyhow, bail, ensure, Context, Result};
 use axum::extract::{Path, Query};
 use axum::response::IntoResponse;
 use axum::Json;
-use chrono::NaiveDateTime;
-use dioxus::html::completions::CompleteWithBraces::param;
-use either::Either;
-use http::Uri;
-use play_shared::constants::LUA_DIR;
+
 use regex::Regex;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -610,25 +606,7 @@ async fn insert_data(s: S, Path(cat): Path<String>, body: String) -> Result<Gene
     ensure!(data.len() == 1, "data error! query_by_id not found.");
 
     let data = data[0].clone();
-    after_update_data(&data).await?;
 
     Ok(data)
 }
 
-async fn after_update_data(data: &GeneralData) -> Result<()> {
-    //save *.lua page
-    if data.cat.eq_ignore_ascii_case("pages") {
-        let page_dto = serde_json::from_str::<PageDto>(&data.data)?;
-        if page_dto.title.ends_with(".lua") {
-            let save_path = std::path::Path::new(std::env::var(LUA_DIR).unwrap().as_str())
-                .join(&page_dto.title);
-
-            info!("ready to save lua file to save_path : {save_path:?}");
-            let raw_content = String::from_utf8(hex::decode(&page_dto.content)?)?;
-
-            //save to local file system
-            tokio::fs::write(save_path, raw_content).await?;
-        }
-    }
-    Ok(())
-}
