@@ -16,6 +16,7 @@ mod test_controller;
 pub mod plugin_controller;
 mod data_v3_controller;
 mod data_v2_controller;
+mod data_v4_controller;
 //PLACEHOLDER:CONTROLLER_MOD
 
 
@@ -38,6 +39,7 @@ crate::register_routers!(
         test_controller,
         data_v2_controller,
         data_v3_controller,
+        data_v4_controller,
 //PLACEHOLDER:CONTROLLER_REGISTER
 
 

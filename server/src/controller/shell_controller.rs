@@ -2,24 +2,100 @@ use std::convert::Infallible;
 use std::process::Stdio;
 use std::time::Duration;
 use axum::extract::Query;
+use axum::Json;
 use axum::response::{IntoResponse, Sse};
 use axum::response::sse::Event;
 use futures_core::Stream;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::unbounded_channel;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::{error, info};
-use crate::{data_dir, hex_to_string, method_router, return_error, string_to_hex};
+use crate::{data_dir, hex_to_string, method_router, return_error, string_to_hex, S};
 use crate::R;
 use futures::{stream, StreamExt};
-use sqlx::__rt::timeout;  // 引入所需的 futures 库部分
+use serde_json::{Map, Value};
+use sqlx::__rt::timeout;
+use crate::tables::general_data::GeneralData;
+// 引入所需的 futures 库部分
 
 method_router!(
     get : "/shell/execute"-> execute_command,
+    post : "/crontab/apply"-> handle_apply_crontab,
 );
+
+
+
+#[derive(Serialize)]
+struct ApplyResponse {
+    success: bool,
+    message: String,
+}
+
+
+async fn handle_apply_crontab(s: S) -> R<Json<ApplyResponse>> {
+    // Query all crontab entries
+    let entries = GeneralData::query_composite(
+        "*",
+        "crontab",
+        "0,1000", // Limit: start at index 0, fetch up to 1000 entries
+        "1=1",    // Where condition: select all
+        false,    // Don't include deleted entries
+        "id asc", // Order by ID ascending
+        &s.db,
+    ).await?;
+
+    // Format entries into a standard crontab string
+    let mut crontab_str = String::new();
+    for entry in &entries {
+        let data_map = entry.extract_data()?;
+
+        // Extract crontab fields with defaults
+        let minute = get_value_as_string(&data_map, "minute").unwrap_or_else(|| "*".to_string());
+        let hour = get_value_as_string(&data_map, "hour").unwrap_or_else(|| "*".to_string());
+        let day_of_month = get_value_as_string(&data_map, "day_of_month").unwrap_or_else(|| "*".to_string());
+        let month = get_value_as_string(&data_map, "month").unwrap_or_else(|| "*".to_string());
+        let day_of_week = get_value_as_string(&data_map, "day_of_week").unwrap_or_else(|| "*".to_string());
+        let command = get_value_as_string(&data_map, "command").unwrap_or_else(|| "".to_string());
+
+        if !command.is_empty() {
+            crontab_str.push_str(&format!("{} {} {} {} {} {}\n", minute, hour, day_of_month, month, day_of_week, command));
+        }
+    }
+
+    // Execute a shell command to update the system's crontab
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(format!("echo \"{}\" | crontab", crontab_str))
+        .output()
+        .await?;
+
+    if output.status.success() {
+        Ok(Json(ApplyResponse {
+            success: true,
+            message: "Crontab applied successfully".to_string(),
+        }))
+    } else {
+        let error_message = String::from_utf8_lossy(&output.stderr).to_string();
+        Ok(Json(ApplyResponse {
+            success: false,
+            message: format!("Failed to apply crontab: {}", error_message),
+        }))
+    }
+}
+
+// Helper function to extract string values from the JSON map
+fn get_value_as_string(map: &Map<String, Value>, key: &str) -> Option<String> {
+    map.get(key).map(|v| match v {
+        Value::String(s) => s.clone(),
+        Value::Number(n) => n.to_string(),
+        Value::Bool(b) => b.to_string(),
+        Value::Null => "".to_string(),
+        _ => v.to_string().trim_matches('"').to_string(),
+    })
+}
 
 #[derive(Deserialize, Debug)]
 struct ShellInput {

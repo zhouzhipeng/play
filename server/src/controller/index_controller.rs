@@ -83,6 +83,9 @@ async fn root(s: S) -> HTML {
                     li {
                         a { href: "/static/shell.html", "Web Shell" }
                     }
+                    li {
+                        a { href: "/static/crontab-manager.html", "Crontab Manager" }
+                    }
                 }
                 h2 { "Short Links" }
                 ul {
@@ -117,6 +120,7 @@ async fn root(s: S) -> HTML {
 
 
 async fn ping() -> R<String> {
+    info!("ping");
     Ok("pong".to_string())
 }
 
