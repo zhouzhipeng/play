@@ -524,6 +524,10 @@
     <span id="edit-url-icon" style="cursor: pointer;">✎</span>
     <input type="text" id="url-input" placeholder="编辑URL..." style="display: none;">
 
+    <span id="dynamicCheckSpan">
+    <label for="isDynamic" style="margin-left:20px">Dynamic</label>
+    <input id="isDynamic" type="checkbox" checked />
+    </span>
     <span id="save-icon" class="fa fa-save"></span>
     <span id="save-result" class="save-ok"></span> <!-- 用于显示保存结果的标签 -->
 
@@ -721,7 +725,8 @@
     var isCallingAPI=false
     function generate_preview_page(){
         const urlElement = document.getElementById('url-display');
-        if(urlElement.innerText.indexOf(".")!==-1){
+        if(!isDynamic.checked || urlElement.innerText.indexOf(".")!==-1){
+
             //static pages
             updatePreview(editor.getValue());
             isCallingAPI=false
@@ -1066,6 +1071,7 @@
         const urlElement = document.getElementById('url-display');
         urlElement.href = "/pages"+ itemData.url; // 设置超链接的地址
         urlElement.textContent = itemData.url; // 设置超链接的文本，也可以设置为更友好的描述
+
 
         fetchItemContent(item.id)
     }
