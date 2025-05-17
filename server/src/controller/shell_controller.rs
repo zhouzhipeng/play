@@ -34,7 +34,6 @@ struct ApplyResponse {
     message: String,
 }
 
-
 async fn handle_apply_crontab(s: S) -> R<Json<ApplyResponse>> {
     // Query all crontab entries
     let entries = GeneralData::query_composite(
@@ -51,6 +50,19 @@ async fn handle_apply_crontab(s: S) -> R<Json<ApplyResponse>> {
     let mut crontab_str = String::new();
     for entry in &entries {
         let data_map = entry.extract_data()?;
+
+        // Check if entry is enabled (default to true if not specified)
+        let enabled = match data_map.get("enabled") {
+            Some(Value::Bool(enabled)) => *enabled,
+            Some(Value::String(s)) if s == "false" => false,
+            Some(Value::Number(n)) if n.as_u64() == Some(0) => false,
+            _ => true, // Default to enabled if not specified or if value is unexpected
+        };
+
+        // Skip disabled entries
+        if !enabled {
+            continue;
+        }
 
         // Extract crontab fields with defaults
         let minute = get_value_as_string(&data_map, "minute").unwrap_or_else(|| "*".to_string());
