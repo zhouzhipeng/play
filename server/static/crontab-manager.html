@@ -111,7 +111,10 @@
     <div class="crontab-header">
         <h1>Crontab Manager</h1>
         <div>
-            <button id="add-crontab-btn" class="btn btn-primary">Add New Entry</button>
+            <button id="view-current-btn" class="btn btn-info me-2">
+                <i class="fas fa-eye"></i> View Current Crontab
+            </button>
+            <button id="add-crontab-btn" class="btn btn-primary me-2">Add New Entry</button>
             <button id="apply-crontab-btn" class="btn btn-success">
                 Apply Crontab
                 <span id="apply-spinner" class="loading hidden"></span>
@@ -213,6 +216,31 @@
 <!-- Toast container for notifications -->
 <div class="toast-container"></div>
 
+<!-- Current Crontab Modal -->
+<div class="modal fade" id="currentCrontabModal" tabindex="-1" aria-labelledby="currentCrontabModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="currentCrontabModalLabel">Current System Crontab</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="current-crontab-loading" class="text-center my-3">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading current crontab...</p>
+                </div>
+                <div id="current-crontab-message" class="alert alert-info hidden"></div>
+                <pre id="current-crontab-content" class="bg-light p-3 rounded hidden" style="max-height: 400px; overflow-y: auto;"></pre>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cronstrue/2.27.0/cronstrue.min.js"></script>
 <script>
@@ -242,6 +270,11 @@
         const toastContainer = document.querySelector('.toast-container');
         const executionPreview = document.getElementById('execution-preview');
         const previewTimesList = document.getElementById('preview-times-list');
+        const viewCurrentBtn = document.getElementById('view-current-btn');
+        const currentCrontabModal = new bootstrap.Modal(document.getElementById('currentCrontabModal'));
+        const currentCrontabContent = document.getElementById('current-crontab-content');
+        const currentCrontabLoading = document.getElementById('current-crontab-loading');
+        const currentCrontabMessage = document.getElementById('current-crontab-message');
 
         // Load crontab entries when page loads
         loadCrontabEntries();
@@ -253,6 +286,7 @@
         crontabForm.addEventListener('submit', saveCrontab);
         cancelBtn.addEventListener('click', hideForm);
         closeFormBtn.addEventListener('click', hideForm);
+        viewCurrentBtn.addEventListener('click', viewCurrentCrontab);
 
         // Add event listeners for crontab expression fields to update preview
         minuteInput.addEventListener('input', updateExecutionPreview);
@@ -700,6 +734,51 @@
                 second: '2-digit'
             };
             return date.toLocaleString(undefined, options);
+        }
+
+        function viewCurrentCrontab() {
+            // Reset modal state
+            currentCrontabContent.classList.add('hidden');
+            currentCrontabMessage.classList.add('hidden');
+            currentCrontabLoading.classList.remove('hidden');
+
+            // Show the modal
+            currentCrontabModal.show();
+
+            // Fetch current crontab
+            fetch('/crontab/current')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    currentCrontabLoading.classList.add('hidden');
+
+                    if (data.success) {
+                        if (data.content.trim() === '') {
+                            // If content is empty, show a message
+                            currentCrontabMessage.textContent = data.message || 'No crontab entries found in the system.';
+                            currentCrontabMessage.classList.remove('hidden');
+                        } else {
+                            // If we have content, show it
+                            currentCrontabContent.textContent = data.content;
+                            currentCrontabContent.classList.remove('hidden');
+                        }
+                    } else {
+                        // Show error message
+                        currentCrontabMessage.textContent = data.message || 'Failed to retrieve current crontab.';
+                        currentCrontabMessage.classList.remove('hidden');
+                        currentCrontabMessage.className = 'alert alert-danger';
+                    }
+                })
+                .catch(error => {
+                    currentCrontabLoading.classList.add('hidden');
+                    currentCrontabMessage.textContent = 'Error fetching current crontab: ' + error.message;
+                    currentCrontabMessage.classList.remove('hidden');
+                    currentCrontabMessage.className = 'alert alert-danger';
+                });
         }
 
         // Helper function to sanitize HTML

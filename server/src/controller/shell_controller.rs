@@ -24,10 +24,51 @@ use crate::tables::general_data::GeneralData;
 method_router!(
     get : "/shell/execute"-> execute_command,
     post : "/crontab/apply"-> handle_apply_crontab,
+    get : "/crontab/current"-> handle_current_crontab,
+
 );
 
 
+#[derive(Serialize)]
+struct CurrentCrontabResponse {
+    success: bool,
+    content: String,
+    message: Option<String>,
+}
 
+async fn handle_current_crontab() -> R<Json<CurrentCrontabResponse>> {
+    // Execute the crontab -l command to get current crontab
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg("crontab -l")
+        .output()
+        .await?;
+
+    if output.status.success() {
+        let content = String::from_utf8_lossy(&output.stdout).to_string();
+        Ok(Json(CurrentCrontabResponse {
+            success: true,
+            content,
+            message: None,
+        }))
+    } else {
+        let error_message = String::from_utf8_lossy(&output.stderr).to_string();
+        // Check if it's the "no crontab for user" message, which is common and not actually an error
+        if error_message.contains("no crontab for") {
+            Ok(Json(CurrentCrontabResponse {
+                success: true,
+                content: "".to_string(),
+                message: Some("No crontab currently exists for this user.".to_string()),
+            }))
+        } else {
+            Ok(Json(CurrentCrontabResponse {
+                success: false,
+                content: "".to_string(),
+                message: Some(format!("Failed to retrieve current crontab: {}", error_message)),
+            }))
+        }
+    }
+}
 #[derive(Serialize)]
 struct ApplyResponse {
     success: bool,
