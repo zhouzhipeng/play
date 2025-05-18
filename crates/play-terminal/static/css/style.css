@@ -1,0 +1,302 @@
+/* 基本样式 */
+:root {
+    --terminal-bg-color: #282c34;
+    --terminal-text-color: #abb2bf;
+    --terminal-prompt-color: #98c379;
+    --terminal-header-bg: #21252b;
+    --terminal-border-color: #181a1f;
+    --terminal-selection-bg: #3e4451;
+    --terminal-cursor-color: #528bff;
+    --terminal-error-color: #e06c75;
+    --terminal-success-color: #98c379;
+    --terminal-warning-color: #e5c07b;
+    --terminal-info-color: #61afef;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+    background-color: #1e2127;
+    color: var(--terminal-text-color);
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+/* 终端容器 */
+.terminal-container {
+    width: 100%;
+    max-width: 900px;
+    height: 600px;
+    background-color: var(--terminal-bg-color);
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+}
+
+/* 终端头部 */
+.terminal-header {
+    background-color: var(--terminal-header-bg);
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 15px;
+    border-bottom: 1px solid var(--terminal-border-color);
+}
+
+.terminal-title {
+    font-weight: bold;
+}
+
+.terminal-controls button {
+    background: none;
+    border: none;
+    color: var(--terminal-text-color);
+    cursor: pointer;
+    padding: 5px 10px;
+    font-size: 12px;
+    border-radius: 3px;
+    margin-left: 5px;
+}
+
+.terminal-controls button:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* 终端主体 */
+.terminal {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+#terminal-output {
+    margin-bottom: 10px;
+}
+
+.terminal-input-line {
+    display: flex;
+    align-items: center;
+}
+
+.prompt {
+    color: var(--terminal-prompt-color);
+    margin-right: 8px;
+}
+
+#terminal-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--terminal-text-color);
+    font-family: inherit;
+    font-size: inherit;
+}
+
+/* 命令输出样式 */
+.output-line {
+    margin: 2px 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.command-line {
+    color: var(--terminal-prompt-color);
+    margin: 5px 0;
+}
+
+.error-output {
+    color: var(--terminal-error-color);
+}
+
+.system-output {
+    color: var(--terminal-info-color);
+    font-style: italic;
+    opacity: 0.8;
+}
+
+/* 模态框样式 */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    z-index: 100;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background-color: var(--terminal-bg-color);
+    border-radius: 6px;
+    width: 400px;
+    max-width: 90%;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+    padding: 15px;
+    border-bottom: 1px solid var(--terminal-border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h2 {
+    font-size: 18px;
+    margin: 0;
+}
+
+.close {
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.modal-body {
+    padding: 15px;
+}
+
+.modal-footer {
+    padding: 15px;
+    border-top: 1px solid var(--terminal-border-color);
+    text-align: right;
+}
+
+.modal-footer button {
+    padding: 8px 15px;
+    border: none;
+    border-radius: 4px;
+    margin-left: 10px;
+    cursor: pointer;
+}
+
+#save-settings {
+    background-color: var(--terminal-info-color);
+    color: white;
+}
+
+#cancel-settings {
+    background-color: transparent;
+    color: var(--terminal-text-color);
+    border: 1px solid var(--terminal-border-color);
+}
+
+/* 表单样式 */
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: 8px;
+    background-color: #1e2127;
+    border: 1px solid var(--terminal-border-color);
+    border-radius: 4px;
+    color: var(--terminal-text-color);
+    font-family: inherit;
+}
+
+/* 主题样式 */
+.theme-light {
+    --terminal-bg-color: #f8f8f8;
+    --terminal-text-color: #2c3e50;
+    --terminal-prompt-color: #27ae60;
+    --terminal-header-bg: #e8e8e8;
+    --terminal-border-color: #dcdcdc;
+    --terminal-selection-bg: #d1d1d1;
+    --terminal-cursor-color: #3498db;
+    --terminal-error-color: #e74c3c;
+    --terminal-success-color: #27ae60;
+    --terminal-warning-color: #f39c12;
+    --terminal-info-color: #3498db;
+}
+
+.theme-matrix {
+    --terminal-bg-color: #000000;
+    --terminal-text-color: #00ff00;
+    --terminal-prompt-color: #00ff00;
+    --terminal-header-bg: #002200;
+    --terminal-border-color: #003300;
+    --terminal-selection-bg: #003300;
+    --terminal-cursor-color: #00ff00;
+    --terminal-error-color: #ff0000;
+    --terminal-success-color: #00ff00;
+    --terminal-warning-color: #ffff00;
+    --terminal-info-color: #00ffff;
+}
+
+/* 光标样式 */
+.cursor-blink {
+    animation: blink 1s step-end infinite;
+}
+
+.cursor-block::after {
+    content: '';
+    display: inline-block;
+    width: 0.6em;
+    height: 1.2em;
+    background-color: var(--terminal-cursor-color);
+    vertical-align: middle;
+    margin-left: 2px;
+}
+
+.cursor-underline::after {
+    content: '';
+    display: inline-block;
+    width: 0.6em;
+    height: 2px;
+    background-color: var(--terminal-cursor-color);
+    position: relative;
+    top: 0.5em;
+    margin-left: 2px;
+}
+
+.cursor-bar::after {
+    content: '';
+    display: inline-block;
+    width: 2px;
+    height: 1.2em;
+    background-color: var(--terminal-cursor-color);
+    vertical-align: middle;
+    margin-left: 2px;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+
+/* 响应式设计 */
+@media (max-width: 600px) {
+    .terminal-container {
+        height: 100vh;
+        max-width: 100%;
+        border-radius: 0;
+    }
+
+    body {
+        padding: 0;
+    }
+}

@@ -36,18 +36,7 @@ async fn handle_socket(mut socket: WebSocket) {
                 match msg{
                     Message::Text(msg) => {
                         info!("Client says: {:?}", msg);
-                        //客户端发什么，服务端就回什么（只是演示而已）
-                        if let Err(e) = socket
-                            .send(Message::Text(format!("{:?}", r#"
-                             <div id="notifications" hx-swap-oob="beforeend">
-  <p>New messages</p>
- </div>
-                            "#)))
-                            .await
-                        {
-                            info!("send msg error  : {:?}", e);
-                            return;
-                        }
+                        //todo:
                     }
                     Message::Close(e) => {
                         info!("client disconnected : {:?}", e);

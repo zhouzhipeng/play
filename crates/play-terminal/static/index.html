@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web终端</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="terminal-container">
+    <div class="terminal-header">
+        <div class="terminal-title">Web终端</div>
+        <div class="terminal-controls">
+            <button id="clear-btn" title="清除终端">清除</button>
+            <button id="settings-btn" title="设置">设置</button>
+        </div>
+    </div>
+    <div id="terminal" class="terminal">
+        <div id="terminal-output"></div>
+        <div class="terminal-input-line">
+            <span id="prompt" class="prompt">$</span>
+            <input type="text" id="terminal-input" autocomplete="off" autofocus>
+        </div>
+    </div>
+</div>
+
+<div id="settings-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>终端设置</h2>
+            <span class="close">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="font-size">字体大小:</label>
+                <input type="range" id="font-size" min="10" max="24" value="14">
+                <span id="font-size-value">14px</span>
+            </div>
+            <div class="form-group">
+                <label for="theme-select">主题:</label>
+                <select id="theme-select">
+                    <option value="dark">深色</option>
+                    <option value="light">浅色</option>
+                    <option value="matrix">矩阵</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="cursor-style">光标样式:</label>
+                <select id="cursor-style">
+                    <option value="block">块状</option>
+                    <option value="underline">下划线</option>
+                    <option value="bar">竖线</option>
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button id="save-settings">保存</button>
+            <button id="cancel-settings">取消</button>
+        </div>
+    </div>
+</div>
+
+<script src="js/terminal.js"></script>
+</body>
+</html>

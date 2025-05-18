@@ -10,7 +10,7 @@ before-packaging-command = "cargo dev_ui"
 
 [features]
 default = []
-debug = ["tower-livereload", "notify", "play-dylib-loader","play-lua"]
+debug = ["tower-livereload", "notify", "play-dylib-loader","play-lua", "play-terminal"]
 use_mysql = ["sqlx/mysql", "sqlparser"]
 
 
@@ -36,6 +36,7 @@ play-ui = { workspace = true, optional = true }
 play-https = { workspace = true, optional = true }
 play-dylib-loader = { workspace = true, optional = true }
 play-lua = { workspace = true, optional = true }
+play-terminal = { workspace = true, optional = true }
 
 # options
 tower-livereload = { version = "0.8.2", optional = true }
