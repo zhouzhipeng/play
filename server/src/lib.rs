@@ -159,8 +159,6 @@ macro_rules! app_error {
 }
 
 #[cfg(feature = "play-redis")]
-use tokio::sync::Mutex;
-#[cfg(feature = "play-redis")]
 use crate::controller::redis_controller::RedisState;
 
 pub struct AppState {
@@ -168,7 +166,7 @@ pub struct AppState {
     pub db: DBPool,
     pub config: Config,
     #[cfg(feature = "play-redis")]
-    pub redis_state: Option<Arc<Mutex<RedisState>>>,
+    pub redis_state: Option<Arc<RedisState>>,
 }
 
 
@@ -184,7 +182,7 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> anyhow::Res
     // Initialize Redis state if feature is enabled
     #[cfg(feature = "play-redis")]
     let redis_state = match controller::redis_controller::init_redis_client(Some(config)).await {
-        Ok(state) => Some(Arc::new(Mutex::new(state))),
+        Ok(state) => Some(Arc::new(state)),
         Err(err) => {
             error!("Failed to initialize Redis client: {}", err);
             None

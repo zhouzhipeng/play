@@ -16,8 +16,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 #[cfg(feature = "play-redis")]
 use std::time::Duration;
-#[cfg(feature = "play-redis")]
-use tokio::sync::Mutex;
+// Removed Mutex import
 #[cfg(feature = "play-redis")]
 use tracing::error;
 #[cfg(feature = "play-redis")]
@@ -96,7 +95,7 @@ pub async fn init_redis_client(config: Option<&crate::config::Config>) -> Result
 }
 
 #[cfg(feature = "play-redis")]
-pub fn routes() -> Router<Arc<Mutex<RedisState>>> {
+pub fn routes() -> Router<Arc<RedisState>> {
     Router::new()
         .route("/redis/get", get(get_value))
         .route("/redis/set", post(set_value))
@@ -118,12 +117,10 @@ async fn redis_manager() -> impl IntoResponse {
 
 #[cfg(feature = "play-redis")]
 async fn get_value(
-    State(state): State<Arc<Mutex<RedisState>>>,
+    State(state): State<Arc<RedisState>>,
     Query(query): Query<RedisGetQuery>,
 ) -> Result<Json<RedisGetResponse>, StatusCode> {
-    let redis_state = state.lock().await;
-    
-    match redis_state.client.get::<String>(&query.key).await {
+    match state.client.get::<String>(&query.key).await {
         Ok(value) => Ok(Json(RedisGetResponse { 
             key: query.key, 
             value 
@@ -137,14 +134,12 @@ async fn get_value(
 
 #[cfg(feature = "play-redis")]
 async fn set_value(
-    State(state): State<Arc<Mutex<RedisState>>>,
+    State(state): State<Arc<RedisState>>,
     Json(request): Json<RedisSetRequest>,
 ) -> StatusCode {
-    let redis_state = state.lock().await;
-    
     let expiry = request.ttl_seconds.map(|secs| Duration::from_secs(secs));
     
-    match redis_state.client.set(&request.key, &request.value, expiry).await {
+    match state.client.set(&request.key, &request.value, expiry).await {
         Ok(_) => StatusCode::OK,
         Err(err) => {
             error!("Redis set error: {}", err);
@@ -155,11 +150,10 @@ async fn set_value(
 
 #[cfg(feature = "play-redis")]
 async fn publish_message(
-    State(state): State<Arc<Mutex<RedisState>>>,
+    State(state): State<Arc<RedisState>>,
     Json(request): Json<RedisPubRequest>,
 ) -> StatusCode {
-    let redis_state = state.lock().await;
-    let client = redis_state.connection.client().clone();
+    let client = state.connection.client().clone();
     let pubsub_client = PubSubClient::new(client);
     
     match pubsub_client.publish(&request.channel, &request.message).await {
@@ -173,11 +167,10 @@ async fn publish_message(
 
 #[cfg(feature = "play-redis")]
 async fn subscribe_sse(
-    State(state): State<Arc<Mutex<RedisState>>>,
+    State(state): State<Arc<RedisState>>,
     Query(query): Query<RedisSubQuery>,
 ) -> Sse<impl Stream<Item = Result<Event, std::convert::Infallible>>> {
-    let redis_state = state.lock().await;
-    let client = redis_state.connection.client().clone();
+    let client = state.connection.client().clone();
     let pubsub_client = PubSubClient::new(client);
     
     let channels: Vec<String> = query.channels.split(',').map(String::from).collect();
