@@ -16,6 +16,7 @@ use axum::extract::{DefaultBodyLimit, State};
 use axum::http::{Method, StatusCode};
 use axum::{middleware, Json};
 use axum::response::{Html, IntoResponse, Response};
+use tower::Service;
 use axum::Router;
 use axum_server::Handle;
 use http_body::Body;
@@ -157,10 +158,17 @@ macro_rules! app_error {
     };
 }
 
+#[cfg(feature = "play-redis")]
+use tokio::sync::Mutex;
+#[cfg(feature = "play-redis")]
+use crate::controller::redis_controller::RedisState;
+
 pub struct AppState {
     pub template_service: TemplateService,
     pub db: DBPool,
     pub config: Config,
+    #[cfg(feature = "play-redis")]
+    pub redis_state: Option<Arc<Mutex<RedisState>>>,
 }
 
 
@@ -173,10 +181,29 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> anyhow::Res
     let (req_sender, req_receiver) = async_channel::unbounded::<TemplateData>();
 
 
-    let mut inner_app_state  = AppState {
+    // Initialize Redis state if feature is enabled
+    #[cfg(feature = "play-redis")]
+    let redis_state = match controller::redis_controller::init_redis_client(Some(config)).await {
+        Ok(state) => Some(Arc::new(Mutex::new(state))),
+        Err(err) => {
+            error!("Failed to initialize Redis client: {}", err);
+            None
+        }
+    };
+
+    #[cfg(not(feature = "play-redis"))]
+    let mut inner_app_state = AppState {
         template_service: TemplateService::new(req_sender),
         db: if final_test_pool { tables::init_test_pool().await } else { tables::init_pool(&config).await },
         config: config.clone(),
+    };
+    
+    #[cfg(feature = "play-redis")]
+    let mut inner_app_state = AppState {
+        template_service: TemplateService::new(req_sender),
+        db: if final_test_pool { tables::init_test_pool().await } else { tables::init_pool(&config).await },
+        config: config.clone(),
+        redis_state,
     };
 
     let mut auth_config = &mut inner_app_state.config.auth_config;
@@ -232,9 +259,8 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> anyhow::Res
     Ok(app_state)
 }
 
-pub async fn start_server(router: Router, app_state: Arc<AppState>) -> anyhow::Result<()> {
+pub async fn start_server(router: Router<Arc<AppState>>, app_state: Arc<AppState>) -> anyhow::Result<()> {
     let server_port = app_state.config.server_port;
-
 
     println!("server started at  : http://127.0.0.1:{}", server_port);
     info!("server started at  : http://127.0.0.1:{}", server_port);
@@ -243,13 +269,13 @@ pub async fn start_server(router: Router, app_state: Arc<AppState>) -> anyhow::R
 
     #[cfg(not(feature = "play-https"))]
     // run it with hyper on localhost:3000
+    // 使用 with_state 重置状态类型，使其与 axum_server 兼容
+    let app = router.with_state(app_state.clone());
     axum_server::bind(addr)
-        .serve(router.into_make_service_with_connect_info::<SocketAddr>())
+        .serve(app.into_make_service_with_connect_info::<SocketAddr>())
         .await?;
 
-
     let certs_path = Path::new(env::var(DATA_DIR)?.as_str()).join("certs");
-
 
     #[cfg(feature = "play-https")]
     play_https::start_https_server(&play_https::HttpsConfig {
@@ -261,7 +287,6 @@ pub async fn start_server(router: Router, app_state: Arc<AppState>) -> anyhow::R
         https_port: app_state.config.https_cert.https_port,
         auto_redirect:app_state.config.https_cert.auto_redirect,
     }, router).await;
-
 
     Ok(())
 }
@@ -350,7 +375,7 @@ impl Predicate for CustomCompressPredict {
 }
 
 
-pub async fn routers(app_state: Arc<AppState>) -> anyhow::Result<Router> {
+pub async fn routers(app_state: Arc<AppState>) -> anyhow::Result<Router<Arc<AppState>>> {
     let cors = CorsLayer::new()
         // allow `GET` and `POST` when accessing the resource
         .allow_methods(Any)
@@ -369,8 +394,15 @@ pub async fn routers(app_state: Arc<AppState>) -> anyhow::Result<Router> {
     let mut router = Router::new()
         .merge(shortlink_controller::init(app_state.clone()))
         .merge(plugin_controller::init(app_state.clone()))
-        .merge(app_routers())
-        .with_state(app_state.clone())
+        .merge(app_routers());
+        
+    // Add Redis routes if feature is enabled and client was initialized successfully
+    #[cfg(feature = "play-redis")]
+    if let Some(redis_state) = &app_state.redis_state {
+        router = router.merge(controller::redis_controller::routes().with_state(redis_state.clone()));
+    }
+    
+    router = router.with_state(app_state.clone())
         // logging so we can see whats going on
         .layer(TraceLayer::new_for_http().make_span_with(DefaultMakeSpan::default().include_headers(true)))
         .layer(TimeoutLayer::new(Duration::from_secs(600)))

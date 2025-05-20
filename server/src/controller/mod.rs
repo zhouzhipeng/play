@@ -17,6 +17,7 @@ pub mod plugin_controller;
 mod data_v3_controller;
 mod data_v2_controller;
 mod data_v4_controller;
+pub mod redis_controller;
 //PLACEHOLDER:CONTROLLER_MOD
 
 
@@ -40,6 +41,7 @@ crate::register_routers!(
         data_v2_controller,
         data_v3_controller,
         data_v4_controller,
+        redis_controller,
 //PLACEHOLDER:CONTROLLER_REGISTER
 
 

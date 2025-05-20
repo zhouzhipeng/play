@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redis Manager</title>
+    <link rel="stylesheet" href="/static/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/font-awesome/5.15.1/css/all.min.css">
+    <script src="/static/js/jquery.min.js"></script>
+    <script src="/static/js/bootstrap.min.js"></script>
+    <script src="/static/js/htmx.min.js"></script>
+    <style>
+        .container {
+            max-width: 800px;
+            margin-top: 30px;
+        }
+        .card {
+            margin-bottom: 20px;
+        }
+        .message-container {
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: #f8f9fa;
+        }
+        .message {
+            padding: 5px 10px;
+            margin-bottom: 5px;
+            border-radius: 5px;
+        }
+        .message-content {
+            font-family: monospace;
+        }
+        .message-channel {
+            font-size: 0.8em;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .message-time {
+            font-size: 0.7em;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mb-4">Redis Manager</h1>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Set Key-Value</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="setForm" onsubmit="submitSetForm(event)">
+                            <div class="form-group">
+                                <label for="setKey">Key:</label>
+                                <input type="text" class="form-control" id="setKey" name="key" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="setValue">Value:</label>
+                                <input type="text" class="form-control" id="setValue" name="value" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="ttl">TTL (seconds, optional):</label>
+                                <input type="number" class="form-control" id="ttl" name="ttl_seconds">
+                            </div>
+                            <button type="submit" class="btn btn-primary">Set Value</button>
+                            <span id="setStatus" class="ml-2"></span>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Get Value</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="getForm" hx-get="/redis/get" hx-target="#getResult" hx-trigger="submit" hx-headers='{"Accept": "application/json"}'>
+                            <div class="form-group">
+                                <label for="getKey">Key:</label>
+                                <input type="text" class="form-control" id="getKey" name="key" required>
+                            </div>
+                            <button type="submit" class="btn btn-info">Get Value</button>
+                        </form>
+                        <div class="mt-3">
+                            <h6>Result:</h6>
+                            <pre id="getResult" class="bg-light p-2" style="min-height: 50px;"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h5>Publish Message</h5>
+            </div>
+            <div class="card-body">
+                <form id="pubForm" onsubmit="submitPubForm(event)">
+                    <div class="form-group">
+                        <label for="pubChannel">Channel:</label>
+                        <input type="text" class="form-control" id="pubChannel" name="channel" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="pubMessage">Message:</label>
+                        <textarea class="form-control" id="pubMessage" name="message" required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-success">Publish</button>
+                    <span id="pubStatus" class="ml-2"></span>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h5>Subscribe to Channels</h5>
+            </div>
+            <div class="card-body">
+                <form id="subForm">
+                    <div class="form-group">
+                        <label for="subChannels">Channels (comma-separated):</label>
+                        <input type="text" class="form-control" id="subChannels" required>
+                    </div>
+                    <button type="button" id="subscribeBtn" class="btn btn-warning">Subscribe</button>
+                    <button type="button" id="unsubscribeBtn" class="btn btn-secondary ml-2" disabled>Unsubscribe</button>
+                </form>
+                <div class="mt-3">
+                    <h6>Messages:</h6>
+                    <div id="messageContainer" class="message-container"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Custom HTMX extension for JSON form submissions
+        htmx.defineExtension('json-enc', {
+            onEvent: function(name, evt) {
+                if (name === 'htmx:configRequest') {
+                    const triggeringElement = evt.detail.elt;
+                    if (triggeringElement.hasAttribute('hx-headers') && 
+                        triggeringElement.getAttribute('hx-headers').includes('application/json')) {
+                        const formData = new FormData(triggeringElement.closest('form'));
+                        const jsonData = {};
+                        formData.forEach((value, key) => {
+                            if (value !== '') {
+                                if (key === 'ttl_seconds' && value) {
+                                    jsonData[key] = parseInt(value, 10);
+                                } else {
+                                    jsonData[key] = value;
+                                }
+                            }
+                        });
+                        evt.detail.xhr.setRequestHeader('Content-Type', 'application/json');
+                        evt.detail.parameters = JSON.stringify(jsonData);
+                    }
+                }
+            }
+        });
+
+        // Initialize the extension
+        htmx.process(document.body);
+
+        // Set up form submissions with visual feedback
+        document.getElementById('setForm').addEventListener('htmx:afterRequest', function(event) {
+            const status = document.getElementById('setStatus');
+            if (event.detail.xhr.status === 200) {
+                status.textContent = 'Success!';
+                status.className = 'text-success';
+            } else {
+                status.textContent = 'Error: ' + event.detail.xhr.status;
+                status.className = 'text-danger';
+            }
+            setTimeout(() => { status.textContent = ''; }, 3000);
+        });
+        
+        document.getElementById('pubForm').addEventListener('htmx:afterRequest', function(event) {
+            const status = document.getElementById('pubStatus');
+            if (event.detail.xhr.status === 200) {
+                status.textContent = 'Published!';
+                status.className = 'text-success';
+            } else {
+                status.textContent = 'Error: ' + event.detail.xhr.status;
+                status.className = 'text-danger';
+            }
+            setTimeout(() => { status.textContent = ''; }, 3000);
+        });
+        
+        // SSE Subscription handling
+        let eventSource = null;
+        
+        document.getElementById('subscribeBtn').addEventListener('click', function() {
+            const channels = document.getElementById('subChannels').value.trim();
+            if (!channels) return;
+            
+            if (eventSource) {
+                eventSource.close();
+            }
+            
+            const messageContainer = document.getElementById('messageContainer');
+            messageContainer.innerHTML = '';
+            
+            eventSource = new EventSource(`/redis/subscribe?channels=${encodeURIComponent(channels)}`);
+            
+            eventSource.onopen = function() {
+                document.getElementById('subscribeBtn').disabled = true;
+                document.getElementById('unsubscribeBtn').disabled = false;
+            };
+            
+            eventSource.onerror = function() {
+                const message = document.createElement('div');
+                message.className = 'message bg-danger text-white';
+                message.innerHTML = `<div class="message-time">${new Date().toLocaleTimeString()}</div>
+                                     <div class="message-content">Connection error</div>`;
+                messageContainer.appendChild(message);
+                messageContainer.scrollTop = messageContainer.scrollHeight;
+                
+                eventSource.close();
+                document.getElementById('subscribeBtn').disabled = false;
+                document.getElementById('unsubscribeBtn').disabled = true;
+            };
+            
+            // Handle special event types
+            eventSource.addEventListener('connect', function(event) {
+                const message = document.createElement('div');
+                message.className = 'message bg-info text-white';
+                message.innerHTML = `<div class="message-time">${new Date().toLocaleTimeString()}</div>
+                                     <div class="message-content">Connected to channels: ${channels}</div>
+                                     <div class="message-content">${event.data}</div>`;
+                messageContainer.appendChild(message);
+                messageContainer.scrollTop = messageContainer.scrollHeight;
+            });
+            
+            eventSource.addEventListener('disconnect', function(event) {
+                const message = document.createElement('div');
+                message.className = 'message bg-secondary text-white';
+                message.innerHTML = `<div class="message-time">${new Date().toLocaleTimeString()}</div>
+                                     <div class="message-content">${event.data}</div>`;
+                messageContainer.appendChild(message);
+                messageContainer.scrollTop = messageContainer.scrollHeight;
+                
+                eventSource.close();
+                document.getElementById('subscribeBtn').disabled = false;
+                document.getElementById('unsubscribeBtn').disabled = true;
+            });
+            
+            eventSource.addEventListener('error', function(event) {
+                const message = document.createElement('div');
+                message.className = 'message bg-danger text-white';
+                message.innerHTML = `<div class="message-time">${new Date().toLocaleTimeString()}</div>
+                                     <div class="message-content">Error: ${event.data}</div>`;
+                messageContainer.appendChild(message);
+                messageContainer.scrollTop = messageContainer.scrollHeight;
+            });
+            
+            // Handle messages from any channel
+            eventSource.onmessage = function(event) {
+                receiveMessage(event);
+            };
+            
+            // Also set up specific channel handlers
+            channels.split(',').forEach(channel => {
+                const cleanChannel = channel.trim();
+                eventSource.addEventListener(cleanChannel, function(event) {
+                    receiveMessage(event, cleanChannel);
+                });
+            });
+        });
+        
+        function receiveMessage(event, channel) {
+            const messageContainer = document.getElementById('messageContainer');
+            const message = document.createElement('div');
+            message.className = 'message bg-light';
+            
+            const channelDisplay = channel || 'default';
+            
+            message.innerHTML = `<div class="message-channel">${channelDisplay}</div>
+                                 <div class="message-time">${new Date().toLocaleTimeString()}</div>
+                                 <div class="message-content">${event.data}</div>`;
+            
+            messageContainer.appendChild(message);
+            messageContainer.scrollTop = messageContainer.scrollHeight;
+        }
+        
+        document.getElementById('unsubscribeBtn').addEventListener('click', function() {
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+                
+                const messageContainer = document.getElementById('messageContainer');
+                const message = document.createElement('div');
+                message.className = 'message bg-secondary text-white';
+                message.innerHTML = `<div class="message-time">${new Date().toLocaleTimeString()}</div>
+                                     <div class="message-content">Disconnected</div>`;
+                messageContainer.appendChild(message);
+                
+                document.getElementById('subscribeBtn').disabled = false;
+                document.getElementById('unsubscribeBtn').disabled = true;
+            }
+        });
+        
+        // 手动处理表单提交
+        function submitSetForm(event) {
+            event.preventDefault();
+            const key = document.getElementById('setKey').value;
+            const value = document.getElementById('setValue').value;
+            const ttl = document.getElementById('ttl').value;
+            
+            const data = {
+                key: key,
+                value: value
+            };
+            
+            if (ttl) {
+                data.ttl_seconds = parseInt(ttl);
+            }
+            
+            fetch('/redis/set', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => {
+                const status = document.getElementById('setStatus');
+                if (response.ok) {
+                    status.textContent = 'Success!';
+                    status.className = 'text-success';
+                } else {
+                    status.textContent = 'Error: ' + response.status;
+                    status.className = 'text-danger';
+                }
+                setTimeout(() => { status.textContent = ''; }, 3000);
+            })
+            .catch(err => {
+                const status = document.getElementById('setStatus');
+                status.textContent = 'Error: ' + err;
+                status.className = 'text-danger';
+            });
+        }
+        
+        function submitPubForm(event) {
+            event.preventDefault();
+            const channel = document.getElementById('pubChannel').value;
+            const message = document.getElementById('pubMessage').value;
+            
+            fetch('/redis/publish', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    channel: channel,
+                    message: message
+                })
+            })
+            .then(response => {
+                const status = document.getElementById('pubStatus');
+                if (response.ok) {
+                    status.textContent = 'Published!';
+                    status.className = 'text-success';
+                } else {
+                    status.textContent = 'Error: ' + response.status;
+                    status.className = 'text-danger';
+                }
+                setTimeout(() => { status.textContent = ''; }, 3000);
+            })
+            .catch(err => {
+                const status = document.getElementById('pubStatus');
+                status.textContent = 'Error: ' + err;
+                status.className = 'text-danger';
+            });
+        }
+        
+        // 处理GET请求
+        document.getElementById('getForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const key = document.getElementById('getKey').value;
+            
+            fetch(`/redis/get?key=${encodeURIComponent(key)}`)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('getResult').textContent = JSON.stringify(data, null, 2);
+            })
+            .catch(err => {
+                document.getElementById('getResult').textContent = 'Error: ' + err;
+            });
+        });
+    </script>
+</body>
+</html>
