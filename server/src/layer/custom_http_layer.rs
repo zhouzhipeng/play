@@ -1,5 +1,4 @@
 use anyhow::anyhow;
-use axum::body::BoxBody;
 use axum::extract::{ConnectInfo, State};
 use axum::middleware::Next;
 use axum::response::{Html, IntoResponse};
@@ -19,7 +18,8 @@ use std::pin::Pin;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::task::{Context, Poll};
-use tower::{Layer, Service, ServiceExt};
+use tower::{Layer, Service};
+use axum::ServiceExt;
 
 use crate::config::AuthConfig;
 use crate::controller::cache_controller::get_cache_content;
@@ -28,7 +28,6 @@ use crate::controller::static_controller::STATIC_DIR;
 use crate::{files_dir, AppState, S};
 use futures::TryStreamExt;
 use http::{header, HeaderName, HeaderValue, Method, StatusCode, Uri};
-use http_body::Full;
 use mime_guess::mime;
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::set_status::SetStatus;
@@ -38,8 +37,8 @@ use crate::controller::files_controller;
 pub async fn http_middleware(
     state: State<Arc<AppState>>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
-    request: Request<Body>,
-    next: Next<Body>,
+    request: Request<axum::body::Body>,
+    next: Next,
 ) -> Response {
     // println!("Connection from: {}", addr);
 
@@ -63,14 +62,16 @@ pub async fn http_middleware(
 
     //serve other domains (support only static files now)
     if !domain_proxy.is_empty(){
-        if let Some(header) = request.headers().get(header::HOST) {
+        if let Some(header) = request.headers().get(axum::http::header::HOST) {
             if let Ok(host) = header.to_str() {
                 let host = host.to_string();
                 if let Some(domain) = domain_proxy.iter().find(|p|p.proxy_domain.eq(&host)){
-                    return serve_domain_folder(state.clone(), host, request, &domain.folder_path).await.unwrap_or_else(|e| (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        format!("Unhandled internal error: {}", e),
-                    ).into_response())
+                    return serve_domain_folder(state.clone(), host, request, &domain.folder_path).await.unwrap_or_else(|e| 
+                        axum::response::Response::builder()
+                            .status(axum::http::StatusCode::INTERNAL_SERVER_ERROR)
+                            .body(format!("Unhandled internal error: {}", e).into())
+                            .unwrap()
+                    )
                 }
             }
         }
@@ -137,52 +138,38 @@ pub async fn http_middleware(
 fn refuse_response() -> Response {
     let html = STATIC_DIR.get_file("no_permission.html").unwrap().contents_utf8().unwrap();
 
-    let response: Response = Response::builder()
-        .status(StatusCode::FORBIDDEN)
+    let response: Response = axum::response::Response::builder()
+        .status(axum::http::StatusCode::FORBIDDEN)
         .header("content-type", "text/html")
-        .body(Body::from(html)).unwrap().into_response();
+        .body(html.into()).unwrap();
     response
 }
 
-async fn handle_404(req: Request<Body>) -> impl IntoResponse {
-    println!("404 Not Found: {}", req.uri());
-    let uri = req.uri().path();
-    let extension = Path::new(uri)
+async fn handle_404(uri: axum::http::Uri) -> (axum::http::StatusCode, &'static str) {
+    println!("404 Not Found: {}", uri);
+    let path = uri.path();
+    let extension = Path::new(path)
         .extension()
         .and_then(std::ffi::OsStr::to_str)
         .unwrap_or("");
 
-
-    if extension.is_empty(){
-        //return index page (dioxus will handle it)
-        let index_file = files_dir!().join(req.headers().get(http::header::HOST).unwrap().to_str().unwrap()).join("index.html");
-        if !index_file.exists(){
-            // 这里您可以自定义404响应
-            return Response::builder()
-                .status(StatusCode::NOT_FOUND)
-                .body(Body::from("Page not found."))
-                .unwrap()
-        }
-
-        Response::builder()
-            .status(StatusCode::OK)
-            .header("content-type", "text/html")
-            .body(Body::from(tokio::fs::read_to_string(&index_file).await.unwrap()))
-            .unwrap()
-    }else{
-        // 这里您可以自定义404响应
-        Response::builder()
-            .status(StatusCode::NOT_FOUND)
-            .body(Body::from("Page not found."))
-            .unwrap()
+    if extension.is_empty() {
+        (
+            axum::http::StatusCode::NOT_FOUND,
+            "Page not found."
+        )
+    } else {
+        (
+            axum::http::StatusCode::NOT_FOUND,
+            "Page not found."
+        )
     }
-
 }
 
 #[derive(Clone)]
 struct NotFoundService;
 
-impl Service<Request<Body>> for NotFoundService {
+impl<B: Send + 'static> Service<Request<B>> for NotFoundService {
     type Response = Response;
     type Error = std::convert::Infallible;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
@@ -191,15 +178,15 @@ impl Service<Request<Body>> for NotFoundService {
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: Request<Body>) -> Self::Future {
+    fn call(&mut self, req: Request<B>) -> Self::Future {
         Box::pin(async move {
-            Ok(handle_404(req).await.into_response().into())
+            Ok(handle_404(req.uri().clone()).await.into_response())
         })
     }
 }
 
 
-async fn serve_domain_folder(state: S, host: String, request: Request<Body>, folder_path: &str) -> anyhow::Result<Response> {
+async fn serve_domain_folder(state: S, host: String, request: Request<axum::body::Body>, folder_path: &str) -> anyhow::Result<Response> {
     //check if has plugin can handle this.
     #[cfg(feature = "play-dylib-loader")]
     {
@@ -235,23 +222,17 @@ async fn serve_domain_folder(state: S, host: String, request: Request<Body>, fol
     let dir = PathBuf::from(folder_path);
 
     // let resp  = files_controller::download_file(axum::extract::path::Path(format!("{}{}", host,request.uri().path()))).await;
-    let svc = get_service(ServeDir::new(dir).fallback(NotFoundService))
-        .handle_error(|error| async move {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Unhandled internal error: {}", error),
-            )
-        });
+    let mut svc = get_service(ServeDir::new(dir).fallback(NotFoundService));
 
     // 转发请求到 ServeDir
     let uri = request.uri().path().to_string();
-    let mut resp = svc.oneshot(request).await.into_response();
+    let mut resp = svc.call(request).await.unwrap();
 
     if uri.ends_with(".wasm"){
         //let cloudflare dont compress wasm file (because ios safari has issue with it)
         let headers = resp.headers_mut();
-        headers.insert("Content-Encoding", HeaderValue::from_static("identity"));
-        headers.insert("Cache-Control",HeaderValue::from_static("no-transform"));
+        headers.insert(axum::http::header::CONTENT_ENCODING, axum::http::HeaderValue::from_static("identity"));
+        headers.insert(axum::http::header::CACHE_CONTROL, axum::http::HeaderValue::from_static("no-transform"));
 
     }
     Ok(resp)

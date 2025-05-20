@@ -22,9 +22,9 @@ use serde::de::Error;
 use tracing::info;
 
 method_router!(
-    get : "/api/v2/data/:category/:action"-> all_in_one_api,
-    post : "/api/v2/data/:category/:action"-> all_in_one_api_post,
-    get : "/api/v2/data/:category/:action/:hex"-> all_in_one_api_hex,
+    get : "/api/v2/data/{category}/{action}"-> all_in_one_api,
+    post : "/api/v2/data/{category}/{action}"-> all_in_one_api_post,
+    get : "/api/v2/data/{category}/{action}/{hex}"-> all_in_one_api_hex,
 );
 
 #[derive(Serialize, Deserialize, Debug)]

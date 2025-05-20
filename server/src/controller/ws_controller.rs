@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use axum::{headers, Router, TypedHeader};
+use axum::Router;
 use axum::{
     extract::ws::{Message, WebSocket, WebSocketUpgrade},
     response::IntoResponse,
@@ -20,11 +20,8 @@ pub fn init() -> Router<Arc<AppState>> {
 
 async fn ws_handler(
     ws: WebSocketUpgrade,
-    user_agent: Option<TypedHeader<headers::UserAgent>>,
 ) -> impl IntoResponse {
-    if let Some(TypedHeader(user_agent)) = user_agent {
-        info!("`{}` connected", user_agent.as_str());
-    }
+    info!("WebSocket connected");
 
     ws.on_upgrade(handle_socket)
 }
@@ -34,23 +31,13 @@ async fn handle_socket(mut socket: WebSocket) {
         if let Some(msg) = socket.recv().await {
             if let Ok(msg) = msg {
                 match msg{
-                    Message::Text(msg) => {
+                    Message::Text(text) => {
+                        let msg = text.to_string();
                         info!("Client says: {:?}", msg);
-                        //客户端发什么，服务端就回什么（只是演示而已）
-                        if let Err(e) = socket
-                            .send(Message::Text(format!("{:?}", r#"
-                             <div id="notifications" hx-swap-oob="beforeend">
-  <p>New messages</p>
- </div>
-                            "#)))
-                            .await
-                        {
-                            info!("send msg error  : {:?}", e);
-                            return;
-                        }
+                        //todo:
                     }
-                    Message::Close(e) => {
-                        info!("client disconnected : {:?}", e);
+                    Message::Close(_) => {
+                        info!("client disconnected");
                         return;
                     }
                     _=>{}

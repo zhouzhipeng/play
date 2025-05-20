@@ -13,25 +13,25 @@ use crate::controller::pages_controller::PageDto;
 use crate::tables::general_data::GeneralData;
 
 method_router!(
-    get : "/data/id-:data_id"-> get_data,
-    put : "/data/id-:data_id"-> update_data,
-    patch : "/data/id-:data_id"-> update_field,
-    delete : "/data/id-:data_id"-> delete_data,
-    put : "/data/cat-:cat"-> override_data,  // global data. insert or update.
-    post : "/data/cat-:cat"-> insert_data,
-    get : "/data/cat-:cat"-> query_data, // cat-pages?title=xxx&_select=title,url&_data_json=true
+    get : "/data/id-{data_id}"-> get_data,
+    put : "/data/id-{data_id}"-> update_data,
+    patch : "/data/id-{data_id}"-> update_field,
+    delete : "/data/id-{data_id}"-> delete_data,
+    put : "/data/cat-{cat}"-> override_data,  // global data. insert or update.
+    post : "/data/cat-{cat}"-> insert_data,
+    get : "/data/cat-{cat}"-> query_data, // cat-pages?title=xxx&_select=title,url&_data_json=true
 
     //new mapping
-    get : "/data/id/:data_id"-> get_data,
-    get : "/data/cat/:cat/id/:data_id"-> get_data_under_cat,
-    put : "/data/id/:data_id"-> update_data,
-    patch : "/data/id/:data_id"-> update_field,
-    delete : "/data/id/:data_id"-> delete_data,
-    delete : "/data/cat/:cat"-> delete_category,
-    put : "/data/cat/:cat"-> override_data,  // global data. insert or update.
-    post : "/data/cat/:cat"-> insert_data,
-    get : "/data/cat/:cat"-> query_data, // cat-pages?title=xxx&_select=title,url&_data_json=true
-    get : "/data/cat/:cat/count"-> query_data_count,
+    get : "/data/id/{data_id}"-> get_data,
+    get : "/data/cat/{cat}/id/{data_id}"-> get_data_under_cat,
+    put : "/data/id/{data_id}"-> update_data,
+    patch : "/data/id/{data_id}"-> update_field,
+    delete : "/data/id/{data_id}"-> delete_data,
+    delete : "/data/cat/{cat}"-> delete_category,
+    put : "/data/cat/{cat}"-> override_data,  // global data. insert or update.
+    post : "/data/cat/{cat}"-> insert_data,
+    get : "/data/cat/{cat}"-> query_data, // cat-pages?title=xxx&_select=title,url&_data_json=true
+    get : "/data/cat/{cat}/count"-> query_data_count,
 
 );
 

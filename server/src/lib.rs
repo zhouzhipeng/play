@@ -344,7 +344,7 @@ struct CustomCompressPredict{}
 
 
 impl Predicate for CustomCompressPredict {
-    fn should_compress<B>(&self, response: &http::Response<B>) -> bool where B: Body {
+    fn should_compress<B>(&self, response: &axum::response::Response<B>) -> bool where B: http_body::Body {
         response.headers().contains_key("x-compress")
     }
 }
@@ -405,17 +405,19 @@ async fn handle_404(uri: axum::http::Uri) -> impl IntoResponse {
 #[derive(Debug)]
 pub struct AppError(anyhow::Error);
 
+// Implement Display for AppError
+impl std::fmt::Display for AppError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 // Tell axum how to convert `AppError` into a response.
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-
-
         let error = self.0;
-
         let error_msg = format!("Server Error: {:?}", error);
-
         error!("server error: {}", error_msg);
-
 
         (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -424,7 +426,6 @@ impl IntoResponse for AppError {
             .into_response()
     }
 }
-
 
 impl Deref for AppError {
     type Target = anyhow::Error;

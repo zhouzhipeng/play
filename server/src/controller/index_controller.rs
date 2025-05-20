@@ -154,14 +154,14 @@ async fn serve_db_file(s: S) -> impl IntoResponse {
     let path = &raw["sqlite://".len()..raw.len()];
     let file = File::open(path).await.expect("Cannot open file");
     let stream = FramedRead::new(file, BytesCodec::new());
-    let body = Body::wrap_stream(stream);
+    let body = Body::from_stream(stream);
     Response::new(body)
 }
 async fn serve_config_file(s: S) -> impl IntoResponse {
     let path = get_config_path().unwrap();
     let file = File::open(&path).await.expect("Cannot open file");
     let stream = FramedRead::new(file, BytesCodec::new());
-    let body = Body::wrap_stream(stream);
+    let body = Body::from_stream(stream);
     Response::new(body)
 }
 
