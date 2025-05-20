@@ -125,42 +125,8 @@ async fn main()->anyhow::Result<()> {
 
     #[allow(unused_mut)]
     let  mut router = routers(app_state.clone()).await.unwrap();
-    #[cfg(feature = "debug")]  //to make `watcher` live longer.
-    let mut watcher;
-    #[cfg(feature = "debug")]
-    {
-        use tower_livereload::LiveReloadLayer;
-        use tower_livereload::predicate::Predicate;
-        #[derive(Copy, Clone, Debug)]
-        pub struct NotHxRequest();
-        impl<T> Predicate<Request<T>> for NotHxRequest {
-            fn check(&mut self, request: &Request<T>) -> bool {
-                let should_inject_js = request
-                    .headers()
-                    .get("HX-Request")
-                    .is_none();
 
-                let pages = request.uri().path().starts_with("/pages/");
-                let functions = request.uri().path().starts_with("/functions/");
-                // info!("should_inject_js : {}", should_inject_js);
-                should_inject_js && !pages && !functions
-            }
-        }
 
-        use notify::Watcher;
-        info!("tower-livereload is enabled!");
-        let  livereload = LiveReloadLayer::new();
-        let livereload = livereload.reload_interval(Duration::from_secs(1));
-        let livereload = livereload.request_predicate::<Body, NotHxRequest>(NotHxRequest {});
-        let reloader = livereload.reloader();
-        watcher = notify::recommended_watcher(move |_| {
-            info!("reloading...");
-            reloader.reload()
-        }).unwrap();
-
-        watcher.watch(&Path::new(env!("CARGO_MANIFEST_DIR")).join("static"), notify::RecursiveMode::Recursive).unwrap();
-        router = router.layer(livereload);
-    }
 
 
     if  !local_port_available( server_port as u16) {

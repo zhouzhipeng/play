@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use anyhow::{anyhow, bail};
 use axum::{Form, Json};
-use axum::body::{Bytes, StreamBody};
+use axum::body::Bytes;
 use axum::extract::{Multipart, Query};
 use axum::response::{Html, IntoResponse, Response};
 use chrono::Local;
@@ -127,8 +127,9 @@ async fn backup(s: S) -> R<impl IntoResponse> {
                     anyhow!("file stream error")
                 });
 
-            let stream_body = StreamBody::new(stream);
-            Ok(Response::new(stream_body))
+            // In axum 0.8 we use Body::from_stream instead of StreamBody
+            let body = axum::body::Body::from_stream(stream);
+            Ok(Response::new(body))
         }
         Err(_) => {
             // 文件无法打开时，返回 HTTP 404 状态码

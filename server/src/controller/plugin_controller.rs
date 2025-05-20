@@ -23,7 +23,7 @@ pub fn init(state: Arc<AppState>) -> axum::Router<Arc<AppState>> {
     let mut router = axum::Router::new();
     for plugin in &state.config.plugin_config {
         if !plugin.url_prefix.is_empty(){
-            router = router.route(&format!("{}/*url", plugin.url_prefix),
+            router = router.route(&format!("{}/{{*url}}", plugin.url_prefix),
                   axum::routing::get(run_plugin)
                       .post(run_plugin)
                       .put(run_plugin)
@@ -42,8 +42,12 @@ pub fn init(state: Arc<AppState>) -> axum::Router<Arc<AppState>> {
 }
 
 #[cfg(not(feature = "play-dylib-loader"))]
-async fn run_plugin(s: S, request: Request<Body>) -> Result<Response, AppError> {
-    crate::return_error!("play-dylib-loader feature not enabled!")
+#[axum::debug_handler]
+async fn run_plugin(s: axum::extract::State<Arc<AppState>>, request: Request<Body>) -> Response {
+    (
+        axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+        "play-dylib-loader feature not enabled!"
+    ).into_response()
 }
 
 fn remove_trailing_slash(uri: &str) -> String {
@@ -54,18 +58,28 @@ fn remove_trailing_slash(uri: &str) -> String {
     }
 }
 #[cfg(feature = "play-dylib-loader")]
-async fn run_plugin(s: S, request: Request<Body>) -> Result<Response, AppError> {
+#[axum::debug_handler]
+async fn run_plugin(s: axum::extract::State<Arc<AppState>>, request: Request<Body>) -> Response {
     let url = request.uri().path();
     let url = remove_trailing_slash(url);
-    let plugin = s.config.plugin_config.iter()
-        .find(|plugin|{
-            !plugin.disable &&
-            !plugin.url_prefix.is_empty() &&
-            (url.eq(&plugin.url_prefix) ||  url.starts_with(&format!("{}/", plugin.url_prefix)))
-        }).context("plugin for found for url!")?;
-
-    inner_run_plugin(plugin, request).await
-
+    
+    match s.config.plugin_config.iter().find(|plugin|{
+        !plugin.disable &&
+        !plugin.url_prefix.is_empty() &&
+        (url.eq(&plugin.url_prefix) ||  url.starts_with(&format!("{}/", plugin.url_prefix)))
+    }) {
+        Some(plugin) => match inner_run_plugin(plugin, request).await {
+            Ok(response) => response,
+            Err(e) => (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Error: {}", e)
+            ).into_response()
+        },
+        None => (
+            axum::http::StatusCode::NOT_FOUND,
+            "Plugin not found for URL"
+        ).into_response()
+    }
 }
 
 #[cfg(feature = "play-dylib-loader")]
@@ -120,8 +134,9 @@ pub async fn inner_run_plugin( plugin: &PluginConfig, request: Request<Body>)->R
 
 
 async fn body_to_bytes(body: Body) -> anyhow::Result<String> {
-    let bytes = hyper::body::to_bytes(body).await?.to_vec();
-
+    use http_body_util::BodyExt;
+    
+    let bytes = body.collect().await?.to_bytes().to_vec();
     let body_string = String::from_utf8(bytes)?;
 
     Ok(body_string)

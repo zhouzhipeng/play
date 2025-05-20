@@ -19,7 +19,7 @@ use crate::tables::change_log::ChangeLog;
 use crate::tables::general_data::GeneralData;
 
 method_router!(
-    get : "/pages/*url"-> dynamic_pages,
+    get : "/pages/{*url}"-> dynamic_pages,
     get : "/page-versions"-> page_versions,
 );
 

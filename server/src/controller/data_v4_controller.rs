@@ -15,12 +15,12 @@ use std::collections::HashMap;
 use std::num::NonZeroU32;
 
 method_router!(
-    get : "/api/v4/data/:category/get"-> handle_get,
-    get : "/api/v4/data/:category/query"-> handle_query,
-    get : "/api/v4/data/:category/count"-> handle_count,
-    post : "/api/v4/data/:category/delete"-> handle_delete,
-    post : "/api/v4/data/:category/insert"-> handle_insert,
-    post : "/api/v4/data/:category/update"-> handle_update,
+    get : "/api/v4/data/{category}/get"-> handle_get,
+    get : "/api/v4/data/{category}/query"-> handle_query,
+    get : "/api/v4/data/{category}/count"-> handle_count,
+    post : "/api/v4/data/{category}/delete"-> handle_delete,
+    post : "/api/v4/data/{category}/insert"-> handle_insert,
+    post : "/api/v4/data/{category}/update"-> handle_update,
 );
 
 #[derive(Serialize, Deserialize, Debug)]

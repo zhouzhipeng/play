@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use axum::body::{Body, BoxBody};
+use axum::body::Body;
 
 use axum::extract::OriginalUri;
 use axum::response::{Html, IntoResponse, Redirect, Response};

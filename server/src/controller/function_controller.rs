@@ -3,7 +3,7 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::anyhow;
-use axum::body::{HttpBody, StreamBody};
+use axum::body::HttpBody;
 use axum::response::{Html, IntoResponse};
 use axum::{Form, Json};
 use either::Either;

@@ -5,7 +5,7 @@ use std::path::{Component, PathBuf};
 use std::time::UNIX_EPOCH;
 use anyhow::{anyhow, Context};
 
-use axum::body::{Body, Bytes, HttpBody, StreamBody};
+use axum::body::{Body, Bytes, HttpBody};
 use axum::{BoxError, Json};
 use axum::extract::{Path, Query};
 use axum::response::{IntoResponse, Response};
@@ -31,8 +31,8 @@ use crate::extractor::custom_file_upload::CustomFileExtractor;
 method_router!(
     post : "/files/upload" -> upload_file,
     put : "/files/upload" -> upload_file,
-    get : "/files/*path" -> download_file,
-    delete : "/files/*path" -> delete_file,
+    get : "/files/{*path}" -> download_file,
+    delete : "/files/{*path}" -> delete_file,
     get : "/files/packed" -> pack_files,
     get : "/files" -> list_files,
 );
@@ -98,8 +98,9 @@ async fn pack_files() -> R<impl IntoResponse> {
                 anyhow!("file stream error")
             });
 
-            let stream_body = StreamBody::new(stream);
-            Ok(Response::new(stream_body))
+            // In axum 0.8 we use Body::from_stream instead of StreamBody
+            let body = axum::body::Body::from_stream(stream);
+            Ok(Response::new(body))
         }
         Err(_) => {
             // 文件无法打开时，返回 HTTP 404 状态码
@@ -189,8 +190,19 @@ async fn upload_file(
             Ok(target_path.join(","))
         }
         CustomFileExtractor::BODYSTREAM(bodystream) => {
-            let local_path = stream_to_file(&files_dir!().join(format!("{}", current_timestamp!())), bodystream).await?;
-            let new_path = rename_file_with_correct_extension(&local_path).await?;
+            use http_body_util::BodyExt;
+            use futures_util::StreamExt;
+            
+            // Use http_body_util to collect the body first
+            let body_bytes = bodystream.collect().await?.to_bytes();
+            
+            // Create temporary file path
+            let path = files_dir!().join(format!("{}", current_timestamp!()));
+            
+            // Write bytes to file
+            tokio::fs::write(&path, body_bytes).await?;
+            
+            let new_path = rename_file_with_correct_extension(&path).await?;
             Ok(format!("/files/{}", new_path))
         }
     };
