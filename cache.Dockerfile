@@ -1,7 +1,7 @@
 FROM rust:1.85.0-bookworm
 
 # install basic packages
-RUN apt update && apt install -y lua5.4
+RUN apt update && apt install -y lua5.4 tesseract-ocr tesseract-ocr-chi-sim
 
 WORKDIR /app
 COPY . .
