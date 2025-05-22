@@ -114,7 +114,7 @@ pub async fn inner_run_plugin( plugin: &PluginConfig, request: Request<Body>)->R
             host_url: env::var("HOST")?,
             plugin_prefix_url: plugin.url_prefix.to_string(),
             data_dir: env::var(DATA_DIR)?,
-            config_text: if plugin.need_config_file{Some(read_config_file()?)}else{None},
+            config_text: if plugin.need_config_file{Some(read_config_file(true).await?)}else{None},
         },
 
     };
