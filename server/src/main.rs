@@ -52,7 +52,7 @@ async fn main()->anyhow::Result<()> {
 
 
     // init config
-    let config = init_config(false);
+    let config = init_config(false).await?;
 
     //inject env for py_runner
     set_var("HOST", format!("http://127.0.0.1:{}", config.server_port));
@@ -162,7 +162,7 @@ async fn main()->anyhow::Result<()> {
                         host_url: env::var("HOST")?,
                         plugin_prefix_url: "".to_string(),
                         data_dir: env::var(DATA_DIR)?,
-                        config_text: Some(read_config_file()?),
+                        config_text: Some(read_config_file(true).await?),
                     };
 
                     if let Err(e) = load_and_run_server(&path,context).await{

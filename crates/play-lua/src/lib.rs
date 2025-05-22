@@ -78,6 +78,22 @@ pub  fn create_lua() -> Result<(Lua, Arc<Mutex<String>>)> {
         let json = resp.json::<serde_json::Value>().await.into_lua_err()?;
         lua.to_value(&json)
     })?;
+    let redis_get = lua.create_async_function(|lua, key: String| async move {
+        let uri  = format!("{}/redis/get?key={}", env::var("HOST").unwrap(), key);
+
+        let resp = reqwest::get(&uri)
+            .await
+            .and_then(|resp| resp.error_for_status())
+            .into_lua_err()?;
+        let json = resp.json::<serde_json::Value>().await.into_lua_err()?;
+        println!("redis result : {:?}", json);
+        let val = json.get("value").unwrap();
+        if val.is_null(){
+            lua.to_value("")
+        }else{
+            lua.to_value(val)
+        }
+    })?;
     let get_text = lua.create_async_function(|lua, uri: String| async move {
         let mut uri = uri;
         if uri.starts_with("/"){
@@ -97,8 +113,13 @@ pub  fn create_lua() -> Result<(Lua, Arc<Mutex<String>>)> {
     http_module.set("get_json", get_json)?;
     http_module.set("get_text", get_text)?;
 
+    // 创建HTTP模块
+    let redis_module = lua.create_table()?;
+    redis_module.set("get", redis_get)?;
+
     // 设置全局HTTP模块
     lua.globals().set("http", http_module)?;
+    lua.globals().set("redis", redis_module)?;
     lua.globals().set("print", print_override)?;
     lua.globals().set("to_string", to_string)?;
     lua.globals().set("require", require_override)?;

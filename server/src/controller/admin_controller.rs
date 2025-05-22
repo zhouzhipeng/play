@@ -142,7 +142,7 @@ static ADMIN_HTML: &str = include_str!("templates/admin_new.html");
 
 async fn enter_admin_page(s: S) -> HTML {
     // let config = &CONFIG;
-    let config_content = read_config_file()?;
+    let config_content = read_config_file(false).await?;
     let config_path = get_config_path()?;
 
     let built_time = timestamp_to_date_str!(env!("BUILT_TIME").parse::<i64>()?);
