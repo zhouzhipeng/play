@@ -86,7 +86,7 @@ pub  fn create_lua() -> Result<(Lua, Arc<Mutex<String>>)> {
             .and_then(|resp| resp.error_for_status())
             .into_lua_err()?;
         let json = resp.json::<serde_json::Value>().await.into_lua_err()?;
-        println!("redis result : {:?}", json);
+        // println!("redis result : {:?}", json);
         let val = json.get("value").unwrap();
         if val.is_null(){
             lua.to_value("")
