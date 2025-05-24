@@ -60,9 +60,11 @@ fn default_days()->u32{
 async fn clean_change_logs(s: S, Query(DeleteChangelogReq{days}): Query<DeleteChangelogReq>) -> R<String> {
     let days_ago = days;
     let timestamp = current_timestamp!() - (days_ago * 24 * 60 * 60 * 1000) as i64;
-    
-    let result = ChangeLog::delete_days_ago(timestamp, &s.db).await?;
-    
+    let date_str = timestamp_to_date_str!(timestamp);
+
+    let result = ChangeLog::delete_days_ago(&date_str, &s.db).await?;
+
+
     Ok(format!("Cleaned {} change log entries older than {} days", result.rows_affected(), days_ago))
 }
 async fn display_logs(s: S) -> HTML {
