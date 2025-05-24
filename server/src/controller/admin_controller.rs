@@ -26,6 +26,7 @@ use play_shared::constants::DATA_DIR;
 
 use crate::{data_dir, promise, files_dir, HTML, method_router, R, return_error, S, template};
 use crate::config::{Config, get_config_path, read_config_file, save_config_file};
+use crate::tables::change_log::ChangeLog;
 
 method_router!(
     get : "/admin" -> enter_admin_page,
@@ -35,6 +36,7 @@ method_router!(
     get : "/admin/backup" -> backup,
     post : "/admin/restore" -> restore,
     get : "/admin/logs" -> display_logs,
+    get : "/admin/clean-change-logs" -> clean_change_logs,
 );
 
 #[derive(Deserialize)]
@@ -46,7 +48,15 @@ struct UpgradeRequest {
 struct SaveConfigReq {
     new_content: String,
 }
-
+async fn clean_change_logs(s: S) -> R<String> {
+    // Delete change logs older than 7 days
+    let days_ago = 7;
+    let timestamp = current_timestamp!() - (days_ago * 24 * 60 * 60 * 1000);
+    
+    let result = ChangeLog::delete_days_ago(timestamp, &s.db).await?;
+    
+    Ok(format!("Cleaned {} change log entries older than {} days", result.rows_affected(), days_ago))
+}
 async fn display_logs(s: S) -> HTML {
     let count = 100;
     // Get the current local date
