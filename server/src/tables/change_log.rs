@@ -47,9 +47,9 @@ impl ChangeLog {
             .execute(pool)
             .await
     }
-    pub async fn delete_days_ago(timestamp: i64, pool: &DBPool) -> Result<DBQueryResult, Error> {
+    pub async fn delete_days_ago(timestamp_str: &str, pool: &DBPool) -> Result<DBQueryResult, Error> {
         sqlx::query("DELETE from change_log WHERE created < ?")
-            .bind(&timestamp)
+            .bind(timestamp_str)
             .execute(pool)
             .await
     }
