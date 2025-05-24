@@ -64,8 +64,10 @@ async fn clean_change_logs(s: S, Query(DeleteChangelogReq{days}): Query<DeleteCh
 
     let result = ChangeLog::delete_days_ago(&date_str, &s.db).await?;
 
+    let msg = format!("Cleaned {} change log entries older than {} days", result.rows_affected(), days_ago);
+    info!("{msg}");
 
-    Ok(format!("Cleaned {} change log entries older than {} days", result.rows_affected(), days_ago))
+    Ok(msg)
 }
 async fn display_logs(s: S) -> HTML {
     let count = 100;
