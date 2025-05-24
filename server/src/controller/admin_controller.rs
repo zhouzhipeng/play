@@ -48,10 +48,18 @@ struct UpgradeRequest {
 struct SaveConfigReq {
     new_content: String,
 }
-async fn clean_change_logs(s: S) -> R<String> {
-    // Delete change logs older than 7 days
-    let days_ago = 7;
-    let timestamp = current_timestamp!() - (days_ago * 24 * 60 * 60 * 1000);
+#[derive(Deserialize)]
+struct DeleteChangelogReq {
+    #[serde(default="default_days")]
+    days: u32,
+}
+
+fn default_days()->u32{
+    3
+}
+async fn clean_change_logs(s: S, Query(DeleteChangelogReq{days}): Query<DeleteChangelogReq>) -> R<String> {
+    let days_ago = days;
+    let timestamp = current_timestamp!() - (days_ago * 24 * 60 * 60 * 1000) as i64;
     
     let result = ChangeLog::delete_days_ago(timestamp, &s.db).await?;
     
