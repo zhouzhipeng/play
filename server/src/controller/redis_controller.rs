@@ -111,7 +111,7 @@ pub fn init() -> Router<Arc<crate::AppState>> {
 
 #[cfg(feature = "play-redis")]
 async fn redis_manager() -> impl IntoResponse {
-    let html = include_str!("../../static/redis-manager.html");
+    let html = include_str!("../../static/pages/redis-manager.html");
     Html(html.to_string())
 }
 

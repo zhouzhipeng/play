@@ -66,25 +66,25 @@ async fn root(s: S) -> HTML {
                 h2 { "System Tools" }
                 ul {
                     li {
-                        a { href: "/static/page-editor.html", "Page Editor" }
+                        a { href: "/static/pages/page-editor.html", "Page Editor" }
                     }
                     li {
-                        a { href: "/static/plugin-manager.html", "Plugin Manager" }
+                        a { href: "/static/pages/plugin-manager.html", "Plugin Manager" }
                     }
                     li {
-                        a { href: "/static/shortlink-manager.html", "Shortlinks Manager" }
+                        a { href: "/static/pages/shortlink-manager.html", "Shortlinks Manager" }
                     }
                     li {
-                        a { href: "/static/file-explorer.html", "File Browser" }
+                        a { href: "/static/pages/file-explorer.html", "File Browser" }
                     }
                     li {
-                        a { href: "/static/fileupload.html", "Upload File" }
+                        a { href: "/static/pages/fileupload.html", "Upload File" }
                     }
                     li {
-                        a { href: "/static/shell.html", "Web Shell" }
+                        a { href: "/static/pages/shell.html", "Web Shell" }
                     }
                     li {
-                        a { href: "/static/crontab-manager.html", "Crontab Manager" }
+                        a { href: "/static/pages/crontab-manager.html", "Crontab Manager" }
                     }
                 }
                 h2 { "Short Links" }
