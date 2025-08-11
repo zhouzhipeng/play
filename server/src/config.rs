@@ -3,8 +3,8 @@ use std::path::Path;
 use anyhow::anyhow;
 
 use serde::{Deserialize, Serialize};
-use tracing::info;
-
+use tracing::{error, info};
+use play_mcp::McpConfig;
 use play_shared::{ file_path};
 use play_shared::constants::DATA_DIR;
 
@@ -33,6 +33,10 @@ pub struct Config {
     pub cache_config: CacheConfig,
     #[serde(default)]
     pub plugin_config: Vec<PluginConfig>,
+
+    #[cfg(feature = "play-mcp")]
+    #[serde(default)]
+    pub mcp_config: McpConfig,
 
 }
 
@@ -189,7 +193,13 @@ pub fn init_config(use_memory: bool) -> Config {
 
 
     };
-    let  config: Config = toml::from_str(&config_content).unwrap();
+    let r= toml::from_str(&config_content);
+    if let Err(e) = r {
+        let msg = format!("load config error >> {}",e.to_string());
+        eprintln!("{}", msg);
+        panic!("{}", msg);
+    }
+    let  config: Config = r.unwrap();
     //println!("using config file  content >>  {:?}",  config);
     config
 }

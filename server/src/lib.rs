@@ -31,6 +31,7 @@ use tower_http::cors::{Any, CorsLayer};
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::{error, info};
+use play_mcp::McpConfig;
 use play_shared::constants::{CAT_FINGERPRINT, CAT_MAIL, DATA_DIR};
 
 use play_shared::{current_timestamp, timestamp_to_date_str};
@@ -233,6 +234,20 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> anyhow::Res
 }
 
 pub async fn start_server(router: Router, app_state: Arc<AppState>) -> anyhow::Result<()> {
+
+    #[cfg(feature = "play-mcp")]
+    {
+    let cfg = app_state.config.mcp_config.clone();
+    //start mcp client
+    tokio::spawn(async move{
+        info!("starting play mcp client...");
+        let r = play_mcp::start_mcp_client(&cfg).await;
+        error!("play_mcp stop : {:?}", r);
+    });
+
+    }
+
+
     let server_port = app_state.config.server_port;
 
 
@@ -261,6 +276,9 @@ pub async fn start_server(router: Router, app_state: Arc<AppState>) -> anyhow::R
         https_port: app_state.config.https_cert.https_port,
         auto_redirect:app_state.config.https_cert.auto_redirect,
     }, router).await;
+
+
+    // dont put code here (will never run!!!!)
 
 
     Ok(())
