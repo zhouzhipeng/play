@@ -4,7 +4,8 @@ use anyhow::anyhow;
 
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use tracing::info;
+
+use tracing::{error, info};
 
 use play_shared::{ file_path};
 use play_shared::constants::DATA_DIR;
@@ -37,6 +38,10 @@ pub struct Config {
     pub cache_config: CacheConfig,
     #[serde(default)]
     pub plugin_config: Vec<PluginConfig>,
+
+    #[cfg(feature = "play-mcp")]
+    #[serde(default)]
+    pub mcp_config: play_mcp::McpConfig,
 
 }
 

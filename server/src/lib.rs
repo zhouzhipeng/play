@@ -32,6 +32,7 @@ use tower_http::cors::{Any, CorsLayer};
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::{error, info};
+use play_mcp::McpConfig;
 use play_shared::constants::{CAT_FINGERPRINT, CAT_MAIL, DATA_DIR};
 
 use play_shared::{current_timestamp, timestamp_to_date_str};
@@ -195,7 +196,7 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> anyhow::Res
         db: if final_test_pool { tables::init_test_pool().await } else { tables::init_pool(&config).await },
         config: config.clone(),
     };
-    
+
     #[cfg(feature = "play-redis")]
     let mut inner_app_state = AppState {
         template_service: TemplateService::new(req_sender),
@@ -258,6 +259,18 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> anyhow::Res
 }
 
 pub async fn start_server(router: Router<Arc<AppState>>, app_state: Arc<AppState>) -> anyhow::Result<()> {
+    #[cfg(feature = "play-mcp")]
+    {
+        let cfg = app_state.config.mcp_config.clone();
+        //start mcp client
+        tokio::spawn(async move{
+            info!("starting play mcp client...");
+            let r = play_mcp::start_mcp_client(&cfg).await;
+            error!("play_mcp stop : {:?}", r);
+        });
+
+    }
+
     let server_port = app_state.config.server_port;
 
     println!("server started at  : http://127.0.0.1:{}", server_port);
@@ -285,6 +298,10 @@ pub async fn start_server(router: Router<Arc<AppState>>, app_state: Arc<AppState
         https_port: app_state.config.https_cert.https_port,
         auto_redirect:app_state.config.https_cert.auto_redirect,
     }, router).await;
+
+
+    // dont put code here (will never run!!!!)
+
 
     Ok(())
 }
@@ -393,13 +410,13 @@ pub async fn routers(app_state: Arc<AppState>) -> anyhow::Result<Router<Arc<AppS
         .merge(shortlink_controller::init(app_state.clone()))
         .merge(plugin_controller::init(app_state.clone()))
         .merge(app_routers());
-        
+
     // Add Redis routes if feature is enabled and client was initialized successfully
     #[cfg(feature = "play-redis")]
     if let Some(redis_state) = &app_state.redis_state {
         router = router.merge(controller::redis_controller::routes().with_state(redis_state.clone()));
     }
-    
+
     router = router.with_state(app_state.clone())
         // logging so we can see whats going on
         .layer(TraceLayer::new_for_http().make_span_with(DefaultMakeSpan::default().include_headers(true)))

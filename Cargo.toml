@@ -28,3 +28,5 @@ play-ui = { path = "crates/play-ui"}
 play-https = { path = "crates/play-https"}
 play-dylib-loader = { path = "crates/play-dylib-loader"}
 play-lua = { path = "crates/play-lua"}
+play-redis = { path = "crates/play-redis"}
+play-mcp = { path = "crates/play-mcp"}

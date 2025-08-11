@@ -10,7 +10,7 @@ before-packaging-command = "cargo dev_ui"
 
 [features]
 default = []
-debug = ["play-dylib-loader", "play-redis"]
+debug = ["play-dylib-loader", "play-redis","play-lua", "play-mcp"]
 use_mysql = ["sqlx/mysql", "sqlparser"]
 
 
@@ -35,6 +35,8 @@ play-https = { workspace = true, optional = true }
 play-dylib-loader = { workspace = true, optional = true }
 play-lua = { workspace = true }
 play-redis = { path = "../crates/play-redis", optional = true }
+play-mcp = { workspace = true, optional = true }
+
 
 # options
 tower-livereload = { version = "0.8.2", optional = true }
