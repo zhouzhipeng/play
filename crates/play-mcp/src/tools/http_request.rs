@@ -4,6 +4,8 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 
 use super::Tool;
+use std::pin::Pin;
+use std::future::Future;
 
 pub struct HttpRequestTool;
 
@@ -53,18 +55,20 @@ impl Tool for HttpRequestTool {
         })
     }
     
-    async fn execute(&self, input: Value) -> Result<Value> {
-        let input: HttpRequestInput = serde_json::from_value(input)?;
-        
-        // This is a mock implementation
-        // In a real implementation, you would use reqwest or similar
-        Ok(json!({
-            "status": 200,
-            "headers": {},
-            "body": format!("Mock response for {} request to {}", 
-                input.method.unwrap_or_else(|| "GET".to_string()), 
-                input.url),
-            "error": null
-        }))
+    fn execute(&self, input: Value) -> Pin<Box<dyn Future<Output = Result<Value>> + Send + '_>> {
+        Box::pin(async move {
+            let input: HttpRequestInput = serde_json::from_value(input)?;
+            
+            // This is a mock implementation
+            // In a real implementation, you would use reqwest or similar
+            Ok(json!({
+                "status": 200,
+                "headers": {},
+                "body": format!("Mock response for {} request to {}", 
+                    input.method.unwrap_or_else(|| "GET".to_string()), 
+                    input.url),
+                "error": null
+            }))
+        })
     }
 }

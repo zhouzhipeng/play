@@ -1,6 +1,8 @@
 use anyhow::Result;
-use play_mcp::{Tool, ToolRegistry, McpConfig, start_mcp_client_with_tools, AnyTool};
+use play_mcp::{Tool, ToolRegistry, McpConfig, start_mcp_client_with_tools};
 use serde_json::{json, Value};
+use std::future::Future;
+use std::pin::Pin;
 
 struct CalculatorTool;
 
@@ -35,43 +37,44 @@ impl Tool for CalculatorTool {
         })
     }
     
-    async fn execute(&self, input: Value) -> Result<Value> {
-        let operation = input.get("operation")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow::anyhow!("Missing operation"))?;
-        
-        let a = input.get("a")
-            .and_then(|v| v.as_f64())
-            .ok_or_else(|| anyhow::anyhow!("Missing or invalid 'a' value"))?;
-        
-        let b = input.get("b")
-            .and_then(|v| v.as_f64())
-            .ok_or_else(|| anyhow::anyhow!("Missing or invalid 'b' value"))?;
-        
-        let result = match operation {
-            "add" => a + b,
-            "subtract" => a - b,
-            "multiply" => a * b,
-            "divide" => {
-                if b == 0.0 {
-                    return Err(anyhow::anyhow!("Division by zero"));
+    fn execute(&self, input: Value) -> Pin<Box<dyn Future<Output = Result<Value>> + Send + '_>> {
+        Box::pin(async move {
+            let operation = input.get("operation")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| anyhow::anyhow!("Missing operation"))?;
+            
+            let a = input.get("a")
+                .and_then(|v| v.as_f64())
+                .ok_or_else(|| anyhow::anyhow!("Missing or invalid 'a' value"))?;
+            
+            let b = input.get("b")
+                .and_then(|v| v.as_f64())
+                .ok_or_else(|| anyhow::anyhow!("Missing or invalid 'b' value"))?;
+            
+            let result = match operation {
+                "add" => a + b,
+                "subtract" => a - b,
+                "multiply" => a * b,
+                "divide" => {
+                    if b == 0.0 {
+                        return Err(anyhow::anyhow!("Division by zero"));
+                    }
+                    a / b
                 }
-                a / b
-            }
-            _ => return Err(anyhow::anyhow!("Unknown operation: {}", operation)),
-        };
-        
-        Ok(json!({
-            "result": result,
-            "operation": operation,
-            "a": a,
-            "b": b
-        }))
+                _ => return Err(anyhow::anyhow!("Unknown operation: {}", operation)),
+            };
+            
+            Ok(json!({
+                "result": result,
+                "operation": operation,
+                "a": a,
+                "b": b
+            }))
+        })
     }
 }
 
-// To use custom tools with the registry, you would need to extend the AnyTool enum
-// For demonstration, we'll just show how the built-in tools work
+// Now you can directly use Box<dyn Tool> to register any tool
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize logging (optional - requires tracing-subscriber feature)
@@ -80,15 +83,13 @@ async fn main() -> Result<()> {
     // Create tool registry with built-in tools
     let mut registry = ToolRegistry::new();
     
-    // Register built-in tools
-    registry.register(AnyTool::DiskSpace(play_mcp::DiskSpaceTool));
-    registry.register(AnyTool::SystemInfo(play_mcp::SystemInfoTool));
-    registry.register(AnyTool::Echo(play_mcp::EchoTool));
+    // Register built-in tools using Box<dyn Tool>
+    registry.register(Box::new(play_mcp::DiskSpaceTool));
+    registry.register(Box::new(play_mcp::SystemInfoTool));
+    registry.register(Box::new(play_mcp::EchoTool));
     
-    // Note: To add custom tools like CalculatorTool, you would need to:
-    // 1. Extend the AnyTool enum in tools.rs with a Calculator variant
-    // 2. Add the corresponding match arms in the AnyTool impl
-    // 3. Then you could do: registry.register(AnyTool::Calculator(CalculatorTool));
+    // You can also register custom tools directly!
+    // registry.register(Box::new(CalculatorTool));
     
     // Create MCP config
     let config = McpConfig {
@@ -103,6 +104,7 @@ async fn main() -> Result<()> {
             max_attempts: 5,
             interval_seconds: 5,
         },
+        tool_name_prefix: String::new(), // No prefix for this example
     };
     
     // Start MCP client with custom tools

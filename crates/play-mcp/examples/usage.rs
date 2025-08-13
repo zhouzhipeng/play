@@ -23,6 +23,7 @@ async fn main() -> Result<()> {
             interval_seconds: 5,
             max_attempts: 3,
         },
+        tool_name_prefix: String::new(), // No prefix for this example
     };
     
     // Start MCP client

@@ -1,6 +1,8 @@
 use anyhow::Result;
 use serde_json::{json, Value};
 use std::sync::Arc;
+use std::pin::Pin;
+use std::future::Future;
 
 mod disk_space;
 mod echo;
@@ -19,70 +21,67 @@ pub trait Tool: Send + Sync {
     
     fn input_schema(&self) -> Value;
     
-    async fn execute(&self, input: Value) -> Result<Value>;
+    fn execute(&self, input: Value) -> Pin<Box<dyn Future<Output = Result<Value>> + Send + '_>>;
 }
 
-pub enum AnyTool {
-    DiskSpace(DiskSpaceTool),
-    Echo(EchoTool),
-    SystemInfo(SystemInfoTool),
-    HttpRequest(HttpRequestTool),
+/// Wrapper for tools with a name prefix
+struct PrefixedTool {
+    tool: Box<dyn Tool>,
+    prefixed_name: String,
 }
 
-impl Tool for AnyTool {
+impl Tool for PrefixedTool {
     fn name(&self) -> &str {
-        match self {
-            AnyTool::DiskSpace(t) => t.name(),
-            AnyTool::Echo(t) => t.name(),
-            AnyTool::SystemInfo(t) => t.name(),
-            AnyTool::HttpRequest(t) => t.name(),
-        }
+        &self.prefixed_name
     }
     
     fn description(&self) -> &str {
-        match self {
-            AnyTool::DiskSpace(t) => t.description(),
-            AnyTool::Echo(t) => t.description(),
-            AnyTool::SystemInfo(t) => t.description(),
-            AnyTool::HttpRequest(t) => t.description(),
-        }
+        self.tool.description()
     }
     
     fn input_schema(&self) -> Value {
-        match self {
-            AnyTool::DiskSpace(t) => t.input_schema(),
-            AnyTool::Echo(t) => t.input_schema(),
-            AnyTool::SystemInfo(t) => t.input_schema(),
-            AnyTool::HttpRequest(t) => t.input_schema(),
-        }
+        self.tool.input_schema()
     }
     
-    async fn execute(&self, input: Value) -> Result<Value> {
-        match self {
-            AnyTool::DiskSpace(t) => t.execute(input).await,
-            AnyTool::Echo(t) => t.execute(input).await,
-            AnyTool::SystemInfo(t) => t.execute(input).await,
-            AnyTool::HttpRequest(t) => t.execute(input).await,
-        }
+    fn execute(&self, input: Value) -> Pin<Box<dyn Future<Output = Result<Value>> + Send + '_>> {
+        self.tool.execute(input)
     }
 }
 
 pub struct ToolRegistry {
-    tools: Vec<Arc<AnyTool>>,
+    tools: Vec<Arc<Box<dyn Tool>>>,
+    name_prefix: String,
 }
 
 impl ToolRegistry {
     pub fn new() -> Self {
         Self {
             tools: Vec::new(),
+            name_prefix: String::new(),
         }
     }
     
-    pub fn register(&mut self, tool: AnyTool) {
+    pub fn with_prefix(prefix: String) -> Self {
+        Self {
+            tools: Vec::new(),
+            name_prefix: prefix,
+        }
+    }
+    
+    pub fn register(&mut self, tool: Box<dyn Tool>) {
+        let tool = if self.name_prefix.is_empty() {
+            tool
+        } else {
+            let prefixed_name = format!("{}:{}", self.name_prefix, tool.name());
+            Box::new(PrefixedTool {
+                tool,
+                prefixed_name,
+            })
+        };
         self.tools.push(Arc::new(tool));
     }
     
-    pub fn get(&self, name: &str) -> Option<Arc<AnyTool>> {
+    pub fn get(&self, name: &str) -> Option<Arc<Box<dyn Tool>>> {
         self.tools.iter()
             .find(|t| t.name() == name)
             .cloned()
