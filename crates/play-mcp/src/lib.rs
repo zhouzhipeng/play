@@ -3,15 +3,15 @@ use futures::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::sync::Arc;
-use sysinfo::Disks;
 use tokio::sync::Mutex;
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use tracing::{error, info, warn};
 
 pub mod config;
 pub mod tools;
+mod registry;
 
-pub use config::{McpConfig, ClientConfig, RetryConfig, ToolsConfig};
+pub use config::{McpConfig, ClientConfig, RetryConfig};
 pub use tools::{
     Tool, ToolRegistry, AnyTool,
     DiskSpaceTool, DiskSpaceInput, DiskSpaceResult,
@@ -231,25 +231,10 @@ async fn run_mcp_connection(url: String, client_config: &ClientConfig, registry:
     Ok(())
 }
 
-/// Start MCP client service with tools from config
+/// Start MCP client service with default tools
 pub async fn start_mcp_client(config: &McpConfig) -> Result<()> {
     let mut registry = ToolRegistry::new();
-    
-    // Register tools based on config
-    if config.tools.enabled.is_empty() {
-        info!("No tools specified in config, registering all available tools");
-        registry.register_by_names(&vec![
-            "get_disk_space".to_string(),
-            "echo".to_string(),
-            "system_info".to_string(),
-            "http_request".to_string(),
-        ]);
-    } else {
-        info!("Registering tools from config: {:?}", config.tools.enabled);
-        registry.register_by_names(&config.tools.enabled);
-    }
-    
-    info!("Registered {} tools", registry.list().len());
+    registry::register_default_tools(&mut registry);
     
     start_mcp_client_with_tools(config, registry).await
 }

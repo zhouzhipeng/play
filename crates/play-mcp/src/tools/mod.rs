@@ -82,16 +82,6 @@ impl ToolRegistry {
         self.tools.push(Arc::new(tool));
     }
     
-    pub fn register_by_names(&mut self, tool_names: &[String]) {
-        for name in tool_names {
-            if let Some(tool) = create_tool_by_name(name) {
-                self.register(tool);
-            } else {
-                eprintln!("Warning: Unknown tool '{}', skipping", name);
-            }
-        }
-    }
-    
     pub fn get(&self, name: &str) -> Option<Arc<AnyTool>> {
         self.tools.iter()
             .find(|t| t.name() == name)
@@ -109,25 +99,4 @@ impl ToolRegistry {
             })
             .collect()
     }
-}
-
-/// Create a tool instance by its name
-pub fn create_tool_by_name(name: &str) -> Option<AnyTool> {
-    match name {
-        "get_disk_space" | "disk_space" => Some(AnyTool::DiskSpace(DiskSpaceTool)),
-        "echo" => Some(AnyTool::Echo(EchoTool)),
-        "system_info" => Some(AnyTool::SystemInfo(SystemInfoTool)),
-        "http_request" => Some(AnyTool::HttpRequest(HttpRequestTool)),
-        _ => None,
-    }
-}
-
-/// Get all available tool names
-pub fn get_available_tools() -> Vec<&'static str> {
-    vec![
-        "get_disk_space",
-        "echo",
-        "system_info",
-        "http_request",
-    ]
 }

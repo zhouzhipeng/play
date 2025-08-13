@@ -103,13 +103,6 @@ async fn main() -> Result<()> {
             max_attempts: 5,
             interval_seconds: 5,
         },
-        tools: play_mcp::ToolsConfig {
-            enabled: vec![
-                "get_disk_space".to_string(),
-                "system_info".to_string(),
-                "echo".to_string(),
-            ],
-        },
     };
     
     // Start MCP client with custom tools
