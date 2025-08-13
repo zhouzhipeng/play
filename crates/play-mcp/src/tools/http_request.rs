@@ -3,9 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
-use super::Tool;
-use std::pin::Pin;
-use std::future::Future;
+use super::{Tool, BoxFuture};
 
 pub struct HttpRequestTool;
 
@@ -55,7 +53,7 @@ impl Tool for HttpRequestTool {
         })
     }
     
-    fn execute(&self, input: Value) -> Pin<Box<dyn Future<Output = Result<Value>> + Send + '_>> {
+    fn execute<'a>(&'a self, input: Value) -> BoxFuture<'a, Result<Value>> {
         Box::pin(async move {
             let input: HttpRequestInput = serde_json::from_value(input)?;
             

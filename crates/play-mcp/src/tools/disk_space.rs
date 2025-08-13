@@ -3,9 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sysinfo::Disks;
 
-use super::Tool;
-use std::pin::Pin;
-use std::future::Future;
+use super::{Tool, BoxFuture};
 
 pub struct DiskSpaceTool;
 
@@ -44,8 +42,8 @@ impl Tool for DiskSpaceTool {
             "required": []
         })
     }
-    
-    fn execute(&self, input: Value) -> Pin<Box<dyn Future<Output = Result<Value>> + Send + '_>> {
+
+    fn execute<'a>(&'a self, input: Value) -> BoxFuture<'a, Result<Value>> {
         Box::pin(async move {
             let input: DiskSpaceInput = serde_json::from_value(input)?;
             let results = get_disk_space(input);

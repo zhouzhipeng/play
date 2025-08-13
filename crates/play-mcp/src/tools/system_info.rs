@@ -2,9 +2,7 @@ use anyhow::Result;
 use serde_json::{json, Value};
 use sysinfo::System;
 
-use super::Tool;
-use std::pin::Pin;
-use std::future::Future;
+use super::{Tool, BoxFuture};
 
 pub struct SystemInfoTool;
 
@@ -25,7 +23,7 @@ impl Tool for SystemInfoTool {
         })
     }
     
-    fn execute(&self, _input: Value) -> Pin<Box<dyn Future<Output = Result<Value>> + Send + '_>> {
+    fn execute<'a>(&'a self, _input: Value) -> BoxFuture<'a, Result<Value>> {
         Box::pin(async move {
             let mut sys = System::new_all();
             sys.refresh_all();

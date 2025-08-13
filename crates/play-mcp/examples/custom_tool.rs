@@ -1,8 +1,6 @@
 use anyhow::Result;
 use play_mcp::{Tool, ToolRegistry, McpConfig, start_mcp_client_with_tools};
 use serde_json::{json, Value};
-use std::future::Future;
-use std::pin::Pin;
 
 struct CalculatorTool;
 
@@ -37,40 +35,38 @@ impl Tool for CalculatorTool {
         })
     }
     
-    fn execute(&self, input: Value) -> Pin<Box<dyn Future<Output = Result<Value>> + Send + '_>> {
-        Box::pin(async move {
-            let operation = input.get("operation")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| anyhow::anyhow!("Missing operation"))?;
-            
-            let a = input.get("a")
-                .and_then(|v| v.as_f64())
-                .ok_or_else(|| anyhow::anyhow!("Missing or invalid 'a' value"))?;
-            
-            let b = input.get("b")
-                .and_then(|v| v.as_f64())
-                .ok_or_else(|| anyhow::anyhow!("Missing or invalid 'b' value"))?;
-            
-            let result = match operation {
-                "add" => a + b,
-                "subtract" => a - b,
-                "multiply" => a * b,
-                "divide" => {
-                    if b == 0.0 {
-                        return Err(anyhow::anyhow!("Division by zero"));
-                    }
-                    a / b
+    async fn execute(&self, input: Value) -> Result<Value> {
+        let operation = input.get("operation")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Missing operation"))?;
+        
+        let a = input.get("a")
+            .and_then(|v| v.as_f64())
+            .ok_or_else(|| anyhow::anyhow!("Missing or invalid 'a' value"))?;
+        
+        let b = input.get("b")
+            .and_then(|v| v.as_f64())
+            .ok_or_else(|| anyhow::anyhow!("Missing or invalid 'b' value"))?;
+        
+        let result = match operation {
+            "add" => a + b,
+            "subtract" => a - b,
+            "multiply" => a * b,
+            "divide" => {
+                if b == 0.0 {
+                    return Err(anyhow::anyhow!("Division by zero"));
                 }
-                _ => return Err(anyhow::anyhow!("Unknown operation: {}", operation)),
-            };
-            
-            Ok(json!({
-                "result": result,
-                "operation": operation,
-                "a": a,
-                "b": b
-            }))
-        })
+                a / b
+            }
+            _ => return Err(anyhow::anyhow!("Unknown operation: {}", operation)),
+        };
+        
+        Ok(json!({
+            "result": result,
+            "operation": operation,
+            "a": a,
+            "b": b
+        }))
     }
 }
 

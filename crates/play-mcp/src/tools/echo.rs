@@ -1,9 +1,7 @@
 use anyhow::Result;
 use serde_json::{json, Value};
 
-use super::Tool;
-use std::pin::Pin;
-use std::future::Future;
+use super::{Tool, BoxFuture};
 
 pub struct EchoTool;
 
@@ -29,7 +27,7 @@ impl Tool for EchoTool {
         })
     }
     
-    fn execute(&self, input: Value) -> Pin<Box<dyn Future<Output = Result<Value>> + Send + '_>> {
+    fn execute<'a>(&'a self, input: Value) -> BoxFuture<'a, Result<Value>> {
         Box::pin(async move {
             let message = input.get("message")
                 .and_then(|v| v.as_str())
