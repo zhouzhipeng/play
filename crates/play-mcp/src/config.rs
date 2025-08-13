@@ -7,6 +7,14 @@ pub struct McpConfig {
     pub client: ClientConfig,
     #[serde(default)]
     pub retry: RetryConfig,
+    #[serde(default)]
+    pub tools: ToolsConfig,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ToolsConfig {
+    #[serde(default = "default_enabled_tools")]
+    pub enabled: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -23,12 +31,30 @@ pub struct RetryConfig {
     pub max_attempts: u32,
 }
 
+fn default_enabled_tools() -> Vec<String> {
+    vec![
+        "get_disk_space".to_string(),
+        "echo".to_string(),
+        "system_info".to_string(),
+        "http_request".to_string(),
+    ]
+}
+
+impl Default for ToolsConfig {
+    fn default() -> Self {
+        Self {
+            enabled: default_enabled_tools(),
+        }
+    }
+}
+
 impl Default for McpConfig {
     fn default() -> Self {
         Self {
             url: "ws://localhost:8765".to_string(),
             client: ClientConfig::default(),
             retry: RetryConfig::default(),
+            tools: ToolsConfig::default(),
         }
     }
 }

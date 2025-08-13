@@ -1,5 +1,11 @@
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use sysinfo::Disks;
+
+use super::Tool;
+
+pub struct DiskSpaceTool;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DiskSpaceInput {
@@ -13,6 +19,35 @@ pub struct DiskSpaceResult {
     pub available_gb: f64,
     pub used_gb: f64,
     pub used_percentage: f64,
+}
+
+impl Tool for DiskSpaceTool {
+    fn name(&self) -> &str {
+        "get_disk_space"
+    }
+    
+    fn description(&self) -> &str {
+        "获取磁盘空间信息"
+    }
+    
+    fn input_schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "可选：要检查的路径。如果不提供，返回所有磁盘的信息。"
+                }
+            },
+            "required": []
+        })
+    }
+    
+    async fn execute(&self, input: Value) -> Result<Value> {
+        let input: DiskSpaceInput = serde_json::from_value(input)?;
+        let results = get_disk_space(input);
+        Ok(serde_json::to_value(results)?)
+    }
 }
 
 pub fn get_disk_space(input: DiskSpaceInput) -> Vec<DiskSpaceResult> {

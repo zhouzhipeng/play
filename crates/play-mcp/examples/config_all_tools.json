@@ -1,0 +1,16 @@
+{
+  "url": "ws://localhost:3000/mcp",
+  "client": {
+    "name": "all-tools-client",
+    "version": "1.0.0",
+    "description": "MCP Client with all tools"
+  },
+  "tools": {
+    "enabled": [
+      "get_disk_space",
+      "echo",
+      "system_info",
+      "http_request"
+    ]
+  }
+}

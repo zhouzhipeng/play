@@ -11,8 +11,12 @@ use tracing::{error, info, warn};
 pub mod config;
 pub mod tools;
 
-pub use config::{McpConfig, ClientConfig, RetryConfig};
-pub use tools::{DiskSpaceInput, DiskSpaceResult};
+pub use config::{McpConfig, ClientConfig, RetryConfig, ToolsConfig};
+pub use tools::{
+    Tool, ToolRegistry, AnyTool,
+    DiskSpaceTool, DiskSpaceInput, DiskSpaceResult,
+    EchoTool, SystemInfoTool, HttpRequestTool, HttpRequestInput
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct JsonRpcRequest {
@@ -38,7 +42,7 @@ pub struct JsonRpcError {
     pub data: Option<Value>,
 }
 
-fn handle_server_request(request: JsonRpcRequest) -> Option<JsonRpcResponse> {
+async fn handle_server_request(request: JsonRpcRequest, registry: &ToolRegistry) -> Option<JsonRpcResponse> {
     match request.method.as_str() {
         "ping" => {
             Some(JsonRpcResponse {
@@ -56,22 +60,7 @@ fn handle_server_request(request: JsonRpcRequest) -> Option<JsonRpcResponse> {
             Some(JsonRpcResponse {
                 jsonrpc: "2.0".to_string(),
                 result: Some(json!({
-                    "tools": [
-                        {
-                            "name": "get_disk_space",
-                            "description": "获取磁盘空间信息",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "path": {
-                                        "type": "string",
-                                        "description": "可选：要检查的路径。如果不提供，返回所有磁盘的信息。"
-                                    }
-                                },
-                                "required": []
-                            }
-                        }
-                    ]
+                    "tools": registry.list()
                 })),
                 error: None,
                 id: request.id,
@@ -80,27 +69,39 @@ fn handle_server_request(request: JsonRpcRequest) -> Option<JsonRpcResponse> {
         "tools/call" => {
             if let Some(params) = request.params.clone() {
                 if let Some(name) = params.get("name").and_then(|v| v.as_str()) {
-                    if name == "get_disk_space" {
+                    if let Some(tool) = registry.get(name) {
                         let default_args = json!({});
                         let arguments = params.get("arguments").unwrap_or(&default_args);
-                        let input: DiskSpaceInput = serde_json::from_value(arguments.clone())
-                            .unwrap_or(DiskSpaceInput { path: None });
                         
-                        let results = tools::get_disk_space(input);
-                        
-                        return Some(JsonRpcResponse {
-                            jsonrpc: "2.0".to_string(),
-                            result: Some(json!({
-                                "content": [
-                                    {
-                                        "type": "text",
-                                        "text": serde_json::to_string_pretty(&results).unwrap()
-                                    }
-                                ]
-                            })),
-                            error: None,
-                            id: request.id,
-                        });
+                        match tool.execute(arguments.clone()).await {
+                            Ok(result) => {
+                                return Some(JsonRpcResponse {
+                                    jsonrpc: "2.0".to_string(),
+                                    result: Some(json!({
+                                        "content": [
+                                            {
+                                                "type": "text",
+                                                "text": serde_json::to_string_pretty(&result).unwrap()
+                                            }
+                                        ]
+                                    })),
+                                    error: None,
+                                    id: request.id,
+                                });
+                            }
+                            Err(e) => {
+                                return Some(JsonRpcResponse {
+                                    jsonrpc: "2.0".to_string(),
+                                    result: None,
+                                    error: Some(JsonRpcError {
+                                        code: -32603,
+                                        message: format!("Tool execution failed: {}", e),
+                                        data: None,
+                                    }),
+                                    id: request.id,
+                                });
+                            }
+                        }
                     }
                 }
             }
@@ -132,7 +133,7 @@ fn handle_server_request(request: JsonRpcRequest) -> Option<JsonRpcResponse> {
     }
 }
 
-async fn run_mcp_connection(url: String, client_config: &ClientConfig) -> Result<()> {
+async fn run_mcp_connection(url: String, client_config: &ClientConfig, registry: Arc<ToolRegistry>) -> Result<()> {
     info!("Connecting to MCP server at: {}", url);
     
     let (ws_stream, _) = connect_async(&url).await
@@ -188,7 +189,7 @@ async fn run_mcp_connection(url: String, client_config: &ClientConfig) -> Result
                         match serde_json::from_str::<JsonRpcRequest>(&text) {
                             Ok(request) => {
                                 // Handle the request from server
-                                if let Some(response) = handle_server_request(request) {
+                                if let Some(response) = handle_server_request(request, &registry).await {
                                     let response_text = serde_json::to_string(&response)
                                         .context("Failed to serialize response")?;
                                     info!(">>>> Sending to server:\n{}", response_text);
@@ -230,15 +231,40 @@ async fn run_mcp_connection(url: String, client_config: &ClientConfig) -> Result
     Ok(())
 }
 
-/// Start MCP client service
+/// Start MCP client service with tools from config
 pub async fn start_mcp_client(config: &McpConfig) -> Result<()> {
+    let mut registry = ToolRegistry::new();
+    
+    // Register tools based on config
+    if config.tools.enabled.is_empty() {
+        info!("No tools specified in config, registering all available tools");
+        registry.register_by_names(&vec![
+            "get_disk_space".to_string(),
+            "echo".to_string(),
+            "system_info".to_string(),
+            "http_request".to_string(),
+        ]);
+    } else {
+        info!("Registering tools from config: {:?}", config.tools.enabled);
+        registry.register_by_names(&config.tools.enabled);
+    }
+    
+    info!("Registered {} tools", registry.list().len());
+    
+    start_mcp_client_with_tools(config, registry).await
+}
+
+/// Start MCP client service with custom tool registry
+pub async fn start_mcp_client_with_tools(config: &McpConfig, registry: ToolRegistry) -> Result<()> {
     info!("Starting MCP client: {}", config.client.name);
     info!("Description: {}", config.client.description);
     info!("Connecting to: {}", config.url);
     
+    let registry = Arc::new(registry);
+    
     let mut attempts = 0u32;
     loop {
-        match run_mcp_connection(config.url.clone(), &config.client).await {
+        match run_mcp_connection(config.url.clone(), &config.client, registry.clone()).await {
             Ok(_) => {
                 info!("MCP client disconnected normally");
                 break;

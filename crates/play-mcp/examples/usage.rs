@@ -1,14 +1,14 @@
-use play_mcp::{McpConfig, ClientConfig, RetryConfig, start_mcp_client};
+use play_mcp::{McpConfig, ClientConfig, RetryConfig, ToolsConfig, start_mcp_client};
 use anyhow::Result;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Initialize logging
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::new("info")
-        )
-        .init();
+    // Initialize logging (requires tracing-subscriber feature)
+    // tracing_subscriber::fmt()
+    //     .with_env_filter(
+    //         tracing_subscriber::EnvFilter::new("info")
+    //     )
+    //     .init();
     
     // Create MCP configuration
     let config = McpConfig {
@@ -23,6 +23,7 @@ async fn main() -> Result<()> {
             interval_seconds: 5,
             max_attempts: 3,
         },
+        tools: ToolsConfig::default(), // Use all default tools
     };
     
     // Start MCP client
