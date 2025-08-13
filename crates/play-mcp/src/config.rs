@@ -7,6 +7,8 @@ pub struct McpConfig {
     pub client: ClientConfig,
     #[serde(default)]
     pub retry: RetryConfig,
+    #[serde(default)]
+    pub tool_name_prefix: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -29,6 +31,7 @@ impl Default for McpConfig {
             url: "ws://localhost:8765".to_string(),
             client: ClientConfig::default(),
             retry: RetryConfig::default(),
+            tool_name_prefix: String::new(),
         }
     }
 }

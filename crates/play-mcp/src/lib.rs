@@ -13,7 +13,7 @@ mod registry;
 
 pub use config::{McpConfig, ClientConfig, RetryConfig};
 pub use tools::{
-    Tool, ToolRegistry, AnyTool,
+    Tool, ToolRegistry,
     DiskSpaceTool, DiskSpaceInput, DiskSpaceResult,
     EchoTool, SystemInfoTool, HttpRequestTool, HttpRequestInput
 };
@@ -233,7 +233,11 @@ async fn run_mcp_connection(url: String, client_config: &ClientConfig, registry:
 
 /// Start MCP client service with default tools
 pub async fn start_mcp_client(config: &McpConfig) -> Result<()> {
-    let mut registry = ToolRegistry::new();
+    let mut registry = if config.tool_name_prefix.is_empty() {
+        ToolRegistry::new()
+    } else {
+        ToolRegistry::with_prefix(config.tool_name_prefix.clone())
+    };
     registry::register_default_tools(&mut registry);
     
     start_mcp_client_with_tools(config, registry).await
@@ -244,6 +248,10 @@ pub async fn start_mcp_client_with_tools(config: &McpConfig, registry: ToolRegis
     info!("Starting MCP client: {}", config.client.name);
     info!("Description: {}", config.client.description);
     info!("Connecting to: {}", config.url);
+    
+    if !config.tool_name_prefix.is_empty() {
+        info!("Tool name prefix: '{}'", config.tool_name_prefix);
+    }
     
     let registry = Arc::new(registry);
     
