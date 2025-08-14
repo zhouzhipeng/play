@@ -1,18 +1,29 @@
 use anyhow::Result;
-use serde_json::{json, Value};
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Deserialize)]
+pub struct EchoInput {
+    pub message: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct EchoOutput {
+    pub echoed: String,
+    pub timestamp: String,
+}
+
+async fn execute_echo(input: EchoInput) -> Result<EchoOutput> {
+    Ok(EchoOutput {
+        echoed: input.message,
+        timestamp: chrono::Utc::now().to_rfc3339(),
+    })
+}
 
 // Define the entire tool with one macro call
 crate::define_mcp_tool!(
     EchoTool,
     "echo",
-    |input: Value| async move {
-        let message = input.get("message")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow::anyhow!("Missing 'message' field"))?;
-        
-        Ok(json!({
-            "echoed": message,
-            "timestamp": chrono::Utc::now().to_rfc3339(),
-        }))
-    }
+    input: EchoInput,
+    output: EchoOutput,
+    fn: execute_echo
 );

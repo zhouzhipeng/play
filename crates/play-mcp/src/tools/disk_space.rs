@@ -1,6 +1,5 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use sysinfo::Disks;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -17,14 +16,17 @@ pub struct DiskSpaceResult {
     pub used_percentage: f64,
 }
 
+async fn execute_disk_space(input: DiskSpaceInput) -> anyhow::Result<Vec<DiskSpaceResult>> {
+    let results = get_disk_space(input);
+    Ok(results)
+}
+
 crate::define_mcp_tool!(
     DiskSpaceTool,
     "get_disk_space",
-    |input: Value| async move {
-        let input: DiskSpaceInput = serde_json::from_value(input)?;
-        let results = get_disk_space(input);
-        Ok(serde_json::to_value(results)?)
-    }
+    input: DiskSpaceInput,
+    output: Vec<DiskSpaceResult>,
+    fn: execute_disk_space
 );
 
 pub fn get_disk_space(input: DiskSpaceInput) -> Vec<DiskSpaceResult> {

@@ -1,6 +1,5 @@
 use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
 use std::process::Command;
 use std::path::PathBuf;
 use tokio::task;
@@ -20,6 +19,33 @@ pub struct BilibiliDownloadResult {
     pub video_id: Option<String>,
 }
 
+async fn execute_bilibili_download(tool: &BilibiliDownloadTool, input: BilibiliDownloadInput) -> Result<BilibiliDownloadResult> {
+    let video_id = extract_video_id(&input.url)?;
+    
+    let output_dir = input.output_dir
+        .map(PathBuf::from)
+        .unwrap_or_else(|| tool.download_dir.clone());
+    
+    std::fs::create_dir_all(&output_dir)?;
+    
+    let quality = input.quality.unwrap_or_else(|| "auto".to_string());
+    
+    let url = input.url.clone();
+    let output_dir_clone = output_dir.clone();
+    let video_id_clone = video_id.clone();
+    
+    task::spawn(async move {
+        download_video_background(url, output_dir_clone, quality, video_id_clone).await
+    });
+    
+    Ok(BilibiliDownloadResult {
+        success: true,
+        message: format!("Started downloading video {} in background", video_id),
+        download_path: Some(output_dir.to_string_lossy().to_string()),
+        video_id: Some(video_id),
+    })
+}
+
 crate::define_mcp_tool!(
     BilibiliDownloadTool,
     "bilibili_download",
@@ -28,37 +54,9 @@ crate::define_mcp_tool!(
             .unwrap_or_else(|_| PathBuf::from("."))
             .join("bilibili_downloads")
     },
-    |tool: &BilibiliDownloadTool, input: Value| {
-        let download_dir = tool.download_dir.clone();
-        async move {
-            let input: BilibiliDownloadInput = serde_json::from_value(input)?;
-            
-            let video_id = extract_video_id(&input.url)?;
-            
-            let output_dir = input.output_dir
-                .map(PathBuf::from)
-                .unwrap_or_else(|| download_dir);
-        
-        std::fs::create_dir_all(&output_dir)?;
-        
-        let quality = input.quality.unwrap_or_else(|| "auto".to_string());
-        
-        let url = input.url.clone();
-        let output_dir_clone = output_dir.clone();
-        let video_id_clone = video_id.clone();
-        
-        task::spawn(async move {
-            download_video_background(url, output_dir_clone, quality, video_id_clone).await
-        });
-        
-            Ok(json!(BilibiliDownloadResult {
-                success: true,
-                message: format!("Started downloading video {} in background", video_id),
-                download_path: Some(output_dir.to_string_lossy().to_string()),
-                video_id: Some(video_id),
-            }))
-        }
-    }
+    input: BilibiliDownloadInput,
+    output: BilibiliDownloadResult,
+    fn: execute_bilibili_download
 );
 
 fn extract_video_id(url: &str) -> Result<String> {
