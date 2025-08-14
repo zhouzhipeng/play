@@ -96,7 +96,7 @@ macro_rules! define_mcp_tool {
             
             async fn execute(&self, input: serde_json::Value) -> anyhow::Result<serde_json::Value> {
                 let execute_fn = $execute_body;
-                execute_fn(input).await
+                execute_fn(serde_json::from_value(input)?).await
             }
         }
     };

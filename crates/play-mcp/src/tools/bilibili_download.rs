@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::{Result, anyhow, bail};
 use serde::{Deserialize, Serialize};
 use std::process::Command;
 use std::path::PathBuf;
@@ -17,6 +17,12 @@ pub struct BilibiliDownloadResult {
     pub message: String,
     pub download_path: Option<String>,
     pub video_id: Option<String>,
+}
+
+impl BilibiliDownloadTool {
+    async fn execute_bilibili_download2(&self, input: BilibiliDownloadInput) -> Result<BilibiliDownloadResult> {
+        bail!("test")
+    }
 }
 
 async fn execute_bilibili_download(tool: &BilibiliDownloadTool, input: BilibiliDownloadInput) -> Result<BilibiliDownloadResult> {
@@ -56,7 +62,7 @@ crate::define_mcp_tool!(
     },
     input: BilibiliDownloadInput,
     output: BilibiliDownloadResult,
-    fn: execute_bilibili_download
+    fn: BilibiliDownloadTool::execute_bilibili_download2
 );
 
 fn extract_video_id(url: &str) -> Result<String> {

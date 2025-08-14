@@ -14,8 +14,8 @@ pub struct HttpRequestInput {
 crate::define_mcp_tool!(
     HttpRequestTool,
     "http_request",
-    |input: Value| async move {
-        let input: HttpRequestInput = serde_json::from_value(input)?;
+    |input: HttpRequestInput| async move {
+        // let input: HttpRequestInput = serde_json::from_value(input)?;
         
         // This is a mock implementation
         // In a real implementation, you would use reqwest or similar
