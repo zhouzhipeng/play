@@ -3,7 +3,7 @@
     {
       "name": "echo",
       "description": "Echo back the input message",
-      "input_schema": {
+      "inputSchema": {
         "type": "object",
         "properties": {
           "message": {
@@ -11,36 +11,37 @@
             "description": "The message to echo back"
           }
         },
-        "required": ["message"]
+        "required": ["message"],
+        "additionalProperties": false
       }
     },
     {
       "name": "system_info",
       "description": "Get system information including OS, CPU, and memory",
-      "input_schema": {
+      "inputSchema": {
         "type": "object",
         "properties": {},
-        "required": []
+        "additionalProperties": false
       }
     },
     {
       "name": "get_disk_space",
-      "description": "Get disk space information",
-      "input_schema": {
+      "description": "Get disk space information for all disks or a specific path",
+      "inputSchema": {
         "type": "object",
         "properties": {
           "path": {
             "type": "string",
-            "description": "Optional path to check. If not provided, returns information for all disks."
+            "description": "Optional path to check. If not provided, returns information for all disks"
           }
         },
-        "required": []
+        "additionalProperties": false
       }
     },
     {
       "name": "http_request",
-      "description": "Make an HTTP request to a URL",
-      "input_schema": {
+      "description": "Make an HTTP request to a specified URL",
+      "inputSchema": {
         "type": "object",
         "properties": {
           "url": {
@@ -50,6 +51,7 @@
           "method": {
             "type": "string",
             "description": "HTTP method (GET, POST, PUT, DELETE, etc.)",
+            "enum": ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"],
             "default": "GET"
           },
           "headers": {
@@ -64,22 +66,23 @@
             "description": "Optional request body"
           }
         },
-        "required": ["url"]
+        "required": ["url"],
+        "additionalProperties": false
       }
     },
     {
       "name": "bilibili_download",
       "description": "Download videos from Bilibili in the background",
-      "input_schema": {
+      "inputSchema": {
         "type": "object",
         "properties": {
           "url": {
             "type": "string",
-            "description": "The Bilibili video URL (e.g., https://www.bilibili.com/video/BV14rt1zFECj)"
+            "description": "The Bilibili video URL"
           },
           "quality": {
             "type": "string",
-            "description": "Video quality (e.g., '1080p', '720p', '480p'). Default is highest available",
+            "description": "Video quality preference",
             "enum": ["1080p", "720p", "480p", "360p", "auto"],
             "default": "auto"
           },
@@ -88,22 +91,23 @@
             "description": "Custom output directory for downloaded videos"
           }
         },
-        "required": ["url"]
+        "required": ["url"],
+        "additionalProperties": false
       }
     },
     {
       "name": "sys_info",
       "description": "Get general system information",
-      "input_schema": {
+      "inputSchema": {
         "type": "object",
         "properties": {},
-        "required": []
+        "additionalProperties": false
       }
     },
     {
       "name": "sys_disk",
       "description": "Get disk usage information",
-      "input_schema": {
+      "inputSchema": {
         "type": "object",
         "properties": {
           "path": {
@@ -111,13 +115,13 @@
             "description": "Optional path to check specific disk"
           }
         },
-        "required": []
+        "additionalProperties": false
       }
     },
     {
       "name": "sys_memory",
       "description": "Get memory usage information",
-      "input_schema": {
+      "inputSchema": {
         "type": "object",
         "properties": {
           "detailed": {
@@ -126,13 +130,13 @@
             "default": false
           }
         },
-        "required": []
+        "additionalProperties": false
       }
     },
     {
       "name": "sys_process",
       "description": "Get process information",
-      "input_schema": {
+      "inputSchema": {
         "type": "object",
         "properties": {
           "filter": {
@@ -141,22 +145,25 @@
           },
           "sort_by": {
             "type": "string",
+            "description": "Sort processes by cpu, memory, or name",
             "enum": ["cpu", "memory", "name"],
             "default": "cpu"
           },
           "limit": {
             "type": "integer",
             "description": "Limit number of processes returned",
+            "minimum": 1,
+            "maximum": 1000,
             "default": 10
           }
         },
-        "required": []
+        "additionalProperties": false
       }
     },
     {
       "name": "sys_cpu",
       "description": "Get CPU usage information",
-      "input_schema": {
+      "inputSchema": {
         "type": "object",
         "properties": {
           "per_core": {
@@ -165,7 +172,7 @@
             "default": false
           }
         },
-        "required": []
+        "additionalProperties": false
       }
     }
   ]

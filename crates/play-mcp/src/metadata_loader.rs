@@ -2,8 +2,7 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
-
-use super::ToolMetadata;
+use crate::tools::ToolMetadata;
 
 // Include the generated validation code
 include!(concat!(env!("OUT_DIR"), "/tool_names.rs"));
@@ -13,6 +12,7 @@ include!(concat!(env!("OUT_DIR"), "/tool_names.rs"));
 pub struct ToolDefinition {
     pub name: String,
     pub description: String,
+    #[serde(rename = "inputSchema")]
     pub input_schema: Value,
 }
 

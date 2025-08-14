@@ -12,15 +12,7 @@ pub mod tools;
 pub mod metadata_loader;
 
 pub use config::{McpConfig, ClientConfig, RetryConfig};
-pub use tools::{
-    Tool, ToolRegistry, ToolMetadata,
-    DiskSpaceTool, DiskSpaceInput, DiskSpaceResult,
-    EchoTool, SystemInfoTool,
-    HttpRequestTool, HttpRequestInput,
-    BilibiliDownloadTool, BilibiliDownloadInput, BilibiliDownloadResult,
-    SysInfoTool, SysDiskTool, SysMemoryTool, SysProcessTool, SysCpuTool
-};
-
+use crate::tools::ToolRegistry;
 // Macro is exported from metadata_loader module
 
 #[derive(Debug, Serialize, Deserialize)]
