@@ -21,6 +21,8 @@ pub use tools::{
     SysInfoTool, SysDiskTool, SysMemoryTool, SysProcessTool, SysCpuTool
 };
 
+// Macro is exported from metadata_loader module
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct JsonRpcRequest {
     pub jsonrpc: String,

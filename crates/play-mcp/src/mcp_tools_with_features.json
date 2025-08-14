@@ -1,0 +1,43 @@
+{
+  "tools": [
+    {
+      "name": "echo",
+      "description": "Echo back the input message",
+      "category": "utility",
+      "enabled": true,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "The message to echo back"
+          }
+        },
+        "required": ["message"]
+      }
+    },
+    {
+      "name": "system_info",
+      "description": "Get system information including OS, CPU, and memory",
+      "category": "system",
+      "enabled": true,
+      "priority": 1,
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "experimental_tool",
+      "description": "An experimental tool (disabled by default)",
+      "category": "experimental",
+      "enabled": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    }
+  ]
+}

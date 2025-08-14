@@ -1,6 +1,6 @@
 {
-  "tools": {
-    "echo": {
+  "tools": [
+    {
       "name": "echo",
       "description": "Echo back the input message",
       "input_schema": {
@@ -14,7 +14,7 @@
         "required": ["message"]
       }
     },
-    "system_info": {
+    {
       "name": "system_info",
       "description": "Get system information including OS, CPU, and memory",
       "input_schema": {
@@ -23,7 +23,7 @@
         "required": []
       }
     },
-    "get_disk_space": {
+    {
       "name": "get_disk_space",
       "description": "Get disk space information",
       "input_schema": {
@@ -37,7 +37,7 @@
         "required": []
       }
     },
-    "http_request": {
+    {
       "name": "http_request",
       "description": "Make an HTTP request to a URL",
       "input_schema": {
@@ -67,7 +67,7 @@
         "required": ["url"]
       }
     },
-    "bilibili_download": {
+    {
       "name": "bilibili_download",
       "description": "Download videos from Bilibili in the background",
       "input_schema": {
@@ -91,7 +91,7 @@
         "required": ["url"]
       }
     },
-    "sys_info": {
+    {
       "name": "sys_info",
       "description": "Get general system information",
       "input_schema": {
@@ -100,7 +100,7 @@
         "required": []
       }
     },
-    "sys_disk": {
+    {
       "name": "sys_disk",
       "description": "Get disk usage information",
       "input_schema": {
@@ -114,7 +114,7 @@
         "required": []
       }
     },
-    "sys_memory": {
+    {
       "name": "sys_memory",
       "description": "Get memory usage information",
       "input_schema": {
@@ -129,7 +129,7 @@
         "required": []
       }
     },
-    "sys_process": {
+    {
       "name": "sys_process",
       "description": "Get process information",
       "input_schema": {
@@ -153,7 +153,7 @@
         "required": []
       }
     },
-    "sys_cpu": {
+    {
       "name": "sys_cpu",
       "description": "Get CPU usage information",
       "input_schema": {
@@ -168,5 +168,5 @@
         "required": []
       }
     }
-  }
+  ]
 }

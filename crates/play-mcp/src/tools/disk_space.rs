@@ -1,17 +1,7 @@
 use anyhow::Result;
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::Value;
 use sysinfo::Disks;
-
-use super::{Tool, ToolMetadata};
-use crate::register_mcp_tool;
-
-pub struct DiskSpaceTool {
-    metadata: ToolMetadata,
-}
-
-register_mcp_tool!(DiskSpaceTool, "get_disk_space");
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DiskSpaceInput {
@@ -27,18 +17,15 @@ pub struct DiskSpaceResult {
     pub used_percentage: f64,
 }
 
-#[async_trait]
-impl Tool for DiskSpaceTool {
-    fn metadata(&self) -> &ToolMetadata {
-        &self.metadata
-    }
-
-    async fn execute(&self, input: Value) -> Result<Value> {
+crate::define_mcp_tool!(
+    DiskSpaceTool,
+    "get_disk_space",
+    |input: Value| async move {
         let input: DiskSpaceInput = serde_json::from_value(input)?;
         let results = get_disk_space(input);
         Ok(serde_json::to_value(results)?)
     }
-}
+);
 
 pub fn get_disk_space(input: DiskSpaceInput) -> Vec<DiskSpaceResult> {
     let disks = Disks::new_with_refreshed_list();

@@ -1,24 +1,11 @@
 use anyhow::Result;
-use async_trait::async_trait;
 use serde_json::{json, Value};
 use sysinfo::Disks;
 
-use crate::tools::{Tool, ToolMetadata};
-use crate::register_mcp_tool;
-
-pub struct SysDiskTool {
-    metadata: ToolMetadata,
-}
-
-register_mcp_tool!(SysDiskTool, "sys_disk");
-
-#[async_trait]
-impl Tool for SysDiskTool {
-    fn metadata(&self) -> &ToolMetadata {
-        &self.metadata
-    }
-    
-    async fn execute(&self, input: Value) -> Result<Value> {
+crate::define_mcp_tool!(
+    SysDiskTool,
+    "sys_disk",
+    |input: Value| async move {
         let disks = Disks::new_with_refreshed_list();
         let path = input.get("path").and_then(|v| v.as_str());
         
@@ -50,4 +37,4 @@ impl Tool for SysDiskTool {
             "disks": disk_info
         }))
     }
-}
+);

@@ -1,24 +1,11 @@
 use anyhow::Result;
-use async_trait::async_trait;
 use serde_json::{json, Value};
 use sysinfo::{System, ProcessRefreshKind, RefreshKind};
 
-use crate::tools::{Tool, ToolMetadata};
-use crate::register_mcp_tool;
-
-pub struct SysProcessTool {
-    metadata: ToolMetadata,
-}
-
-register_mcp_tool!(SysProcessTool, "sys_process");
-
-#[async_trait]
-impl Tool for SysProcessTool {
-    fn metadata(&self) -> &ToolMetadata {
-        &self.metadata
-    }
-    
-    async fn execute(&self, input: Value) -> Result<Value> {
+crate::define_mcp_tool!(
+    SysProcessTool,
+    "sys_process",
+    |input: Value| async move {
         let filter = input.get("filter").and_then(|v| v.as_str());
         let sort_by = input.get("sort_by")
             .and_then(|v| v.as_str())
@@ -80,4 +67,4 @@ impl Tool for SysProcessTool {
             "total_count": sys.processes().len()
         }))
     }
-}
+);

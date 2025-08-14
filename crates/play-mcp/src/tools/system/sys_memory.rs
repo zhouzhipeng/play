@@ -1,24 +1,11 @@
 use anyhow::Result;
-use async_trait::async_trait;
 use serde_json::{json, Value};
 use sysinfo::System;
 
-use crate::tools::{Tool, ToolMetadata};
-use crate::register_mcp_tool;
-
-pub struct SysMemoryTool {
-    metadata: ToolMetadata,
-}
-
-register_mcp_tool!(SysMemoryTool, "sys_memory");
-
-#[async_trait]
-impl Tool for SysMemoryTool {
-    fn metadata(&self) -> &ToolMetadata {
-        &self.metadata
-    }
-    
-    async fn execute(&self, input: Value) -> Result<Value> {
+crate::define_mcp_tool!(
+    SysMemoryTool,
+    "sys_memory",
+    |input: Value| async move {
         let mut sys = System::new_all();
         sys.refresh_memory();
         
@@ -43,4 +30,4 @@ impl Tool for SysMemoryTool {
         
         Ok(result)
     }
-}
+);

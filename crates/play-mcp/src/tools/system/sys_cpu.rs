@@ -1,24 +1,11 @@
 use anyhow::Result;
-use async_trait::async_trait;
 use serde_json::{json, Value};
 use sysinfo::System;
 
-use crate::tools::{Tool, ToolMetadata};
-use crate::register_mcp_tool;
-
-pub struct SysCpuTool {
-    metadata: ToolMetadata,
-}
-
-register_mcp_tool!(SysCpuTool, "sys_cpu");
-
-#[async_trait]
-impl Tool for SysCpuTool {
-    fn metadata(&self) -> &ToolMetadata {
-        &self.metadata
-    }
-    
-    async fn execute(&self, input: Value) -> Result<Value> {
+crate::define_mcp_tool!(
+    SysCpuTool,
+    "sys_cpu",
+    |input: Value| async move {
         let per_core = input.get("per_core")
             .and_then(|v| v.as_bool())
             .unwrap_or(false);
@@ -56,4 +43,4 @@ impl Tool for SysCpuTool {
         
         Ok(result)
     }
-}
+);

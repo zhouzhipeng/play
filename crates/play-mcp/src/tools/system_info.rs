@@ -1,24 +1,11 @@
 use anyhow::Result;
-use async_trait::async_trait;
 use serde_json::{json, Value};
 use sysinfo::System;
 
-use super::{Tool, ToolMetadata};
-use crate::register_mcp_tool;
-
-pub struct SystemInfoTool {
-    metadata: ToolMetadata,
-}
-
-register_mcp_tool!(SystemInfoTool, "system_info");
-
-#[async_trait]
-impl Tool for SystemInfoTool {
-    fn metadata(&self) -> &ToolMetadata {
-        &self.metadata
-    }
-    
-    async fn execute(&self, _input: Value) -> Result<Value> {
+crate::define_mcp_tool!(
+    SystemInfoTool,
+    "system_info",
+    |_input: Value| async move {
         let mut sys = System::new_all();
         sys.refresh_all();
         
@@ -34,4 +21,4 @@ impl Tool for SystemInfoTool {
             "used_swap_gb": (sys.used_swap() as f64 / 1_073_741_824.0),
         }))
     }
-}
+);

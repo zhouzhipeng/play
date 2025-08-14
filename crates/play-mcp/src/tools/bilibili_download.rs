@@ -1,53 +1,9 @@
 use anyhow::{Result, anyhow};
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::process::Command;
 use std::path::PathBuf;
 use tokio::task;
-
-use super::{Tool, ToolMetadata};
-use crate::register_mcp_tool;
-
-pub struct BilibiliDownloadTool {
-    metadata: ToolMetadata,
-    download_dir: PathBuf,
-}
-
-impl BilibiliDownloadTool {
-    pub fn new() -> Self {
-        let download_dir = std::env::current_dir()
-            .unwrap_or_else(|_| PathBuf::from("."))
-            .join("bilibili_downloads");
-        
-        const TOOL_NAME: &str = crate::metadata_loader::validate_tool_name("bilibili_download");
-        let metadata = crate::metadata_loader::load_tool_metadata(TOOL_NAME)
-            .expect("Failed to load metadata for bilibili_download");
-            
-        Self { 
-            metadata,
-            download_dir 
-        }
-    }
-    
-    pub fn with_download_dir(dir: PathBuf) -> Self {
-        let mut tool = Self::new();
-        tool.download_dir = dir;
-        tool
-    }
-}
-
-impl Default for BilibiliDownloadTool {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-// Auto-register the tool
-#[linkme::distributed_slice(crate::tools::TOOL_FACTORIES)]
-static REGISTER_BILIBILI_TOOL: crate::tools::ToolFactory = || {
-    Box::new(BilibiliDownloadTool::new())
-};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BilibiliDownloadInput {
@@ -64,20 +20,24 @@ pub struct BilibiliDownloadResult {
     pub video_id: Option<String>,
 }
 
-#[async_trait]
-impl Tool for BilibiliDownloadTool {
-    fn metadata(&self) -> &ToolMetadata {
-        &self.metadata
-    }
-    
-    async fn execute(&self, input: Value) -> Result<Value> {
-        let input: BilibiliDownloadInput = serde_json::from_value(input)?;
-        
-        let video_id = extract_video_id(&input.url)?;
-        
-        let output_dir = input.output_dir
-            .map(PathBuf::from)
-            .unwrap_or_else(|| self.download_dir.clone());
+crate::define_mcp_tool!(
+    BilibiliDownloadTool,
+    "bilibili_download",
+    fields: {
+        download_dir: PathBuf = std::env::current_dir()
+            .unwrap_or_else(|_| PathBuf::from("."))
+            .join("bilibili_downloads")
+    },
+    |tool: &BilibiliDownloadTool, input: Value| {
+        let download_dir = tool.download_dir.clone();
+        async move {
+            let input: BilibiliDownloadInput = serde_json::from_value(input)?;
+            
+            let video_id = extract_video_id(&input.url)?;
+            
+            let output_dir = input.output_dir
+                .map(PathBuf::from)
+                .unwrap_or_else(|| download_dir);
         
         std::fs::create_dir_all(&output_dir)?;
         
@@ -91,14 +51,15 @@ impl Tool for BilibiliDownloadTool {
             download_video_background(url, output_dir_clone, quality, video_id_clone).await
         });
         
-        Ok(json!(BilibiliDownloadResult {
-            success: true,
-            message: format!("Started downloading video {} in background", video_id),
-            download_path: Some(output_dir.to_string_lossy().to_string()),
-            video_id: Some(video_id),
-        }))
+            Ok(json!(BilibiliDownloadResult {
+                success: true,
+                message: format!("Started downloading video {} in background", video_id),
+                download_path: Some(output_dir.to_string_lossy().to_string()),
+                video_id: Some(video_id),
+            }))
+        }
     }
-}
+);
 
 fn extract_video_id(url: &str) -> Result<String> {
     if url.contains("/video/") {

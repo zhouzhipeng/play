@@ -14,8 +14,8 @@ fn main() {
     let tools_config: Value = serde_json::from_str(&tools_json_content)
         .expect("Failed to parse mcp_tools.json");
     
-    let tools = tools_config["tools"].as_object()
-        .expect("mcp_tools.json should have a 'tools' object");
+    let tools = tools_config["tools"].as_array()
+        .expect("mcp_tools.json should have a 'tools' array");
     
     // Generate Rust code with constants for each tool
     let out_dir = env::var_os("OUT_DIR").unwrap();
@@ -27,7 +27,9 @@ fn main() {
     generated_code.push_str("/// Auto-generated tool name constants from mcp_tools.json\n");
     generated_code.push_str("pub mod tool_names {\n");
     
-    for tool_name in tools.keys() {
+    for tool in tools {
+        let tool_name = tool["name"].as_str()
+            .expect("Each tool must have a 'name' field");
         let const_name = tool_name.to_uppercase().replace("-", "_");
         generated_code.push_str(&format!(
             "    pub const {}: &str = \"{}\";\n",
@@ -42,14 +44,16 @@ fn main() {
     generated_code.push_str("pub const fn validate_tool_name(name: &str) -> &str {\n");
     generated_code.push_str("    match name.as_bytes() {\n");
     
-    for tool_name in tools.keys() {
+    let mut valid_names = Vec::new();
+    for tool in tools {
+        let tool_name = tool["name"].as_str()
+            .expect("Each tool must have a 'name' field");
         generated_code.push_str(&format!(
             "        b\"{}\" => \"{}\",\n",
             tool_name, tool_name
         ));
+        valid_names.push(tool_name.to_string());
     }
-    
-    let valid_names: Vec<String> = tools.keys().cloned().collect();
     generated_code.push_str(&format!(
         "        _ => panic!(\"Unknown tool name. Tool name must match one defined in mcp_tools.json. Valid names are: {}\"),\n",
         valid_names.join(", ")

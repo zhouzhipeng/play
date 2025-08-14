@@ -1,9 +1,9 @@
 use anyhow::Result;
 use serde_json::{json, Value};
 
-// Define the entire tool with one macro call
+// Using the new define_mcp_tool! macro - much simpler!
 crate::define_mcp_tool!(
-    EchoTool,
+    EchoToolV2,
     "echo",
     |input: Value| async move {
         let message = input.get("message")

@@ -1,17 +1,7 @@
 use anyhow::Result;
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
-
-use super::{Tool, ToolMetadata};
-use crate::register_mcp_tool;
-
-pub struct HttpRequestTool {
-    metadata: ToolMetadata,
-}
-
-register_mcp_tool!(HttpRequestTool, "http_request");
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HttpRequestInput {
@@ -21,13 +11,10 @@ pub struct HttpRequestInput {
     pub body: Option<String>,
 }
 
-#[async_trait]
-impl Tool for HttpRequestTool {
-    fn metadata(&self) -> &ToolMetadata {
-        &self.metadata
-    }
-    
-    async fn execute(&self, input: Value) -> Result<Value> {
+crate::define_mcp_tool!(
+    HttpRequestTool,
+    "http_request",
+    |input: Value| async move {
         let input: HttpRequestInput = serde_json::from_value(input)?;
         
         // This is a mock implementation
@@ -41,4 +28,4 @@ impl Tool for HttpRequestTool {
             "error": null
         }))
     }
-}
+);
