@@ -1,13 +1,15 @@
 use anyhow::{Result, anyhow};
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::process::Command;
 use std::path::PathBuf;
 use tokio::task;
 
-use super::{Tool, BoxFuture};
+use super::{Tool, ToolMetadata};
 
 pub struct BilibiliDownloadTool {
+    metadata: ToolMetadata,
     download_dir: PathBuf,
 }
 
@@ -17,11 +19,39 @@ impl BilibiliDownloadTool {
             .unwrap_or_else(|_| PathBuf::from("."))
             .join("bilibili_downloads");
         
-        Self { download_dir }
+        Self { 
+            metadata: ToolMetadata::new(
+                "bilibili_download",
+                "Download videos from Bilibili in the background",
+                json!({
+                    "type": "object",
+                    "properties": {
+                        "url": {
+                            "type": "string",
+                            "description": "The Bilibili video URL (e.g., https://www.bilibili.com/video/BV14rt1zFECj)"
+                        },
+                        "quality": {
+                            "type": "string",
+                            "description": "Video quality (e.g., '1080p', '720p', '480p'). Default is highest available",
+                            "enum": ["1080p", "720p", "480p", "360p", "auto"],
+                            "default": "auto"
+                        },
+                        "output_dir": {
+                            "type": "string",
+                            "description": "Custom output directory for downloaded videos"
+                        }
+                    },
+                    "required": ["url"]
+                })
+            ),
+            download_dir 
+        }
     }
     
     pub fn with_download_dir(dir: PathBuf) -> Self {
-        Self { download_dir: dir }
+        let mut tool = Self::new();
+        tool.download_dir = dir;
+        tool
     }
 }
 
@@ -40,67 +70,39 @@ pub struct BilibiliDownloadResult {
     pub video_id: Option<String>,
 }
 
+#[async_trait]
 impl Tool for BilibiliDownloadTool {
-    fn name(&self) -> &str {
-        "bilibili_download"
+    fn metadata(&self) -> &ToolMetadata {
+        &self.metadata
     }
     
-    fn description(&self) -> &str {
-        "Download videos from Bilibili in the background"
-    }
-    
-    fn input_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "url": {
-                    "type": "string",
-                    "description": "The Bilibili video URL (e.g., https://www.bilibili.com/video/BV14rt1zFECj)"
-                },
-                "quality": {
-                    "type": "string",
-                    "description": "Video quality (e.g., '1080p', '720p', '480p'). Default is highest available",
-                    "enum": ["1080p", "720p", "480p", "360p", "auto"],
-                    "default": "auto"
-                },
-                "output_dir": {
-                    "type": "string",
-                    "description": "Custom output directory for downloaded videos"
-                }
-            },
-            "required": ["url"]
-        })
-    }
-    
-    fn execute<'a>(&'a self, input: Value) -> BoxFuture<'a, Result<Value>> {
-        Box::pin(async move {
-            let input: BilibiliDownloadInput = serde_json::from_value(input)?;
-            
-            let video_id = extract_video_id(&input.url)?;
-            
-            let output_dir = input.output_dir
-                .map(PathBuf::from)
-                .unwrap_or_else(|| self.download_dir.clone());
-            
-            std::fs::create_dir_all(&output_dir)?;
-            
-            let quality = input.quality.unwrap_or_else(|| "auto".to_string());
-            
-            let url = input.url.clone();
-            let output_dir_clone = output_dir.clone();
-            let video_id_clone = video_id.clone();
-            
-            task::spawn(async move {
-                download_video_background(url, output_dir_clone, quality, video_id_clone).await
-            });
-            
-            Ok(json!(BilibiliDownloadResult {
-                success: true,
-                message: format!("Started downloading video {} in background", video_id),
-                download_path: Some(output_dir.to_string_lossy().to_string()),
-                video_id: Some(video_id),
-            }))
-        })
+    async fn execute(&self, input: Value) -> Result<Value> {
+        let input: BilibiliDownloadInput = serde_json::from_value(input)?;
+        
+        let video_id = extract_video_id(&input.url)?;
+        
+        let output_dir = input.output_dir
+            .map(PathBuf::from)
+            .unwrap_or_else(|| self.download_dir.clone());
+        
+        std::fs::create_dir_all(&output_dir)?;
+        
+        let quality = input.quality.unwrap_or_else(|| "auto".to_string());
+        
+        let url = input.url.clone();
+        let output_dir_clone = output_dir.clone();
+        let video_id_clone = video_id.clone();
+        
+        task::spawn(async move {
+            download_video_background(url, output_dir_clone, quality, video_id_clone).await
+        });
+        
+        Ok(json!(BilibiliDownloadResult {
+            success: true,
+            message: format!("Started downloading video {} in background", video_id),
+            download_path: Some(output_dir.to_string_lossy().to_string()),
+            video_id: Some(video_id),
+        }))
     }
 }
 
@@ -151,38 +153,15 @@ async fn download_video_background(
     
     match output {
         Ok(result) => {
-            if !result.status.success() {
-                let stderr = String::from_utf8_lossy(&result.stderr);
-                tracing::error!("Failed to download video {}: {}", video_id, stderr);
-                
-                tracing::info!("Trying alternative download method for video {}", video_id);
-                let alt_output = Command::new("you-get")
-                    .arg("-o")
-                    .arg(output_dir.to_string_lossy().to_string())
-                    .arg("-O")
-                    .arg(video_id.clone())
-                    .arg(url)
-                    .output();
-                
-                match alt_output {
-                    Ok(alt_result) => {
-                        if alt_result.status.success() {
-                            tracing::info!("Successfully downloaded video {} using alternative method", video_id);
-                        } else {
-                            let alt_stderr = String::from_utf8_lossy(&alt_result.stderr);
-                            tracing::error!("Alternative download also failed for {}: {}", video_id, alt_stderr);
-                        }
-                    }
-                    Err(e) => {
-                        tracing::error!("Alternative download command failed for {}: {}", video_id, e);
-                    }
-                }
+            if result.status.success() {
+                tracing::info!("Video {} downloaded successfully", video_id);
             } else {
-                tracing::info!("Successfully downloaded video {} to {:?}", video_id, output_path);
+                let error = String::from_utf8_lossy(&result.stderr);
+                tracing::error!("Failed to download video {}: {}", video_id, error);
             }
         }
         Err(e) => {
-            tracing::error!("Failed to execute download command for {}: {}", video_id, e);
+            tracing::error!("Failed to execute yt-dlp for video {}: {}", video_id, e);
         }
     }
     

@@ -1,11 +1,41 @@
 use anyhow::Result;
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sysinfo::Disks;
 
-use super::{Tool, BoxFuture};
+use super::{Tool, ToolMetadata};
 
-pub struct DiskSpaceTool;
+pub struct DiskSpaceTool {
+    metadata: ToolMetadata,
+}
+
+impl DiskSpaceTool {
+    pub fn new() -> Self {
+        Self {
+            metadata: ToolMetadata::new(
+                "get_disk_space",
+                "获取磁盘空间信息",
+                json!({
+                    "type": "object",
+                    "properties": {
+                        "path": {
+                            "type": "string",
+                            "description": "可选：要检查的路径。如果不提供，返回所有磁盘的信息。"
+                        }
+                    },
+                    "required": []
+                })
+            ),
+        }
+    }
+}
+
+impl Default for DiskSpaceTool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DiskSpaceInput {
@@ -21,34 +51,16 @@ pub struct DiskSpaceResult {
     pub used_percentage: f64,
 }
 
+#[async_trait]
 impl Tool for DiskSpaceTool {
-    fn name(&self) -> &str {
-        "get_disk_space"
-    }
-    
-    fn description(&self) -> &str {
-        "获取磁盘空间信息"
-    }
-    
-    fn input_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "可选：要检查的路径。如果不提供，返回所有磁盘的信息。"
-                }
-            },
-            "required": []
-        })
+    fn metadata(&self) -> &ToolMetadata {
+        &self.metadata
     }
 
-    fn execute<'a>(&'a self, input: Value) -> BoxFuture<'a, Result<Value>> {
-        Box::pin(async move {
-            let input: DiskSpaceInput = serde_json::from_value(input)?;
-            let results = get_disk_space(input);
-            Ok(serde_json::to_value(results)?)
-        })
+    async fn execute(&self, input: Value) -> Result<Value> {
+        let input: DiskSpaceInput = serde_json::from_value(input)?;
+        let results = get_disk_space(input);
+        Ok(serde_json::to_value(results)?)
     }
 }
 
