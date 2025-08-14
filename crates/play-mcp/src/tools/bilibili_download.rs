@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use tokio::task;
 
 use super::{Tool, ToolMetadata};
+use crate::impl_tool_with_metadata;
 
 pub struct BilibiliDownloadTool {
     metadata: ToolMetadata,
@@ -19,31 +20,11 @@ impl BilibiliDownloadTool {
             .unwrap_or_else(|_| PathBuf::from("."))
             .join("bilibili_downloads");
         
+        let metadata = crate::metadata_loader::load_tool_metadata("bilibili_download")
+            .expect("Failed to load metadata for bilibili_download");
+            
         Self { 
-            metadata: ToolMetadata::new(
-                "bilibili_download",
-                "Download videos from Bilibili in the background",
-                json!({
-                    "type": "object",
-                    "properties": {
-                        "url": {
-                            "type": "string",
-                            "description": "The Bilibili video URL (e.g., https://www.bilibili.com/video/BV14rt1zFECj)"
-                        },
-                        "quality": {
-                            "type": "string",
-                            "description": "Video quality (e.g., '1080p', '720p', '480p'). Default is highest available",
-                            "enum": ["1080p", "720p", "480p", "360p", "auto"],
-                            "default": "auto"
-                        },
-                        "output_dir": {
-                            "type": "string",
-                            "description": "Custom output directory for downloaded videos"
-                        }
-                    },
-                    "required": ["url"]
-                })
-            ),
+            metadata,
             download_dir 
         }
     }

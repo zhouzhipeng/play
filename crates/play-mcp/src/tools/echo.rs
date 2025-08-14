@@ -3,37 +3,13 @@ use async_trait::async_trait;
 use serde_json::{json, Value};
 
 use super::{Tool, ToolMetadata};
+use crate::impl_tool_with_metadata;
 
 pub struct EchoTool {
     metadata: ToolMetadata,
 }
 
-impl EchoTool {
-    pub fn new() -> Self {
-        Self {
-            metadata: ToolMetadata::new(
-                "echo",
-                "Echo back the input message",
-                json!({
-                    "type": "object",
-                    "properties": {
-                        "message": {
-                            "type": "string",
-                            "description": "The message to echo back"
-                        }
-                    },
-                    "required": ["message"]
-                })
-            ),
-        }
-    }
-}
-
-impl Default for EchoTool {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+impl_tool_with_metadata!(EchoTool, "echo");
 
 #[async_trait]
 impl Tool for EchoTool {

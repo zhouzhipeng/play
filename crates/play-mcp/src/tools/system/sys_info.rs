@@ -3,17 +3,17 @@ use async_trait::async_trait;
 use serde_json::{json, Value};
 use sysinfo::System;
 
-use super::{Tool, ToolMetadata};
+use crate::tools::{Tool, ToolMetadata};
 use crate::impl_tool_with_metadata;
 
-pub struct SystemInfoTool {
+pub struct SysInfoTool {
     metadata: ToolMetadata,
 }
 
-impl_tool_with_metadata!(SystemInfoTool, "system_info");
+impl_tool_with_metadata!(SysInfoTool, "sys_info");
 
 #[async_trait]
-impl Tool for SystemInfoTool {
+impl Tool for SysInfoTool {
     fn metadata(&self) -> &ToolMetadata {
         &self.metadata
     }
@@ -27,11 +27,8 @@ impl Tool for SystemInfoTool {
             "os_version": System::os_version().unwrap_or_else(|| "Unknown".to_string()),
             "kernel_version": System::kernel_version().unwrap_or_else(|| "Unknown".to_string()),
             "hostname": System::host_name().unwrap_or_else(|| "Unknown".to_string()),
-            "cpu_count": sys.cpus().len(),
-            "total_memory_gb": (sys.total_memory() as f64 / 1_073_741_824.0),
-            "used_memory_gb": (sys.used_memory() as f64 / 1_073_741_824.0),
-            "total_swap_gb": (sys.total_swap() as f64 / 1_073_741_824.0),
-            "used_swap_gb": (sys.used_swap() as f64 / 1_073_741_824.0),
+            "uptime": System::uptime(),
+            "boot_time": System::boot_time(),
         }))
     }
 }

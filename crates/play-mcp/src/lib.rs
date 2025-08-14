@@ -10,13 +10,18 @@ use tracing::{error, info, warn};
 pub mod config;
 pub mod tools;
 mod registry;
+mod metadata_loader;
 
 pub use config::{McpConfig, ClientConfig, RetryConfig};
 pub use tools::{
-    Tool, ToolRegistry,
+    Tool, ToolRegistry, ToolMetadata,
     DiskSpaceTool, DiskSpaceInput, DiskSpaceResult,
-    EchoTool, SystemInfoTool, HttpRequestTool, HttpRequestInput
+    EchoTool, SystemInfoTool,
+    HttpRequestTool, HttpRequestInput,
+    BilibiliDownloadTool, BilibiliDownloadInput, BilibiliDownloadResult,
+    SysInfoTool, SysDiskTool, SysMemoryTool, SysProcessTool, SysCpuTool
 };
+pub use registry::register_default_tools;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct JsonRpcRequest {
@@ -73,7 +78,9 @@ async fn handle_server_request(request: JsonRpcRequest, registry: &ToolRegistry)
                         let default_args = json!({});
                         let arguments = params.get("arguments").unwrap_or(&default_args);
                         
-                        match tool.execute(arguments.clone()).await {
+                        let result = tool.execute(arguments.clone()).await;
+                        
+                        match result {
                             Ok(result) => {
                                 return Some(JsonRpcResponse {
                                     jsonrpc: "2.0".to_string(),

@@ -1,38 +1,46 @@
 use anyhow::Result;
-use play_mcp::{Tool, ToolRegistry, McpConfig, start_mcp_client_with_tools};
+use async_trait::async_trait;
+use play_mcp::{Tool, ToolRegistry, ToolMetadata, McpConfig, start_mcp_client_with_tools};
 use serde_json::{json, Value};
 
-struct CalculatorTool;
+struct CalculatorTool {
+    metadata: ToolMetadata,
+}
 
+impl CalculatorTool {
+    pub fn new() -> Self {
+        Self {
+            metadata: ToolMetadata::new(
+                "calculator",
+                "Perform basic mathematical operations",
+                json!({
+                    "type": "object",
+                    "properties": {
+                        "operation": {
+                            "type": "string",
+                            "enum": ["add", "subtract", "multiply", "divide"],
+                            "description": "The operation to perform"
+                        },
+                        "a": {
+                            "type": "number",
+                            "description": "First operand"
+                        },
+                        "b": {
+                            "type": "number",
+                            "description": "Second operand"
+                        }
+                    },
+                    "required": ["operation", "a", "b"]
+                })
+            ),
+        }
+    }
+}
+
+#[async_trait]
 impl Tool for CalculatorTool {
-    fn name(&self) -> &str {
-        "calculator"
-    }
-    
-    fn description(&self) -> &str {
-        "Perform basic mathematical operations"
-    }
-    
-    fn input_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "operation": {
-                    "type": "string",
-                    "enum": ["add", "subtract", "multiply", "divide"],
-                    "description": "The operation to perform"
-                },
-                "a": {
-                    "type": "number",
-                    "description": "First operand"
-                },
-                "b": {
-                    "type": "number",
-                    "description": "Second operand"
-                }
-            },
-            "required": ["operation", "a", "b"]
-        })
+    fn metadata(&self) -> &ToolMetadata {
+        &self.metadata
     }
     
     async fn execute(&self, input: Value) -> Result<Value> {
@@ -80,12 +88,12 @@ async fn main() -> Result<()> {
     let mut registry = ToolRegistry::new();
     
     // Register built-in tools using Box<dyn Tool>
-    registry.register(Box::new(play_mcp::DiskSpaceTool));
-    registry.register(Box::new(play_mcp::SystemInfoTool));
-    registry.register(Box::new(play_mcp::EchoTool));
+    registry.register(Box::new(play_mcp::DiskSpaceTool::new()));
+    registry.register(Box::new(play_mcp::SystemInfoTool::new()));
+    registry.register(Box::new(play_mcp::EchoTool::new()));
     
     // You can also register custom tools directly!
-    // registry.register(Box::new(CalculatorTool));
+    registry.register(Box::new(CalculatorTool::new()));
     
     // Create MCP config
     let config = McpConfig {

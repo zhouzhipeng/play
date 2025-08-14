@@ -9,14 +9,17 @@ mod echo;
 mod system_info;
 mod http_request;
 mod bilibili_download;
+pub mod system;
+
 
 pub use disk_space::{DiskSpaceTool, DiskSpaceInput, DiskSpaceResult};
 pub use echo::EchoTool;
 pub use system_info::SystemInfoTool;
 pub use http_request::{HttpRequestTool, HttpRequestInput};
 pub use bilibili_download::{BilibiliDownloadTool, BilibiliDownloadInput, BilibiliDownloadResult};
+pub use system::{SysInfoTool, SysDiskTool, SysMemoryTool, SysProcessTool, SysCpuTool};
 
-/// Tool metadata containing static information about a tool
+/// Tool metadata containing static information about a tool or operation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolMetadata {
     pub name: String,
@@ -74,15 +77,13 @@ impl ToolRegistry {
     }
     
     pub fn list(&self) -> Vec<Value> {
-        self.tools.iter()
-            .map(|tool| {
-                let metadata = tool.metadata();
-                json!({
-                    "name": metadata.name,
-                    "description": metadata.description,
-                    "inputSchema": metadata.input_schema,
-                })
+        self.tools.iter().map(|tool| {
+            let metadata = tool.metadata();
+            json!({
+                "name": metadata.name,
+                "description": metadata.description,
+                "inputSchema": metadata.input_schema,
             })
-            .collect()
+        }).collect()
     }
 }

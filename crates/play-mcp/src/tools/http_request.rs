@@ -5,53 +5,13 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 
 use super::{Tool, ToolMetadata};
+use crate::impl_tool_with_metadata;
 
 pub struct HttpRequestTool {
     metadata: ToolMetadata,
 }
 
-impl HttpRequestTool {
-    pub fn new() -> Self {
-        Self {
-            metadata: ToolMetadata::new(
-                "http_request",
-                "Make an HTTP request to a URL",
-                json!({
-                    "type": "object",
-                    "properties": {
-                        "url": {
-                            "type": "string",
-                            "description": "The URL to request"
-                        },
-                        "method": {
-                            "type": "string",
-                            "description": "HTTP method (GET, POST, PUT, DELETE, etc.)",
-                            "default": "GET"
-                        },
-                        "headers": {
-                            "type": "object",
-                            "description": "Optional HTTP headers",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        },
-                        "body": {
-                            "type": "string",
-                            "description": "Optional request body"
-                        }
-                    },
-                    "required": ["url"]
-                })
-            ),
-        }
-    }
-}
-
-impl Default for HttpRequestTool {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+impl_tool_with_metadata!(HttpRequestTool, "http_request");
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HttpRequestInput {

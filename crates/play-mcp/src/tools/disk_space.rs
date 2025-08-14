@@ -5,37 +5,13 @@ use serde_json::{json, Value};
 use sysinfo::Disks;
 
 use super::{Tool, ToolMetadata};
+use crate::impl_tool_with_metadata;
 
 pub struct DiskSpaceTool {
     metadata: ToolMetadata,
 }
 
-impl DiskSpaceTool {
-    pub fn new() -> Self {
-        Self {
-            metadata: ToolMetadata::new(
-                "get_disk_space",
-                "获取磁盘空间信息",
-                json!({
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": "可选：要检查的路径。如果不提供，返回所有磁盘的信息。"
-                        }
-                    },
-                    "required": []
-                })
-            ),
-        }
-    }
-}
-
-impl Default for DiskSpaceTool {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+impl_tool_with_metadata!(DiskSpaceTool, "get_disk_space");
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DiskSpaceInput {
