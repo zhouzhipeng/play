@@ -7,14 +7,8 @@ edition = "2021"
 name = "play_mcp"
 path = "src/lib.rs"
 
-[[bin]]
-name = "mcp-client"
-path = "src/bin/mcp-client.rs"
-required-features = ["cli"]
-
 [features]
 default = []
-cli = ["clap", "config", "tracing-subscriber"]
 
 [dependencies]
 async-trait = "0.1"

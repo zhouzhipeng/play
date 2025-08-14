@@ -1,4 +1,3 @@
-use crate::metadata_loader::load_tool_metadata;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
@@ -32,9 +31,8 @@ crate::define_mcp_tool!(
 
 #[cfg(test)]
 mod tests {
-    use serde_json::Value;
-    use crate::tools::Tool;
     use super::*;
+    use crate::tools::Tool;
 
     #[tokio::test]
     async fn test_http_request()->anyhow::Result<()> {
