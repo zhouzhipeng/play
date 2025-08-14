@@ -10,7 +10,7 @@ use tracing::{error, info, warn};
 pub mod config;
 pub mod tools;
 mod registry;
-mod metadata_loader;
+pub mod metadata_loader;
 
 pub use config::{McpConfig, ClientConfig, RetryConfig};
 pub use tools::{

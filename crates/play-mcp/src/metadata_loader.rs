@@ -5,6 +5,9 @@ use std::collections::HashMap;
 
 use super::ToolMetadata;
 
+// Include the generated validation code
+include!(concat!(env!("OUT_DIR"), "/tool_names.rs"));
+
 /// Raw tool definition from JSON
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolDefinition {
@@ -47,7 +50,10 @@ macro_rules! impl_tool_with_metadata {
     ($struct_name:ident, $tool_key:expr) => {
         impl $struct_name {
             pub fn new() -> Self {
-                let metadata = $crate::metadata_loader::load_tool_metadata($tool_key)
+                // Validate tool name at compile time using const function
+                const TOOL_NAME: &str = $crate::metadata_loader::validate_tool_name($tool_key);
+                
+                let metadata = $crate::metadata_loader::load_tool_metadata(TOOL_NAME)
                     .expect(concat!("Failed to load metadata for ", $tool_key));
                 Self { metadata }
             }
