@@ -3,6 +3,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::sync::Arc;
+use linkme::distributed_slice;
 
 mod disk_space;
 mod echo;
@@ -37,6 +38,13 @@ impl ToolMetadata {
     }
 }
 
+/// Function type for creating tool instances
+pub type ToolFactory = fn() -> Box<dyn Tool>;
+
+/// Distributed slice for auto-registering tools
+#[distributed_slice]
+pub static TOOL_FACTORIES: [ToolFactory] = [..];
+
 #[async_trait]
 pub trait Tool: Send + Sync {
     /// Returns the metadata for this tool
@@ -53,15 +61,27 @@ pub struct ToolRegistry {
 
 impl ToolRegistry {
     pub fn new() -> Self {
+        // Auto-register all tools from the distributed slice
+        let mut tools = Vec::new();
+        for factory in TOOL_FACTORIES {
+            tools.push(Arc::from(factory()));
+        }
+        
         Self {
-            tools: Vec::new(),
+            tools,
             name_prefix: String::new(),
         }
     }
     
     pub fn with_prefix(prefix: String) -> Self {
+        // Auto-register all tools from the distributed slice
+        let mut tools = Vec::new();
+        for factory in TOOL_FACTORIES {
+            tools.push(Arc::from(factory()));
+        }
+        
         Self {
-            tools: Vec::new(),
+            tools,
             name_prefix: prefix,
         }
     }

@@ -4,13 +4,13 @@ use serde_json::{json, Value};
 use sysinfo::Disks;
 
 use crate::tools::{Tool, ToolMetadata};
-use crate::impl_tool_with_metadata;
+use crate::register_mcp_tool;
 
 pub struct SysDiskTool {
     metadata: ToolMetadata,
 }
 
-impl_tool_with_metadata!(SysDiskTool, "sys_disk");
+register_mcp_tool!(SysDiskTool, "sys_disk");
 
 #[async_trait]
 impl Tool for SysDiskTool {

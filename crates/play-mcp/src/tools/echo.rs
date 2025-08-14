@@ -3,13 +3,13 @@ use async_trait::async_trait;
 use serde_json::{json, Value};
 
 use super::{Tool, ToolMetadata};
-use crate::impl_tool_with_metadata;
+use crate::register_mcp_tool;
 
 pub struct EchoTool {
     metadata: ToolMetadata,
 }
 
-impl_tool_with_metadata!(EchoTool, "echo");
+register_mcp_tool!(EchoTool, "echo");
 
 #[async_trait]
 impl Tool for EchoTool {

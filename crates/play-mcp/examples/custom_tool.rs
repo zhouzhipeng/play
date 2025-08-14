@@ -84,15 +84,10 @@ async fn main() -> Result<()> {
     // Initialize logging (optional - requires tracing-subscriber feature)
     // tracing_subscriber::fmt::init();
     
-    // Create tool registry with built-in tools
+    // Create tool registry - all built-in tools are auto-registered
     let mut registry = ToolRegistry::new();
     
-    // Register built-in tools using Box<dyn Tool>
-    registry.register(Box::new(play_mcp::DiskSpaceTool::new()));
-    registry.register(Box::new(play_mcp::SystemInfoTool::new()));
-    registry.register(Box::new(play_mcp::EchoTool::new()));
-    
-    // You can also register custom tools directly!
+    // You can still register custom tools that are not using impl_tool_with_metadata!
     registry.register(Box::new(CalculatorTool::new()));
     
     // Create MCP config

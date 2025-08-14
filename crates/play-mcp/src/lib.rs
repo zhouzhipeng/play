@@ -9,7 +9,6 @@ use tracing::{error, info, warn};
 
 pub mod config;
 pub mod tools;
-mod registry;
 pub mod metadata_loader;
 
 pub use config::{McpConfig, ClientConfig, RetryConfig};
@@ -21,7 +20,6 @@ pub use tools::{
     BilibiliDownloadTool, BilibiliDownloadInput, BilibiliDownloadResult,
     SysInfoTool, SysDiskTool, SysMemoryTool, SysProcessTool, SysCpuTool
 };
-pub use registry::register_default_tools;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct JsonRpcRequest {
@@ -240,12 +238,11 @@ async fn run_mcp_connection(url: String, client_config: &ClientConfig, registry:
 
 /// Start MCP client service with default tools
 pub async fn start_mcp_client(config: &McpConfig) -> Result<()> {
-    let mut registry = if config.tool_name_prefix.is_empty() {
+    let registry = if config.tool_name_prefix.is_empty() {
         ToolRegistry::new()
     } else {
         ToolRegistry::with_prefix(config.tool_name_prefix.clone())
     };
-    registry::register_default_tools(&mut registry);
     
     start_mcp_client_with_tools(config, registry).await
 }

@@ -16,16 +16,16 @@ pub struct ToolDefinition {
     pub input_schema: Value,
 }
 
-/// Root structure of tools.json
+/// Root structure of mcp_tools.json
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ToolsConfig {
     tools: HashMap<String, ToolDefinition>,
 }
 
-/// Static tools configuration loaded from tools.json
+/// Static tools configuration loaded from mcp_tools.json
 static TOOLS_CONFIG: Lazy<ToolsConfig> = Lazy::new(|| {
-    let json_str = include_str!("tools.json");
-    serde_json::from_str(json_str).expect("Failed to parse tools.json")
+    let json_str = include_str!("mcp_tools.json");
+    serde_json::from_str(json_str).expect("Failed to parse mcp_tools.json")
 });
 
 /// Load metadata for a specific tool
@@ -44,9 +44,9 @@ pub fn load_tool_definition(tool_name: &str) -> Option<ToolDefinition> {
     TOOLS_CONFIG.tools.get(tool_name).cloned()
 }
 
-/// Helper macro to create a tool with metadata from tools.json
+/// Helper macro to create a tool with metadata from mcp_tools.json and auto-register it
 #[macro_export]
-macro_rules! impl_tool_with_metadata {
+macro_rules! register_mcp_tool {
     ($struct_name:ident, $tool_key:expr) => {
         impl $struct_name {
             pub fn new() -> Self {
@@ -64,6 +64,12 @@ macro_rules! impl_tool_with_metadata {
                 Self::new()
             }
         }
+        
+        // Auto-register the tool factory
+        #[linkme::distributed_slice($crate::tools::TOOL_FACTORIES)]
+        static REGISTER_TOOL: $crate::tools::ToolFactory = || {
+            Box::new($struct_name::new())
+        };
     };
 }
 

@@ -5,13 +5,13 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 
 use super::{Tool, ToolMetadata};
-use crate::impl_tool_with_metadata;
+use crate::register_mcp_tool;
 
 pub struct HttpRequestTool {
     metadata: ToolMetadata,
 }
 
-impl_tool_with_metadata!(HttpRequestTool, "http_request");
+register_mcp_tool!(HttpRequestTool, "http_request");
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HttpRequestInput {

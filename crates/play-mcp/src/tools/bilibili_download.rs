@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use tokio::task;
 
 use super::{Tool, ToolMetadata};
-use crate::impl_tool_with_metadata;
+use crate::register_mcp_tool;
 
 pub struct BilibiliDownloadTool {
     metadata: ToolMetadata,
@@ -20,7 +20,8 @@ impl BilibiliDownloadTool {
             .unwrap_or_else(|_| PathBuf::from("."))
             .join("bilibili_downloads");
         
-        let metadata = crate::metadata_loader::load_tool_metadata("bilibili_download")
+        const TOOL_NAME: &str = crate::metadata_loader::validate_tool_name("bilibili_download");
+        let metadata = crate::metadata_loader::load_tool_metadata(TOOL_NAME)
             .expect("Failed to load metadata for bilibili_download");
             
         Self { 
@@ -35,6 +36,18 @@ impl BilibiliDownloadTool {
         tool
     }
 }
+
+impl Default for BilibiliDownloadTool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// Auto-register the tool
+#[linkme::distributed_slice(crate::tools::TOOL_FACTORIES)]
+static REGISTER_BILIBILI_TOOL: crate::tools::ToolFactory = || {
+    Box::new(BilibiliDownloadTool::new())
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BilibiliDownloadInput {

@@ -4,13 +4,13 @@ use serde_json::{json, Value};
 use sysinfo::{System, ProcessRefreshKind, RefreshKind};
 
 use crate::tools::{Tool, ToolMetadata};
-use crate::impl_tool_with_metadata;
+use crate::register_mcp_tool;
 
 pub struct SysProcessTool {
     metadata: ToolMetadata,
 }
 
-impl_tool_with_metadata!(SysProcessTool, "sys_process");
+register_mcp_tool!(SysProcessTool, "sys_process");
 
 #[async_trait]
 impl Tool for SysProcessTool {

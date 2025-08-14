@@ -5,13 +5,13 @@ use serde_json::{json, Value};
 use sysinfo::Disks;
 
 use super::{Tool, ToolMetadata};
-use crate::impl_tool_with_metadata;
+use crate::register_mcp_tool;
 
 pub struct DiskSpaceTool {
     metadata: ToolMetadata,
 }
 
-impl_tool_with_metadata!(DiskSpaceTool, "get_disk_space");
+register_mcp_tool!(DiskSpaceTool, "get_disk_space");
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DiskSpaceInput {

@@ -4,13 +4,13 @@ use serde_json::{json, Value};
 use sysinfo::System;
 
 use crate::tools::{Tool, ToolMetadata};
-use crate::impl_tool_with_metadata;
+use crate::register_mcp_tool;
 
 pub struct SysMemoryTool {
     metadata: ToolMetadata,
 }
 
-impl_tool_with_metadata!(SysMemoryTool, "sys_memory");
+register_mcp_tool!(SysMemoryTool, "sys_memory");
 
 #[async_trait]
 impl Tool for SysMemoryTool {

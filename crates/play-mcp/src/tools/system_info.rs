@@ -4,13 +4,13 @@ use serde_json::{json, Value};
 use sysinfo::System;
 
 use super::{Tool, ToolMetadata};
-use crate::impl_tool_with_metadata;
+use crate::register_mcp_tool;
 
 pub struct SystemInfoTool {
     metadata: ToolMetadata,
 }
 
-impl_tool_with_metadata!(SystemInfoTool, "system_info");
+register_mcp_tool!(SystemInfoTool, "system_info");
 
 #[async_trait]
 impl Tool for SystemInfoTool {
