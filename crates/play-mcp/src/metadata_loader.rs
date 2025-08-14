@@ -55,7 +55,75 @@ pub fn load_tool_definition(tool_name: &str) -> Option<ToolDefinition> {
 /// Define a complete MCP tool with struct, impl, and registration
 #[macro_export]
 macro_rules! define_mcp_tool {
-    // Simple tool without extra fields - closure version
+    // Simple tool with multiple closure parameters
+    (
+        $struct_name:ident,
+        $tool_key:expr,
+        |$($param:ident : $param_type:ty),+| $body:expr
+    ) => {
+        pub struct $struct_name {
+            metadata: $crate::tools::ToolMetadata,
+        }
+        
+        impl $struct_name {
+            pub fn new() -> Self {
+                // Validate tool name at compile time using const function
+                const TOOL_NAME: &str = $crate::metadata_loader::validate_tool_name($tool_key);
+                
+                let metadata = $crate::metadata_loader::load_tool_metadata(TOOL_NAME)
+                    .expect(concat!("Failed to load metadata for ", $tool_key));
+                Self { metadata }
+            }
+        }
+
+        impl Default for $struct_name {
+            fn default() -> Self {
+                Self::new()
+            }
+        }
+        
+        // Auto-register the tool factory
+        #[linkme::distributed_slice($crate::tools::TOOL_FACTORIES)]
+        static REGISTER_TOOL: $crate::tools::ToolFactory = || {
+            Box::new($struct_name::new())
+        };
+        
+        #[async_trait::async_trait]
+        impl $crate::tools::Tool for $struct_name {
+            fn metadata(&self) -> &$crate::tools::ToolMetadata {
+                &self.metadata
+            }
+            
+            async fn execute(&self, input: serde_json::Value) -> anyhow::Result<serde_json::Value> {
+                // Extract individual parameters from JSON
+                $(
+                    let $param: $param_type = {
+                        // Check if this is an Option type by trying to deserialize null
+                        let field_value = input.get(stringify!($param));
+                        
+                        if field_value.is_none() {
+                            // If field doesn't exist, try to deserialize null (works for Option<T>)
+                            match serde_json::from_value::<$param_type>(serde_json::Value::Null) {
+                                Ok(val) => val,
+                                Err(_) => {
+                                    // Not an Option type, field is required
+                                    return Err(anyhow::anyhow!("Missing required field: {}", stringify!($param)));
+                                }
+                            }
+                        } else {
+                            // Field exists, deserialize it
+                            serde_json::from_value(field_value.unwrap().clone())?
+                        }
+                    };
+                )+
+                
+                let execute_fn = |$($param: $param_type),+| $body;
+                execute_fn($($param),+).await
+            }
+        }
+    };
+    
+    // Simple tool without extra fields - closure version (single parameter)
     (
         $struct_name:ident,
         $tool_key:expr,
