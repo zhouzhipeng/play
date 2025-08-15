@@ -176,17 +176,49 @@
       }
     },
     {
-      "name": "http_request_two",
-      "description": "Test tool for auto-generated struct",
+      "name": "test_tool_123",
+      "description": "Test tool with numbers in name",
       "inputSchema": {
         "type": "object",
         "properties": {
-          "input": {
+          "value": {
             "type": "string",
-            "description": "Test input"
+            "description": "Test value"
           }
         },
-        "required": ["input"],
+        "required": ["value"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "http_request_v2",
+      "description": "HTTP request version 2",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "The URL to request"
+          },
+          "method": {
+            "type": "string",
+            "description": "HTTP method",
+            "enum": ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"],
+            "default": "GET"
+          },
+          "headers": {
+            "type": "object",
+            "description": "Optional HTTP headers",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "body": {
+            "type": "string",
+            "description": "Optional request body"
+          }
+        },
+        "required": ["url"],
         "additionalProperties": false
       }
     }

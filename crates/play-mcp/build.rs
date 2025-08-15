@@ -34,9 +34,9 @@ fn main() {
             .expect("Each tool must have a 'name' field");
         
         // Validate tool name format
-        if !tool_name.chars().all(|c| c.is_ascii_lowercase() || c == '_' || c == ':' || c == '.') {
+        if !tool_name.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == ':' || c == '.') {
             panic!(
-                "Invalid tool name '{}'. Tool names must only contain lowercase letters, underscore (_), colon (:), or dot (.)",
+                "Invalid tool name '{}'. Tool names must only contain lowercase letters, digits, underscore (_), colon (:), or dot (.)",
                 tool_name
             );
         }

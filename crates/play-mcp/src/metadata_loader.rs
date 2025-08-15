@@ -62,8 +62,8 @@ pub const fn validate_tool_name_chars(name: &str) -> bool {
     let mut i = 0;
     while i < bytes.len() {
         let c = bytes[i];
-        // Allow: a-z, _, :, .
-        if !((c >= b'a' && c <= b'z') || c == b'_' || c == b':' || c == b'.') {
+        // Allow: a-z, 0-9, _, :, .
+        if !((c >= b'a' && c <= b'z') || (c >= b'0' && c <= b'9') || c == b'_' || c == b':' || c == b'.') {
             return false;
         }
         i += 1;
@@ -96,7 +96,7 @@ macro_rules! define_mcp_tool {
                     // Validate tool name format and existence at compile time
                     const _: () = {
                         if !validate_tool_name_chars($tool_key) {
-                            panic!("Invalid tool name format. Tool names must only contain lowercase letters, underscore (_), colon (:), or dot (.)");
+                            panic!("Invalid tool name format. Tool names must only contain lowercase letters, digits (0-9), underscore (_), colon (:), or dot (.)");
                         }
                     };
                     const TOOL_NAME: &str = validate_tool_name($tool_key);
@@ -168,7 +168,7 @@ macro_rules! define_mcp_tool {
                 // Validate tool name format and existence at compile time
                 const _: () = {
                     if !$crate::metadata_loader::validate_tool_name_chars($tool_key) {
-                        panic!("Invalid tool name format. Tool names must only contain lowercase letters, underscore (_), colon (:), or dot (.)");
+                        panic!("Invalid tool name format. Tool names must only contain lowercase letters, digits (0-9), underscore (_), colon (:), or dot (.)");
                     }
                 };
                 const TOOL_NAME: &str = $crate::metadata_loader::validate_tool_name($tool_key);
@@ -244,7 +244,7 @@ macro_rules! define_mcp_tool {
                 // Validate tool name format and existence at compile time
                 const _: () = {
                     if !$crate::metadata_loader::validate_tool_name_chars($tool_key) {
-                        panic!("Invalid tool name format. Tool names must only contain lowercase letters, underscore (_), colon (:), or dot (.)");
+                        panic!("Invalid tool name format. Tool names must only contain lowercase letters, digits (0-9), underscore (_), colon (:), or dot (.)");
                     }
                 };
                 const TOOL_NAME: &str = $crate::metadata_loader::validate_tool_name($tool_key);
@@ -318,7 +318,7 @@ macro_rules! define_mcp_tool {
                 // Validate tool name format and existence at compile time
                 const _: () = {
                     if !$crate::metadata_loader::validate_tool_name_chars($tool_key) {
-                        panic!("Invalid tool name format. Tool names must only contain lowercase letters, underscore (_), colon (:), or dot (.)");
+                        panic!("Invalid tool name format. Tool names must only contain lowercase letters, digits (0-9), underscore (_), colon (:), or dot (.)");
                     }
                 };
                 const TOOL_NAME: &str = $crate::metadata_loader::validate_tool_name($tool_key);
@@ -370,7 +370,7 @@ macro_rules! define_mcp_tool {
                 // Validate tool name format and existence at compile time
                 const _: () = {
                     if !$crate::metadata_loader::validate_tool_name_chars($tool_key) {
-                        panic!("Invalid tool name format. Tool names must only contain lowercase letters, underscore (_), colon (:), or dot (.)");
+                        panic!("Invalid tool name format. Tool names must only contain lowercase letters, digits (0-9), underscore (_), colon (:), or dot (.)");
                     }
                 };
                 const TOOL_NAME: &str = $crate::metadata_loader::validate_tool_name($tool_key);
@@ -423,7 +423,7 @@ macro_rules! define_mcp_tool {
                 // Validate tool name format and existence at compile time
                 const _: () = {
                     if !$crate::metadata_loader::validate_tool_name_chars($tool_key) {
-                        panic!("Invalid tool name format. Tool names must only contain lowercase letters, underscore (_), colon (:), or dot (.)");
+                        panic!("Invalid tool name format. Tool names must only contain lowercase letters, digits (0-9), underscore (_), colon (:), or dot (.)");
                     }
                 };
                 const TOOL_NAME: &str = $crate::metadata_loader::validate_tool_name($tool_key);
