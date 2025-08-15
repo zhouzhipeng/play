@@ -10,7 +10,7 @@ before-packaging-command = "cargo dev_ui"
 
 [features]
 default = []
-debug = ["play-dylib-loader", "play-redis","play-lua", "play-mcp"]
+debug = ["play-dylib-loader","play-lua", "play-mcp"]
 use_mysql = ["sqlx/mysql", "sqlparser"]
 
 
