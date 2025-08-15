@@ -23,43 +23,80 @@ fn main() {
     
     let mut generated_code = String::new();
     
-    // Generate a module with constants
-    generated_code.push_str("/// Auto-generated tool name constants from mcp_tools.json\n");
-    generated_code.push_str("pub mod tool_names {\n");
+    // Collect tool names and generate constants
+    let mut const_definitions = Vec::new();
+    let mut match_arms = Vec::new();
+    let mut tool_names = Vec::new();
+    let mut uniqueness_arms = Vec::new();
     
     for tool in tools {
         let tool_name = tool["name"].as_str()
             .expect("Each tool must have a 'name' field");
-        let const_name = tool_name.to_uppercase().replace("-", "_");
-        generated_code.push_str(&format!(
-            "    pub const {}: &str = \"{}\";\n",
+        
+        // Validate tool name format
+        if !tool_name.chars().all(|c| c.is_ascii_lowercase() || c == '_' || c == ':' || c == '.') {
+            panic!(
+                "Invalid tool name '{}'. Tool names must only contain lowercase letters, underscore (_), colon (:), or dot (.)",
+                tool_name
+            );
+        }
+        
+        // Generate const name by replacing special chars
+        let const_name = tool_name.to_uppercase()
+            .replace("-", "_")
+            .replace(":", "_")
+            .replace(".", "_");
+        
+        const_definitions.push(format!(
+            "    pub const {}: &str = \"{}\";",
             const_name, tool_name
         ));
-    }
-    
-    generated_code.push_str("}\n\n");
-    
-    // Generate a const function that validates tool names at compile time
-    generated_code.push_str("/// Validates tool name at compile time\n");
-    generated_code.push_str("pub const fn validate_tool_name(name: &str) -> &str {\n");
-    generated_code.push_str("    match name.as_bytes() {\n");
-    
-    let mut valid_names = Vec::new();
-    for tool in tools {
-        let tool_name = tool["name"].as_str()
-            .expect("Each tool must have a 'name' field");
-        generated_code.push_str(&format!(
-            "        b\"{}\" => \"{}\",\n",
+        
+        match_arms.push(format!(
+            "        b\"{}\" => \"{}\",",
             tool_name, tool_name
         ));
-        valid_names.push(tool_name.to_string());
+        
+        tool_names.push(tool_name.to_string());
+        
+        // Generate uniqueness check arm
+        uniqueness_arms.push(format!(
+            "    (\"{}\") => {{\n        \
+             #[doc(hidden)]\n        \
+             const __TOOL_REGISTRATION_GUARD_{}: () = ();\n    \
+             }};",
+            tool_name, const_name
+        ));
     }
+    
+    // Generate the complete code
     generated_code.push_str(&format!(
-        "        _ => panic!(\"Unknown tool name. Tool name must match one defined in mcp_tools.json. Valid names are: {}\"),\n",
-        valid_names.join(", ")
+        "/// Auto-generated tool name constants from mcp_tools.json\n\
+         pub mod tool_names {{\n\
+         {}\n\
+         }}\n\n\
+         /// Validates tool name at compile time\n\
+         pub const fn validate_tool_name(name: &str) -> &str {{\n\
+             match name.as_bytes() {{\n\
+         {}\n\
+                 _ => panic!(\"Unknown tool name. Tool name must match one defined in mcp_tools.json. Valid names are: {}\"),\n\
+             }}\n\
+         }}\n\n\
+         /// Internal macro to ensure tool uniqueness at compile time\n\
+         /// This creates a const item that will cause a compile error if duplicated\n\
+         #[macro_export]\n\
+         #[doc(hidden)]\n\
+         macro_rules! __internal_ensure_unique_tool {{\n\
+         {}\n\
+             ($other:expr) => {{\n\
+                 compile_error!(concat!(\"Unknown tool name: \", $other, \". Tool must be defined in mcp_tools.json\"));\n\
+             }};\n\
+         }}",
+        const_definitions.join("\n"),
+        match_arms.join("\n"),
+        tool_names.join(", "),
+        uniqueness_arms.join("\n")
     ));
-    generated_code.push_str("    }\n");
-    generated_code.push_str("}\n");
     
     fs::write(&dest_path, generated_code)
         .expect("Failed to write generated code");

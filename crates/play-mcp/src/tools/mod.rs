@@ -52,8 +52,21 @@ impl ToolRegistry {
     pub fn new() -> Self {
         // Auto-register all tools from the distributed slice
         let mut tools = Vec::new();
+        let mut seen_names = std::collections::HashSet::new();
+        
         for factory in TOOL_FACTORIES {
-            tools.push(Arc::from(factory()));
+            let tool = factory();
+            let tool_name = &tool.metadata().name;
+            
+            // Check for duplicate tool registrations
+            if !seen_names.insert(tool_name.clone()) {
+                panic!(
+                    "Duplicate tool registration detected: '{}'. Each tool can only be registered once.",
+                    tool_name
+                );
+            }
+            
+            tools.push(Arc::from(tool));
         }
         
         Self {
@@ -65,8 +78,21 @@ impl ToolRegistry {
     pub fn with_prefix(prefix: String) -> Self {
         // Auto-register all tools from the distributed slice
         let mut tools = Vec::new();
+        let mut seen_names = std::collections::HashSet::new();
+        
         for factory in TOOL_FACTORIES {
-            tools.push(Arc::from(factory()));
+            let tool = factory();
+            let tool_name = &tool.metadata().name;
+            
+            // Check for duplicate tool registrations
+            if !seen_names.insert(tool_name.clone()) {
+                panic!(
+                    "Duplicate tool registration detected: '{}'. Each tool can only be registered once.",
+                    tool_name
+                );
+            }
+            
+            tools.push(Arc::from(tool));
         }
         
         Self {

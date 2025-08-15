@@ -174,6 +174,21 @@
         },
         "additionalProperties": false
       }
+    },
+    {
+      "name": "http_request_two",
+      "description": "Test tool for auto-generated struct",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Test input"
+          }
+        },
+        "required": ["input"],
+        "additionalProperties": false
+      }
     }
   ]
 }
