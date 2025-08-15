@@ -1,5 +1,5 @@
 [package]
-name = "play"
+name = "play-server"
 version = "0.1.0"
 edition = "2021"
 description = "a play tool using rust"

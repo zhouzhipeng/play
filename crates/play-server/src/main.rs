@@ -17,9 +17,9 @@ use tracing_subscriber::subscribe::CollectExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
 
-use play::{ files_dir, init_app_state, shutdown_another_instance, start_server};
-use play::config::{init_config, read_config_file, PluginConfig};
-use play::routers;
+use play_server::{ files_dir, init_app_state, shutdown_another_instance, start_server};
+use play_server::config::{init_config, read_config_file, PluginConfig};
+use play_server::routers;
 
 use play_shared::constants::{DATA_DIR};
 

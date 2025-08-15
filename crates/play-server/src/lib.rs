@@ -32,6 +32,7 @@ use tower_http::cors::{Any, CorsLayer};
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::{error, info};
+#[cfg(feature = "play-mcp")]
 use play_mcp::McpConfig;
 use play_shared::constants::{CAT_FINGERPRINT, CAT_MAIL, DATA_DIR};
 
@@ -583,5 +584,12 @@ pub async fn get_file_modify_time(path: &PathBuf)->i64{
 
 
 pub async fn render_template_new(text: &str, data: Value)->anyhow::Result<String>{
-    Ok(play_lua::lua_render(text, data).await?)
+    #[cfg(feature = "play-lua")]
+    {
+        Ok(play_lua::lua_render(text, data).await?)
+    }
+    #[cfg(not(feature = "play-lua"))]
+    {
+        bail!("play-lua feature not enabled")
+    }
 }

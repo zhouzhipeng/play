@@ -1,11 +1,10 @@
 [workspace]
 resolver="2"
 members = [
-    "server",
-    "scripts",
     "crates/play-*",
+    "scripts",
 ]
-default-members=["server"]
+default-members=["crates/play-server"]
 
 [workspace.dependencies]
 # don't use native tls / openssl !!!  use rustls instead.
