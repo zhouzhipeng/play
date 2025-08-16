@@ -8,6 +8,6 @@ RUN cargo dev_server
 FROM debian:bookworm-slim
 WORKDIR /app
 
-COPY --from=0 /app/target/release/play .
+COPY --from=0 /app/target/release/play-server .
 
-ENTRYPOINT ["/app/play"]
+ENTRYPOINT ["/app/play-server"]

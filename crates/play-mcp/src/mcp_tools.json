@@ -1,0 +1,226 @@
+{
+  "tools": [
+    {
+      "name": "echo",
+      "description": "Echo back the input message",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "The message to echo back"
+          }
+        },
+        "required": ["message"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "system_info",
+      "description": "Get system information including OS, CPU, and memory",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_disk_space",
+      "description": "Get disk space information for all disks or a specific path",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Optional path to check. If not provided, returns information for all disks"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "http_request",
+      "description": "Make an HTTP request to a specified URL",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "The URL to request"
+          },
+          "method": {
+            "type": "string",
+            "description": "HTTP method (GET, POST, PUT, DELETE, etc.)",
+            "enum": ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"],
+            "default": "GET"
+          },
+          "headers": {
+            "type": "object",
+            "description": "Optional HTTP headers",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "body": {
+            "type": "string",
+            "description": "Optional request body"
+          }
+        },
+        "required": ["url"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "bilibili_download",
+      "description": "Download videos from Bilibili in the background",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "The Bilibili video URL"
+          },
+          "quality": {
+            "type": "string",
+            "description": "Video quality preference",
+            "enum": ["1080p", "720p", "480p", "360p", "auto"],
+            "default": "auto"
+          },
+          "output_dir": {
+            "type": "string",
+            "description": "Custom output directory for downloaded videos"
+          }
+        },
+        "required": ["url"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "sys_info",
+      "description": "Get general system information",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "sys_disk",
+      "description": "Get disk usage information",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Optional path to check specific disk"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "sys_memory",
+      "description": "Get memory usage information",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "detailed": {
+            "type": "boolean",
+            "description": "Show detailed memory breakdown",
+            "default": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "sys_process",
+      "description": "Get process information",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filter": {
+            "type": "string",
+            "description": "Filter processes by name"
+          },
+          "sort_by": {
+            "type": "string",
+            "description": "Sort processes by cpu, memory, or name",
+            "enum": ["cpu", "memory", "name"],
+            "default": "cpu"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Limit number of processes returned",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 10
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "sys_cpu",
+      "description": "Get CPU usage information",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "per_core": {
+            "type": "boolean",
+            "description": "Show usage per CPU core",
+            "default": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "test_tool_123",
+      "description": "Test tool with numbers in name",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "description": "Test value"
+          }
+        },
+        "required": ["value"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "http_request_v2",
+      "description": "HTTP request version 2",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "The URL to request"
+          },
+          "method": {
+            "type": "string",
+            "description": "HTTP method",
+            "enum": ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"],
+            "default": "GET"
+          },
+          "headers": {
+            "type": "object",
+            "description": "Optional HTTP headers",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "body": {
+            "type": "string",
+            "description": "Optional request body"
+          }
+        },
+        "required": ["url"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}
