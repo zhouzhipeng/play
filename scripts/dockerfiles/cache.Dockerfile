@@ -1,4 +1,4 @@
-FROM rust:1.89.0-bookworm
+FROM rust:1.89.0-slim-bookworm
 
 # install basic packages
 RUN apt update && apt install -y lua5.4
