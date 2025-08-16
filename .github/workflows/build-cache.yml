@@ -23,9 +23,18 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push
+        id: docker_build
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./scripts/dockerfiles/cache.Dockerfile
           push: true
           tags: ghcr.io/zhouzhipeng/play-cache:latest
+          no-cache: false
+          pull: true
+
+      - name: Check build result
+        if: failure()
+        run: |
+          echo "Docker build failed!"
+          exit 1
