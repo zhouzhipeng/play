@@ -6,7 +6,7 @@ description = "Xiaozhi MCP integration client for play"
 
 [dependencies]
 # Core dependencies
-play-mcp = { path = "../play-mcp" }
+play-mcp = { path = "../../play-mcp" }
 anyhow = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

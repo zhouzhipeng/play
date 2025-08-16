@@ -35,7 +35,7 @@ play-dylib-loader = { workspace = true, optional = true }
 play-lua = { workspace = true , optional = true}
 play-redis = { workspace = true, optional = true }
 play-mcp = { workspace = true }
-play-integration-xiaozhi = { path = "../play-integration-xiaozhi", optional = true }
+play-integration-xiaozhi = { path = "../play-integration/play-integration-xiaozhi", optional = true }
 
 
 # options
