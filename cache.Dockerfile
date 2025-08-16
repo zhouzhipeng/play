@@ -7,7 +7,4 @@ WORKDIR /app
 COPY . .
 
 # rm to prevent real build is failed but still can copy file.
-RUN cargo dev_server && \
-    cp -r /app/target /target && \
-    rm -rf /app/* && \
-    cp -r /target /app/target
+RUN cargo dev_server && rm -rf target/release/play-server
