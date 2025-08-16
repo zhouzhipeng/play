@@ -81,7 +81,7 @@ pub async fn http_middleware(
     if auth_config.enabled{
         let is_whitelist = uri == "/" || {
 
-            request.method() == &Method::GET && auth_config.whitelist.iter().any(|x| uri.starts_with(x))
+            auth_config.whitelist.iter().any(|x| uri.starts_with(x))
         };
 
         if !is_whitelist{
