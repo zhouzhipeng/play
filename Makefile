@@ -1,6 +1,5 @@
 build_macos:
-	cargo dev_ui
-	open target/release
+	cd  crates/play-ui && ./build-dmg.sh
 
 build_server:
 	cargo dev_server

@@ -40,8 +40,8 @@ use play_shared::{current_timestamp, timestamp_to_date_str};
 
 use play_shared::tpl_engine_api::{Template, TemplateData};
 
-use crate::config::{Config, PluginConfig, ShortLink};
-use crate::config::init_config;
+pub use crate::config::{Config, PluginConfig, ShortLink};
+pub use crate::config::init_config;
 use crate::controller::{app_routers, plugin_controller, shortlink_controller};
 use crate::layer::custom_http_layer::http_middleware;
 use crate::service::template_service;

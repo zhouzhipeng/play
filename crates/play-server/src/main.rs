@@ -178,18 +178,7 @@ async fn main()->anyhow::Result<()> {
 
 
 
-    #[cfg(not(feature = "play-ui"))]
-    start_server( router, app_state).await;
-
-    #[cfg(feature = "play-ui")]
-    {
-        tokio::spawn(async move{
-            start_server(router, app_state).await.expect("start api server failed!");
-        });
-
-        play_ui::start_window(&format!("http://127.0.0.1:{}",server_port))?;
-
-    }
+    start_server(router, app_state).await?;
 
 
 
