@@ -73,8 +73,8 @@ jobs:
         shell: bash
         run: |
           cd ${{ steps.extract.outputs.destination }} &&
-          zip -r9 ../play_linux.zip play &&
-          cp play ../play_linux
+          zip -r9 ../play_linux.zip play-server &&
+          cp play-server ../play_linux
       - name: Upload Release Asset tar
         id: upload-release-asset-tar
         uses: actions/upload-release-asset@v1
