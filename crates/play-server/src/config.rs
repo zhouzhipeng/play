@@ -39,9 +39,9 @@ pub struct Config {
     #[serde(default)]
     pub plugin_config: Vec<PluginConfig>,
 
-    #[cfg(feature = "play-mcp")]
+    #[cfg(feature = "play-integration-xiaozhi")]
     #[serde(default)]
-    pub mcp_config: play_mcp::McpConfig,
+    pub mcp_config: play_integration_xiaozhi::McpConfig,
 
 }
 

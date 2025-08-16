@@ -4751,6 +4751,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "play-integration-xiaozhi"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "futures",
+ "futures-util",
+ "play-mcp",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-tungstenite 0.24.0",
+ "tracing 0.2.0",
+ "uuid",
+]
+
+[[package]]
 name = "play-lua"
 version = "0.1.0"
 dependencies = [
@@ -4841,6 +4858,7 @@ dependencies = [
  "notify",
  "play-dylib-loader",
  "play-https",
+ "play-integration-xiaozhi",
  "play-lua",
  "play-macros",
  "play-mcp",

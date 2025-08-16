@@ -1,14 +1,18 @@
 # play-mcp
 
-MCP (Model Context Protocol) 客户端，提供磁盘空间监控功能，可接入小智AI等支持MCP协议的服务。
+MCP (Model Context Protocol) 工具定义和注册框架，为 Play 生态系统提供 MCP 工具基础设施。
 
-## 功能特性
+## 重要说明
 
-- 作为 MCP 客户端连接到外部 MCP 服务器（如小智AI）
-- 提供磁盘空间监控工具
-- 支持配置文件管理
-- 自动重连机制
-- JSON-RPC 2.0 协议实现
+**MCP 客户端和协议功能已迁移至 `play-integration-xiaozhi` crate。**
+
+本 crate 现在专注于：
+- 工具定义（`Tool` trait）
+- 工具注册表（`ToolRegistry`）
+- 工具元数据管理
+- `define_mcp_tool!` 宏用于创建工具
+
+如需 MCP 客户端功能，请使用 `play-integration-xiaozhi` crate。
 
 ## 配置文件
 

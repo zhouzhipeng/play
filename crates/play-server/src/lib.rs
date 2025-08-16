@@ -32,8 +32,8 @@ use tower_http::cors::{Any, CorsLayer};
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::{error, info};
-#[cfg(feature = "play-mcp")]
-use play_mcp::McpConfig;
+#[cfg(feature = "play-integration-xiaozhi")]
+use play_integration_xiaozhi::McpConfig;
 use play_shared::constants::{CAT_FINGERPRINT, CAT_MAIL, DATA_DIR};
 
 use play_shared::{current_timestamp, timestamp_to_date_str};
@@ -260,14 +260,14 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> anyhow::Res
 }
 
 pub async fn start_server(router: Router<Arc<AppState>>, app_state: Arc<AppState>) -> anyhow::Result<()> {
-    #[cfg(feature = "play-mcp")]
+    #[cfg(feature = "play-integration-xiaozhi")]
     {
         let cfg = app_state.config.mcp_config.clone();
-        //start mcp client
+        //start xiaozhi mcp client
         tokio::spawn(async move{
-            info!("starting play mcp client...");
-            let r = play_mcp::start_mcp_client(&cfg).await;
-            error!("play_mcp stop : {:?}", r);
+            info!("starting xiaozhi mcp client...");
+            let r = play_integration_xiaozhi::start_xiaozhi_client(&cfg).await;
+            error!("xiaozhi_mcp stop : {:?}", r);
         });
 
     }
