@@ -19,6 +19,7 @@ use tokio_stream::wrappers::IntervalStream;
 use tokio_stream::StreamExt;
 use tracing::{error, info, warn};
 use uuid::Uuid;
+use play_integration_xiaozhi::protocol;
 use play_mcp::tools::ToolRegistry;
 
 use crate::AppState;
@@ -195,6 +196,13 @@ fn create_response_stream(
     // Create the response based on the method
     let response_future = async move {
         let response = match method.as_str() {
+        "ping" => {
+            json!({
+                "jsonrpc": "2.0",
+                "id": id,
+                "result":{}
+            })
+        }
         "initialize" => {
             json!({
                 "jsonrpc": "2.0",

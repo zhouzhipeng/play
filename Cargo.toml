@@ -13,7 +13,6 @@ members = [
     "crates/play-dylib/play-dylib-abi",
     "crates/play-dylib/play-dylib-example",
     "crates/play-dylib/play-dylib-loader",
-    "scripts",
 ]
 default-members=["crates/play-server"]
 
