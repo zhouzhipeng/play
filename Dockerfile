@@ -1,4 +1,4 @@
-FROM zhouzhipeng/play-cache
+FROM ghcr.io/zhouzhipeng/play-cache:latest
 
 WORKDIR /app
 COPY . .

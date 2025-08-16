@@ -164,11 +164,20 @@ async fn handle_mcp_post(
         }
         JsonRpcContent::Response { id, result, error } => {
             info!("Received response - id: {:?}", id);
+            if let Some(result) = &result {
+                info!("Response result: {}", serde_json::to_string_pretty(result).unwrap_or_else(|_| result.to_string()));
+            }
+            if let Some(error) = &error {
+                warn!("Response error: {:?}", error);
+            }
             
             Ok(StatusCode::ACCEPTED.into_response())
         }
         JsonRpcContent::Notification { method, params } => {
             info!("Received notification - method: {}", method);
+            if let Some(params) = &params {
+                info!("Notification params: {}", serde_json::to_string_pretty(params).unwrap_or_else(|_| params.to_string()));
+            }
             
             Ok(StatusCode::ACCEPTED.into_response())
         }
@@ -307,6 +316,10 @@ fn create_response_stream(
             })
         }
         };
+        
+        // Log the response
+        info!("Sending response - method: {}, id: {:?}, response: {}", 
+              method, id, serde_json::to_string_pretty(&response).unwrap_or_else(|_| response.to_string()));
         
         // Update session with event ID
         let mut sessions = SESSIONS.write().await;
