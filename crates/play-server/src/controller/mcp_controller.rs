@@ -19,6 +19,7 @@ use tokio_stream::wrappers::IntervalStream;
 use tokio_stream::StreamExt;
 use tracing::{error, info, warn};
 use uuid::Uuid;
+use play_mcp::tools::ToolRegistry;
 
 use crate::AppState;
 
@@ -77,6 +78,7 @@ struct JsonRpcError {
 
 lazy_static::lazy_static! {
     static ref SESSIONS: SessionStore = Arc::new(RwLock::new(HashMap::new()));
+    static ref TOOL_REGISTRY: Arc<ToolRegistry> = Arc::new(ToolRegistry::new());
 }
 
 pub fn init() -> Router<Arc<AppState>> {
@@ -128,6 +130,7 @@ async fn handle_mcp_post(
     let protocol_version = get_protocol_version(&headers);
     
     info!("MCP POST request - session: {}, protocol: {}", session_id, protocol_version);
+    info!("Request payload: {:?}", payload);
     
     let mut sessions = SESSIONS.write().await;
     sessions.entry(session_id.clone()).or_insert_with(|| McpSession {
@@ -149,7 +152,7 @@ async fn handle_mcp_post(
             
             info!("Processing request - id: {:?}, method: {}", id, method);
             
-            let stream = create_response_stream(id, method, params, session_id).await;
+            let stream = create_response_stream(id, method, params, session_id);
             
             Ok(Sse::new(stream)
                 .keep_alive(
@@ -172,7 +175,7 @@ async fn handle_mcp_post(
     }
 }
 
-async fn create_response_stream(
+fn create_response_stream(
     id: Value,
     method: String,
     params: Option<Value>,
@@ -180,7 +183,9 @@ async fn create_response_stream(
 ) -> impl Stream<Item = Result<Event, axum::Error>> {
     let event_id = Uuid::new_v4().to_string();
     
-    let response = match method.as_str() {
+    // Create the response based on the method
+    let response_future = async move {
+        let response = match method.as_str() {
         "initialize" => {
             json!({
                 "jsonrpc": "2.0",
@@ -200,13 +205,78 @@ async fn create_response_stream(
             })
         }
         "tools/list" => {
+            let tools = TOOL_REGISTRY.list();
             json!({
                 "jsonrpc": "2.0",
                 "id": id,
                 "result": {
-                    "tools": []
+                    "tools": tools
                 }
             })
+        }
+        "tools/call" => {
+            if let Some(params) = params.clone() {
+                if let Some(name) = params.get("name").and_then(|v| v.as_str()) {
+                    if let Some(tool) = TOOL_REGISTRY.get(name) {
+                        let default_args = json!({});
+                        let arguments = params.get("arguments").unwrap_or(&default_args).clone();
+                        
+                        match tool.execute(arguments).await {
+                            Ok(result) => {
+                                json!({
+                                    "jsonrpc": "2.0",
+                                    "id": id,
+                                    "result": {
+                                        "content": [
+                                            {
+                                                "type": "text",
+                                                "text": serde_json::to_string_pretty(&result).unwrap_or_else(|_| "Error serializing result".to_string())
+                                            }
+                                        ]
+                                    }
+                                })
+                            }
+                            Err(e) => {
+                                json!({
+                                    "jsonrpc": "2.0",
+                                    "id": id,
+                                    "error": {
+                                        "code": -32603,
+                                        "message": format!("Tool execution failed: {}", e)
+                                    }
+                                })
+                            }
+                        }
+                    } else {
+                        json!({
+                            "jsonrpc": "2.0",
+                            "id": id,
+                            "error": {
+                                "code": -32602,
+                                "message": format!("Unknown tool: {}", name)
+                            }
+                        })
+                    }
+                } else {
+                    json!({
+                        "jsonrpc": "2.0",
+                        "id": id,
+                        "error": {
+                            "code": -32602,
+                            "message": "Missing tool name in params"
+                        }
+                    })
+                }
+            } else {
+                json!({
+                    "jsonrpc": "2.0",
+                    "id": id,
+                    "error": {
+                        "code": -32602,
+                        "message": "Invalid params for tools/call"
+                    }
+                })
+            }
         }
         "resources/list" => {
             json!({
@@ -236,19 +306,22 @@ async fn create_response_stream(
                 }
             })
         }
-    };
-    
-    let mut sessions = SESSIONS.write().await;
-    if let Some(session) = sessions.get_mut(&session_id) {
-        session.last_event_id = Some(event_id.clone());
-    }
-    
-    stream::once(async move {
+        };
+        
+        // Update session with event ID
+        let mut sessions = SESSIONS.write().await;
+        if let Some(session) = sessions.get_mut(&session_id) {
+            session.last_event_id = Some(event_id.clone());
+        }
+        
         Ok(Event::default()
             .id(event_id)
             .event("message")
             .data(response.to_string()))
-    })
+    };
+    
+    // Convert the future into a stream
+    stream::once(response_future)
 }
 
 async fn handle_mcp_sse(
