@@ -14,9 +14,7 @@ jobs:
       - name: Send Push
         uses: fjogeleit/http-request-action@v1
         with:
-          url: ${{ secrets.NOTIFY_BEGIN_URL }}
-          method: 'GET'
-          contentType: 'application/x-www-form-urlencoded'
+          url: "https://api.day.app/${{ secrets.NOTIFY_DEVICE_ID }}/play部署/server构建开始"
       - name: Create Release
         id: create_release
         uses: "marvinpinto/action-automatic-releases@latest"
@@ -55,10 +53,8 @@ jobs:
         if: failure()
         uses: fjogeleit/http-request-action@v1
         with:
-          url: ${{ secrets.NOTIFY_FAIL_URL }}
-          method: 'GET'
-          contentType: 'application/x-www-form-urlencoded'
-          
+          url: "https://api.day.app/${{ secrets.NOTIFY_DEVICE_ID }}/play部署/server构建失败!!!"
+
       - name: Check build result
         if: failure()
         run: |
@@ -115,6 +111,4 @@ jobs:
       - name: Send Push
         uses: fjogeleit/http-request-action@v1
         with:
-          url: ${{ secrets.NOTIFY_END_URL }}
-          method: 'GET'
-          contentType: 'application/x-www-form-urlencoded'
+          url: "https://api.day.app/${{ secrets.NOTIFY_DEVICE_ID }}/play部署/server构建成功"

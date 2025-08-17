@@ -40,7 +40,7 @@ jobs:
         if: failure()
         uses: fjogeleit/http-request-action@v1
         with:
-          url: "https://api.day.app/${{ secrets.NOTIFY_DEVICE_ID }}/play部署/cache构建失败！"
+          url: "https://api.day.app/${{ secrets.NOTIFY_DEVICE_ID }}/play部署/cache构建失败!!!"
 
       - name: Check build result
         if: failure()
