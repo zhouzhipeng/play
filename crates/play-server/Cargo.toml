@@ -21,9 +21,9 @@ chrono = { workspace = true }
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dev-dependencies]
-axum-test = "17.2.0"
+axum-test = { workspace = true }
 reqwest = { workspace = true, features = ["blocking"] }
-difference = "2.0.0"
+difference = { workspace = true }
 
 
 [dependencies]
@@ -35,66 +35,66 @@ play-dylib-loader = { workspace = true, optional = true }
 play-lua = { workspace = true , optional = true}
 play-redis = { workspace = true, optional = true }
 play-mcp = { workspace = true }
-play-integration-xiaozhi = { path = "../play-integration/play-integration-xiaozhi", optional = true }
+play-integration-xiaozhi = { workspace = true, optional = true }
 
 
 # options
-tower-livereload = { version = "0.8.2", optional = true }
-notify = { version = "6.1.1", optional = true }
-sqlparser = { version = "0.52.0", optional = true }
+tower-livereload = { workspace = true, optional = true }
+notify = { workspace = true, optional = true }
+sqlparser = { workspace = true, optional = true }
 
 
 # utils
-sql-util = { git = "https://github.com/zhouzhipeng/rust-utils.git" }
-common-crypt = { git = "https://github.com/zhouzhipeng/rust-utils.git" }
+play-utils-sql-util = { workspace = true }
+play-utils-common-crypt = { workspace = true }
 
 # third parties
-zip-extract = "0.2.1"
+zip-extract = { workspace = true }
 sqlx = { workspace = true, features = ["sqlite", "chrono"] }
 axum = { workspace = true, features = ["http2", "ws", "macros", "tracing", "multipart"] }
-axum-server = "0.7.2"
+axum-server = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
-tracing = { git = "https://github.com/zhouzhipeng/tracing.git" }
-tracing-subscriber = { git = "https://github.com/zhouzhipeng/tracing.git", version = "0.3", features = ["env-filter"] }
-tracing-appender = { git = "https://github.com/zhouzhipeng/tracing.git" }
-include_dir = "0.7.3"
-mime_guess = "2.0.4"
-urlencoding = "2.1.3"
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-appender = { workspace = true }
+include_dir = { workspace = true }
+mime_guess = { workspace = true }
+urlencoding = { workspace = true }
 anyhow = { workspace = true }
-toml = "0.8.8"
-hyper = { version = "1.0", features = ["server"] }
-tower-http = { version = "0.5.0", features = ["fs", "trace", "timeout", "cors", "compression-br"] }
-futures = "0.3.29"
-futures-util = "0.3.29"
+toml = { workspace = true }
+hyper = { workspace = true }
+tower-http = { workspace = true }
+futures = { workspace = true }
+futures-util = { workspace = true }
 reqwest = { workspace = true, features = ["blocking", "stream"] }
 async-channel = { workspace = true }
-regex = { version = "1.10.2", features = [] }
-either = "1.9.0"
-self-replace = "1.3.7"
-directories = "5.0.1"
+regex = { workspace = true }
+either = { workspace = true }
+self-replace = { workspace = true }
+directories = { workspace = true }
 chrono = { workspace = true }
-ansi-to-html = "0.2.1"
-tower = "0.4.13"
-http-body = "1.0.0"
-http-body-util = "0.1.0"
-http = "1.0.0"
-hex = "0.4.3"
-tokio-util = { version = "0.7", features = ["codec"] }
-multer = "3.0.0"
-infer = "0.16.0"
-walkdir = "2.4.0"
-zip = "2.2.1"
-futures-core = "0.3.30"
-cookie = { version = "0.18.1", features = ["percent-encode"] }
-tokio-stream = "0.1.15"
-zip-extensions = "0.8.1"
-dioxus-ssr = { version = "0.6.0" }
-dioxus = { version = "0.6.0" }
-fs_extra = "1.3.0"
-tempfile = "3.15.0"
-serde_qs = "0.15.0"
-html-escape = "0.2.13"
-uuid = { version = "1.0", features = ["v4", "serde"] }
-lazy_static = "1.4"
+ansi-to-html = { workspace = true }
+tower = { workspace = true }
+http-body = { workspace = true }
+http-body-util = { workspace = true }
+http = { workspace = true }
+hex = { workspace = true }
+tokio-util = { workspace = true }
+multer = { workspace = true }
+infer = { workspace = true }
+walkdir = { workspace = true }
+zip = { workspace = true }
+futures-core = { workspace = true }
+cookie = { workspace = true }
+tokio-stream = { workspace = true }
+zip-extensions = { workspace = true }
+dioxus-ssr = { workspace = true }
+dioxus = { workspace = true }
+fs_extra = { workspace = true }
+tempfile = { workspace = true }
+serde_qs = { workspace = true }
+html-escape = { workspace = true }
+uuid = { workspace = true }
+lazy_static = { workspace = true }

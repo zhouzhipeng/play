@@ -1,0 +1,19 @@
+[package]
+name = "play-utils-blockchain"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+sha2 = { workspace = true }
+sha3 = { workspace = true }
+base64 = { workspace = true }
+bitcoin = { workspace = true }
+ethereum-types = { workspace = true }
+secp256k1 = { workspace = true }
+hex = { workspace = true }
+bs58 = { workspace = true }
+play-utils-common-crypt = { workspace = true }
+anyhow = { workspace = true }
+reqwest = { workspace = true }
+serde_json = { workspace = true }
+log = { workspace = true }

@@ -11,8 +11,8 @@ reqwest = { workspace = true }
 anyhow = { workspace = true }
 async-channel = { workspace = true }
 # for server
-zip-extract = { version = "0.1.2", optional = true }
-sqlparser = { version = "0.40.0", optional = true }
+zip-extract = { workspace = true, optional = true }
+sqlparser = { workspace = true, optional = true }
 chrono = { workspace = true }
 
-cargo_metadata = "0.15.0"
+cargo_metadata = { workspace = true }
