@@ -14,6 +14,7 @@ webbrowser = "1.0"
 image = "0.25"
 tokio = { workspace = true, features = ["full", "macros"] }
 directories = "5.0"
+toml = { workspace = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = "0.26"

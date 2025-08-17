@@ -4665,6 +4665,7 @@ dependencies = [
  "objc",
  "play-server",
  "tokio",
+ "toml",
  "tray-icon",
  "webbrowser",
  "winapi",
