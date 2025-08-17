@@ -30,9 +30,11 @@ fn create_menu() -> Menu {
     let menu = Menu::new();
     
     let open_homepage = MenuItem::with_id("open_homepage", "打开首页", true, None);
+    let open_data_dir = MenuItem::with_id("open_data_dir", "打开数据目录", true, None);
     let exit = MenuItem::with_id("exit", "退出", true, None);
     
     menu.append(&open_homepage).unwrap();
+    menu.append(&open_data_dir).unwrap();
     menu.append(&exit).unwrap();
     
     menu

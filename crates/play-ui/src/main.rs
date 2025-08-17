@@ -156,6 +156,29 @@ fn run_tray(server_url: String) {
                             println!("Opening homepage: {}", &server_url);
                             let _ = webbrowser::open(&server_url);
                         }
+                        "open_data_dir" => {
+                            if let Ok(data_dir) = env::var("DATA_DIR") {
+                                println!("Opening data directory: {}", data_dir);
+                                #[cfg(target_os = "macos")]
+                                {
+                                    let _ = std::process::Command::new("open")
+                                        .arg(&data_dir)
+                                        .spawn();
+                                }
+                                #[cfg(target_os = "windows")]
+                                {
+                                    let _ = std::process::Command::new("explorer")
+                                        .arg(&data_dir)
+                                        .spawn();
+                                }
+                                #[cfg(target_os = "linux")]
+                                {
+                                    let _ = std::process::Command::new("xdg-open")
+                                        .arg(&data_dir)
+                                        .spawn();
+                                }
+                            }
+                        }
                         "exit" => {
                             println!("Exit from menu");
                             RUNNING.store(false, Ordering::Relaxed);
@@ -186,6 +209,23 @@ fn run_tray(server_url: String) {
                     "open_homepage" => {
                         println!("Opening homepage: {}", &server_url);
                         let _ = webbrowser::open(&server_url);
+                    }
+                    "open_data_dir" => {
+                        if let Ok(data_dir) = env::var("DATA_DIR") {
+                            println!("Opening data directory: {}", data_dir);
+                            #[cfg(target_os = "windows")]
+                            {
+                                let _ = std::process::Command::new("explorer")
+                                    .arg(&data_dir)
+                                    .spawn();
+                            }
+                            #[cfg(target_os = "linux")]
+                            {
+                                let _ = std::process::Command::new("xdg-open")
+                                    .arg(&data_dir)
+                                    .spawn();
+                            }
+                        }
                     }
                     "exit" => {
                         println!("Exit from menu");
