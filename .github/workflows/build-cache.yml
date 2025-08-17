@@ -33,6 +33,14 @@ jobs:
           no-cache: false
           pull: true
 
+      - name: Send failure notification
+        if: failure()
+        uses: fjogeleit/http-request-action@v1
+        with:
+          url: ${{ secrets.NOTIFY_FAIL_URL }}
+          method: 'GET'
+          contentType: 'application/x-www-form-urlencoded'
+          
       - name: Check build result
         if: failure()
         run: |
