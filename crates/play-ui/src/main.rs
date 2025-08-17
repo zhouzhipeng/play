@@ -4,6 +4,7 @@ use std::thread;
 use std::time::Duration;
 use std::{env, fs};
 use std::path::Path;
+use std::net::TcpListener;
 use tray_icon::{Icon, TrayIcon, TrayIconBuilder, menu::{Menu, MenuItem, MenuEvent}};
 use tokio::runtime::Runtime;
 
@@ -11,6 +12,76 @@ mod tray;
 use tray::setup_tray;
 
 static RUNNING: AtomicBool = AtomicBool::new(true);
+
+fn find_available_port() -> u16 {
+    // Try to bind to port 0, which will give us a random available port
+    let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind to port 0");
+    let port = listener.local_addr().expect("Failed to get local address").port();
+    drop(listener);
+    port
+}
+
+fn ensure_config_and_database(data_dir: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let config_path = Path::new(data_dir).join("config.toml");
+    let db_path = Path::new(data_dir).join("play.db");
+    
+    if !config_path.exists() {
+        println!("Config file not found, creating default config with random port");
+        
+        // Generate random available port
+        let random_port = find_available_port();
+        
+        // Create SQLite database URL
+        let db_url = format!("sqlite:///{}", db_path.display());
+        
+        // Create default config content
+        let config_content = format!(
+            r#"server_port = {}
+log_level = "INFO"
+
+[database]
+url = "{}"
+
+"#,
+            random_port, db_url
+        );
+        
+        // Write config file
+        fs::write(&config_path, config_content)?;
+        println!("Created config file with port {} and database {}", random_port, db_url);
+    } else {
+        // Check if existing config uses :memory: and update it
+        let config_content = fs::read_to_string(&config_path)?;
+        
+        if config_content.contains(":memory:") || !config_content.contains(&data_dir) {
+            println!("Updating config to use persistent SQLite database");
+            
+            // Parse as TOML to properly update
+            let mut config_toml: toml::Value = toml::from_str(&config_content)?;
+            
+            // Update database URL
+            let db_url = format!("sqlite:///{}", db_path.display());
+            if let Some(database) = config_toml.get_mut("database") {
+                if let Some(table) = database.as_table_mut() {
+                    table.insert("url".to_string(), toml::Value::String(db_url.clone()));
+                }
+            }
+            
+            // Write back the updated config
+            let updated_content = toml::to_string_pretty(&config_toml)?;
+            fs::write(&config_path, updated_content)?;
+            println!("Updated config file with persistent database URL: {}", db_url);
+        }
+    }
+    
+    // Ensure database file exists
+    if !db_path.exists() {
+        println!("Creating SQLite database at {:?}", db_path);
+        fs::File::create(&db_path)?;
+    }
+    
+    Ok(())
+}
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize platform-specific settings first, before any async runtime
@@ -65,13 +136,8 @@ async fn async_main(server_url_tx: std::sync::mpsc::Sender<String>) -> Result<()
     fs::create_dir_all(&data_dir)?;
     fs::create_dir_all(Path::new(&data_dir).join("files"))?;
     
-    // Check if config.toml exists, if not create a default one
-    let config_path = Path::new(&data_dir).join("config.toml");
-    if !config_path.exists() {
-        println!("Creating default config.toml at {:?}", config_path);
-        let default_config = include_str!("../../play-server/config.toml");
-        fs::write(&config_path, default_config)?;
-    }
+    // Ensure config and database exist with proper defaults
+    ensure_config_and_database(&data_dir)?;
     
     // Get the server configuration
     let config = play_server::config::init_config(false).await?;
@@ -80,20 +146,14 @@ async fn async_main(server_url_tx: std::sync::mpsc::Sender<String>) -> Result<()
     
     println!("Starting Play Server on {}", server_url);
     
-    // Initialize app state
-    let app_state = play_server::init_app_state(&config, false).await?;
-    
-    // Get router
-    let router = play_server::routers(app_state.clone()).await?;
-    
+
     // Clone values for the server thread
     let server_url_clone = server_url.clone();
-    let app_state_clone = app_state.clone();
-    
+
     // Start the server in a background thread
     let server_handle = tokio::spawn(async move {
         println!("Server starting at {}", server_url_clone);
-        if let Err(e) = play_server::start_server(router, app_state_clone).await {
+        if let Err(e) = play_server::start_server_with_config(data_dir, &config).await {
             eprintln!("Server error: {}", e);
         }
     });
@@ -156,6 +216,29 @@ fn run_tray(server_url: String) {
                             println!("Opening homepage: {}", &server_url);
                             let _ = webbrowser::open(&server_url);
                         }
+                        "open_data_dir" => {
+                            if let Ok(data_dir) = env::var("DATA_DIR") {
+                                println!("Opening data directory: {}", data_dir);
+                                #[cfg(target_os = "macos")]
+                                {
+                                    let _ = std::process::Command::new("open")
+                                        .arg(&data_dir)
+                                        .spawn();
+                                }
+                                #[cfg(target_os = "windows")]
+                                {
+                                    let _ = std::process::Command::new("explorer")
+                                        .arg(&data_dir)
+                                        .spawn();
+                                }
+                                #[cfg(target_os = "linux")]
+                                {
+                                    let _ = std::process::Command::new("xdg-open")
+                                        .arg(&data_dir)
+                                        .spawn();
+                                }
+                            }
+                        }
                         "exit" => {
                             println!("Exit from menu");
                             RUNNING.store(false, Ordering::Relaxed);
@@ -186,6 +269,23 @@ fn run_tray(server_url: String) {
                     "open_homepage" => {
                         println!("Opening homepage: {}", &server_url);
                         let _ = webbrowser::open(&server_url);
+                    }
+                    "open_data_dir" => {
+                        if let Ok(data_dir) = env::var("DATA_DIR") {
+                            println!("Opening data directory: {}", data_dir);
+                            #[cfg(target_os = "windows")]
+                            {
+                                let _ = std::process::Command::new("explorer")
+                                    .arg(&data_dir)
+                                    .spawn();
+                            }
+                            #[cfg(target_os = "linux")]
+                            {
+                                let _ = std::process::Command::new("xdg-open")
+                                    .arg(&data_dir)
+                                    .spawn();
+                            }
+                        }
                     }
                     "exit" => {
                         println!("Exit from menu");

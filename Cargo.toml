@@ -44,6 +44,7 @@ play-dylib-loader = { path = "crates/play-dylib/play-dylib-loader"}
 play-lua = { path = "crates/play-lua"}
 play-redis = { path = "crates/play-redis"}
 play-mcp = { path = "crates/play-mcp"}
+play-server = { path = "crates/play-server"}
 play-utils-sql-util = { path = "crates/play-utils/play-utils-sql-util"}
 play-utils-common-crypt = { path = "crates/play-utils/play-utils-common-crypt"}
 play-utils-blockchain = { path = "crates/play-utils/play-utils-blockchain"}
