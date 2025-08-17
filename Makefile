@@ -22,4 +22,3 @@ build_dylib_example:
 
 build_linux_so:
 	./scripts/build_linux_so.sh
-
