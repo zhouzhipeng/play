@@ -6,10 +6,10 @@ edition = "2021"
 [dependencies]
 serde = {workspace = true}
 anyhow= {workspace = true}
-serde_urlencoded = "0.7.1"
+serde_urlencoded = { workspace = true }
 serde_json = {workspace = true}
 reqwest = {workspace = true}
-toml = { version = "0.8.19"}
+toml = { workspace = true }
 
 [dev-dependencies]
 tokio={workspace = true}

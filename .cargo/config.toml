@@ -9,12 +9,4 @@ frequency = "never"
 
 
 [alias]
-tool = "run --package tool  --bin tool"
-pack = "run --package tool --bin pack_bundles"
-python = "run --package tool  --bin build_python_artifacts"
-dev_embed = "run --package tool  --bin dev_embed"
-dev_server = "run --package tool  --bin dev_server"
-dev = "build --package play-server --release"
-debug = "run --package play-server --bin play-server --features=debug"
-linux = "build --package play-server  --target=x86_64-unknown-linux-musl --release"
-generate = "run --package tool  --bin generate_code"
+dev_server = "build --locked --package play-server --release --features=server"

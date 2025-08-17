@@ -41,7 +41,7 @@ pub fn generate_cache_key(uri: &Uri) -> String {
         s = s[0..s.len() - 1].to_string();
     }
 
-    s = common_crypt::md5(&s);
+    s = play_utils_common_crypt::md5(&s);
     s
 }
 
