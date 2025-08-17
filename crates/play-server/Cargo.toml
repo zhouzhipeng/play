@@ -11,7 +11,7 @@ before-packaging-command = "cargo dev_ui"
 [features]
 default = []
 debug = ["play-dylib-loader","play-lua", "play-integration-xiaozhi"]
-use_mysql = ["sqlx/mysql", "sqlparser"]
+use_mysql = ["sqlx/mysql", "play-shared/sqlparser"]
 
 
 [build-dependencies]
@@ -27,8 +27,6 @@ difference = { workspace = true }
 
 
 [dependencies]
-# local libs
-play-macros={workspace = true}
 play-shared = { workspace = true }
 play-https = { workspace = true, optional = true }
 play-dylib-loader = { workspace = true, optional = true }
@@ -36,12 +34,6 @@ play-lua = { workspace = true , optional = true}
 play-redis = { workspace = true, optional = true }
 play-mcp = { workspace = true }
 play-integration-xiaozhi = { workspace = true, optional = true }
-
-
-# options
-tower-livereload = { workspace = true, optional = true }
-notify = { workspace = true, optional = true }
-sqlparser = { workspace = true, optional = true }
 
 
 # utils
@@ -94,7 +86,6 @@ dioxus-ssr = { workspace = true }
 dioxus = { workspace = true }
 fs_extra = { workspace = true }
 tempfile = { workspace = true }
-serde_qs = { workspace = true }
 html-escape = { workspace = true }
 uuid = { workspace = true }
 lazy_static = { workspace = true }

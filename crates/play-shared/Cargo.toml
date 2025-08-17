@@ -10,8 +10,6 @@ serde_json = { workspace = true }
 reqwest = { workspace = true }
 anyhow = { workspace = true }
 async-channel = { workspace = true }
-# for server
-zip-extract = { workspace = true, optional = true }
 sqlparser = { workspace = true, optional = true }
 chrono = { workspace = true }
 

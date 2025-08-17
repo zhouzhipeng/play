@@ -6,7 +6,6 @@ edition = "2021"
 [dependencies]
 redis = { workspace = true }
 tokio = { workspace = true }
-async-trait = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 serde = { workspace = true }

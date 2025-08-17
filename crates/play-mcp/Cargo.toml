@@ -15,18 +15,9 @@ async-trait = { workspace = true }
 tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-sysinfo = { workspace = true }
-futures = { workspace = true }
-tracing = { workspace = true }
-tokio-tungstenite = { workspace = true, features = ["native-tls"] }
 anyhow = { workspace = true }
-chrono = { workspace = true }
 once_cell = { workspace = true }
 linkme = { workspace = true }
-uuid = { workspace = true }
-
-# Optional dependencies for CLI
-clap = { workspace = true, optional = true }
 config = { workspace = true, optional = true }
 tracing-subscriber = { workspace = true, optional = true }
 

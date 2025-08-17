@@ -54,7 +54,7 @@ impl Default for RetryConfig {
         Self {
             enabled: true,
             interval_seconds: 5,
-            max_attempts: 0,  // 0 means unlimited retries
+            max_attempts: 10,  // 0 means unlimited retries
         }
     }
 }
