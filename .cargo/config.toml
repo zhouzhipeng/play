@@ -9,7 +9,4 @@ frequency = "never"
 
 
 [alias]
-dev_server = "build --locked --package play-server --release --features=play-dylib-loader,play-lua,play-redis,play-integration-xiaozhi"
-dev = "build --package play-server --release"
-debug = "run --package play-server --bin play-server --features=debug"
-linux = "build --package play-server  --target=x86_64-unknown-linux-musl --release"
+dev_server = "build --locked --package play-server --release --features=server"

@@ -146,20 +146,14 @@ async fn async_main(server_url_tx: std::sync::mpsc::Sender<String>) -> Result<()
     
     println!("Starting Play Server on {}", server_url);
     
-    // Initialize app state
-    let app_state = play_server::init_app_state(&config, false).await?;
-    
-    // Get router
-    let router = play_server::routers(app_state.clone()).await?;
-    
+
     // Clone values for the server thread
     let server_url_clone = server_url.clone();
-    let app_state_clone = app_state.clone();
-    
+
     // Start the server in a background thread
     let server_handle = tokio::spawn(async move {
         println!("Server starting at {}", server_url_clone);
-        if let Err(e) = play_server::start_server(router, app_state_clone).await {
+        if let Err(e) = play_server::start_server_with_config(data_dir, &config).await {
             eprintln!("Server error: {}", e);
         }
     });

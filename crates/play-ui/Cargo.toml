@@ -8,7 +8,7 @@ name = "play-ui"
 path = "src/main.rs"
 
 [dependencies]
-play-server = { path = "../play-server" }
+play-server = { path = "../play-server", features = ["ui"] }
 tray-icon = "0.19"
 webbrowser = "1.0"
 image = "0.25"
