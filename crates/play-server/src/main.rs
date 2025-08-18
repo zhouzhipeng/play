@@ -28,9 +28,24 @@ async fn main()->anyhow::Result<()> {
 
     // Set the custom panic hook
     panic::set_hook(Box::new(|panic_info| {
-
-        println!("panic occurred : {:?}", panic_info);
-        error!("panic occurred : {:?}", panic_info);
+        let location = panic_info.location()
+            .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
+            .unwrap_or_else(|| "unknown location".to_string());
+        
+        let message = if let Some(s) = panic_info.payload().downcast_ref::<&str>() {
+            s.to_string()
+        } else if let Some(s) = panic_info.payload().downcast_ref::<String>() {
+            s.clone()
+        } else {
+            "unknown panic payload".to_string()
+        };
+        
+        let backtrace = std::backtrace::Backtrace::capture();
+        
+        println!("PANIC at {}: {}", location, message);
+        println!("Backtrace:\n{}", backtrace);
+        error!("PANIC at {}: {}", location, message);
+        error!("Backtrace:\n{}", backtrace);
     }));
 
     #[cfg(not(feature = "debug"))]

@@ -415,7 +415,8 @@ pub async fn routers(app_state: Arc<AppState>) -> anyhow::Result<Router<Arc<AppS
     let mut router = Router::new()
         .merge(shortlink_controller::init(app_state.clone()))
         .merge(plugin_controller::init(app_state.clone()))
-        .merge(app_routers());
+        .merge(app_routers())
+        .merge(play_web_terminal::create_router::<Arc<AppState>>());
 
     // Add Redis routes if feature is enabled and client was initialized successfully
     #[cfg(feature = "play-redis")]
