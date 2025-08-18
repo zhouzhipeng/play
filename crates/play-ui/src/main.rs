@@ -83,33 +83,95 @@ url = "{}"
     Ok(())
 }
 
+fn kill_existing_play_ui() {
+    let current_pid = std::process::id();
+    
+    #[cfg(unix)]
+    {
+        // Try to find and kill existing play-ui processes
+        if let Ok(output) = std::process::Command::new("pgrep")
+            .arg("-f")
+            .arg("play-ui")
+            .output()
+        {
+            let pids = String::from_utf8_lossy(&output.stdout);
+            for pid_str in pids.lines() {
+                if let Ok(pid) = pid_str.trim().parse::<u32>() {
+                    if pid != current_pid {
+                        println!("Killing existing play-ui process: {}", pid);
+                        let _ = std::process::Command::new("kill")
+                            .arg("-9")
+                            .arg(pid.to_string())
+                            .output();
+                    }
+                }
+            }
+        }
+    }
+    
+    #[cfg(windows)]
+    {
+        // On Windows, use taskkill
+        let _ = std::process::Command::new("taskkill")
+            .args(&["/F", "/IM", "play-ui.exe"])
+            .output();
+    }
+    
+    // Also try to kill any orphaned play-server processes
+    #[cfg(unix)]
+    {
+        if let Ok(output) = std::process::Command::new("pgrep")
+            .arg("-f")
+            .arg("play-server")
+            .output()
+        {
+            let pids = String::from_utf8_lossy(&output.stdout);
+            for pid_str in pids.lines() {
+                if let Ok(pid) = pid_str.trim().parse::<u32>() {
+                    println!("Killing orphaned play-server process: {}", pid);
+                    let _ = std::process::Command::new("kill")
+                        .arg("-9")
+                        .arg(pid.to_string())
+                        .output();
+                }
+            }
+        }
+    }
+    
+    // Give a moment for processes to terminate
+    thread::sleep(Duration::from_millis(500));
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Kill any existing play-ui processes first
+    kill_existing_play_ui();
+    
     // Initialize platform-specific settings first, before any async runtime
     #[cfg(target_os = "macos")]
     setup_macos_app();
     
     // Set up everything in a separate thread with tokio runtime
-    let (server_url_tx, server_url_rx) = std::sync::mpsc::channel();
+    let (config_tx, config_rx) = std::sync::mpsc::channel::<(String, String)>();
     
     thread::spawn(move || {
         let runtime = tokio::runtime::Runtime::new().unwrap();
         runtime.block_on(async {
-            if let Err(e) = async_main(server_url_tx).await {
+            if let Err(e) = async_main(config_tx).await {
                 eprintln!("Error in async main: {}", e);
             }
         });
     });
     
-    // Wait for server URL
-    let server_url = server_url_rx.recv()?;
+    // Wait for server URL and data dir
+    let (server_url, data_dir) = config_rx.recv()?;
     
     // Run tray on the main thread (required for macOS)
-    run_tray(server_url);
+    run_tray(server_url, data_dir);
     
     Ok(())
 }
 
-async fn async_main(server_url_tx: std::sync::mpsc::Sender<String>) -> Result<(), Box<dyn std::error::Error>> {
+async fn async_main(config_tx: std::sync::mpsc::Sender<(String, String)>) -> Result<(), Box<dyn std::error::Error>> {
     
     // Set up data directory
     #[cfg(not(feature = "debug"))]
@@ -149,11 +211,12 @@ async fn async_main(server_url_tx: std::sync::mpsc::Sender<String>) -> Result<()
 
     // Clone values for the server thread
     let server_url_clone = server_url.clone();
+    let data_dir_clone = data_dir.clone();
 
     // Start the server in a background thread
     let server_handle = tokio::spawn(async move {
         println!("Server starting at {}", server_url_clone);
-        if let Err(e) = play_server::start_server_with_config(data_dir, &config).await {
+        if let Err(e) = play_server::start_server_with_config(data_dir_clone, &config).await {
             eprintln!("Server error: {}", e);
         }
     });
@@ -165,8 +228,8 @@ async fn async_main(server_url_tx: std::sync::mpsc::Sender<String>) -> Result<()
     println!("Opening homepage: {}", server_url);
     let _ = webbrowser::open(&server_url);
     
-    // Send server URL to main thread
-    server_url_tx.send(server_url)?;
+    // Send server URL and data_dir to main thread
+    config_tx.send((server_url, data_dir))?;
     
     // Keep the server running
     tokio::select! {
@@ -183,7 +246,7 @@ async fn async_main(server_url_tx: std::sync::mpsc::Sender<String>) -> Result<()
     Ok(())
 }
 
-fn run_tray(server_url: String) {
+fn run_tray(server_url: String, data_dir: String) {
     // Create tray app - IMPORTANT: must keep a reference to prevent it from being dropped
     let _tray_icon = match setup_tray(&server_url) {
         Ok(app) => app,
@@ -195,6 +258,7 @@ fn run_tray(server_url: String) {
     
     println!("System tray created successfully");
     println!("Server URL: {}", server_url);
+    println!("Data DIR: {}", data_dir);
     
     // Handle menu events
     let menu_channel = MenuEvent::receiver();
@@ -208,6 +272,7 @@ fn run_tray(server_url: String) {
         use objc::*;
         
         // Set up a timer to check for menu events
+        let data_dir_clone = data_dir.clone();
         thread::spawn(move || {
             while RUNNING.load(Ordering::Relaxed) {
                 if let Ok(event) = menu_channel.recv_timeout(Duration::from_millis(100)) {
@@ -217,26 +282,24 @@ fn run_tray(server_url: String) {
                             let _ = webbrowser::open(&server_url);
                         }
                         "open_data_dir" => {
-                            if let Ok(data_dir) = env::var("DATA_DIR") {
-                                println!("Opening data directory: {}", data_dir);
+                            println!("Opening data directory: {}", &data_dir_clone);
                                 #[cfg(target_os = "macos")]
                                 {
-                                    let _ = std::process::Command::new("open")
-                                        .arg(&data_dir)
-                                        .spawn();
-                                }
-                                #[cfg(target_os = "windows")]
-                                {
-                                    let _ = std::process::Command::new("explorer")
-                                        .arg(&data_dir)
-                                        .spawn();
-                                }
-                                #[cfg(target_os = "linux")]
-                                {
-                                    let _ = std::process::Command::new("xdg-open")
-                                        .arg(&data_dir)
-                                        .spawn();
-                                }
+                                let _ = std::process::Command::new("open")
+                                    .arg(&data_dir_clone)
+                                    .spawn();
+                            }
+                            #[cfg(target_os = "windows")]
+                            {
+                                let _ = std::process::Command::new("explorer")
+                                    .arg(&data_dir_clone)
+                                    .spawn();
+                            }
+                            #[cfg(target_os = "linux")]
+                            {
+                                let _ = std::process::Command::new("xdg-open")
+                                    .arg(&data_dir_clone)
+                                    .spawn();
                             }
                         }
                         "exit" => {
@@ -271,20 +334,18 @@ fn run_tray(server_url: String) {
                         let _ = webbrowser::open(&server_url);
                     }
                     "open_data_dir" => {
-                        if let Ok(data_dir) = env::var("DATA_DIR") {
-                            println!("Opening data directory: {}", data_dir);
-                            #[cfg(target_os = "windows")]
-                            {
-                                let _ = std::process::Command::new("explorer")
-                                    .arg(&data_dir)
-                                    .spawn();
-                            }
-                            #[cfg(target_os = "linux")]
-                            {
-                                let _ = std::process::Command::new("xdg-open")
-                                    .arg(&data_dir)
-                                    .spawn();
-                            }
+                        println!("Opening data directory: {}", &data_dir);
+                        #[cfg(target_os = "windows")]
+                        {
+                            let _ = std::process::Command::new("explorer")
+                                .arg(&data_dir)
+                                .spawn();
+                        }
+                        #[cfg(target_os = "linux")]
+                        {
+                            let _ = std::process::Command::new("xdg-open")
+                                .arg(&data_dir)
+                                .spawn();
                         }
                     }
                     "exit" => {
