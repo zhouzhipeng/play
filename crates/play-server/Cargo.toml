@@ -13,7 +13,7 @@ default = []
 debug = ["play-dylib-loader","play-lua"]
 use_mysql = ["sqlx/mysql", "play-shared/sqlparser"]
 server = ["play-dylib-loader","play-lua","play-redis","play-integration-xiaozhi"]
-ui = ["play-dylib-loader","play-lua","play-integration-xiaozhi"]
+ui = ["play-dylib-loader","play-lua"]
 
 
 [build-dependencies]
