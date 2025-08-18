@@ -10,6 +10,7 @@ members = [
     "crates/play-server",
     "crates/play-shared",
     "crates/play-ui",
+    "crates/play-web-terminal",
     "crates/play-dylib/play-dylib-abi",
     "crates/play-dylib/play-dylib-example",
     "crates/play-dylib/play-dylib-loader",
@@ -51,6 +52,7 @@ play-utils-blockchain = { path = "crates/play-utils/play-utils-blockchain"}
 play-utils-data-api = { path = "crates/play-utils/play-utils-data-api"}
 play-utils-strings = { path = "crates/play-utils/play-utils-strings"}
 play-integration-xiaozhi = { path = "crates/play-integration/play-integration-xiaozhi"}
+play-web-terminal = { path = "crates/play-web-terminal"}
 
 # Additional common dependencies
 async-trait = "0.1"

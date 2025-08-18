@@ -10,7 +10,7 @@ before-packaging-command = "cargo dev_ui"
 
 [features]
 default = []
-debug = ["play-dylib-loader","play-lua", "play-integration-xiaozhi"]
+debug = ["play-dylib-loader","play-lua"]
 use_mysql = ["sqlx/mysql", "play-shared/sqlparser"]
 server = ["play-dylib-loader","play-lua","play-redis","play-integration-xiaozhi"]
 ui = ["play-dylib-loader","play-lua","play-integration-xiaozhi"]
@@ -36,6 +36,7 @@ play-lua = { workspace = true , optional = true}
 play-redis = { workspace = true, optional = true }
 play-mcp = { workspace = true }
 play-integration-xiaozhi = { workspace = true, optional = true }
+play-web-terminal = { workspace = true }
 
 
 # utils
