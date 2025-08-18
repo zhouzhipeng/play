@@ -85,6 +85,7 @@ url = "{}"
 
 fn kill_existing_play_ui() {
     let current_pid = std::process::id();
+    let mut killed_any = false;
     
     #[cfg(unix)]
     {
@@ -98,11 +99,33 @@ fn kill_existing_play_ui() {
             for pid_str in pids.lines() {
                 if let Ok(pid) = pid_str.trim().parse::<u32>() {
                     if pid != current_pid {
-                        println!("Killing existing play-ui process: {}", pid);
+                        println!("Terminating existing play-ui process: {}", pid);
+                        killed_any = true;
+                        
+                        // First try SIGTERM (15) to allow graceful shutdown
                         let _ = std::process::Command::new("kill")
-                            .arg("-9")
+                            .arg("-15")
                             .arg(pid.to_string())
                             .output();
+                        
+                        // Wait a moment for graceful shutdown
+                        thread::sleep(Duration::from_millis(1000));
+                        
+                        // Check if process still exists
+                        if let Ok(check_output) = std::process::Command::new("kill")
+                            .arg("-0")  // Signal 0 just checks if process exists
+                            .arg(pid.to_string())
+                            .output()
+                        {
+                            if check_output.status.success() {
+                                // Process still exists, force kill it
+                                println!("Force killing stubborn play-ui process: {}", pid);
+                                let _ = std::process::Command::new("kill")
+                                    .arg("-9")
+                                    .arg(pid.to_string())
+                                    .output();
+                            }
+                        }
                     }
                 }
             }
@@ -112,9 +135,14 @@ fn kill_existing_play_ui() {
     #[cfg(windows)]
     {
         // On Windows, use taskkill
-        let _ = std::process::Command::new("taskkill")
+        if let Ok(output) = std::process::Command::new("taskkill")
             .args(&["/F", "/IM", "play-ui.exe"])
-            .output();
+            .output()
+        {
+            if output.status.success() {
+                killed_any = true;
+            }
+        }
     }
     
     // Also try to kill any orphaned play-server processes
@@ -129,6 +157,7 @@ fn kill_existing_play_ui() {
             for pid_str in pids.lines() {
                 if let Ok(pid) = pid_str.trim().parse::<u32>() {
                     println!("Killing orphaned play-server process: {}", pid);
+                    killed_any = true;
                     let _ = std::process::Command::new("kill")
                         .arg("-9")
                         .arg(pid.to_string())
@@ -138,13 +167,17 @@ fn kill_existing_play_ui() {
         }
     }
     
-    // Give a moment for processes to terminate
-    thread::sleep(Duration::from_millis(500));
+    // Only wait if we actually killed any processes
+    if killed_any {
+        println!("Waiting for processes and system resources to be cleaned up...");
+        thread::sleep(Duration::from_millis(2000));
+    }
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Kill any existing play-ui processes first
     kill_existing_play_ui();
+
     
     // Initialize platform-specific settings first, before any async runtime
     #[cfg(target_os = "macos")]
