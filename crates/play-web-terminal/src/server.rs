@@ -15,6 +15,7 @@ const INDEX_HTML: &str = include_str!("../static/index.html");
 const TERMINAL_JS: &str = include_str!("../static/terminal.js");
 const XTERM_JS: &str = include_str!("../static/xterm.js");
 const XTERM_CSS: &str = include_str!("../static/xterm.min.css");
+const ADDON_FIT_JS: &str = include_str!("../static/addon-fit.js");
 
 pub fn create_router<S>() -> Router<S> 
 where
@@ -47,6 +48,7 @@ async fn serve_asset(axum::extract::Path(path): axum::extract::Path<String>) -> 
         "terminal.js" => (TERMINAL_JS, "application/javascript"),
         "xterm.js" => (XTERM_JS, "application/javascript"),
         "xterm.min.css" => (XTERM_CSS, "text/css"),
+        "addon-fit.js" => (ADDON_FIT_JS, "application/javascript"),
         _ => {
             return Response::builder()
                 .status(StatusCode::NOT_FOUND)

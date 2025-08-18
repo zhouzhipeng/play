@@ -56,10 +56,24 @@
             flex: 1;
             padding: 10px;
             overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 0; /* Important for Firefox */
         }
         
         #terminal {
+            flex: 1;
             height: 100%;
+            overflow: hidden;
+        }
+        
+        /* Ensure xterm canvas fills the container */
+        .xterm {
+            height: 100%;
+        }
+        
+        .xterm-viewport {
+            overflow-y: auto !important;
         }
     </style>
 </head>
@@ -74,6 +88,7 @@
     </div>
     
     <script src="/web-terminal/assets/xterm.js"></script>
+    <script src="/web-terminal/assets/addon-fit.js"></script>
     <script src="/web-terminal/assets/terminal.js"></script>
 </body>
 </html>

@@ -45,28 +45,38 @@ class WebTerminal {
             }
         });
         
-        // For xterm 5.5.0 - addons might not be available
+        // Load FitAddon for automatic sizing
         if (typeof FitAddon !== 'undefined') {
-            this.fitAddon = new FitAddon();
+            this.fitAddon = new FitAddon.FitAddon();
             this.terminal.loadAddon(this.fitAddon);
         }
         
         this.terminal.open(document.getElementById('terminal'));
         
-        // Only call fit if fitAddon is available
+        // Fit terminal to container
         if (this.fitAddon) {
+            // Initial fit
             this.fitAddon.fit();
+            // Fit after a short delay to ensure proper sizing
+            setTimeout(() => {
+                this.fitAddon.fit();
+            }, 100);
         }
     }
     
     setupEventListeners() {
+        // Debounce resize events for better performance
+        let resizeTimeout;
         window.addEventListener('resize', () => {
-            if (this.fitAddon && this.fitAddon.fit) {
-                this.fitAddon.fit();
-                if (this.isConnected && this.ws) {
-                    this.sendResize();
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                if (this.fitAddon && this.fitAddon.fit) {
+                    this.fitAddon.fit();
+                    if (this.isConnected && this.ws) {
+                        this.sendResize();
+                    }
                 }
-            }
+            }, 100);
         });
         
         this.terminal.onData(data => {
@@ -116,8 +126,14 @@ class WebTerminal {
                     this.isConnected = true;
                     this.updateStatus('connected');
                     this.terminal.focus();
-                    // Initial resize
-                    this.sendResize();
+                    // Ensure proper sizing after connection
+                    if (this.fitAddon) {
+                        this.fitAddon.fit();
+                    }
+                    // Send resize after fitting
+                    setTimeout(() => {
+                        this.sendResize();
+                    }, 50);
                     break;
                     
                 case 'Output':
