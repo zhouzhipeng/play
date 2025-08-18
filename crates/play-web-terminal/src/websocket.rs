@@ -57,6 +57,7 @@ async fn handle_socket(socket: WebSocket) {
             if let Message::Text(text) = msg {
                 match serde_json::from_str::<TerminalMessage>(&text) {
                     Ok(terminal_msg) => {
+                        debug!("Received message: {:?}", terminal_msg);
                         match terminal_msg {
                             TerminalMessage::Connect => {
                                 info!("Creating local terminal");
@@ -66,6 +67,7 @@ async fn handle_socket(socket: WebSocket) {
                                         let output_tx = tx_clone.clone();
                                         local_term.start(output_tx).await;
                                         terminal = Some(local_term);
+                                        info!("Local terminal created and started");
                                     }
                                     Err(e) => {
                                         error!("Failed to create terminal: {}", e);
@@ -76,13 +78,18 @@ async fn handle_socket(socket: WebSocket) {
                                 }
                             }
                             TerminalMessage::Input { data } => {
+                                debug!("Sending input to terminal: {:?}", data);
                                 if let Some(ref mut term) = terminal {
                                     if let Err(e) = term.send_input(&data).await {
                                         error!("Failed to send input: {}", e);
                                         let _ = tx_clone.send(TerminalResponse::Error {
                                             message: e.to_string(),
                                         }).await;
+                                    } else {
+                                        debug!("Input sent successfully");
                                     }
+                                } else {
+                                    error!("No terminal available to send input");
                                 }
                             }
                             TerminalMessage::Resize { cols, rows } => {
