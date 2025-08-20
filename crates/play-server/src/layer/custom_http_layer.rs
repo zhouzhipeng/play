@@ -21,7 +21,7 @@ use std::task::{Context, Poll};
 use tower::{Layer, Service};
 use axum::ServiceExt;
 
-use crate::config::{AuthConfig, ProxyTarget};
+use crate::config::{AuthConfig, ProxyTarget, WebSocketConfig, DomainProxy};
 use crate::controller::cache_controller::get_cache_content;
 
 use crate::controller::static_controller::STATIC_DIR;
@@ -33,6 +33,7 @@ use tower_http::services::{ServeDir, ServeFile};
 use tower_http::set_status::SetStatus;
 use tracing::{info, warn};
 use crate::controller::files_controller;
+
 
 pub async fn http_middleware(
     state: State<Arc<AppState>>,
@@ -66,6 +67,7 @@ pub async fn http_middleware(
             if let Ok(host) = header.to_str() {
                 let host = host.to_string();
                 if let Some(domain) = domain_proxy.iter().find(|p|p.proxy_domain.eq(&host)){
+                    info!("Domain proxy matched for host: {} -> {:?}", host, domain.proxy_target);
                     return match &domain.proxy_target {
                         ProxyTarget::Folder { folder_path } => {
                             serve_domain_folder(state.clone(), host, request, folder_path).await.unwrap_or_else(|e| 
@@ -76,7 +78,7 @@ pub async fn http_middleware(
                             )
                         }
                         ProxyTarget::Upstream { ip, port } => {
-                            serve_upstream_proxy(state.clone(), host, request, ip, *port).await.unwrap_or_else(|e| 
+                            serve_upstream_proxy_with_config(state.clone(), host, request, ip, *port, domain).await.unwrap_or_else(|e| 
                                 axum::response::Response::builder()
                                     .status(axum::http::StatusCode::INTERNAL_SERVER_ERROR)
                                     .body(format!("Proxy error: {}", e).into())
@@ -198,7 +200,7 @@ impl<B: Send + 'static> Service<Request<B>> for NotFoundService {
 }
 
 
-async fn serve_domain_folder(state: S, host: String, request: Request<axum::body::Body>, folder_path: &str) -> anyhow::Result<Response> {
+pub async fn serve_domain_folder(state: S, host: String, request: Request<axum::body::Body>, folder_path: &str) -> anyhow::Result<Response> {
     //check if has plugin can handle this.
     #[cfg(feature = "play-dylib-loader")]
     {
@@ -273,43 +275,205 @@ fn extract_prefix(url: &str) -> String {
     }
 }
 
-async fn serve_upstream_proxy(
+// 带配置的代理函数
+pub async fn serve_upstream_proxy_with_config(
+    state: S, 
+    host: String, 
+    mut request: Request<axum::body::Body>, 
+    ip: &str, 
+    port: u16,
+    domain_config: &DomainProxy
+) -> anyhow::Result<Response> {
+    use axum_reverse_proxy::ReverseProxy;
+    use tower::Service;
+    
+    // 获取原始路径和查询参数
+    let original_uri = request.uri().clone();
+    let path_and_query = original_uri.path_and_query()
+        .map(|pq| pq.as_str())
+        .unwrap_or("/");
+    
+    // 根据DomainProxy配置确定schema
+    let scheme = match domain_config.use_https {
+        Some(true) => "https",
+        Some(false) => "http", 
+        None => if port == 443 { "https" } else { "http" } // 默认逻辑
+    };
+    let target_base = format!("{}://{}:{}", scheme, ip, port);
+
+    
+    // 检查是否是WebSocket升级请求
+    let is_websocket = request.headers().get(axum::http::header::UPGRADE)
+        .and_then(|v| v.to_str().ok())
+        .map(|v| v.to_lowercase() == "websocket")
+        .unwrap_or(false);
+    
+    if is_websocket {
+        info!("WebSocket upgrade request: {} {} -> {}", request.method(), path_and_query, target_base);
+    } else {
+        info!("HTTP request: {} {} -> {}", request.method(), path_and_query, target_base);
+    }
+    
+    // 重要：设置正确的Host头部
+    // 某些服务器（如Cloudflare CDN后的服务器）需要原始的Host头部
+    request.headers_mut().insert(
+        axum::http::header::HOST,
+        axum::http::HeaderValue::from_str(&host)
+            .unwrap_or_else(|_| axum::http::HeaderValue::from_static("localhost"))
+    );
+    
+    // 对于WebSocket请求，根据配置处理Origin头部
+    if is_websocket {
+        handle_websocket_origin(&mut request, &host, &scheme, ip, port, &domain_config.websocket_config)?;
+    }
+    
+    // 构建完整的目标URI（包含scheme、host和path）
+    let full_target_uri = format!("{}{}", target_base, path_and_query);
+    match full_target_uri.parse::<hyper::Uri>() {
+        Ok(new_uri) => {
+            info!("Setting request URI to: {}", new_uri);
+            *request.uri_mut() = new_uri;
+        }
+        Err(e) => {
+            warn!("Failed to parse target URI: {}, error: {}", full_target_uri, e);
+        }
+    }
+    
+    // 创建反向代理 - 使用空字符串作为前缀，因为我们已经设置了完整的URI
+    let mut proxy = ReverseProxy::new("", &target_base);
+    
+    // 使用Tower Service trait调用代理
+    match proxy.call(request).await {
+        Ok(response) => {
+            let status = response.status();
+            
+            if is_websocket {
+                if status == StatusCode::SWITCHING_PROTOCOLS {
+                    info!("WebSocket upgrade successful: {} -> {}", status, target_base);
+                } else {
+                    warn!("WebSocket upgrade failed: {} -> {}", status, target_base);
+                }
+            } else {
+                if status == StatusCode::NOT_FOUND {
+                    warn!("404 response for path: {} (target: {}{})", path_and_query, target_base, path_and_query);
+                } else if status.is_success() {
+                    info!("Success: {} for path: {}", status, path_and_query);
+                } else {
+                    warn!("Non-success status: {} for path: {}", status, path_and_query);
+                }
+            }
+            
+            Ok(response)
+        }
+        Err(e) => {
+            if is_websocket {
+                warn!("WebSocket proxy error to {}: {:?}", target_base, e);
+            } else {
+                warn!("HTTP proxy error to {}: {:?}", target_base, e);
+            }
+            
+            // 返回502 Bad Gateway错误
+            Ok(axum::response::Response::builder()
+                .status(StatusCode::BAD_GATEWAY)
+                .body(format!("Proxy error: {:?}", e).into())?)
+        }
+    }
+}
+
+// 根据配置处理WebSocket Origin头部
+fn handle_websocket_origin(
+    request: &mut Request<axum::body::Body>,
+    host: &str,
+    scheme: &str,
+    ip: &str,
+    port: u16,
+    websocket_config: &WebSocketConfig
+) -> anyhow::Result<()> {
+    info!("Handling WebSocket Origin with strategy: {}", websocket_config.origin_strategy);
+    
+    match websocket_config.origin_strategy.as_str() {
+        "keep" => {
+            // 保持原始Origin不变
+            if let Some(origin) = request.headers().get(axum::http::header::ORIGIN) {
+                info!("Keeping original Origin: {:?}", origin);
+            } else {
+                info!("No original Origin header to keep");
+            }
+        }
+        "remove" => {
+            // 移除Origin头部
+            request.headers_mut().remove(axum::http::header::ORIGIN);
+            info!("Removed Origin header for WebSocket request");
+        }
+        "host" => {
+            // 设置为代理域名
+            let host_origin = format!("{}://{}", scheme, host);
+            request.headers_mut().insert(
+                axum::http::header::ORIGIN,
+                axum::http::HeaderValue::from_str(&host_origin)?
+            );
+            info!("Set WebSocket Origin to host: {}", host_origin);
+        }
+        "backend" => {
+            // 设置为后端服务器地址
+            let backend_origin = format!("{}://{}:{}", scheme, ip, port);
+            request.headers_mut().insert(
+                axum::http::header::ORIGIN,
+                axum::http::HeaderValue::from_str(&backend_origin)?
+            );
+            info!("Set WebSocket Origin to backend: {}", backend_origin);
+        }
+        "custom" => {
+            // 使用自定义Origin
+            if let Some(custom_origin) = &websocket_config.custom_origin {
+                request.headers_mut().insert(
+                    axum::http::header::ORIGIN,
+                    axum::http::HeaderValue::from_str(custom_origin)?
+                );
+                info!("Set WebSocket Origin to custom: {}", custom_origin);
+            } else {
+                warn!("Custom origin strategy selected but no custom_origin provided, falling back to backend");
+                let backend_origin = format!("{}://{}:{}", scheme, ip, port);
+                request.headers_mut().insert(
+                    axum::http::header::ORIGIN,
+                    axum::http::HeaderValue::from_str(&backend_origin)?
+                );
+                info!("Set WebSocket Origin to backend (fallback): {}", backend_origin);
+            }
+        }
+        _ => {
+            warn!("Unknown WebSocket origin strategy: {}, falling back to backend", websocket_config.origin_strategy);
+            let backend_origin = format!("{}://{}:{}", scheme, ip, port);
+            request.headers_mut().insert(
+                axum::http::header::ORIGIN,
+                axum::http::HeaderValue::from_str(&backend_origin)?
+            );
+            info!("Set WebSocket Origin to backend (fallback): {}", backend_origin);
+        }
+    }
+    
+    Ok(())
+}
+
+// 兼容性函数：不带配置的代理函数（向后兼容）
+pub async fn serve_upstream_proxy(
     state: S, 
     host: String, 
     request: Request<axum::body::Body>, 
     ip: &str, 
     port: u16
 ) -> anyhow::Result<Response> {
-    use axum_reverse_proxy::ReverseProxy;
-    use tower::Service;
-    
-    // 构建目标URL
-    let scheme = if port == 443 { "https" } else { "http" };
-    let path_and_query = request.uri().path_and_query()
-        .map(|pq| pq.as_str())
-        .unwrap_or("/");
-    
-    // 构建上游服务器的完整URL
-    let target_url = format!("{}://{}:{}", scheme, ip, port);
-    
-    info!("Proxying request: {} {} -> {}{}", request.method(), path_and_query, target_url, path_and_query);
-    
-    // 创建反向代理实例 (axum-reverse-proxy 需要路径和目标URL)
-    let mut proxy = ReverseProxy::new("/", &target_url);
-    
-    // 使用 tower Service trait 调用代理
-    match proxy.call(request).await {
-        Ok(response) => {
-            info!("Successfully proxied request to {}", target_url);
-            Ok(response)
-        }
-        Err(e) => {
-            warn!("Proxy error to {}: {:?}", target_url, e);
-            Ok(axum::response::Response::builder()
-                .status(axum::http::StatusCode::BAD_GATEWAY)
-                .body(format!("Proxy error: {:?}", e).into())?)
-        }
-    }
+    // 使用默认配置
+    let default_domain_config = DomainProxy {
+        proxy_domain: host.clone(),
+        proxy_target: ProxyTarget::Upstream { 
+            ip: ip.to_string(), 
+            port 
+        },
+        use_https: None,
+        websocket_config: WebSocketConfig::default(),
+    };
+    serve_upstream_proxy_with_config(state, host, request, ip, port, &default_domain_config).await
 }
 
 

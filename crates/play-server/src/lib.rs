@@ -12,8 +12,8 @@ use anyhow::{anyhow, bail};
 use anyhow::__private::kind::TraitKind;
 use async_channel::Receiver;
 
-use axum::extract::{DefaultBodyLimit, State};
-use axum::http::{Method, StatusCode};
+use axum::extract::{DefaultBodyLimit, State, ConnectInfo};
+use axum::http::{Method, StatusCode, Request};
 use axum::{middleware, Json};
 use axum::response::{Html, IntoResponse, Response};
 use tower::Service;
@@ -265,6 +265,11 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> anyhow::Res
 }
 
 pub async fn start_server(router: Router<Arc<AppState>>, app_state: Arc<AppState>) -> anyhow::Result<()> {
+    // 初始化 rustls 加密提供者
+    let _ = rustls::crypto::ring::default_provider()
+        .install_default()
+        .map_err(|_| info!("rustls crypto provider already installed"));
+    
     #[cfg(feature = "play-integration-xiaozhi")]
     {
         let cfg = app_state.config.mcp_config.clone();
@@ -424,6 +429,7 @@ pub async fn routers(app_state: Arc<AppState>) -> anyhow::Result<Router<Arc<AppS
         router = router.merge(controller::redis_controller::routes().with_state(redis_state.clone()));
     }
 
+
     router = router.with_state(app_state.clone())
         // logging so we can see whats going on
         .layer(TraceLayer::new_for_http().make_span_with(DefaultMakeSpan::default().include_headers(true)))
@@ -433,7 +439,8 @@ pub async fn routers(app_state: Arc<AppState>) -> anyhow::Result<Router<Arc<AppS
         .layer(middleware::from_fn_with_state(app_state.clone(), http_middleware))
         .layer(cors)
         .layer(CompressionLayer::new().compress_when(CustomCompressPredict{}))
-        .fallback(handle_404)
+        // 临时移除fallback来测试中间件是否正常工作
+        // .fallback(handle_404)
         ;
 
     //
@@ -446,12 +453,49 @@ pub async fn routers(app_state: Arc<AppState>) -> anyhow::Result<Router<Arc<AppS
     Ok(router)
 }
 
-// 创建自定义404处理函数
-async fn handle_404(uri: axum::http::Uri) -> impl IntoResponse {
+// 404处理函数，包含域名代理作为后备保障
+async fn handle_404(
+    State(state): State<Arc<AppState>>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    request: Request<axum::body::Body>
+) -> impl IntoResponse {
+    let uri = request.uri().clone();
+    
+    // 检查是否需要域名代理（后备保障）
+    if let Some(header) = request.headers().get(axum::http::header::HOST) {
+        if let Ok(host) = header.to_str() {
+            if let Some(domain) = state.config.domain_proxy.iter().find(|p| p.proxy_domain == host) {
+                info!("Fallback handling domain proxy for host: {} -> {:?}", host, domain.proxy_target);
+                
+                return match &domain.proxy_target {
+                    crate::config::ProxyTarget::Folder { folder_path } => {
+                        use crate::layer::custom_http_layer::serve_domain_folder;
+                        match serve_domain_folder(State(state.clone()), host.to_string(), request, folder_path).await {
+                            Ok(response) => response,
+                            Err(e) => {
+                                (StatusCode::INTERNAL_SERVER_ERROR, format!("Proxy error: {}", e)).into_response()
+                            }
+                        }
+                    }
+                    crate::config::ProxyTarget::Upstream { ip, port } => {
+                        use crate::layer::custom_http_layer::serve_upstream_proxy_with_config;
+                        match serve_upstream_proxy_with_config(State(state.clone()), host.to_string(), request, ip, *port, domain).await {
+                            Ok(response) => response,
+                            Err(e) => {
+                                (StatusCode::BAD_GATEWAY, format!("Proxy error: {}", e)).into_response()
+                            }
+                        }
+                    }
+                };
+            }
+        }
+    }
+    
+    // 如果不是域名代理，返回标准404
     (
         StatusCode::NOT_FOUND,
         format!("Server Error: url not found: {}", uri)
-    )
+    ).into_response()
 }
 
 
