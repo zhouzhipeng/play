@@ -76,6 +76,7 @@ http = "1.0.0"
 http-body = "1.0.0"
 http-body-util = "0.1.0"
 hyper = { version = "1.0", features = ["server"] }
+axum-reverse-proxy = "1.0.3"
 cookie = { version = "0.18.1", features = ["percent-encode"] }
 tokio-util = { version = "0.7", features = ["codec"] }
 tokio-stream = "0.1.15"

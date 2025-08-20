@@ -60,6 +60,7 @@ urlencoding = { workspace = true }
 anyhow = { workspace = true }
 toml = { workspace = true }
 hyper = { workspace = true }
+axum-reverse-proxy = { workspace = true }
 tower-http = { workspace = true }
 futures = { workspace = true }
 futures-util = { workspace = true }
