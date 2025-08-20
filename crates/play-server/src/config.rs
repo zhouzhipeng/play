@@ -105,7 +105,7 @@ impl Default for WebSocketConfig {
 }
 
 fn default_websocket_origin_strategy() -> String {
-    "backend".to_string()
+    "keep".to_string()
 }
 
 #[derive(Deserialize,Serialize, Debug, Clone)]
