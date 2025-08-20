@@ -8,12 +8,7 @@ use axum::{
     http::Request,
     response::Response,
 };
-use tokio::net::TcpStream;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::{Mutex, RwLock};
-use tokio::time::{Duration, timeout};
 use cookie::Cookie;
 use futures_util::future::BoxFuture;
 use std::convert::Infallible;
@@ -38,79 +33,6 @@ use tower_http::services::{ServeDir, ServeFile};
 use tower_http::set_status::SetStatus;
 use tracing::{info, warn};
 use crate::controller::files_controller;
-
-// TCP连接池用于复用连接
-#[derive(Clone)]
-pub struct TcpConnectionPool {
-    connections: Arc<RwLock<HashMap<String, Arc<Mutex<TcpStream>>>>>,
-}
-
-impl TcpConnectionPool {
-    pub fn new() -> Self {
-        Self {
-            connections: Arc::new(RwLock::new(HashMap::new())),
-        }
-    }
-
-    async fn get_or_create_connection(&self, target: &str) -> anyhow::Result<Arc<Mutex<TcpStream>>> {
-        // 先尝试获取现有连接
-        {
-            let connections = self.connections.read().await;
-            if let Some(conn) = connections.get(target) {
-                // 检查连接是否仍然有效
-                if let Ok(stream) = conn.try_lock() {
-                    // 简单检查连接状态
-                    match stream.peer_addr() {
-                        Ok(addr) => {
-                            info!("Reusing existing connection to {} (peer: {})", target, addr);
-                            return Ok(conn.clone());
-                        },
-                        Err(e) => {
-                            warn!("Existing connection to {} is invalid: {}", target, e);
-                        }
-                    }
-                } else {
-                    warn!("Existing connection to {} is locked, creating new connection", target);
-                }
-            }
-        }
-
-        // 创建新连接
-        info!("Creating new TCP connection to {}", target);
-        let stream = TcpStream::connect(target).await
-            .map_err(|e| anyhow!("Failed to establish TCP connection to {}: {}", target, e))?;
-        
-        let peer_addr = stream.peer_addr()
-            .map_err(|e| anyhow!("Failed to get peer address for {}: {}", target, e))?;
-        
-        info!("Successfully established TCP connection to {} (peer: {})", target, peer_addr);
-        let conn = Arc::new(Mutex::new(stream));
-        
-        // 存储连接
-        {
-            let mut connections = self.connections.write().await;
-            connections.insert(target.to_string(), conn.clone());
-            info!("Stored connection to {} in pool (total connections: {})", target, connections.len());
-        }
-
-        Ok(conn)
-    }
-
-    async fn remove_connection(&self, target: &str) {
-        let mut connections = self.connections.write().await;
-        if connections.remove(target).is_some() {
-            warn!("Removed failed connection to {} from pool (remaining connections: {})", target, connections.len());
-        }
-    }
-}
-
-// 全局连接池
-use std::sync::OnceLock;
-static TCP_POOL: OnceLock<TcpConnectionPool> = OnceLock::new();
-
-fn get_tcp_pool() -> &'static TcpConnectionPool {
-    TCP_POOL.get_or_init(|| TcpConnectionPool::new())
-}
 
 pub async fn http_middleware(
     state: State<Arc<AppState>>,
@@ -358,327 +280,38 @@ async fn serve_upstream_proxy(
     ip: &str, 
     port: u16
 ) -> anyhow::Result<Response> {
-    let target = format!("{}:{}", ip, port);
+    use axum_reverse_proxy::ReverseProxy;
+    use tower::Service;
     
-    // 从连接池获取或创建连接
-    let conn = match get_tcp_pool().get_or_create_connection(&target).await {
-        Ok(conn) => {
-            info!("Successfully connected to upstream {}", target);
-            conn
-        },
-        Err(e) => {
-            warn!("Failed to connect to upstream {} - Error: {:?}", target, e);
-            return Ok(axum::response::Response::builder()
-                .status(axum::http::StatusCode::BAD_GATEWAY)
-                .body(format!("Connection failed to {}: {}", target, e).into())?);
-        }
-    };
-
-    // 构建原始HTTP请求（在消费request之前）
-    let method = request.method().clone();
-    let uri = request.uri().clone();
-    let version = request.version();
-    let headers = request.headers().clone();
-    
-    // 提取请求体
-    let body_bytes = axum::body::to_bytes(request.into_body(), usize::MAX).await?;
-    
-    // 构建原始HTTP请求
-    let raw_request = build_raw_http_request_from_parts(&method, &uri, version, &headers, &host, body_bytes.len())?;
-
-    // 通过TCP隧道发送请求并接收响应
-    let path_and_query = uri.path_and_query()
+    // 构建目标URL
+    let scheme = if port == 443 { "https" } else { "http" };
+    let path_and_query = request.uri().path_and_query()
         .map(|pq| pq.as_str())
         .unwrap_or("/");
-    info!("Sending request to {} via TCP tunnel: {} {} (host: {})", target, method, path_and_query, host);
-    match tcp_tunnel_request(conn.clone(), &raw_request, &body_bytes).await {
-        Ok(response_data) => {
-            info!("Received response from {} ({} bytes)", target, response_data.len());
-            // 解析响应
-            match parse_http_response(&response_data) {
-                Ok(response) => {
-                    info!("Successfully parsed response from {}", target);
-                    Ok(response)
-                },
-                Err(e) => {
-                    warn!("Failed to parse HTTP response from {} - Error: {:?}, Raw data length: {}", target, e, response_data.len());
-                    // 记录响应数据的前100字节用于调试
-                    let debug_data = if response_data.len() > 100 {
-                        &response_data[..100]
-                    } else {
-                        &response_data
-                    };
-                    warn!("Response data preview: {:?}", String::from_utf8_lossy(debug_data));
-                    
-                    // 移除无效连接
-                    get_tcp_pool().remove_connection(&target).await;
-                    Ok(axum::response::Response::builder()
-                        .status(axum::http::StatusCode::BAD_GATEWAY)
-                        .body(format!("Invalid HTTP response from {}: {}", target, e).into())?)
-                }
-            }
+    
+    // 构建上游服务器的完整URL
+    let target_url = format!("{}://{}:{}", scheme, ip, port);
+    
+    info!("Proxying request: {} {} -> {}{}", request.method(), path_and_query, target_url, path_and_query);
+    
+    // 创建反向代理实例 (axum-reverse-proxy 需要路径和目标URL)
+    let mut proxy = ReverseProxy::new("/", &target_url);
+    
+    // 使用 tower Service trait 调用代理
+    match proxy.call(request).await {
+        Ok(response) => {
+            info!("Successfully proxied request to {}", target_url);
+            Ok(response)
         }
         Err(e) => {
-            warn!("TCP tunnel communication error with {} - Error: {:?}", target, e);
-            // 移除失效连接
-            get_tcp_pool().remove_connection(&target).await;
+            warn!("Proxy error to {}: {:?}", target_url, e);
             Ok(axum::response::Response::builder()
                 .status(axum::http::StatusCode::BAD_GATEWAY)
-                .body(format!("TCP tunnel error to {}: {}", target, e).into())?)
+                .body(format!("Proxy error: {:?}", e).into())?)
         }
     }
 }
 
-fn build_raw_http_request_from_parts(
-    method: &http::Method,
-    uri: &http::Uri,
-    version: http::Version,
-    headers: &http::HeaderMap,
-    host: &str,
-    content_length: usize,
-) -> anyhow::Result<String> {
-    // 构建请求行 - 只使用路径和查询字符串，不包含scheme和host
-    let path_and_query = uri.path_and_query()
-        .map(|pq| pq.as_str())
-        .unwrap_or("/");
-    
-    // 格式化HTTP版本
-    let version_str = match version {
-        http::Version::HTTP_09 => "HTTP/0.9",
-        http::Version::HTTP_10 => "HTTP/1.0",
-        http::Version::HTTP_11 => "HTTP/1.1",
-        http::Version::HTTP_2 => "HTTP/2.0",
-        http::Version::HTTP_3 => "HTTP/3.0",
-        _ => "HTTP/1.1",
-    };
-    
-    let mut raw_request = format!("{} {} {}\r\n", method, path_and_query, version_str);
-    
-    // 添加头部（跳过Host头，我们会单独处理）
-    for (name, value) in headers.iter() {
-        // 跳过Host头部，因为我们需要使用代理域名作为Host
-        if name.as_str().to_lowercase() == "host" {
-            continue;
-        }
-        if let Ok(value_str) = value.to_str() {
-            raw_request.push_str(&format!("{}: {}\r\n", name, value_str));
-        }
-    }
-    
-    // 添加正确的Host头部（使用代理域名）
-    raw_request.push_str(&format!("Host: {}\r\n", host));
-    
-    // 添加Connection: keep-alive以支持连接复用
-    if !headers.contains_key("connection") {
-        raw_request.push_str("Connection: keep-alive\r\n");
-    }
-    
-    // 添加Content-Length头部（如果有body且没有Content-Length头）
-    if content_length > 0 && !headers.contains_key("content-length") {
-        raw_request.push_str(&format!("Content-Length: {}\r\n", content_length));
-    }
-    
-    raw_request.push_str("\r\n");
-    Ok(raw_request)
-}
-
-async fn tcp_tunnel_request(
-    conn: Arc<Mutex<TcpStream>>, 
-    raw_request: &str, 
-    body: &[u8]
-) -> anyhow::Result<Vec<u8>> {
-    let mut stream = conn.lock().await;
-    
-    // 发送请求
-    info!("Sending HTTP request headers ({} bytes)", raw_request.len());
-    stream.write_all(raw_request.as_bytes()).await
-        .map_err(|e| anyhow!("Failed to write request headers: {}", e))?;
-    
-    if !body.is_empty() {
-        info!("Sending HTTP request body ({} bytes)", body.len());
-        stream.write_all(body).await
-            .map_err(|e| anyhow!("Failed to write request body: {}", e))?;
-    }
-    
-    stream.flush().await
-        .map_err(|e| anyhow!("Failed to flush request to upstream: {}", e))?;
-    
-    // 读取响应 - 使用超时避免无限等待
-    info!("Reading response from upstream...");
-    let mut response_buffer = Vec::new();
-    let read_result = timeout(Duration::from_secs(30), async {
-        // 先读取响应头
-        let mut header_buffer = Vec::new();
-        let mut temp_buffer = [0; 1];
-        let mut consecutive_crlf = 0;
-        
-        info!("Reading HTTP response headers...");
-        loop {
-            match stream.read_exact(&mut temp_buffer).await {
-                Ok(_) => {
-                    header_buffer.push(temp_buffer[0]);
-                    
-                    // 检查是否到达头部结尾 (\r\n\r\n)
-                    if temp_buffer[0] == b'\r' || temp_buffer[0] == b'\n' {
-                        consecutive_crlf += 1;
-                        if consecutive_crlf >= 4 && header_buffer.ends_with(b"\r\n\r\n") {
-                            break;
-                        }
-                    } else {
-                        consecutive_crlf = 0;
-                    }
-                },
-                Err(e) => {
-                    return Err(anyhow!("Failed to read response headers: {}", e));
-                }
-            }
-        }
-        
-        info!("Read response headers ({} bytes)", header_buffer.len());
-        response_buffer.extend_from_slice(&header_buffer);
-        
-        // 解析Content-Length或使用分块编码
-        let header_str = String::from_utf8_lossy(&header_buffer);
-        if let Some(content_length) = extract_content_length(&header_str) {
-            info!("Reading response body with Content-Length: {}", content_length);
-            // 读取固定长度的body
-            let mut body_buffer = vec![0; content_length];
-            match stream.read_exact(&mut body_buffer).await {
-                Ok(_) => {
-                    info!("Successfully read response body ({} bytes)", content_length);
-                    response_buffer.extend_from_slice(&body_buffer);
-                },
-                Err(e) => {
-                    return Err(anyhow!("Failed to read response body (Content-Length: {}): {}", content_length, e));
-                }
-            }
-        } else if header_str.contains("Transfer-Encoding: chunked") {
-            info!("Reading chunked response body...");
-            match read_chunked_body(&mut *stream, &mut response_buffer).await {
-                Ok(_) => info!("Successfully read chunked response body"),
-                Err(e) => return Err(anyhow!("Failed to read chunked response body: {}", e)),
-            }
-        } else {
-            info!("No Content-Length or chunked encoding found, response complete");
-        }
-        
-        Ok::<Vec<u8>, anyhow::Error>(response_buffer)
-    }).await;
-    
-    match read_result {
-        Ok(Ok(data)) => {
-            info!("Successfully completed TCP tunnel request ({} bytes total)", data.len());
-            Ok(data)
-        },
-        Ok(Err(e)) => {
-            warn!("TCP tunnel read error: {:?}", e);
-            Err(e)
-        },
-        Err(_) => {
-            warn!("TCP tunnel request timeout (30s)");
-            Err(anyhow!("Request timeout after 30 seconds"))
-        },
-    }
-}
-
-fn extract_content_length(headers: &str) -> Option<usize> {
-    for line in headers.lines() {
-        if line.to_lowercase().starts_with("content-length:") {
-            if let Some(length_str) = line.split(':').nth(1) {
-                return length_str.trim().parse().ok();
-            }
-        }
-    }
-    None
-}
-
-async fn read_chunked_body(stream: &mut TcpStream, buffer: &mut Vec<u8>) -> anyhow::Result<()> {
-    loop {
-        // 读取chunk大小行
-        let mut size_line = Vec::new();
-        let mut temp_buffer = [0; 1];
-        
-        loop {
-            stream.read_exact(&mut temp_buffer).await?;
-            if temp_buffer[0] == b'\r' {
-                stream.read_exact(&mut temp_buffer).await?; // 读取\n
-                if temp_buffer[0] == b'\n' {
-                    break;
-                }
-            }
-            size_line.push(temp_buffer[0]);
-        }
-        
-        let size_str = String::from_utf8_lossy(&size_line);
-        let chunk_size = usize::from_str_radix(size_str.trim(), 16)?;
-        
-        buffer.extend_from_slice(&size_line);
-        buffer.extend_from_slice(b"\r\n");
-        
-        if chunk_size == 0 {
-            // 最后一个chunk，读取可能的尾部头部
-            stream.read_exact(&mut temp_buffer).await?; // \r
-            stream.read_exact(&mut temp_buffer).await?; // \n
-            buffer.extend_from_slice(b"\r\n");
-            break;
-        }
-        
-        // 读取chunk数据
-        let mut chunk_data = vec![0; chunk_size];
-        stream.read_exact(&mut chunk_data).await?;
-        buffer.extend_from_slice(&chunk_data);
-        
-        // 读取chunk结尾的\r\n
-        stream.read_exact(&mut temp_buffer).await?; // \r
-        stream.read_exact(&mut temp_buffer).await?; // \n
-        buffer.extend_from_slice(b"\r\n");
-    }
-    
-    Ok(())
-}
-
-fn parse_http_response(data: &[u8]) -> anyhow::Result<Response> {
-    // 查找头部结尾
-    let headers_end = data
-        .windows(4)
-        .position(|window| window == b"\r\n\r\n")
-        .ok_or_else(|| anyhow!("Invalid HTTP response: no header end found"))?;
-    
-    let headers_bytes = &data[..headers_end];
-    let body_bytes = &data[headers_end + 4..];
-    
-    // 解析头部
-    let headers_str = String::from_utf8_lossy(headers_bytes);
-    let mut lines = headers_str.lines();
-    
-    // 解析状态行
-    let status_line = lines.next().ok_or_else(|| anyhow!("No status line"))?;
-    let status_code = status_line
-        .split_whitespace()
-        .nth(1)
-        .and_then(|code| code.parse::<u16>().ok())
-        .ok_or_else(|| anyhow!("Invalid status code"))?;
-    
-    let mut response_builder = axum::response::Response::builder()
-        .status(axum::http::StatusCode::from_u16(status_code)?);
-    
-    // 解析并添加头部
-    for line in lines {
-        if let Some(colon_pos) = line.find(':') {
-            let name = line[..colon_pos].trim();
-            let value = line[colon_pos + 1..].trim();
-            
-            if let (Ok(header_name), Ok(header_value)) = (
-                axum::http::HeaderName::from_str(name),
-                axum::http::HeaderValue::from_str(value)
-            ) {
-                response_builder = response_builder.header(header_name, header_value);
-            }
-        }
-    }
-    
-    Ok(response_builder.body(Body::from(body_bytes.to_vec()))?)
-}
 
 // 提供 `try_concat` 方法来转换 body
 
