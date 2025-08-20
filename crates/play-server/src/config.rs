@@ -81,6 +81,31 @@ pub struct DomainProxy {
     pub proxy_domain: String,
     #[serde(flatten)]
     pub proxy_target: ProxyTarget,
+    #[serde(default)]
+    pub websocket_config: WebSocketConfig,
+}
+
+#[derive(Deserialize,Serialize, Debug, Clone)]
+pub struct WebSocketConfig {
+    /// WebSocket Origin处理策略: "keep", "remove", "host", "backend"
+    #[serde(default = "default_websocket_origin_strategy")]
+    pub origin_strategy: String,
+    /// 自定义Origin值（当origin_strategy为"custom"时使用）
+    #[serde(default)]
+    pub custom_origin: Option<String>,
+}
+
+impl Default for WebSocketConfig {
+    fn default() -> Self {
+        Self {
+            origin_strategy: default_websocket_origin_strategy(),
+            custom_origin: None,
+        }
+    }
+}
+
+fn default_websocket_origin_strategy() -> String {
+    "backend".to_string()
 }
 
 #[derive(Deserialize,Serialize, Debug, Clone)]
@@ -107,6 +132,7 @@ impl Default for DomainProxy {
             proxy_target: ProxyTarget::Folder {
                 folder_path: String::default(),
             },
+            websocket_config: WebSocketConfig::default(),
         }
     }
 }

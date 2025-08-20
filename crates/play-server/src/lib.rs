@@ -478,8 +478,8 @@ async fn handle_404(
                         }
                     }
                     crate::config::ProxyTarget::Upstream { ip, port } => {
-                        use crate::layer::custom_http_layer::serve_upstream_proxy;
-                        match serve_upstream_proxy(State(state.clone()), host.to_string(), request, ip, *port).await {
+                        use crate::layer::custom_http_layer::serve_upstream_proxy_with_config;
+                        match serve_upstream_proxy_with_config(State(state.clone()), host.to_string(), request, ip, *port, &domain.websocket_config).await {
                             Ok(response) => response,
                             Err(e) => {
                                 (StatusCode::BAD_GATEWAY, format!("Proxy error: {}", e)).into_response()

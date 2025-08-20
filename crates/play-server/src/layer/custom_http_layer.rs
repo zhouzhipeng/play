@@ -21,7 +21,7 @@ use std::task::{Context, Poll};
 use tower::{Layer, Service};
 use axum::ServiceExt;
 
-use crate::config::{AuthConfig, ProxyTarget};
+use crate::config::{AuthConfig, ProxyTarget, WebSocketConfig};
 use crate::controller::cache_controller::get_cache_content;
 
 use crate::controller::static_controller::STATIC_DIR;
@@ -78,7 +78,7 @@ pub async fn http_middleware(
                             )
                         }
                         ProxyTarget::Upstream { ip, port } => {
-                            serve_upstream_proxy(state.clone(), host, request, ip, *port).await.unwrap_or_else(|e| 
+                            serve_upstream_proxy_with_config(state.clone(), host, request, ip, *port, &domain.websocket_config).await.unwrap_or_else(|e| 
                                 axum::response::Response::builder()
                                     .status(axum::http::StatusCode::INTERNAL_SERVER_ERROR)
                                     .body(format!("Proxy error: {}", e).into())
@@ -275,12 +275,14 @@ fn extract_prefix(url: &str) -> String {
     }
 }
 
-pub async fn serve_upstream_proxy(
+// 带配置的代理函数
+pub async fn serve_upstream_proxy_with_config(
     state: S, 
     host: String, 
     mut request: Request<axum::body::Body>, 
     ip: &str, 
-    port: u16
+    port: u16,
+    websocket_config: &WebSocketConfig
 ) -> anyhow::Result<Response> {
     use axum_reverse_proxy::ReverseProxy;
     use tower::Service;
@@ -315,29 +317,9 @@ pub async fn serve_upstream_proxy(
             .unwrap_or_else(|_| axum::http::HeaderValue::from_static("localhost"))
     );
     
-    // // 对于WebSocket请求，修复Origin头部以匹配目标服务器
+    // 对于WebSocket请求，根据配置处理Origin头部
     if is_websocket {
-    //     // 确保WebSocket相关头部存在（axum-reverse-proxy会自动处理，但我们记录日志）
-    //     if let Some(connection) = request.headers().get(axum::http::header::CONNECTION) {
-    //         info!("WebSocket Connection header: {:?}", connection);
-    //     }
-    //     if let Some(sec_websocket_key) = request.headers().get("sec-websocket-key") {
-    //         info!("WebSocket Key present: {:?}", sec_websocket_key);
-    //     }
-    //
-    //
-    //     // 方案2：如果上面的方案不工作，可以尝试移除Origin头部
-    //     // 这让目标服务器跳过Origin检查
-    //     request.headers_mut().remove(axum::http::header::ORIGIN);
-    //     info!("Removed Origin header for WebSocket request");
-    //
-    //     // 方案3：如果目标服务器需要特定的Origin，可以设置为目标服务器的实际地址
-        let backend_origin = format!("{}://{}:{}", scheme, ip, port);
-        request.headers_mut().insert(
-            axum::http::header::ORIGIN,
-            axum::http::HeaderValue::from_str(&backend_origin)?
-        );
-        info!("Set WebSocket Origin to backend: {}", backend_origin);
+        handle_websocket_origin(&mut request, &host, &scheme, ip, port, websocket_config)?;
     }
     
     // 构建完整的目标URI（包含scheme、host和path）
@@ -391,6 +373,94 @@ pub async fn serve_upstream_proxy(
                 .body(format!("Proxy error: {:?}", e).into())?)
         }
     }
+}
+
+// 根据配置处理WebSocket Origin头部
+fn handle_websocket_origin(
+    request: &mut Request<axum::body::Body>,
+    host: &str,
+    scheme: &str,
+    ip: &str,
+    port: u16,
+    websocket_config: &WebSocketConfig
+) -> anyhow::Result<()> {
+    info!("Handling WebSocket Origin with strategy: {}", websocket_config.origin_strategy);
+    
+    match websocket_config.origin_strategy.as_str() {
+        "keep" => {
+            // 保持原始Origin不变
+            if let Some(origin) = request.headers().get(axum::http::header::ORIGIN) {
+                info!("Keeping original Origin: {:?}", origin);
+            } else {
+                info!("No original Origin header to keep");
+            }
+        }
+        "remove" => {
+            // 移除Origin头部
+            request.headers_mut().remove(axum::http::header::ORIGIN);
+            info!("Removed Origin header for WebSocket request");
+        }
+        "host" => {
+            // 设置为代理域名
+            let host_origin = format!("{}://{}", scheme, host);
+            request.headers_mut().insert(
+                axum::http::header::ORIGIN,
+                axum::http::HeaderValue::from_str(&host_origin)?
+            );
+            info!("Set WebSocket Origin to host: {}", host_origin);
+        }
+        "backend" => {
+            // 设置为后端服务器地址
+            let backend_origin = format!("{}://{}:{}", scheme, ip, port);
+            request.headers_mut().insert(
+                axum::http::header::ORIGIN,
+                axum::http::HeaderValue::from_str(&backend_origin)?
+            );
+            info!("Set WebSocket Origin to backend: {}", backend_origin);
+        }
+        "custom" => {
+            // 使用自定义Origin
+            if let Some(custom_origin) = &websocket_config.custom_origin {
+                request.headers_mut().insert(
+                    axum::http::header::ORIGIN,
+                    axum::http::HeaderValue::from_str(custom_origin)?
+                );
+                info!("Set WebSocket Origin to custom: {}", custom_origin);
+            } else {
+                warn!("Custom origin strategy selected but no custom_origin provided, falling back to backend");
+                let backend_origin = format!("{}://{}:{}", scheme, ip, port);
+                request.headers_mut().insert(
+                    axum::http::header::ORIGIN,
+                    axum::http::HeaderValue::from_str(&backend_origin)?
+                );
+                info!("Set WebSocket Origin to backend (fallback): {}", backend_origin);
+            }
+        }
+        _ => {
+            warn!("Unknown WebSocket origin strategy: {}, falling back to backend", websocket_config.origin_strategy);
+            let backend_origin = format!("{}://{}:{}", scheme, ip, port);
+            request.headers_mut().insert(
+                axum::http::header::ORIGIN,
+                axum::http::HeaderValue::from_str(&backend_origin)?
+            );
+            info!("Set WebSocket Origin to backend (fallback): {}", backend_origin);
+        }
+    }
+    
+    Ok(())
+}
+
+// 兼容性函数：不带配置的代理函数（向后兼容）
+pub async fn serve_upstream_proxy(
+    state: S, 
+    host: String, 
+    request: Request<axum::body::Body>, 
+    ip: &str, 
+    port: u16
+) -> anyhow::Result<Response> {
+    // 使用默认配置
+    let default_config = WebSocketConfig::default();
+    serve_upstream_proxy_with_config(state, host, request, ip, port, &default_config).await
 }
 
 
