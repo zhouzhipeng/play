@@ -387,7 +387,10 @@ async fn serve_upstream_proxy(
     let raw_request = build_raw_http_request_from_parts(&method, &uri, version, &headers, &host, body_bytes.len())?;
 
     // 通过TCP隧道发送请求并接收响应
-    info!("Sending request to {} via TCP tunnel: {} {}", target, method, uri);
+    let path_and_query = uri.path_and_query()
+        .map(|pq| pq.as_str())
+        .unwrap_or("/");
+    info!("Sending request to {} via TCP tunnel: {} {} (host: {})", target, method, path_and_query, host);
     match tcp_tunnel_request(conn.clone(), &raw_request, &body_bytes).await {
         Ok(response_data) => {
             info!("Received response from {} ({} bytes)", target, response_data.len());
@@ -434,20 +437,36 @@ fn build_raw_http_request_from_parts(
     host: &str,
     content_length: usize,
 ) -> anyhow::Result<String> {
-    // 构建请求行
-    let mut raw_request = format!("{} {} {:?}\r\n", method, uri, version);
+    // 构建请求行 - 只使用路径和查询字符串，不包含scheme和host
+    let path_and_query = uri.path_and_query()
+        .map(|pq| pq.as_str())
+        .unwrap_or("/");
     
-    // 添加头部
+    // 格式化HTTP版本
+    let version_str = match version {
+        http::Version::HTTP_09 => "HTTP/0.9",
+        http::Version::HTTP_10 => "HTTP/1.0",
+        http::Version::HTTP_11 => "HTTP/1.1",
+        http::Version::HTTP_2 => "HTTP/2.0",
+        http::Version::HTTP_3 => "HTTP/3.0",
+        _ => "HTTP/1.1",
+    };
+    
+    let mut raw_request = format!("{} {} {}\r\n", method, path_and_query, version_str);
+    
+    // 添加头部（跳过Host头，我们会单独处理）
     for (name, value) in headers.iter() {
+        // 跳过Host头部，因为我们需要使用代理域名作为Host
+        if name.as_str().to_lowercase() == "host" {
+            continue;
+        }
         if let Ok(value_str) = value.to_str() {
             raw_request.push_str(&format!("{}: {}\r\n", name, value_str));
         }
     }
     
-    // 确保有Host头部
-    if !headers.contains_key("host") {
-        raw_request.push_str(&format!("Host: {}\r\n", host));
-    }
+    // 添加正确的Host头部（使用代理域名）
+    raw_request.push_str(&format!("Host: {}\r\n", host));
     
     // 添加Connection: keep-alive以支持连接复用
     if !headers.contains_key("connection") {
