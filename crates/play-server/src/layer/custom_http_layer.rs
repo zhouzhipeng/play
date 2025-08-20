@@ -276,31 +276,68 @@ fn extract_prefix(url: &str) -> String {
 async fn serve_upstream_proxy(
     state: S, 
     host: String, 
-    request: Request<axum::body::Body>, 
+    mut request: Request<axum::body::Body>, 
     ip: &str, 
     port: u16
 ) -> anyhow::Result<Response> {
     use axum_reverse_proxy::ReverseProxy;
     use tower::Service;
     
+    // 获取原始路径和查询参数
+    let original_uri = request.uri().clone();
+    let path_and_query = original_uri.path_and_query()
+        .map(|pq| pq.as_str())
+        .unwrap_or("/");
+    
     // 构建目标URL
     let scheme = if port == 443 { "https" } else { "http" };
     let target_base = format!("{}://{}:{}", scheme, ip, port);
     
-    let path_and_query = request.uri().path_and_query()
-        .map(|pq| pq.as_str())
-        .unwrap_or("/");
-    
-    info!("Proxying request: {} {} -> {}{}", request.method(), path_and_query, target_base, path_and_query);
+    info!("=== Proxy Request Debug ===");
+    info!("Original URI: {}", original_uri);
+    info!("Path and Query: {}", path_and_query);
+    info!("Target base: {}", target_base);
+    info!("Method: {}", request.method());
     info!("Original host header: {}", host);
     
-    // 创建反向代理 - 使用根路径"/"，因为我们要代理所有请求
+    // 打印所有请求头用于调试
+    for (name, value) in request.headers() {
+        if let Ok(v) = value.to_str() {
+            info!("Request header: {} = {}", name, v);
+        }
+    }
+    
+    // 修改Host头部为原始域名（重要：某些服务器依赖Host头部）
+    request.headers_mut().insert(
+        axum::http::header::HOST,
+        axum::http::HeaderValue::from_str(&host)
+            .unwrap_or_else(|_| axum::http::HeaderValue::from_static("localhost"))
+    );
+    
+    // 创建反向代理
+    // 注意：axum-reverse-proxy会保留原始路径，所以我们使用"/"来匹配所有路径
     let mut proxy = ReverseProxy::new("/", &target_base);
+    
+    info!("Using ReverseProxy with prefix '/' and target: {}", target_base);
+    info!("Host header set to: {}", host);
     
     // 使用Tower Service trait调用代理
     match proxy.call(request).await {
         Ok(response) => {
-            info!("Successfully proxied request to {}", target_base);
+            let status = response.status();
+            info!("Response status: {}", status);
+            
+            // 打印响应头用于调试
+            for (name, value) in response.headers() {
+                if let Ok(v) = value.to_str() {
+                    info!("Response header: {} = {}", name, v);
+                }
+            }
+            
+            if status == StatusCode::NOT_FOUND {
+                warn!("Got 404 for path: {}", path_and_query);
+            }
+            
             Ok(response)
         }
         Err(e) => {
