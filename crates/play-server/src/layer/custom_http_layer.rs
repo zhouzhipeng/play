@@ -315,37 +315,29 @@ pub async fn serve_upstream_proxy(
             .unwrap_or_else(|_| axum::http::HeaderValue::from_static("localhost"))
     );
     
-    // 对于WebSocket请求，修复Origin头部以匹配目标服务器
+    // // 对于WebSocket请求，修复Origin头部以匹配目标服务器
     if is_websocket {
-        // 确保WebSocket相关头部存在（axum-reverse-proxy会自动处理，但我们记录日志）
-        if let Some(connection) = request.headers().get(axum::http::header::CONNECTION) {
-            info!("WebSocket Connection header: {:?}", connection);
-        }
-        if let Some(sec_websocket_key) = request.headers().get("sec-websocket-key") {
-            info!("WebSocket Key present: {:?}", sec_websocket_key);
-        }
-        
-        // 方案1：修复Origin头部 - 将Origin设置为目标服务器的域名
-        let target_origin = format!("{}://{}", scheme, host);
+    //     // 确保WebSocket相关头部存在（axum-reverse-proxy会自动处理，但我们记录日志）
+    //     if let Some(connection) = request.headers().get(axum::http::header::CONNECTION) {
+    //         info!("WebSocket Connection header: {:?}", connection);
+    //     }
+    //     if let Some(sec_websocket_key) = request.headers().get("sec-websocket-key") {
+    //         info!("WebSocket Key present: {:?}", sec_websocket_key);
+    //     }
+    //
+    //
+    //     // 方案2：如果上面的方案不工作，可以尝试移除Origin头部
+    //     // 这让目标服务器跳过Origin检查
+    //     request.headers_mut().remove(axum::http::header::ORIGIN);
+    //     info!("Removed Origin header for WebSocket request");
+    //
+    //     // 方案3：如果目标服务器需要特定的Origin，可以设置为目标服务器的实际地址
+        let backend_origin = format!("{}://{}:{}", scheme, ip, port);
         request.headers_mut().insert(
             axum::http::header::ORIGIN,
-            axum::http::HeaderValue::from_str(&target_origin)
-                .unwrap_or_else(|_| axum::http::HeaderValue::from_static("http://localhost"))
+            axum::http::HeaderValue::from_str(&backend_origin)?
         );
-        info!("Set WebSocket Origin to: {}", target_origin);
-        
-        // 方案2：如果上面的方案不工作，可以尝试移除Origin头部
-        // 这让目标服务器跳过Origin检查
-        // request.headers_mut().remove(axum::http::header::ORIGIN);
-        // info!("Removed Origin header for WebSocket request");
-        
-        // 方案3：如果目标服务器需要特定的Origin，可以设置为目标服务器的实际地址
-        // let backend_origin = format!("{}://{}:{}", scheme, ip, port);
-        // request.headers_mut().insert(
-        //     axum::http::header::ORIGIN,
-        //     axum::http::HeaderValue::from_str(&backend_origin)?
-        // );
-        // info!("Set WebSocket Origin to backend: {}", backend_origin);
+        info!("Set WebSocket Origin to backend: {}", backend_origin);
     }
     
     // 构建完整的目标URI（包含scheme、host和path）
