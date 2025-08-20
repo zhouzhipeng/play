@@ -66,6 +66,7 @@ pub async fn http_middleware(
             if let Ok(host) = header.to_str() {
                 let host = host.to_string();
                 if let Some(domain) = domain_proxy.iter().find(|p|p.proxy_domain.eq(&host)){
+                    info!("Domain proxy matched for host: {} -> {:?}", host, domain.proxy_target);
                     return match &domain.proxy_target {
                         ProxyTarget::Folder { folder_path } => {
                             serve_domain_folder(state.clone(), host, request, folder_path).await.unwrap_or_else(|e| 
@@ -198,7 +199,7 @@ impl<B: Send + 'static> Service<Request<B>> for NotFoundService {
 }
 
 
-async fn serve_domain_folder(state: S, host: String, request: Request<axum::body::Body>, folder_path: &str) -> anyhow::Result<Response> {
+pub async fn serve_domain_folder(state: S, host: String, request: Request<axum::body::Body>, folder_path: &str) -> anyhow::Result<Response> {
     //check if has plugin can handle this.
     #[cfg(feature = "play-dylib-loader")]
     {
@@ -273,7 +274,7 @@ fn extract_prefix(url: &str) -> String {
     }
 }
 
-async fn serve_upstream_proxy(
+pub async fn serve_upstream_proxy(
     state: S, 
     host: String, 
     mut request: Request<axum::body::Body>, 
@@ -293,51 +294,42 @@ async fn serve_upstream_proxy(
     let scheme = if port == 443 { "https" } else { "http" };
     let target_base = format!("{}://{}:{}", scheme, ip, port);
     
-    info!("=== Proxy Request Debug ===");
-    info!("Original URI: {}", original_uri);
-    info!("Path and Query: {}", path_and_query);
-    info!("Target base: {}", target_base);
-    info!("Method: {}", request.method());
-    info!("Original host header: {}", host);
+    info!("Proxying: {} {} -> {}", request.method(), path_and_query, target_base);
     
-    // 打印所有请求头用于调试
-    for (name, value) in request.headers() {
-        if let Ok(v) = value.to_str() {
-            info!("Request header: {} = {}", name, v);
-        }
-    }
-    
-    // 修改Host头部为原始域名（重要：某些服务器依赖Host头部）
+    // 重要：设置正确的Host头部
+    // 某些服务器（如Cloudflare CDN后的服务器）需要原始的Host头部
     request.headers_mut().insert(
         axum::http::header::HOST,
         axum::http::HeaderValue::from_str(&host)
             .unwrap_or_else(|_| axum::http::HeaderValue::from_static("localhost"))
     );
     
-    // 创建反向代理
-    // 注意：axum-reverse-proxy会保留原始路径，所以我们使用"/"来匹配所有路径
-    let mut proxy = ReverseProxy::new("/", &target_base);
+    // 构建完整的目标URI（包含scheme、host和path）
+    let full_target_uri = format!("{}{}", target_base, path_and_query);
+    match full_target_uri.parse::<hyper::Uri>() {
+        Ok(new_uri) => {
+            info!("Setting request URI to: {}", new_uri);
+            *request.uri_mut() = new_uri;
+        }
+        Err(e) => {
+            warn!("Failed to parse target URI: {}, error: {}", full_target_uri, e);
+        }
+    }
     
-    info!("Using ReverseProxy with prefix '/' and target: {}", target_base);
-    info!("Host header set to: {}", host);
+    // 创建反向代理 - 使用空字符串作为前缀，因为我们已经设置了完整的URI
+    let mut proxy = ReverseProxy::new("", &target_base);
     
     // 使用Tower Service trait调用代理
     match proxy.call(request).await {
         Ok(response) => {
             let status = response.status();
-            info!("Response status: {}", status);
-            
-            // 打印响应头用于调试
-            for (name, value) in response.headers() {
-                if let Ok(v) = value.to_str() {
-                    info!("Response header: {} = {}", name, v);
-                }
-            }
-            
             if status == StatusCode::NOT_FOUND {
-                warn!("Got 404 for path: {}", path_and_query);
+                warn!("404 response for path: {} (target: {}{})", path_and_query, target_base, path_and_query);
+            } else if status.is_success() {
+                info!("Success: {} for path: {}", status, path_and_query);
+            } else {
+                warn!("Non-success status: {} for path: {}", status, path_and_query);
             }
-            
             Ok(response)
         }
         Err(e) => {
