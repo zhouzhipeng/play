@@ -295,7 +295,14 @@ pub async fn serve_upstream_proxy_with_config(
     
     // 构建目标URL
     let scheme = if port == 443 { "https" } else { "http" };
-    let target_base = format!("{}://{}:{}", scheme, ip, port);
+    let mut target_base = format!("{}://{}:{}", scheme, ip, port);
+
+
+    //
+    if let Some(custom_target) = &websocket_config.custom_origin{
+        target_base = custom_target.to_string();
+    }
+
     
     // 检查是否是WebSocket升级请求
     let is_websocket = request.headers().get(axum::http::header::UPGRADE)
