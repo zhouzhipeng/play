@@ -285,28 +285,30 @@ async fn serve_upstream_proxy(
     
     // 构建目标URL
     let scheme = if port == 443 { "https" } else { "http" };
+    let target_base = format!("{}://{}:{}", scheme, ip, port);
+    
     let path_and_query = request.uri().path_and_query()
         .map(|pq| pq.as_str())
         .unwrap_or("/");
     
-    // 构建上游服务器的完整URL
-    let target_url = format!("{}://{}:{}", scheme, ip, port);
+    info!("Proxying request: {} {} -> {}{}", request.method(), path_and_query, target_base, path_and_query);
+    info!("Original host header: {}", host);
     
-    info!("Proxying request: {} {} -> {}{}", request.method(), path_and_query, target_url, path_and_query);
+    // 创建反向代理 - 使用根路径"/"，因为我们要代理所有请求
+    let mut proxy = ReverseProxy::new("/", &target_base);
     
-    // 创建反向代理实例 (axum-reverse-proxy 需要路径和目标URL)
-    let mut proxy = ReverseProxy::new("/", &target_url);
-    
-    // 使用 tower Service trait 调用代理
+    // 使用Tower Service trait调用代理
     match proxy.call(request).await {
         Ok(response) => {
-            info!("Successfully proxied request to {}", target_url);
+            info!("Successfully proxied request to {}", target_base);
             Ok(response)
         }
         Err(e) => {
-            warn!("Proxy error to {}: {:?}", target_url, e);
+            warn!("Proxy error to {}: {:?}", target_base, e);
+            
+            // 返回502 Bad Gateway错误
             Ok(axum::response::Response::builder()
-                .status(axum::http::StatusCode::BAD_GATEWAY)
+                .status(StatusCode::BAD_GATEWAY)
                 .body(format!("Proxy error: {:?}", e).into())?)
         }
     }
