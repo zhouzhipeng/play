@@ -58,23 +58,39 @@ impl TcpConnectionPool {
             let connections = self.connections.read().await;
             if let Some(conn) = connections.get(target) {
                 // 检查连接是否仍然有效
-                if let Ok(mut stream) = conn.try_lock() {
+                if let Ok(stream) = conn.try_lock() {
                     // 简单检查连接状态
-                    if stream.peer_addr().is_ok() {
-                        return Ok(conn.clone());
+                    match stream.peer_addr() {
+                        Ok(addr) => {
+                            info!("Reusing existing connection to {} (peer: {})", target, addr);
+                            return Ok(conn.clone());
+                        },
+                        Err(e) => {
+                            warn!("Existing connection to {} is invalid: {}", target, e);
+                        }
                     }
+                } else {
+                    warn!("Existing connection to {} is locked, creating new connection", target);
                 }
             }
         }
 
         // 创建新连接
-        let stream = TcpStream::connect(target).await?;
+        info!("Creating new TCP connection to {}", target);
+        let stream = TcpStream::connect(target).await
+            .map_err(|e| anyhow!("Failed to establish TCP connection to {}: {}", target, e))?;
+        
+        let peer_addr = stream.peer_addr()
+            .map_err(|e| anyhow!("Failed to get peer address for {}: {}", target, e))?;
+        
+        info!("Successfully established TCP connection to {} (peer: {})", target, peer_addr);
         let conn = Arc::new(Mutex::new(stream));
         
         // 存储连接
         {
             let mut connections = self.connections.write().await;
             connections.insert(target.to_string(), conn.clone());
+            info!("Stored connection to {} in pool (total connections: {})", target, connections.len());
         }
 
         Ok(conn)
@@ -82,7 +98,9 @@ impl TcpConnectionPool {
 
     async fn remove_connection(&self, target: &str) {
         let mut connections = self.connections.write().await;
-        connections.remove(target);
+        if connections.remove(target).is_some() {
+            warn!("Removed failed connection to {} from pool (remaining connections: {})", target, connections.len());
+        }
     }
 }
 
@@ -344,12 +362,15 @@ async fn serve_upstream_proxy(
     
     // 从连接池获取或创建连接
     let conn = match get_tcp_pool().get_or_create_connection(&target).await {
-        Ok(conn) => conn,
+        Ok(conn) => {
+            info!("Successfully connected to upstream {}", target);
+            conn
+        },
         Err(e) => {
-            warn!("Failed to connect to upstream {}: {}", target, e);
+            warn!("Failed to connect to upstream {} - Error: {:?}", target, e);
             return Ok(axum::response::Response::builder()
                 .status(axum::http::StatusCode::BAD_GATEWAY)
-                .body(format!("Failed to connect to upstream: {}", e).into())?);
+                .body(format!("Connection failed to {}: {}", target, e).into())?);
         }
     };
 
@@ -366,28 +387,41 @@ async fn serve_upstream_proxy(
     let raw_request = build_raw_http_request_from_parts(&method, &uri, version, &headers, &host, body_bytes.len())?;
 
     // 通过TCP隧道发送请求并接收响应
+    info!("Sending request to {} via TCP tunnel: {} {}", target, method, uri);
     match tcp_tunnel_request(conn.clone(), &raw_request, &body_bytes).await {
         Ok(response_data) => {
+            info!("Received response from {} ({} bytes)", target, response_data.len());
             // 解析响应
             match parse_http_response(&response_data) {
-                Ok(response) => Ok(response),
+                Ok(response) => {
+                    info!("Successfully parsed response from {}", target);
+                    Ok(response)
+                },
                 Err(e) => {
-                    warn!("Failed to parse response from {}: {}", target, e);
+                    warn!("Failed to parse HTTP response from {} - Error: {:?}, Raw data length: {}", target, e, response_data.len());
+                    // 记录响应数据的前100字节用于调试
+                    let debug_data = if response_data.len() > 100 {
+                        &response_data[..100]
+                    } else {
+                        &response_data
+                    };
+                    warn!("Response data preview: {:?}", String::from_utf8_lossy(debug_data));
+                    
                     // 移除无效连接
                     get_tcp_pool().remove_connection(&target).await;
                     Ok(axum::response::Response::builder()
                         .status(axum::http::StatusCode::BAD_GATEWAY)
-                        .body(format!("Invalid response: {}", e).into())?)
+                        .body(format!("Invalid HTTP response from {}: {}", target, e).into())?)
                 }
             }
         }
         Err(e) => {
-            warn!("TCP tunnel error for {}: {}", target, e);
+            warn!("TCP tunnel communication error with {} - Error: {:?}", target, e);
             // 移除失效连接
             get_tcp_pool().remove_connection(&target).await;
             Ok(axum::response::Response::builder()
                 .status(axum::http::StatusCode::BAD_GATEWAY)
-                .body(format!("Tunnel error: {}", e).into())?)
+                .body(format!("TCP tunnel error to {}: {}", target, e).into())?)
         }
     }
 }
@@ -437,13 +471,21 @@ async fn tcp_tunnel_request(
     let mut stream = conn.lock().await;
     
     // 发送请求
-    stream.write_all(raw_request.as_bytes()).await?;
+    info!("Sending HTTP request headers ({} bytes)", raw_request.len());
+    stream.write_all(raw_request.as_bytes()).await
+        .map_err(|e| anyhow!("Failed to write request headers: {}", e))?;
+    
     if !body.is_empty() {
-        stream.write_all(body).await?;
+        info!("Sending HTTP request body ({} bytes)", body.len());
+        stream.write_all(body).await
+            .map_err(|e| anyhow!("Failed to write request body: {}", e))?;
     }
-    stream.flush().await?;
+    
+    stream.flush().await
+        .map_err(|e| anyhow!("Failed to flush request to upstream: {}", e))?;
     
     // 读取响应 - 使用超时避免无限等待
+    info!("Reading response from upstream...");
     let mut response_buffer = Vec::new();
     let read_result = timeout(Duration::from_secs(30), async {
         // 先读取响应头
@@ -451,43 +493,72 @@ async fn tcp_tunnel_request(
         let mut temp_buffer = [0; 1];
         let mut consecutive_crlf = 0;
         
+        info!("Reading HTTP response headers...");
         loop {
-            stream.read_exact(&mut temp_buffer).await?;
-            header_buffer.push(temp_buffer[0]);
-            
-            // 检查是否到达头部结尾 (\r\n\r\n)
-            if temp_buffer[0] == b'\r' || temp_buffer[0] == b'\n' {
-                consecutive_crlf += 1;
-                if consecutive_crlf >= 4 && header_buffer.ends_with(b"\r\n\r\n") {
-                    break;
+            match stream.read_exact(&mut temp_buffer).await {
+                Ok(_) => {
+                    header_buffer.push(temp_buffer[0]);
+                    
+                    // 检查是否到达头部结尾 (\r\n\r\n)
+                    if temp_buffer[0] == b'\r' || temp_buffer[0] == b'\n' {
+                        consecutive_crlf += 1;
+                        if consecutive_crlf >= 4 && header_buffer.ends_with(b"\r\n\r\n") {
+                            break;
+                        }
+                    } else {
+                        consecutive_crlf = 0;
+                    }
+                },
+                Err(e) => {
+                    return Err(anyhow!("Failed to read response headers: {}", e));
                 }
-            } else {
-                consecutive_crlf = 0;
             }
         }
         
+        info!("Read response headers ({} bytes)", header_buffer.len());
         response_buffer.extend_from_slice(&header_buffer);
         
         // 解析Content-Length或使用分块编码
         let header_str = String::from_utf8_lossy(&header_buffer);
         if let Some(content_length) = extract_content_length(&header_str) {
+            info!("Reading response body with Content-Length: {}", content_length);
             // 读取固定长度的body
             let mut body_buffer = vec![0; content_length];
-            stream.read_exact(&mut body_buffer).await?;
-            response_buffer.extend_from_slice(&body_buffer);
+            match stream.read_exact(&mut body_buffer).await {
+                Ok(_) => {
+                    info!("Successfully read response body ({} bytes)", content_length);
+                    response_buffer.extend_from_slice(&body_buffer);
+                },
+                Err(e) => {
+                    return Err(anyhow!("Failed to read response body (Content-Length: {}): {}", content_length, e));
+                }
+            }
         } else if header_str.contains("Transfer-Encoding: chunked") {
-            // 读取分块编码的body
-            read_chunked_body(&mut *stream, &mut response_buffer).await?;
+            info!("Reading chunked response body...");
+            match read_chunked_body(&mut *stream, &mut response_buffer).await {
+                Ok(_) => info!("Successfully read chunked response body"),
+                Err(e) => return Err(anyhow!("Failed to read chunked response body: {}", e)),
+            }
+        } else {
+            info!("No Content-Length or chunked encoding found, response complete");
         }
-        // 如果既没有Content-Length也没有分块编码，则保持连接打开，不读取body
         
         Ok::<Vec<u8>, anyhow::Error>(response_buffer)
     }).await;
     
     match read_result {
-        Ok(Ok(data)) => Ok(data),
-        Ok(Err(e)) => Err(e),
-        Err(_) => Err(anyhow!("Request timeout")),
+        Ok(Ok(data)) => {
+            info!("Successfully completed TCP tunnel request ({} bytes total)", data.len());
+            Ok(data)
+        },
+        Ok(Err(e)) => {
+            warn!("TCP tunnel read error: {:?}", e);
+            Err(e)
+        },
+        Err(_) => {
+            warn!("TCP tunnel request timeout (30s)");
+            Err(anyhow!("Request timeout after 30 seconds"))
+        },
     }
 }
 
