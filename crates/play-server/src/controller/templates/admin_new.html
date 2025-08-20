@@ -390,9 +390,17 @@
         <div class="form-group">
             <h3><i class="fas fa-download"></i> Backup System</h3>
             <p>Download a complete backup of the system configuration.</p>
-            <a href="/admin/backup" download class="btn">
-                <i class="fas fa-download"></i> Download Backup
-            </a>
+            <div class="btn-group">
+                <a href="/admin/backup" download class="btn">
+                    <i class="fas fa-download"></i> Download Backup
+                </a>
+                <a href="/admin/backup-encrypted" download class="btn btn-success" title="Encrypted with passcode from config">
+                    <i class="fas fa-lock"></i> Download Backup (Encrypted)
+                </a>
+            </div>
+            <p style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--gray-color);">
+                <i class="fas fa-info-circle"></i> Encrypted backup uses AES-256 encryption with your configured passcode
+            </p>
         </div>
 
         <!-- 恢复上传部分 -->
