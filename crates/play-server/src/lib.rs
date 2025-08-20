@@ -265,6 +265,11 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> anyhow::Res
 }
 
 pub async fn start_server(router: Router<Arc<AppState>>, app_state: Arc<AppState>) -> anyhow::Result<()> {
+    // 初始化 rustls 加密提供者
+    let _ = rustls::crypto::ring::default_provider()
+        .install_default()
+        .map_err(|_| info!("rustls crypto provider already installed"));
+    
     #[cfg(feature = "play-integration-xiaozhi")]
     {
         let cfg = app_state.config.mcp_config.clone();
