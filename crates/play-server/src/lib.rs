@@ -12,8 +12,8 @@ use anyhow::{anyhow, bail};
 use anyhow::__private::kind::TraitKind;
 use async_channel::Receiver;
 
-use axum::extract::{DefaultBodyLimit, State};
-use axum::http::{Method, StatusCode};
+use axum::extract::{DefaultBodyLimit, State, ConnectInfo};
+use axum::http::{Method, StatusCode, Request};
 use axum::{middleware, Json};
 use axum::response::{Html, IntoResponse, Response};
 use tower::Service;
@@ -451,12 +451,49 @@ pub async fn routers(app_state: Arc<AppState>) -> anyhow::Result<Router<Arc<AppS
     Ok(router)
 }
 
-// 创建自定义404处理函数
-async fn handle_404(uri: axum::http::Uri) -> impl IntoResponse {
+// 创建自定义404处理函数，同时处理域名代理
+async fn handle_404(
+    State(state): State<Arc<AppState>>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    request: Request<axum::body::Body>
+) -> impl IntoResponse {
+    let uri = request.uri().clone();
+    
+    // 检查是否需要域名代理
+    if let Some(header) = request.headers().get(axum::http::header::HOST) {
+        if let Ok(host) = header.to_str() {
+            if let Some(domain) = state.config.domain_proxy.iter().find(|p| p.proxy_domain == host) {
+                info!("Fallback handling domain proxy for host: {} -> {:?}", host, domain.proxy_target);
+                
+                return match &domain.proxy_target {
+                    crate::config::ProxyTarget::Folder { folder_path } => {
+                        use crate::layer::custom_http_layer::serve_domain_folder;
+                        match serve_domain_folder(State(state.clone()), host.to_string(), request, folder_path).await {
+                            Ok(response) => response,
+                            Err(e) => {
+                                (StatusCode::INTERNAL_SERVER_ERROR, format!("Proxy error: {}", e)).into_response()
+                            }
+                        }
+                    }
+                    crate::config::ProxyTarget::Upstream { ip, port } => {
+                        use crate::layer::custom_http_layer::serve_upstream_proxy;
+                        match serve_upstream_proxy(State(state.clone()), host.to_string(), request, ip, *port).await {
+                            Ok(response) => response,
+                            Err(e) => {
+                                (StatusCode::BAD_GATEWAY, format!("Proxy error: {}", e)).into_response()
+                            }
+                        }
+                    }
+                };
+            }
+        }
+    }
+    
+    // 如果不是域名代理，返回标准404
     (
         StatusCode::NOT_FOUND,
         format!("Server Error: url not found: {}", uri)
-    )
+    ).into_response()
 }
 
 
