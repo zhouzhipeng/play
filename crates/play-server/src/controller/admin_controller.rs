@@ -1,7 +1,7 @@
 use std::{env, fs, io};
 use std::env::temp_dir;
 use std::fs::File;
-use std::io::{BufRead, BufReader, copy, Cursor};
+use std::io::{BufRead, BufReader, copy, Cursor, Write};
 use std::path::Path;
 use std::time::Duration;
 
@@ -19,7 +19,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use tokio_util::codec::{BytesCodec, FramedRead};
 use tracing::info;
-use zip::ZipArchive;
+use zip::{ZipArchive, ZipWriter, CompressionMethod, write::{FileOptions, ExtendedFileOptions}};
 
 use play_shared::{current_timestamp, timestamp_to_date_str};
 use play_shared::constants::DATA_DIR;
@@ -34,6 +34,7 @@ method_router!(
     post : "/admin/save-config" -> save_config,
     get : "/admin/reboot" -> reboot,
     get : "/admin/backup" -> backup,
+    get : "/admin/backup-encrypted" -> backup_encrypted,
     post : "/admin/restore" -> restore,
     get : "/admin/logs" -> display_logs,
     get : "/admin/clean-change-logs" -> clean_change_logs,
@@ -138,6 +139,76 @@ async fn backup(s: S) -> R<impl IntoResponse> {
     }
 
     crate::controller::files_controller::zip_dir(&folder_path, &target_file)?;
+    match tokio::fs::File::open(&target_file).await {
+        Ok(file) => {
+            // 使用 FramedRead 和 BytesCodec 将文件转换为 Stream
+            let stream = FramedRead::new(file, BytesCodec::new())
+                .map_ok(|bytes| bytes.freeze())
+                .map_err(|e| {
+                    info!("File streaming error: {}", e);
+                    // 在流中发生错误时，将错误转换为 HTTP 500 状态码
+                    anyhow!("file stream error")
+                });
+
+            // In axum 0.8 we use Body::from_stream instead of StreamBody
+            let body = axum::body::Body::from_stream(stream);
+            Ok(Response::new(body))
+        }
+        Err(_) => {
+            // 文件无法打开时，返回 HTTP 404 状态码
+            return_error!("file not found!")
+        }
+    }
+}
+
+async fn backup_encrypted(s: S) -> R<impl IntoResponse> {
+    let files_path = files_dir!();
+
+    //make a temp dir
+    let folder_path = data_dir!().join("backup");
+    if folder_path.exists() {
+        fs::remove_dir_all(&folder_path)?;
+    }
+    fs::create_dir(&folder_path)?;
+
+    //db file path
+    let raw = s.config.database.url.to_string();
+    let db_path = Path::new(&raw["sqlite://".len()..raw.len()]).to_path_buf();
+
+    //config file path
+    let config_file_path = get_config_path()?;
+
+    fs_extra::copy_items(&vec![files_path, db_path, config_file_path.into()], &folder_path, &CopyOptions { copy_inside: true, ..Default::default() })?;
+
+    // Create unencrypted zip first
+    let temp_file = data_dir!().join("play_temp.zip");
+    if temp_file.exists() {
+        tokio::fs::remove_file(&temp_file).await?;
+    }
+    crate::controller::files_controller::zip_dir(&folder_path, &temp_file)?;
+
+    // Create encrypted zip with passcode
+    let target_file = data_dir!().join("play_encrypted.zip");
+    if target_file.exists() {
+        tokio::fs::remove_file(&target_file).await?;
+    }
+
+    // Read the temp zip and create encrypted version
+    let temp_data = fs::read(&temp_file)?;
+    let encrypted_file = File::create(&target_file)?;
+    let mut zip = ZipWriter::new(encrypted_file);
+    
+    let options = FileOptions::<ExtendedFileOptions>::default()
+        .compression_method(CompressionMethod::Deflated)
+        .with_aes_encryption(zip::AesMode::Aes256, s.config.auth_config.passcode.as_str());
+    
+    zip.start_file("play_backup.zip", options)?;
+    std::io::Write::write_all(&mut zip, &temp_data)?;
+    zip.finish()?;
+
+    // Clean up temp file
+    fs::remove_file(&temp_file)?;
+
     match tokio::fs::File::open(&target_file).await {
         Ok(file) => {
             // 使用 FramedRead 和 BytesCodec 将文件转换为 Stream
