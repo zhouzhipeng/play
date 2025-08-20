@@ -71,10 +71,12 @@ type = "upstream"
 ip = "127.0.0.1"
 port = 3000
 
-# WebSocket配置（可选）
-[domain_proxy.websocket_config]
+# WebSocket配置（可选，直接在domain_proxy下配置）
 origin_strategy = "backend"  # 或 "keep", "remove", "host", "custom"
 # custom_origin = "https://custom-origin.com"  # 仅当origin_strategy为"custom"时需要
+
+# 强制使用HTTPS（可选，默认443端口使用https，其他端口使用http）
+# use_https = true
 ```
 
 **字段说明：**
@@ -82,7 +84,9 @@ origin_strategy = "backend"  # 或 "keep", "remove", "host", "custom"
 - `type`: 代理类型，设置为 `"upstream"`
 - `ip`: 目标服务器IP地址（默认: `127.0.0.1`）
 - `port`: 目标服务器端口（默认: `80`）
-- `websocket_config`: WebSocket配置（可选）
+- `use_https`: 强制使用HTTPS协议（可选，默认443端口自动使用https）
+- `origin_strategy`: WebSocket Origin处理策略（可选）
+- `custom_origin`: 自定义Origin值（可选）
 
 ## WebSocket配置详解
 
@@ -91,7 +95,8 @@ WebSocket配置允许你控制WebSocket连接的Origin头部处理方式，解�
 ### WebSocket配置字段
 
 ```toml
-[domain_proxy.websocket_config]
+[[domain_proxy]]
+# ... 其他配置 ...
 origin_strategy = "backend"  # Origin处理策略
 custom_origin = "https://example.com"  # 自定义Origin（可选）
 ```
@@ -100,35 +105,40 @@ custom_origin = "https://example.com"  # 自定义Origin（可选）
 
 #### 1. `"keep"` - 保持原始Origin
 ```toml
-[domain_proxy.websocket_config]
+[[domain_proxy]]
+# ... 其他配置 ...
 origin_strategy = "keep"
 ```
 保持客户端发送的原始Origin头部不变。适用于目标服务器接受任意Origin的情况。
 
 #### 2. `"remove"` - 移除Origin头部
 ```toml
-[domain_proxy.websocket_config]
+[[domain_proxy]]
+# ... 其他配置 ...
 origin_strategy = "remove"
 ```
 完全移除Origin头部，让目标服务器跳过Origin检查。适用于目标服务器不进行Origin验证的情况。
 
 #### 3. `"host"` - 使用代理域名作为Origin
 ```toml
-[domain_proxy.websocket_config]
+[[domain_proxy]]
+# ... 其他配置 ...
 origin_strategy = "host"
 ```
 将Origin设置为代理域名（如 `https://websocket.example.com`）。适用于目标服务器期望Origin与访问域名一致的情况。
 
 #### 4. `"backend"` - 使用后端服务器地址作为Origin（默认）
 ```toml
-[domain_proxy.websocket_config]
+[[domain_proxy]]
+# ... 其他配置 ...
 origin_strategy = "backend"
 ```
 将Origin设置为后端服务器地址（如 `http://127.0.0.1:3000`）。这是默认策略，适用于大多数情况。
 
 #### 5. `"custom"` - 使用自定义Origin
 ```toml
-[domain_proxy.websocket_config]
+[[domain_proxy]]
+# ... 其他配置 ...
 origin_strategy = "custom"
 custom_origin = "https://trusted-origin.com"
 ```
@@ -179,8 +189,6 @@ proxy_domain = "chat.mysite.com"
 type = "upstream"
 ip = "127.0.0.1"
 port = 9000
-
-[domain_proxy.websocket_config]
 origin_strategy = "remove"
 
 # 需要特定Origin的WebSocket服务
@@ -189,19 +197,16 @@ proxy_domain = "secure-websocket.mysite.com"
 type = "upstream"
 ip = "192.168.1.100"
 port = 3000
-
-[domain_proxy.websocket_config]
 origin_strategy = "custom"
 custom_origin = "https://trusted-app.mysite.com"
 
-# 外部服务代理
+# 外部HTTPS服务代理（强制使用HTTPS）
 [[domain_proxy]]
 proxy_domain = "external-service.mysite.com"
 type = "upstream"
 ip = "192.168.1.100"
 port = 3000
-
-[domain_proxy.websocket_config]
+use_https = true
 origin_strategy = "host"
 ```
 

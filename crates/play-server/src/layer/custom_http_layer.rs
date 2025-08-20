@@ -21,7 +21,7 @@ use std::task::{Context, Poll};
 use tower::{Layer, Service};
 use axum::ServiceExt;
 
-use crate::config::{AuthConfig, ProxyTarget, WebSocketConfig};
+use crate::config::{AuthConfig, ProxyTarget, WebSocketConfig, DomainProxy};
 use crate::controller::cache_controller::get_cache_content;
 
 use crate::controller::static_controller::STATIC_DIR;
@@ -78,7 +78,7 @@ pub async fn http_middleware(
                             )
                         }
                         ProxyTarget::Upstream { ip, port } => {
-                            serve_upstream_proxy_with_config(state.clone(), host, request, ip, *port, &domain.websocket_config).await.unwrap_or_else(|e| 
+                            serve_upstream_proxy_with_config(state.clone(), host, request, ip, *port, domain).await.unwrap_or_else(|e| 
                                 axum::response::Response::builder()
                                     .status(axum::http::StatusCode::INTERNAL_SERVER_ERROR)
                                     .body(format!("Proxy error: {}", e).into())
@@ -282,7 +282,7 @@ pub async fn serve_upstream_proxy_with_config(
     mut request: Request<axum::body::Body>, 
     ip: &str, 
     port: u16,
-    websocket_config: &WebSocketConfig
+    domain_config: &DomainProxy
 ) -> anyhow::Result<Response> {
     use axum_reverse_proxy::ReverseProxy;
     use tower::Service;
@@ -293,15 +293,13 @@ pub async fn serve_upstream_proxy_with_config(
         .map(|pq| pq.as_str())
         .unwrap_or("/");
     
-    // 构建目标URL
-    let scheme = if port == 443 { "https" } else { "http" };
-    let mut target_base = format!("{}://{}:{}", scheme, ip, port);
-
-
-    //
-    if let Some(custom_target) = &websocket_config.custom_origin{
-        target_base = custom_target.to_string();
-    }
+    // 根据DomainProxy配置确定schema
+    let scheme = match domain_config.use_https {
+        Some(true) => "https",
+        Some(false) => "http", 
+        None => if port == 443 { "https" } else { "http" } // 默认逻辑
+    };
+    let target_base = format!("{}://{}:{}", scheme, ip, port);
 
     
     // 检查是否是WebSocket升级请求
@@ -326,7 +324,7 @@ pub async fn serve_upstream_proxy_with_config(
     
     // 对于WebSocket请求，根据配置处理Origin头部
     if is_websocket {
-        handle_websocket_origin(&mut request, &host, &scheme, ip, port, websocket_config)?;
+        handle_websocket_origin(&mut request, &host, &scheme, ip, port, &domain_config.websocket_config)?;
     }
     
     // 构建完整的目标URI（包含scheme、host和path）
@@ -466,8 +464,16 @@ pub async fn serve_upstream_proxy(
     port: u16
 ) -> anyhow::Result<Response> {
     // 使用默认配置
-    let default_config = WebSocketConfig::default();
-    serve_upstream_proxy_with_config(state, host, request, ip, port, &default_config).await
+    let default_domain_config = DomainProxy {
+        proxy_domain: host.clone(),
+        proxy_target: ProxyTarget::Upstream { 
+            ip: ip.to_string(), 
+            port 
+        },
+        use_https: None,
+        websocket_config: WebSocketConfig::default(),
+    };
+    serve_upstream_proxy_with_config(state, host, request, ip, port, &default_domain_config).await
 }
 
 

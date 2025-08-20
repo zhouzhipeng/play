@@ -315,7 +315,8 @@
 
             <div class="form-group">
                 <label for="fromInput">Path (short link)</label>
-                <input type="text" id="fromInput" class="form-control" required>
+                <input type="text" id="fromInput" class="form-control" placeholder="Must start with /" required>
+                <small style="color: #666; font-size: 12px;">Path must start with "/" (e.g. /mylink)</small>
             </div>
 
             <div class="form-group">
@@ -668,6 +669,13 @@
         shortLinkForm.reset();
         linkIdInput.value = '';
         editingLinkId = null;
+        
+        // Clear validation errors
+        fromInput.style.borderColor = '';
+        const errorMsg = document.getElementById('pathError');
+        if (errorMsg) {
+            errorMsg.remove();
+        }
     }
 
     function openDeleteModal(link) {
@@ -717,6 +725,39 @@
         // Add new link button
         addButton.addEventListener('click', openAddModal);
 
+        // Add real-time validation for fromInput
+        fromInput.addEventListener('input', () => {
+            const value = fromInput.value;
+            if (value && !value.startsWith('/')) {
+                fromInput.style.borderColor = 'var(--danger)';
+                if (!document.getElementById('pathError')) {
+                    const errorMsg = document.createElement('small');
+                    errorMsg.id = 'pathError';
+                    errorMsg.style.color = 'var(--danger)';
+                    errorMsg.style.fontSize = '12px';
+                    errorMsg.textContent = 'Path must start with "/"';
+                    fromInput.parentNode.appendChild(errorMsg);
+                }
+            } else {
+                fromInput.style.borderColor = '';
+                const errorMsg = document.getElementById('pathError');
+                if (errorMsg) {
+                    errorMsg.remove();
+                }
+            }
+        });
+
+        // Auto-add "/" if user starts typing without it
+        fromInput.addEventListener('keydown', (e) => {
+            if (fromInput.value === '' && e.key !== '/' && e.key !== 'Backspace' && e.key !== 'Delete' && !e.ctrlKey && !e.metaKey) {
+                setTimeout(() => {
+                    if (fromInput.value && !fromInput.value.startsWith('/')) {
+                        fromInput.value = '/' + fromInput.value;
+                    }
+                }, 0);
+            }
+        });
+
         // Close modals
         document.querySelectorAll('.close').forEach(el => {
             el.addEventListener('click', () => {
@@ -732,9 +773,19 @@
         shortLinkForm.addEventListener('submit', async e => {
             e.preventDefault();
 
+            const fromValue = fromInput.value.trim();
+            const toValue = toInput.value.trim();
+
+            // Validate that path starts with "/"
+            if (!fromValue.startsWith('/')) {
+                showNotification('Path must start with "/"', true);
+                fromInput.focus();
+                return;
+            }
+
             const shortLink = {
-                from: fromInput.value.trim(),
-                to: toInput.value.trim(),
+                from: fromValue,
+                to: toValue,
                 download: downloadCheckbox.checked,
                 auth: authCheckbox.checked
             };
