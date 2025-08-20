@@ -13,7 +13,7 @@ default = []
 debug = ["play-dylib-loader","play-lua"]
 use_mysql = ["sqlx/mysql", "play-shared/sqlparser"]
 server = ["play-dylib-loader","play-lua","play-redis","play-integration-xiaozhi"]
-ui = ["play-dylib-loader","play-lua","play-integration-xiaozhi"]
+ui = ["play-dylib-loader","play-lua"]
 
 
 [build-dependencies]
@@ -60,6 +60,7 @@ urlencoding = { workspace = true }
 anyhow = { workspace = true }
 toml = { workspace = true }
 hyper = { workspace = true }
+axum-reverse-proxy = { workspace = true }
 tower-http = { workspace = true }
 futures = { workspace = true }
 futures-util = { workspace = true }

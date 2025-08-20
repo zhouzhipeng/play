@@ -75,12 +75,47 @@ pub struct PluginConfig {
     pub create_process: bool,
 
 }
-#[derive(Deserialize,Serialize, Debug, Clone, Default)]
+#[derive(Deserialize,Serialize, Debug, Clone)]
 pub struct DomainProxy {
     #[serde(default)]
     pub proxy_domain: String,
-    #[serde(default)]
-    pub folder_path: String,
+    #[serde(flatten)]
+    pub proxy_target: ProxyTarget,
+}
+
+#[derive(Deserialize,Serialize, Debug, Clone)]
+#[serde(tag = "type")]
+pub enum ProxyTarget {
+    #[serde(rename = "folder")]
+    Folder {
+        #[serde(default)]
+        folder_path: String,
+    },
+    #[serde(rename = "upstream")]
+    Upstream {
+        #[serde(default = "default_proxy_ip")]
+        ip: String,
+        #[serde(default = "default_proxy_port")]
+        port: u16,
+    },
+}
+
+impl Default for DomainProxy {
+    fn default() -> Self {
+        Self {
+            proxy_domain: String::default(),
+            proxy_target: ProxyTarget::Folder {
+                folder_path: String::default(),
+            },
+        }
+    }
+}
+
+fn default_proxy_ip() -> String {
+    "127.0.0.1".to_string()
+}
+fn default_proxy_port() -> u16 {
+    80
 }
 
 #[derive(Deserialize,Serialize, Debug, Clone, Default)]

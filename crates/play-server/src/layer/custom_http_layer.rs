@@ -8,6 +8,7 @@ use axum::{
     http::Request,
     response::Response,
 };
+use std::sync::Arc;
 use cookie::Cookie;
 use futures_util::future::BoxFuture;
 use std::convert::Infallible;
@@ -16,12 +17,11 @@ use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::str::FromStr;
-use std::sync::Arc;
 use std::task::{Context, Poll};
 use tower::{Layer, Service};
 use axum::ServiceExt;
 
-use crate::config::AuthConfig;
+use crate::config::{AuthConfig, ProxyTarget};
 use crate::controller::cache_controller::get_cache_content;
 
 use crate::controller::static_controller::STATIC_DIR;
@@ -60,18 +60,30 @@ pub async fn http_middleware(
     // info!("fingerprint is : {:?}", fingerprint);
 
 
-    //serve other domains (support only static files now)
+    //serve other domains (support both static files and upstream proxy)
     if !domain_proxy.is_empty(){
         if let Some(header) = request.headers().get(axum::http::header::HOST) {
             if let Ok(host) = header.to_str() {
                 let host = host.to_string();
                 if let Some(domain) = domain_proxy.iter().find(|p|p.proxy_domain.eq(&host)){
-                    return serve_domain_folder(state.clone(), host, request, &domain.folder_path).await.unwrap_or_else(|e| 
-                        axum::response::Response::builder()
-                            .status(axum::http::StatusCode::INTERNAL_SERVER_ERROR)
-                            .body(format!("Unhandled internal error: {}", e).into())
-                            .unwrap()
-                    )
+                    return match &domain.proxy_target {
+                        ProxyTarget::Folder { folder_path } => {
+                            serve_domain_folder(state.clone(), host, request, folder_path).await.unwrap_or_else(|e| 
+                                axum::response::Response::builder()
+                                    .status(axum::http::StatusCode::INTERNAL_SERVER_ERROR)
+                                    .body(format!("Unhandled internal error: {}", e).into())
+                                    .unwrap()
+                            )
+                        }
+                        ProxyTarget::Upstream { ip, port } => {
+                            serve_upstream_proxy(state.clone(), host, request, ip, *port).await.unwrap_or_else(|e| 
+                                axum::response::Response::builder()
+                                    .status(axum::http::StatusCode::INTERNAL_SERVER_ERROR)
+                                    .body(format!("Proxy error: {}", e).into())
+                                    .unwrap()
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -258,6 +270,45 @@ fn extract_prefix(url: &str) -> String {
         format!("/{}", p)
     } else {
         url.to_string()
+    }
+}
+
+async fn serve_upstream_proxy(
+    state: S, 
+    host: String, 
+    request: Request<axum::body::Body>, 
+    ip: &str, 
+    port: u16
+) -> anyhow::Result<Response> {
+    use axum_reverse_proxy::ReverseProxy;
+    use tower::Service;
+    
+    // 构建目标URL
+    let scheme = if port == 443 { "https" } else { "http" };
+    let path_and_query = request.uri().path_and_query()
+        .map(|pq| pq.as_str())
+        .unwrap_or("/");
+    
+    // 构建上游服务器的完整URL
+    let target_url = format!("{}://{}:{}", scheme, ip, port);
+    
+    info!("Proxying request: {} {} -> {}{}", request.method(), path_and_query, target_url, path_and_query);
+    
+    // 创建反向代理实例 (axum-reverse-proxy 需要路径和目标URL)
+    let mut proxy = ReverseProxy::new("/", &target_url);
+    
+    // 使用 tower Service trait 调用代理
+    match proxy.call(request).await {
+        Ok(response) => {
+            info!("Successfully proxied request to {}", target_url);
+            Ok(response)
+        }
+        Err(e) => {
+            warn!("Proxy error to {}: {:?}", target_url, e);
+            Ok(axum::response::Response::builder()
+                .status(axum::http::StatusCode::BAD_GATEWAY)
+                .body(format!("Proxy error: {:?}", e).into())?)
+        }
     }
 }
 

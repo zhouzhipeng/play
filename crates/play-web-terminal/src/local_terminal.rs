@@ -57,6 +57,16 @@ impl LocalTerminal {
             let mut cmd = CommandBuilder::new(&shell);
             cmd.arg("-l"); // Login shell
             
+            // Set working directory to DATA_DIR if available
+            if let Ok(data_dir) = std::env::var("DATA_DIR") {
+                info!("Setting working directory to DATA_DIR: {}", data_dir);
+                cmd.cwd(&data_dir);
+                // Also set PWD environment variable to help shells recognize the working directory
+                cmd.env("PWD", &data_dir);
+            } else {
+                info!("DATA_DIR not set, using default working directory");
+            }
+            
             // Set environment variables
             cmd.env("TERM", "xterm-256color");
             cmd.env("COLORTERM", "truecolor");

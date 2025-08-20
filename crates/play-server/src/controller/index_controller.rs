@@ -81,7 +81,7 @@ async fn root(s: S) -> HTML {
                         a { href: "/static/fileupload.html", "Upload File" }
                     }
                     li {
-                        a { href: "/static/shell.html", "Web Shell" }
+                        a { href: "/web-terminal", "Web Terminal" }
                     }
                     li {
                         a { href: "/static/crontab-manager.html", "Crontab Manager" }
