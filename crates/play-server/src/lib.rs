@@ -429,6 +429,7 @@ pub async fn routers(app_state: Arc<AppState>) -> anyhow::Result<Router<Arc<AppS
         router = router.merge(controller::redis_controller::routes().with_state(redis_state.clone()));
     }
 
+
     router = router.with_state(app_state.clone())
         // logging so we can see whats going on
         .layer(TraceLayer::new_for_http().make_span_with(DefaultMakeSpan::default().include_headers(true)))
@@ -438,7 +439,8 @@ pub async fn routers(app_state: Arc<AppState>) -> anyhow::Result<Router<Arc<AppS
         .layer(middleware::from_fn_with_state(app_state.clone(), http_middleware))
         .layer(cors)
         .layer(CompressionLayer::new().compress_when(CustomCompressPredict{}))
-        .fallback(handle_404)
+        // 临时移除fallback来测试中间件是否正常工作
+        // .fallback(handle_404)
         ;
 
     //
@@ -451,7 +453,7 @@ pub async fn routers(app_state: Arc<AppState>) -> anyhow::Result<Router<Arc<AppS
     Ok(router)
 }
 
-// 创建自定义404处理函数，同时处理域名代理
+// 404处理函数，包含域名代理作为后备保障
 async fn handle_404(
     State(state): State<Arc<AppState>>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
@@ -459,7 +461,7 @@ async fn handle_404(
 ) -> impl IntoResponse {
     let uri = request.uri().clone();
     
-    // 检查是否需要域名代理
+    // 检查是否需要域名代理（后备保障）
     if let Some(header) = request.headers().get(axum::http::header::HOST) {
         if let Ok(host) = header.to_str() {
             if let Some(domain) = state.config.domain_proxy.iter().find(|p| p.proxy_domain == host) {
