@@ -295,7 +295,17 @@ pub async fn serve_upstream_proxy(
     let scheme = if port == 443 { "https" } else { "http" };
     let target_base = format!("{}://{}:{}", scheme, ip, port);
     
-    info!("Proxying: {} {} -> {}", request.method(), path_and_query, target_base);
+    // 检查是否是WebSocket升级请求
+    let is_websocket = request.headers().get(axum::http::header::UPGRADE)
+        .and_then(|v| v.to_str().ok())
+        .map(|v| v.to_lowercase() == "websocket")
+        .unwrap_or(false);
+    
+    if is_websocket {
+        info!("WebSocket upgrade request: {} {} -> {}", request.method(), path_and_query, target_base);
+    } else {
+        info!("HTTP request: {} {} -> {}", request.method(), path_and_query, target_base);
+    }
     
     // 重要：设置正确的Host头部
     // 某些服务器（如Cloudflare CDN后的服务器）需要原始的Host头部
@@ -304,6 +314,39 @@ pub async fn serve_upstream_proxy(
         axum::http::HeaderValue::from_str(&host)
             .unwrap_or_else(|_| axum::http::HeaderValue::from_static("localhost"))
     );
+    
+    // 对于WebSocket请求，修复Origin头部以匹配目标服务器
+    if is_websocket {
+        // 确保WebSocket相关头部存在（axum-reverse-proxy会自动处理，但我们记录日志）
+        if let Some(connection) = request.headers().get(axum::http::header::CONNECTION) {
+            info!("WebSocket Connection header: {:?}", connection);
+        }
+        if let Some(sec_websocket_key) = request.headers().get("sec-websocket-key") {
+            info!("WebSocket Key present: {:?}", sec_websocket_key);
+        }
+        
+        // 方案1：修复Origin头部 - 将Origin设置为目标服务器的域名
+        let target_origin = format!("{}://{}", scheme, host);
+        request.headers_mut().insert(
+            axum::http::header::ORIGIN,
+            axum::http::HeaderValue::from_str(&target_origin)
+                .unwrap_or_else(|_| axum::http::HeaderValue::from_static("http://localhost"))
+        );
+        info!("Set WebSocket Origin to: {}", target_origin);
+        
+        // 方案2：如果上面的方案不工作，可以尝试移除Origin头部
+        // 这让目标服务器跳过Origin检查
+        // request.headers_mut().remove(axum::http::header::ORIGIN);
+        // info!("Removed Origin header for WebSocket request");
+        
+        // 方案3：如果目标服务器需要特定的Origin，可以设置为目标服务器的实际地址
+        // let backend_origin = format!("{}://{}:{}", scheme, ip, port);
+        // request.headers_mut().insert(
+        //     axum::http::header::ORIGIN,
+        //     axum::http::HeaderValue::from_str(&backend_origin)?
+        // );
+        // info!("Set WebSocket Origin to backend: {}", backend_origin);
+    }
     
     // 构建完整的目标URI（包含scheme、host和path）
     let full_target_uri = format!("{}{}", target_base, path_and_query);
@@ -324,17 +367,31 @@ pub async fn serve_upstream_proxy(
     match proxy.call(request).await {
         Ok(response) => {
             let status = response.status();
-            if status == StatusCode::NOT_FOUND {
-                warn!("404 response for path: {} (target: {}{})", path_and_query, target_base, path_and_query);
-            } else if status.is_success() {
-                info!("Success: {} for path: {}", status, path_and_query);
+            
+            if is_websocket {
+                if status == StatusCode::SWITCHING_PROTOCOLS {
+                    info!("WebSocket upgrade successful: {} -> {}", status, target_base);
+                } else {
+                    warn!("WebSocket upgrade failed: {} -> {}", status, target_base);
+                }
             } else {
-                warn!("Non-success status: {} for path: {}", status, path_and_query);
+                if status == StatusCode::NOT_FOUND {
+                    warn!("404 response for path: {} (target: {}{})", path_and_query, target_base, path_and_query);
+                } else if status.is_success() {
+                    info!("Success: {} for path: {}", status, path_and_query);
+                } else {
+                    warn!("Non-success status: {} for path: {}", status, path_and_query);
+                }
             }
+            
             Ok(response)
         }
         Err(e) => {
-            warn!("Proxy error to {}: {:?}", target_base, e);
+            if is_websocket {
+                warn!("WebSocket proxy error to {}: {:?}", target_base, e);
+            } else {
+                warn!("HTTP proxy error to {}: {:?}", target_base, e);
+            }
             
             // 返回502 Bad Gateway错误
             Ok(axum::response::Response::builder()
