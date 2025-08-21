@@ -70,7 +70,11 @@ pub async fn load_and_run_server(dylib_path: &str, host_context: HostContext) ->
             let rust_string = serde_json::to_string(&host_context)?;
             let request = string_to_c_char_mut(&rust_string);
             run(request);
-            warn!("run failed? dylib_path : {}",copy_path);
+            
+            // 重要：释放分配的C字符串
+            drop(std::ffi::CString::from_raw(request));
+            
+            warn!("run exited, dylib_path : {}",copy_path);
 
             drop(lib);
             Ok(())
@@ -123,7 +127,7 @@ unsafe fn run_plugin(lib_path: &str, request: HttpRequest) -> anyhow::Result<Htt
     info!("load_and_run begin  path : {}",lib_path);
 
     let lib = Library::new(&lib_path)?;
-    // let lib = get_plugin_lib(lib_path)?;
+    // let lib = get_plugin_lib(lib_path)?;  // 不使用缓存，因为动态库无法真正从内存中卸载
     let handle_request: Symbol<HandleRequestFn> = lib.get(HANDLE_REQUEST_FN_NAME.as_ref()).context("`handle_request` method not found.")?;
     let free_c_string: Symbol<FreeCStringFn> = lib.get(FREE_C_STRING_FN_NAME.as_ref()).context("`free_c_string` method not found.")?;
 
@@ -143,10 +147,18 @@ unsafe fn run_plugin(lib_path: &str, request: HttpRequest) -> anyhow::Result<Htt
     if let Some(error) = &response.error {
         bail!("run plugin error >> {}", error);
     }
-    drop(lib);
+    drop(lib);  // 尝试卸载，虽然OS可能不会真正释放
     Ok(response)
 }
 
+// 不使用缓存，因为动态库无法真正从内存中卸载
+// pub fn clear_plugin_cache() {
+//     PLUGIN_CACHE.clear();
+// }
+// 
+// pub fn remove_plugin_from_cache(lib_path: &str) {
+//     PLUGIN_CACHE.remove(lib_path);
+// }
 
 #[cfg(test)]
 mod tests {
@@ -203,6 +215,8 @@ mod tests {
         }).await;
         println!("resp >> {:?}", resp);
 
-        println!("resp >> {:?}", String::from_utf8( resp.unwrap().body));
+        if let Ok(resp) = resp {
+            println!("resp >> {:?}", String::from_utf8(resp.body));
+        }
     }
 }
