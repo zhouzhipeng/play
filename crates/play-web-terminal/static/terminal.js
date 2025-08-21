@@ -4,6 +4,7 @@ class WebTerminal {
         this.fitAddon = null;
         this.ws = null;
         this.isConnected = false;
+        this.isHandlingDisconnect = false; // Prevent multiple disconnect handling
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 10;
         this.reconnectDelay = 1000; // Start with 1 second
@@ -110,6 +111,7 @@ class WebTerminal {
     
     connect() {
         this.updateStatus('connecting');
+        this.isHandlingDisconnect = false; // Reset flag when connecting
         
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${protocol}//${window.location.host}/web-terminal/ws`;
@@ -120,6 +122,7 @@ class WebTerminal {
             this.terminal.clear();
             this.reconnectAttempts = 0; // Reset on successful connection
             this.reconnectDelay = 1000; // Reset delay
+            this.isHandlingDisconnect = false; // Ensure flag is reset
             this.ws.send(JSON.stringify({ type: 'Connect' }));
         };
         
@@ -154,22 +157,36 @@ class WebTerminal {
                     break;
                     
                 case 'Disconnected':
-                    this.handleDisconnect();
+                    // Server-initiated disconnect
+                    // Close the WebSocket, which will trigger onclose event
+                    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                        this.ws.close();
+                    }
                     break;
             }
         };
         
         this.ws.onerror = (error) => {
             console.error('WebSocket error:', error);
-            this.handleDisconnect();
+            // Don't call handleDisconnect here, let onclose handle it
+            // This prevents double-calling when both error and close fire
         };
         
         this.ws.onclose = () => {
-            this.handleDisconnect();
+            // Only handle disconnect once per connection
+            if (!this.isHandlingDisconnect) {
+                this.handleDisconnect();
+            }
         };
     }
     
     handleDisconnect() {
+        // Prevent multiple simultaneous calls
+        if (this.isHandlingDisconnect) {
+            return;
+        }
+        this.isHandlingDisconnect = true;
+        
         this.ws = null;
         this.isConnected = false;
         this.updateStatus('disconnected');
@@ -178,6 +195,7 @@ class WebTerminal {
         
         if (this.reconnectAttempts > this.maxReconnectAttempts) {
             this.terminal.writeln('\r\n\r\nMax reconnection attempts reached. Please refresh the page to try again.');
+            this.isHandlingDisconnect = false;
             return;
         }
         
