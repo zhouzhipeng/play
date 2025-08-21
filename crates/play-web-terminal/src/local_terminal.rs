@@ -2,6 +2,7 @@ use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use std::io::{Read, Write};
 use std::sync::mpsc as std_mpsc;
 use tokio::sync::mpsc;
+use mpsc::error;
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info};
 
@@ -128,7 +129,7 @@ impl LocalTerminal {
             
             // Spawn a thread to read output from PTY
             std::thread::spawn(move || {
-                let mut buffer = vec![0u8; 4096];
+                let mut buffer = vec![0u8; 8192]; // Increase buffer size for better performance
                 
                 loop {
                     match reader.read(&mut buffer) {
@@ -140,9 +141,29 @@ impl LocalTerminal {
                         Ok(n) => {
                             let data = String::from_utf8_lossy(&buffer[..n]).to_string();
                             debug!("Read {} bytes from PTY", n);
-                            if rt_clone.block_on(tx_clone.send(TerminalResponse::Output { data })).is_err() {
-                                error!("Failed to send output to websocket");
-                                break;
+                            
+                            // Use try_send first to avoid blocking, fallback to blocking send
+                            match tx_clone.try_send(TerminalResponse::Output { data: data.clone() }) {
+                                Ok(_) => {
+                                    // Message sent successfully without blocking
+                                }
+                                Err(mpsc::error::TrySendError::Full(_)) => {
+                                    // Channel is full, use blocking send with timeout
+                                    debug!("Channel full, using blocking send...");
+                                    if rt_clone.block_on(async {
+                                        tokio::time::timeout(
+                                            std::time::Duration::from_secs(5),
+                                            tx_clone.send(TerminalResponse::Output { data })
+                                        ).await
+                                    }).is_err() {
+                                        error!("Timeout sending output to websocket");
+                                        break;
+                                    }
+                                }
+                                Err(mpsc::error::TrySendError::Closed(_)) => {
+                                    error!("WebSocket channel closed");
+                                    break;
+                                }
                             }
                         }
                         Err(e) => {
@@ -150,6 +171,9 @@ impl LocalTerminal {
                             break;
                         }
                     }
+                    
+                    // Add a small delay to prevent overwhelming the WebSocket
+                    std::thread::sleep(std::time::Duration::from_millis(1));
                 }
                 
                 let _ = output_done_tx.send(());
