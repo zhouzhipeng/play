@@ -4,6 +4,10 @@ class WebTerminal {
         this.fitAddon = null;
         this.ws = null;
         this.isConnected = false;
+        this.isHandlingDisconnect = false; // Prevent multiple disconnect handling
+        this.reconnectAttempts = 0;
+        this.maxReconnectAttempts = 10;
+        this.reconnectDelay = 1000; // Start with 1 second
         
         this.initializeTerminal();
         this.setupEventListeners();
@@ -107,6 +111,7 @@ class WebTerminal {
     
     connect() {
         this.updateStatus('connecting');
+        this.isHandlingDisconnect = false; // Reset flag when connecting
         
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${protocol}//${window.location.host}/web-terminal/ws`;
@@ -115,6 +120,9 @@ class WebTerminal {
         
         this.ws.onopen = () => {
             this.terminal.clear();
+            this.reconnectAttempts = 0; // Reset on successful connection
+            this.reconnectDelay = 1000; // Reset delay
+            this.isHandlingDisconnect = false; // Ensure flag is reset
             this.ws.send(JSON.stringify({ type: 'Connect' }));
         };
         
@@ -142,41 +150,68 @@ class WebTerminal {
                     
                 case 'Error':
                     console.error('Terminal error:', msg.message);
+                    this.terminal.writeln(`\r\n\x1b[31mError: ${msg.message}\x1b[0m`); // Red color for errors
                     if (!this.isConnected) {
                         this.updateStatus('disconnected');
-                        this.terminal.writeln(`\r\nError: ${msg.message}`);
                     }
                     break;
                     
                 case 'Disconnected':
-                    this.handleDisconnect();
+                    // Server-initiated disconnect
+                    // Close the WebSocket, which will trigger onclose event
+                    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                        this.ws.close();
+                    }
                     break;
             }
         };
         
         this.ws.onerror = (error) => {
             console.error('WebSocket error:', error);
-            this.handleDisconnect();
+            // Don't call handleDisconnect here, let onclose handle it
+            // This prevents double-calling when both error and close fire
         };
         
         this.ws.onclose = () => {
-            this.handleDisconnect();
+            // Only handle disconnect once per connection
+            if (!this.isHandlingDisconnect) {
+                this.handleDisconnect();
+            }
         };
     }
     
     handleDisconnect() {
+        // Prevent multiple simultaneous calls
+        if (this.isHandlingDisconnect) {
+            return;
+        }
+        this.isHandlingDisconnect = true;
+        
         this.ws = null;
         this.isConnected = false;
         this.updateStatus('disconnected');
         
-        this.terminal.writeln('\r\n\r\nConnection lost. Reconnecting in 3 seconds...');
+        this.reconnectAttempts++;
         
-        // Auto-reconnect after 3 seconds
+        if (this.reconnectAttempts > this.maxReconnectAttempts) {
+            this.terminal.writeln('\r\n\r\nMax reconnection attempts reached. Please refresh the page to try again.');
+            this.isHandlingDisconnect = false;
+            return;
+        }
+        
+        // Exponential backoff with jitter
+        const delay = Math.min(this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1), 30000);
+        const jitter = Math.random() * 1000; // Add up to 1 second of jitter
+        const actualDelay = delay + jitter;
+        
+        this.terminal.writeln(`\r\n\r\nConnection lost. Reconnecting in ${Math.ceil(actualDelay/1000)} seconds... (Attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+        
+        // Auto-reconnect with backoff
         setTimeout(() => {
             if (!this.isConnected) {
                 this.connect();
             }
-        }, 3000);
+        }, actualDelay);
     }
     
     disconnect() {
