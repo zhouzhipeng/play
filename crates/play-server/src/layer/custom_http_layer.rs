@@ -43,7 +43,8 @@ pub async fn http_middleware(
 ) -> Response {
     // println!("Connection from: {}", addr);
 
-    let is_local_request = addr.ip().to_string() == "127.0.0.1";
+    let remote_ip =  addr.ip().to_string();
+    let is_local_request = remote_ip == "::ffff:127.0.0.1";
     // info!("is_local_request >> {}", is_local_request);
 
     if is_local_request{
