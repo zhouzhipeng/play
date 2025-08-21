@@ -88,11 +88,32 @@ pub struct DomainProxy {
     pub websocket_config: WebSocketConfig,
 }
 
+#[derive(Deserialize, Serialize, Debug, Clone)]
+#[serde(rename_all = "lowercase")]
+pub enum OriginStrategy {
+    /// 保持原始Origin头部不变
+    Keep,
+    /// 移除Origin头部
+    Remove,
+    /// 设置为代理域名
+    Host,
+    /// 设置为后端服务器地址
+    Backend,
+    /// 使用自定义Origin值
+    Custom,
+}
+
+impl Default for OriginStrategy {
+    fn default() -> Self {
+        OriginStrategy::Keep
+    }
+}
+
 #[derive(Deserialize,Serialize, Debug, Clone)]
 pub struct WebSocketConfig {
-    /// WebSocket Origin处理策略: "keep", "remove", "host", "backend"
-    #[serde(default = "default_websocket_origin_strategy")]
-    pub origin_strategy: String,
+    /// WebSocket Origin处理策略
+    #[serde(default)]
+    pub origin_strategy: OriginStrategy,
     /// 自定义Origin值（当origin_strategy为"custom"时使用）
     #[serde(default)]
     pub custom_origin: Option<String>,
@@ -101,14 +122,10 @@ pub struct WebSocketConfig {
 impl Default for WebSocketConfig {
     fn default() -> Self {
         Self {
-            origin_strategy: default_websocket_origin_strategy(),
+            origin_strategy: OriginStrategy::Keep,
             custom_origin: None,
         }
     }
-}
-
-fn default_websocket_origin_strategy() -> String {
-    "keep".to_string()
 }
 
 #[derive(Deserialize,Serialize, Debug, Clone)]
