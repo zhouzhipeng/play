@@ -45,7 +45,7 @@ use tracing_subscriber::filter;
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::util::SubscriberInitExt;
 use std::os::unix::fs::PermissionsExt;
-pub use crate::config::{Config, PluginConfig, ShortLink};
+pub use crate::config::{Config, PluginConfig, ShortLink, OriginStrategy};
 pub use crate::config::init_config;
 use crate::controller::{app_routers, plugin_controller, shortlink_controller};
 use crate::layer::custom_http_layer::http_middleware;
