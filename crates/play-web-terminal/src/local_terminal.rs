@@ -3,7 +3,7 @@ use std::io::{Read, Write};
 use std::sync::mpsc as std_mpsc;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 use crate::{websocket::TerminalResponse, Error, Result};
 
@@ -59,12 +59,12 @@ impl LocalTerminal {
             
             // Set working directory to DATA_DIR if available
             if let Ok(data_dir) = std::env::var("DATA_DIR") {
-                info!("Setting working directory to DATA_DIR: {}", data_dir);
+                debug!("Setting working directory to DATA_DIR: {}", data_dir);
                 cmd.cwd(&data_dir);
                 // Also set PWD environment variable to help shells recognize the working directory
                 cmd.env("PWD", &data_dir);
             } else {
-                info!("DATA_DIR not set, using default working directory");
+                debug!("DATA_DIR not set, using default working directory");
             }
             
             // Set environment variables
@@ -84,7 +84,7 @@ impl LocalTerminal {
                 }
             };
             
-            info!("Local terminal started with shell: {}", shell);
+            debug!("Local terminal started with shell: {}", shell);
             
             // Get writer for the master PTY
             let mut writer = match pair.master.take_writer() {
@@ -122,12 +122,12 @@ impl LocalTerminal {
                     match reader.read(&mut buffer) {
                         Ok(0) => {
                             // EOF - shell might have exited
-                            info!("EOF from PTY");
+                            debug!("EOF from PTY");
                             break;
                         }
                         Ok(n) => {
                             let data = String::from_utf8_lossy(&buffer[..n]).to_string();
-                            info!("Read {} bytes from PTY", n);
+                            debug!("Read {} bytes from PTY", n);
                             if rt_clone.block_on(tx_clone.send(TerminalResponse::Output { data })).is_err() {
                                 error!("Failed to send output to websocket");
                                 break;
@@ -149,11 +149,11 @@ impl LocalTerminal {
                 match input_rx.recv_timeout(std::time::Duration::from_millis(100)) {
                     Ok(TerminalCommand::Input(data)) => {
                         // Write to the master PTY
-                        info!("Received input command: {:?}", data);
+                        debug!("Received input command: {:?}", data);
                         match writer.write_all(data.as_bytes()) {
                             Ok(_) => {
                                 match writer.flush() {
-                                    Ok(_) => info!("Successfully wrote to PTY"),
+                                    Ok(_) => debug!("Successfully wrote to PTY"),
                                     Err(e) => error!("Failed to flush: {}", e),
                                 }
                             }
@@ -176,33 +176,33 @@ impl LocalTerminal {
                         }
                     }
                     Ok(TerminalCommand::Disconnect) => {
-                        info!("Disconnect command received");
+                        debug!("Disconnect command received");
                         break;
                     }
                     Err(std_mpsc::RecvTimeoutError::Timeout) => {
                         // No commands, continue
                     }
                     Err(std_mpsc::RecvTimeoutError::Disconnected) => {
-                        info!("Command channel disconnected");
+                        debug!("Command channel disconnected");
                         break;
                     }
                 }
                 
                 // Check if child process is still running
                 if let Ok(Some(status)) = child.try_wait() {
-                    info!("Shell exited with status: {:?}", status);
+                    debug!("Shell exited with status: {:?}", status);
                     let _ = rt.block_on(tx.send(TerminalResponse::Disconnected));
                     break;
                 }
                 
                 // Check if output thread has finished
                 if output_done_rx.try_recv().is_ok() {
-                    info!("Output thread finished");
+                    debug!("Output thread finished");
                     break;
                 }
             }
             
-            info!("Closing local terminal");
+            debug!("Closing local terminal");
             let _ = child.kill();
         });
 
@@ -210,11 +210,11 @@ impl LocalTerminal {
     }
 
     pub async fn send_input(&mut self, data: &str) -> Result<()> {
-        info!("send_input called with: {:?}", data);
+        debug!("send_input called with: {:?}", data);
         if let Some(ref tx) = self.input_tx {
             tx.send(TerminalCommand::Input(data.to_string()))
                 .map_err(|e| Error::Terminal(format!("Failed to send input: {}", e)))?;
-            info!("Input command sent to channel");
+            debug!("Input command sent to channel");
         } else {
             return Err(Error::Terminal("Terminal not started".to_string()));
         }

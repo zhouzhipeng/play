@@ -7,6 +7,7 @@ use axum::{
     http::{header, StatusCode},
 };
 use tower_http::cors::{Any, CorsLayer};
+use tracing::debug;
 
 use crate::websocket::websocket_handler;
 
@@ -38,6 +39,7 @@ async fn terminal_page() -> impl IntoResponse {
 }
 
 async fn ws_handler(ws: WebSocketUpgrade) -> impl IntoResponse {
+    debug!("WebSocket upgrade handler called!");
     websocket_handler(ws).await
 }
 
