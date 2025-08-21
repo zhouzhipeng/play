@@ -55,7 +55,18 @@ impl LocalTerminal {
             // Get the shell from environment or use default
             let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string());
             let mut cmd = CommandBuilder::new(&shell);
-            cmd.arg("-l"); // Login shell
+            
+            // Use interactive shell instead of login shell to prevent quick exit
+            if shell.contains("bash") {
+                cmd.args(&["-i"]); // Interactive bash
+            } else if shell.contains("zsh") {
+                cmd.args(&["-i"]); // Interactive zsh  
+            } else if shell.contains("fish") {
+                cmd.args(&["-i"]); // Interactive fish
+            } else {
+                // For other shells, try interactive flag
+                cmd.args(&["-i"]);
+            }
             
             // Set working directory to DATA_DIR if available
             if let Ok(data_dir) = std::env::var("DATA_DIR") {
@@ -72,6 +83,7 @@ impl LocalTerminal {
             cmd.env("COLORTERM", "truecolor");
             
             // Spawn the shell
+            debug!("Attempting to spawn shell: {}", shell);
             let mut child = match pair.slave.spawn_command(cmd) {
                 Ok(child) => child,
                 Err(e) => {
@@ -84,7 +96,7 @@ impl LocalTerminal {
                 }
             };
             
-            debug!("Local terminal started with shell: {}", shell);
+            debug!("Local terminal started successfully with shell: {}", shell);
             
             // Get writer for the master PTY
             let mut writer = match pair.master.take_writer() {
@@ -190,14 +202,29 @@ impl LocalTerminal {
                 
                 // Check if child process is still running
                 if let Ok(Some(status)) = child.try_wait() {
-                    debug!("Shell exited with status: {:?}", status);
+                    error!("Shell exited unexpectedly with status: {:?}", status);
+                    
+                    // Send error message instead of just disconnected
+                    let error_msg = if status.success() {
+                        "Shell session ended normally".to_string()
+                    } else {
+                        format!("Shell exited with error code: {:?}", status)
+                    };
+                    
+                    let _ = rt.block_on(tx.send(TerminalResponse::Error {
+                        message: error_msg,
+                    }));
                     let _ = rt.block_on(tx.send(TerminalResponse::Disconnected));
                     break;
                 }
                 
                 // Check if output thread has finished
                 if output_done_rx.try_recv().is_ok() {
-                    debug!("Output thread finished");
+                    error!("Output thread finished unexpectedly - shell may have crashed");
+                    let _ = rt.block_on(tx.send(TerminalResponse::Error {
+                        message: "Terminal output stream ended unexpectedly".to_string(),
+                    }));
+                    let _ = rt.block_on(tx.send(TerminalResponse::Disconnected));
                     break;
                 }
             }
