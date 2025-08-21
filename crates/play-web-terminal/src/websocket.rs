@@ -33,10 +33,12 @@ pub enum TerminalResponse {
 }
 
 pub async fn websocket_handler(ws: WebSocketUpgrade) -> Response {
+    debug!("websocket_handler called, upgrading connection...");
     ws.on_upgrade(handle_socket)
 }
 
 async fn handle_socket(socket: WebSocket) {
+    debug!("handle_socket called - WebSocket connection established!");
     let (mut sender, mut receiver) = socket.split();
     let (tx, mut rx) = mpsc::channel::<TerminalResponse>(100);
     
@@ -60,14 +62,14 @@ async fn handle_socket(socket: WebSocket) {
                         debug!("Received message: {:?}", terminal_msg);
                         match terminal_msg {
                             TerminalMessage::Connect => {
-                                info!("Creating local terminal");
+                                debug!("Creating local terminal");
                                 
                                 match LocalTerminal::new().await {
                                     Ok(mut local_term) => {
                                         let output_tx = tx_clone.clone();
                                         local_term.start(output_tx).await;
                                         terminal = Some(local_term);
-                                        info!("Local terminal created and started");
+                                        debug!("Local terminal created and started");
                                     }
                                     Err(e) => {
                                         error!("Failed to create terminal: {}", e);
@@ -125,5 +127,5 @@ async fn handle_socket(socket: WebSocket) {
         term.disconnect().await;
     }
     
-    info!("WebSocket connection closed");
+    debug!("WebSocket connection closed");
 }

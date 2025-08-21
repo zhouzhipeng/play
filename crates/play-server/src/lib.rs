@@ -661,8 +661,6 @@ pub async fn start_server_with_config(data_dir: String, config: &Config) -> anyh
 
     // initialize tracing
     let filter = filter::Targets::new()
-        .with_target("rustls_acme", LevelFilter::TRACE)
-        .with_target("play_web_terminal", LevelFilter::TRACE)
         .with_default(log_level)
         ;
 
