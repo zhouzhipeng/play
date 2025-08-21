@@ -58,6 +58,10 @@ impl HttpRequest {
     pub fn match_suffix_default(&self)->bool{
         self.get_suffix_url().eq("")
     }
+    
+    pub async fn render_template(&self, raw: &str, data: Value) -> anyhow::Result<String> {
+        self.context.render_template(raw, data).await
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]

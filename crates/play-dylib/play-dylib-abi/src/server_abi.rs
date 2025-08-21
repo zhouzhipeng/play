@@ -20,12 +20,12 @@ macro_rules! async_run {
             use std::panic::{self, AssertUnwindSafe};
 
             let result = panic::catch_unwind(||{
-                 let name = c_char_to_string(request);
-                let request: HostContext = serde_json::from_str(&name).unwrap();
+                let name = c_char_to_string(request);
+                let context: HostContext = serde_json::from_str(&name).unwrap();
 
                 use tokio::runtime::Runtime;
                 let rt = Runtime::new().unwrap();
-                let result = rt.block_on($func(request));
+                let result = rt.block_on($func(context));
                 println!("{:?}", result);
                 drop(rt);
 
@@ -39,7 +39,7 @@ macro_rules! async_run {
                 } else {
                     "Panic occurred: Unknown panic info".to_string()
                 };
-
+                println!("Server run panic: {}", err_msg);
             });
 
         }

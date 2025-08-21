@@ -42,6 +42,11 @@ mod tests{
         // *const c_char back to Rust String
         let back_to_rust = c_char_to_string(c_str);
         println!("Back to Rust String: {}", back_to_rust);
+        
+        // IMPORTANT: Free the allocated C string to prevent memory leak
+        unsafe {
+            drop(std::ffi::CString::from_raw(c_str as *mut c_char));
+        }
     }
 
 }
