@@ -3,7 +3,7 @@
 use std::backtrace::Backtrace;
 use std::env;
 use std::fmt::format;
-use std::net::SocketAddr;
+use std::net::{Ipv6Addr, SocketAddr};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -287,7 +287,7 @@ pub async fn start_server(router: Router<Arc<AppState>>, app_state: Arc<AppState
     println!("server started at  : http://127.0.0.1:{}", server_port);
     info!("server started at  : http://127.0.0.1:{}", server_port);
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], server_port as u16));
+    let addr = SocketAddr::from((Ipv6Addr::UNSPECIFIED, server_port as u16));
 
     #[cfg(not(feature = "play-https"))]
     // run it with hyper on localhost:3000
