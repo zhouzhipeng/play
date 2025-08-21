@@ -129,7 +129,9 @@ struct UploadOption{
     #[serde(default)]
     unzip: bool,
     #[serde(default)]
-    public: bool
+    public: bool,
+    #[serde(default)]
+    dir: Option<String>,  // 指定子目录，例如 "images" 或 "docs/2024"
 }
 
 // #[debug_handler]
@@ -164,10 +166,34 @@ async fn upload_file(
                     info!("new file name : {}", file_name);
                 }
 
-                let (target_dir, url_prefix) = if  option.public{
-                    (files_dir!().join("public"), "/files/public/")
-                }else{
-                    (files_dir!(), "/files/")
+                let (target_dir, url_prefix) = if option.public {
+                    let mut dir = files_dir!().join("public");
+                    let mut prefix = "/files/public/".to_string();
+                    
+                    // 如果指定了子目录，添加到路径中
+                    if let Some(ref subdir) = option.dir {
+                        // 清理子目录路径，移除前导/后导斜杠，防止路径遍历攻击
+                        let clean_subdir = subdir.trim_matches('/').replace("..", "");
+                        if !clean_subdir.is_empty() {
+                            dir = dir.join(&clean_subdir);
+                            prefix = format!("/files/public/{}/", clean_subdir);
+                        }
+                    }
+                    (dir, prefix)
+                } else {
+                    let mut dir = files_dir!();
+                    let mut prefix = "/files/".to_string();
+                    
+                    // 如果指定了子目录，添加到路径中
+                    if let Some(ref subdir) = option.dir {
+                        // 清理子目录路径，移除前导/后导斜杠，防止路径遍历攻击
+                        let clean_subdir = subdir.trim_matches('/').replace("..", "");
+                        if !clean_subdir.is_empty() {
+                            dir = dir.join(&clean_subdir);
+                            prefix = format!("/files/{}/", clean_subdir);
+                        }
+                    }
+                    (dir, prefix)
                 };
 
                 if !target_dir.exists(){
@@ -178,10 +204,10 @@ async fn upload_file(
                 if option.unzip && file_name.ends_with(".zip"){
                     let archive = Cursor::new(field.bytes().await?);
                     zip_extract::extract(archive, &target_dir, false).unwrap();
-                    target_path.push(format!("{}{}",url_prefix, &file_name.as_str()[0..(file_name.len()-".zip".len())]));
+                    target_path.push(format!("{}{}", url_prefix, &file_name.as_str()[0..(file_name.len()-".zip".len())]));
                 }else{
                     stream_to_file(&target_dir.join(&file_name), field).await?;
-                    target_path.push(format!("{}{}",url_prefix, file_name));
+                    target_path.push(format!("{}{}", url_prefix, file_name));
                 }
 
 
@@ -196,14 +222,31 @@ async fn upload_file(
             // Use http_body_util to collect the body first
             let body_bytes = bodystream.collect().await?.to_bytes();
             
+            // 确定目标目录
+            let mut target_dir = files_dir!();
+            let mut url_prefix = "/files/".to_string();
+            
+            if let Some(ref subdir) = option.dir {
+                // 清理子目录路径
+                let clean_subdir = subdir.trim_matches('/').replace("..", "");
+                if !clean_subdir.is_empty() {
+                    target_dir = target_dir.join(&clean_subdir);
+                    url_prefix = format!("/files/{}/", clean_subdir);
+                    // 确保目录存在
+                    if !target_dir.exists() {
+                        fs::create_dir_all(&target_dir).await?;
+                    }
+                }
+            }
+            
             // Create temporary file path
-            let path = files_dir!().join(format!("{}", current_timestamp!()));
+            let path = target_dir.join(format!("{}", current_timestamp!()));
             
             // Write bytes to file
             tokio::fs::write(&path, body_bytes).await?;
             
             let new_path = rename_file_with_correct_extension(&path).await?;
-            Ok(format!("/files/{}", new_path))
+            Ok(format!("{}{}", url_prefix, new_path))
         }
     };
 }

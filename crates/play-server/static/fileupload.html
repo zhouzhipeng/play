@@ -83,6 +83,10 @@
             公开文件
             <input type="checkbox" id="publicOption"/>
         </label>
+        <label>
+            子目录（可选）
+            <input type="text" id="dirOption" placeholder="例如: images 或 docs/2024" style="width: 100%; padding: 5px; margin: 5px 0; border: 1px solid #ccc; border-radius: 3px;"/>
+        </label>
 
     </form>
 
@@ -114,7 +118,13 @@
         }
         console.log("upload");
         var xhr = new XMLHttpRequest();
-        xhr.open('POST', '/files/upload?unzip='+unzipOption.checked+"&public="+publicOption.checked , true);
+        // 构建查询参数
+        var params = 'unzip=' + unzipOption.checked + '&public=' + publicOption.checked;
+        var dirValue = document.getElementById('dirOption').value.trim();
+        if (dirValue) {
+            params += '&dir=' + encodeURIComponent(dirValue);
+        }
+        xhr.open('POST', '/files/upload?' + params, true);
 
         xhr.onload = function() {
             if (xhr.status === 200) {
