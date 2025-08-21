@@ -40,16 +40,26 @@ pub async fn websocket_handler(ws: WebSocketUpgrade) -> Response {
 async fn handle_socket(socket: WebSocket) {
     debug!("handle_socket called - WebSocket connection established!");
     let (mut sender, mut receiver) = socket.split();
-    let (tx, mut rx) = mpsc::channel::<TerminalResponse>(100);
+    // Increase channel capacity for large data transfers (e.g., cat large files)
+    let (tx, mut rx) = mpsc::channel::<TerminalResponse>(10000);
     
     let tx_clone = tx.clone();
     tokio::spawn(async move {
         while let Some(msg) = rx.recv().await {
-            let json = serde_json::to_string(&msg).unwrap();
-            if sender.send(Message::Text(json.into())).await.is_err() {
+            let json = match serde_json::to_string(&msg) {
+                Ok(json) => json,
+                Err(e) => {
+                    error!("Failed to serialize message: {}", e);
+                    continue;
+                }
+            };
+            
+            if let Err(e) = sender.send(Message::Text(json.into())).await {
+                error!("Failed to send WebSocket message: {}", e);
                 break;
             }
         }
+        debug!("WebSocket sender task completed");
     });
     
     let mut terminal: Option<LocalTerminal> = None;

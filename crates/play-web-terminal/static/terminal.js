@@ -9,6 +9,10 @@ class WebTerminal {
         this.maxReconnectAttempts = 10;
         this.reconnectDelay = 1000; // Start with 1 second
         
+        // Buffer for handling large data streams
+        this.outputBuffer = [];
+        this.isProcessingBuffer = false;
+        
         this.initializeTerminal();
         this.setupEventListeners();
         this.connect(); // Auto-connect on load
@@ -83,6 +87,18 @@ class WebTerminal {
             }, 100);
         });
         
+        // Add keyboard shortcut for manual reconnect (Ctrl+R or Cmd+R)
+        window.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+                if (!this.isConnected && (!this.ws || this.ws.readyState === WebSocket.CLOSED)) {
+                    e.preventDefault();
+                    this.terminal.writeln('\r\n\x1b[32mManual reconnect triggered...\x1b[0m');
+                    this.reconnectAttempts = 0; // Reset attempts for manual reconnect
+                    this.connect();
+                }
+            }
+        });
+        
         this.terminal.onData(data => {
             if (this.isConnected && this.ws && this.ws.readyState === WebSocket.OPEN) {
                 this.ws.send(JSON.stringify({
@@ -110,15 +126,53 @@ class WebTerminal {
     }
     
     connect() {
+        // Clean up any existing connection first
+        if (this.ws) {
+            // Remove event handlers to prevent memory leaks
+            this.ws.onopen = null;
+            this.ws.onmessage = null;
+            this.ws.onerror = null;
+            this.ws.onclose = null;
+            
+            // Force close if still open or connecting
+            if (this.ws.readyState === WebSocket.CONNECTING || 
+                this.ws.readyState === WebSocket.OPEN) {
+                this.ws.close();
+            }
+            this.ws = null;
+        }
+        
         this.updateStatus('connecting');
         this.isHandlingDisconnect = false; // Reset flag when connecting
         
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${protocol}//${window.location.host}/web-terminal/ws`;
         
-        this.ws = new WebSocket(wsUrl);
+        // Add timestamp to prevent caching issues
+        const timestamp = new Date().getTime();
+        const wsUrlWithTimestamp = `${wsUrl}?t=${timestamp}`;
+        
+        try {
+            this.ws = new WebSocket(wsUrl); // Don't use timestamp in URL for WebSocket
+        } catch (error) {
+            console.error('Failed to create WebSocket:', error);
+            this.terminal.writeln(`\r\n\x1b[31mFailed to create WebSocket connection: ${error.message}\x1b[0m`);
+            // Try again after delay
+            setTimeout(() => this.handleDisconnect(), 1000);
+            return;
+        }
+        
+        // Add connection timeout
+        const connectionTimeout = setTimeout(() => {
+            if (this.ws && this.ws.readyState === WebSocket.CONNECTING) {
+                console.error('WebSocket connection timeout');
+                this.terminal.writeln(`\r\n\x1b[33mConnection timeout, retrying...\x1b[0m`);
+                this.ws.close(); // Force close the stuck connection
+            }
+        }, 5000); // 5 second timeout
         
         this.ws.onopen = () => {
+            clearTimeout(connectionTimeout); // Clear timeout on successful connection
             this.terminal.clear();
             this.reconnectAttempts = 0; // Reset on successful connection
             this.reconnectDelay = 1000; // Reset delay
@@ -145,7 +199,9 @@ class WebTerminal {
                     break;
                     
                 case 'Output':
-                    this.terminal.write(msg.data);
+                    // Buffer output for batch processing to prevent blocking
+                    this.outputBuffer.push(msg.data);
+                    this.processOutputBuffer();
                     break;
                     
                 case 'Error':
@@ -167,12 +223,18 @@ class WebTerminal {
         };
         
         this.ws.onerror = (error) => {
+            clearTimeout(connectionTimeout); // Clear timeout on error
             console.error('WebSocket error:', error);
             // Don't call handleDisconnect here, let onclose handle it
             // This prevents double-calling when both error and close fire
         };
         
-        this.ws.onclose = () => {
+        this.ws.onclose = (event) => {
+            clearTimeout(connectionTimeout); // Clear timeout on close
+            
+            // Log close reason for debugging
+            console.log(`WebSocket closed: code=${event.code}, reason=${event.reason}, wasClean=${event.wasClean}`);
+            
             // Only handle disconnect once per connection
             if (!this.isHandlingDisconnect) {
                 this.handleDisconnect();
@@ -194,15 +256,17 @@ class WebTerminal {
         this.reconnectAttempts++;
         
         if (this.reconnectAttempts > this.maxReconnectAttempts) {
-            this.terminal.writeln('\r\n\r\nMax reconnection attempts reached. Please refresh the page to try again.');
+            this.terminal.writeln('\r\n\r\nMax reconnection attempts reached.');
+            this.terminal.writeln('Press \x1b[32mCtrl+R\x1b[0m to manually reconnect or refresh the page.');
             this.isHandlingDisconnect = false;
             return;
         }
         
-        // Exponential backoff with jitter
-        const delay = Math.min(this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1), 30000);
-        const jitter = Math.random() * 1000; // Add up to 1 second of jitter
-        const actualDelay = delay + jitter;
+        // Exponential backoff with cap and jitter
+        // Cap at 10 seconds instead of 30 to reconnect faster when server comes back
+        const baseDelay = Math.min(this.reconnectDelay * Math.pow(1.5, this.reconnectAttempts - 1), 10000);
+        const jitter = Math.random() * 500; // Add up to 0.5 second of jitter
+        const actualDelay = baseDelay + jitter;
         
         this.terminal.writeln(`\r\n\r\nConnection lost. Reconnecting in ${Math.ceil(actualDelay/1000)} seconds... (Attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
         
@@ -242,6 +306,38 @@ class WebTerminal {
                 }));
             }
         }
+    }
+    
+    processOutputBuffer() {
+        if (this.isProcessingBuffer || this.outputBuffer.length === 0) {
+            return;
+        }
+        
+        this.isProcessingBuffer = true;
+        
+        // Process buffer in chunks to avoid blocking the UI
+        const processChunk = () => {
+            const chunkSize = 10; // Process 10 messages at a time
+            const chunk = this.outputBuffer.splice(0, chunkSize);
+            
+            if (chunk.length > 0) {
+                // Combine chunk data and write to terminal
+                const combinedData = chunk.join('');
+                this.terminal.write(combinedData);
+                
+                // Continue processing if there's more data
+                if (this.outputBuffer.length > 0) {
+                    // Use setTimeout to yield control back to the event loop
+                    setTimeout(processChunk, 0);
+                } else {
+                    this.isProcessingBuffer = false;
+                }
+            } else {
+                this.isProcessingBuffer = false;
+            }
+        };
+        
+        processChunk();
     }
     
     updateStatus(status) {
