@@ -303,12 +303,18 @@ async fn upgrade(s: S, Query(upgrade): Query<UpgradeRequest>) -> HTML {
         info!("upgrade_in_background result >> {:?}", r);
 
 
-        let sender = urlencoding::encode("upgrade done").into_owned();
-        let title = urlencoding::encode(&format!("result : {:?}", r)).into_owned();
-        reqwest::get(format!("{}/{}/{}", &s.config.misc_config.mail_notify_url, sender, title)).await;
+        if r.is_ok(){
+            let sender = urlencoding::encode("upgrade done").into_owned();
+            let title = urlencoding::encode(&format!("result : {:?}", r)).into_owned();
+            reqwest::get(format!("{}/{}/{}", &s.config.misc_config.mail_notify_url, sender, title)).await;
+            shutdown();
+        }else{
+            let sender = urlencoding::encode("upgrade error").into_owned();
+            let title = urlencoding::encode(&format!("result : {:?}", r)).into_owned();
+            reqwest::get(format!("{}/{}/{}", &s.config.misc_config.mail_notify_url, sender, title)).await;
 
+        }
 
-        shutdown();
     });
 
 
