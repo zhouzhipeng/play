@@ -1,11 +1,8 @@
 use std::collections::HashMap;
 use std::env;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicI64, Ordering};
-use std::time::Duration;
 use crate::{return_error, AppState, S};
 use crate::AppError;
-use crate::controller::admin_controller::{PLUGIN_REQUEST_STORE, PLUGIN_RESPONSE_STORE};
 use anyhow::Context;
 use axum::body::Body;
 use axum::response::{IntoResponse, Response};
@@ -85,55 +82,9 @@ async fn run_plugin(s: axum::extract::State<Arc<AppState>>, request: Request<Bod
     }
 }
 
-// New function to handle the coordinated request/response flow
+// Export cache management functions from loader
 #[cfg(feature = "play-dylib-loader")]
-async fn load_and_run_coordinated(dylib_path: &str, request_id: i64) -> Result<play_dylib_loader::HttpResponse, AppError> {
-    use play_dylib_loader::HttpResponse;
-    
-    let dylib_path = dylib_path.to_string();
-    
-    // Call the plugin
-    tokio::spawn(async move {
-        // Load and call the plugin with request_id
-        if let Err(e) = unsafe { call_plugin_with_id(&dylib_path, request_id) } {
-            eprintln!("Error calling plugin: {:?}", e);
-        }
-    });
-    
-    // Wait for response with timeout
-    let timeout = Duration::from_secs(30);
-    let start = std::time::Instant::now();
-    
-    loop {
-        // Check if response is available
-        if let Some(response) = PLUGIN_RESPONSE_STORE.remove(&request_id) {
-            // Clean up request from store
-            PLUGIN_REQUEST_STORE.remove(&request_id);
-            return Ok(response.1);
-        }
-        
-        if start.elapsed() > timeout {
-            // Clean up request from store
-            PLUGIN_REQUEST_STORE.remove(&request_id);
-            return Err(AppError::from(anyhow::anyhow!("Plugin response timeout")));
-        }
-        
-        tokio::time::sleep(Duration::from_millis(10)).await;
-    }
-}
-
-#[cfg(feature = "play-dylib-loader")]
-unsafe fn call_plugin_with_id(dylib_path: &str, request_id: i64) -> anyhow::Result<()> {
-    use libloading::{Library, Symbol};
-    use play_dylib_loader::{HandleRequestFn, HANDLE_REQUEST_FN_NAME};
-    use anyhow::Context;
-    
-    let lib = Library::new(dylib_path).context("Failed to load plugin library")?;
-    let handle_request: Symbol<HandleRequestFn> = lib.get(HANDLE_REQUEST_FN_NAME.as_ref())
-        .context("`handle_request` method not found")?;
-    handle_request(request_id);
-    Ok(())
-}
+pub use play_dylib_loader::{clear_plugin_cache, remove_plugin_from_cache};
 
 #[cfg(feature = "play-dylib-loader")]
 pub async fn inner_run_plugin( plugin: &PluginConfig, request: Request<Body>)->Result<Response, AppError>{
@@ -172,15 +123,11 @@ pub async fn inner_run_plugin( plugin: &PluginConfig, request: Request<Body>)->R
 
     };
 
-    // Generate unique request ID
-    static REQUEST_ID_COUNTER: AtomicI64 = AtomicI64::new(0);
-    let request_id = REQUEST_ID_COUNTER.fetch_add(1, Ordering::SeqCst);
-    
-    // Store the request in the shared store
-    PLUGIN_REQUEST_STORE.insert(request_id, plugin_request);
-    
-    // Call the plugin with just the request_id
-    let plugin_resp = load_and_run_coordinated(&plugin.file_path, request_id).await?;
+    // Use the simplified coordinated function from loader
+    let plugin_resp = play_dylib_loader::load_and_run_coordinated(
+        &plugin.file_path,
+        plugin_request,
+    ).await?;
 
     let mut resp_builder = Response::builder()
         .status(StatusCode::from_u16(plugin_resp.status_code)?);

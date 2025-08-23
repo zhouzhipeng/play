@@ -45,8 +45,6 @@ play-utils-common-crypt = { workspace = true }
 
 # third parties
 zip-extract = { workspace = true }
-dashmap = { workspace = true }
-libloading = { workspace = true }
 sqlx = { workspace = true, features = ["sqlite", "chrono"] }
 axum = { workspace = true, features = ["http2", "ws", "macros", "tracing", "multipart"] }
 axum-server = { workspace = true }

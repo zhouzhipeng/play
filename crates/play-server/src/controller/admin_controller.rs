@@ -18,11 +18,6 @@ use reqwest::{ClientBuilder, Url};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::sync::Arc;
-use dashmap::DashMap;
-use std::sync::LazyLock;
-
-#[cfg(feature = "play-dylib-loader")]
-use play_dylib_loader::{HttpRequest, HttpResponse};
 use tokio_util::codec::{BytesCodec, FramedRead};
 use tracing::info;
 use zip::{ZipArchive, ZipWriter, CompressionMethod, write::{FileOptions, ExtendedFileOptions}};
@@ -57,11 +52,9 @@ pub fn init() -> axum::Router<std::sync::Arc<crate::AppState>> {
     router
 }
 
-// Store for plugin requests and responses
+// Use stores from play-dylib-loader
 #[cfg(feature = "play-dylib-loader")]
-pub static PLUGIN_REQUEST_STORE: LazyLock<DashMap<i64, HttpRequest>> = LazyLock::new(|| DashMap::new());
-#[cfg(feature = "play-dylib-loader")]
-pub static PLUGIN_RESPONSE_STORE: LazyLock<DashMap<i64, HttpResponse>> = LazyLock::new(|| DashMap::new());
+use play_dylib_loader::{get_request, store_response};
 
 #[derive(Deserialize)]
 struct RequestIdQuery {
@@ -89,9 +82,9 @@ fn default_days()->u32{
 
 #[cfg(feature = "play-dylib-loader")]
 async fn get_request_info(Query(RequestIdQuery { request_id }): Query<RequestIdQuery>) -> Response {
-    match PLUGIN_REQUEST_STORE.get(&request_id) {
+    match get_request(request_id) {
         Some(request) => {
-            Json(request.clone()).into_response()
+            Json(request).into_response()
         },
         None => {
             (StatusCode::NOT_FOUND, format!("Request with id {} not found", request_id)).into_response()
@@ -102,18 +95,18 @@ async fn get_request_info(Query(RequestIdQuery { request_id }): Query<RequestIdQ
 #[cfg(feature = "play-dylib-loader")]
 async fn push_response_info(
     Query(RequestIdQuery { request_id }): Query<RequestIdQuery>,
-    Json(response): Json<HttpResponse>
+    Json(response): Json<play_dylib_loader::HttpResponse>
 ) -> Response {
-    PLUGIN_RESPONSE_STORE.insert(request_id, response);
+    store_response(request_id, response);
     (StatusCode::OK, "Response stored successfully").into_response()
 }
 
 #[cfg(feature = "play-dylib-loader")]
 async fn store_request_info(
     Query(RequestIdQuery { request_id }): Query<RequestIdQuery>,
-    Json(request): Json<HttpRequest>
+    Json(request): Json<play_dylib_loader::HttpRequest>
 ) -> Response {
-    PLUGIN_REQUEST_STORE.insert(request_id, request);
+    play_dylib_loader::store_request(request_id, request);
     (StatusCode::OK, "Request stored successfully").into_response()
 }
 async fn clean_change_logs(s: S, Query(DeleteChangelogReq{days}): Query<DeleteChangelogReq>) -> R<String> {
