@@ -3,7 +3,7 @@
 use std::backtrace::Backtrace;
 use std::env;
 use std::fmt::format;
-use std::net::SocketAddr;
+use std::net::{Ipv6Addr, SocketAddr};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -45,7 +45,7 @@ use tracing_subscriber::filter;
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::util::SubscriberInitExt;
 use std::os::unix::fs::PermissionsExt;
-pub use crate::config::{Config, PluginConfig, ShortLink};
+pub use crate::config::{Config, PluginConfig, ShortLink, OriginStrategy};
 pub use crate::config::init_config;
 use crate::controller::{app_routers, plugin_controller, shortlink_controller};
 use crate::layer::custom_http_layer::http_middleware;
@@ -287,7 +287,7 @@ pub async fn start_server(router: Router<Arc<AppState>>, app_state: Arc<AppState
     println!("server started at  : http://127.0.0.1:{}", server_port);
     info!("server started at  : http://127.0.0.1:{}", server_port);
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], server_port as u16));
+    let addr = SocketAddr::from((Ipv6Addr::UNSPECIFIED, server_port as u16));
 
     #[cfg(not(feature = "play-https"))]
     // run it with hyper on localhost:3000
@@ -661,8 +661,6 @@ pub async fn start_server_with_config(data_dir: String, config: &Config) -> anyh
 
     // initialize tracing
     let filter = filter::Targets::new()
-        .with_target("rustls_acme", LevelFilter::TRACE)
-        .with_target("play_web_terminal", LevelFilter::TRACE)
         .with_default(log_level)
         ;
 

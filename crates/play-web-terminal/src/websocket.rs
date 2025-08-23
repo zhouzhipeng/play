@@ -33,21 +33,33 @@ pub enum TerminalResponse {
 }
 
 pub async fn websocket_handler(ws: WebSocketUpgrade) -> Response {
+    debug!("websocket_handler called, upgrading connection...");
     ws.on_upgrade(handle_socket)
 }
 
 async fn handle_socket(socket: WebSocket) {
+    debug!("handle_socket called - WebSocket connection established!");
     let (mut sender, mut receiver) = socket.split();
-    let (tx, mut rx) = mpsc::channel::<TerminalResponse>(100);
+    // Increase channel capacity for large data transfers (e.g., cat large files)
+    let (tx, mut rx) = mpsc::channel::<TerminalResponse>(10000);
     
     let tx_clone = tx.clone();
     tokio::spawn(async move {
         while let Some(msg) = rx.recv().await {
-            let json = serde_json::to_string(&msg).unwrap();
-            if sender.send(Message::Text(json.into())).await.is_err() {
+            let json = match serde_json::to_string(&msg) {
+                Ok(json) => json,
+                Err(e) => {
+                    error!("Failed to serialize message: {}", e);
+                    continue;
+                }
+            };
+            
+            if let Err(e) = sender.send(Message::Text(json.into())).await {
+                error!("Failed to send WebSocket message: {}", e);
                 break;
             }
         }
+        debug!("WebSocket sender task completed");
     });
     
     let mut terminal: Option<LocalTerminal> = None;
@@ -60,14 +72,14 @@ async fn handle_socket(socket: WebSocket) {
                         debug!("Received message: {:?}", terminal_msg);
                         match terminal_msg {
                             TerminalMessage::Connect => {
-                                info!("Creating local terminal");
+                                debug!("Creating local terminal");
                                 
                                 match LocalTerminal::new().await {
                                     Ok(mut local_term) => {
                                         let output_tx = tx_clone.clone();
                                         local_term.start(output_tx).await;
                                         terminal = Some(local_term);
-                                        info!("Local terminal created and started");
+                                        debug!("Local terminal created and started");
                                     }
                                     Err(e) => {
                                         error!("Failed to create terminal: {}", e);
@@ -125,5 +137,5 @@ async fn handle_socket(socket: WebSocket) {
         term.disconnect().await;
     }
     
-    info!("WebSocket connection closed");
+    debug!("WebSocket connection closed");
 }

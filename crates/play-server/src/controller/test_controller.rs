@@ -8,7 +8,7 @@ use crate::{method_router, return_error, template};
 use crate::{HTML, S};
 
 method_router!(
-    get : "/test"-> test,
+    get : "/test2"-> test,
 );
 
 #[derive(Deserialize)]

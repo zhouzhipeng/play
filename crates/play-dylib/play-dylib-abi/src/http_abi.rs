@@ -7,10 +7,8 @@ use serde_json::{json, Value};
 use crate::HostContext;
 
 
-pub type HandleRequestFn = unsafe extern "C" fn(*mut std::os::raw::c_char) -> *mut std::os::raw::c_char;
-pub type FreeCStringFn = unsafe extern "C" fn(*mut std::os::raw::c_char);
+pub type HandleRequestFn = unsafe extern "C" fn(i64);
 pub const HANDLE_REQUEST_FN_NAME: &'static str = "handle_request";
-pub const FREE_C_STRING_FN_NAME: &'static str = "free_c_string";
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub enum HttpMethod {
@@ -35,6 +33,13 @@ pub struct HttpRequest {
 
 
 impl HttpRequest {
+    pub async fn fetch_from_host(request_id: i64, host_url: &str) -> anyhow::Result<Self> {
+        let client = Client::new();
+        let url = format!("{}/admin/get-request-info?request_id={}", host_url, request_id);
+        let response = client.get(&url).send().await?;
+        let request: HttpRequest = response.json().await?;
+        Ok(request)
+    }
 
     pub fn parse_query<T: DeserializeOwned>(&self) -> anyhow::Result<T> {
         let p: T = serde_urlencoded::from_str(&self.query).context("parse query str error!")?;
@@ -57,6 +62,10 @@ impl HttpRequest {
     }
     pub fn match_suffix_default(&self)->bool{
         self.get_suffix_url().eq("")
+    }
+    
+    pub async fn render_template(&self, raw: &str, data: Value) -> anyhow::Result<String> {
+        self.context.render_template(raw, data).await
     }
 }
 
@@ -95,6 +104,16 @@ fn print_error(err: &anyhow::Error) -> String {
 
 
 impl HttpResponse {
+    pub async fn push_to_host(&self, request_id: i64, host_url: &str) -> anyhow::Result<()> {
+        let client = Client::new();
+        let url = format!("{}/admin/push-response-info?request_id={}", host_url, request_id);
+        client.post(&url)
+            .json(self)
+            .send()
+            .await?;
+        Ok(())
+    }
+    
     pub fn from_anyhow(r: anyhow::Result<Self>) -> HttpResponse {
         r.unwrap_or_else(|e| {
             HttpResponse {
@@ -167,29 +186,23 @@ impl HttpResponse {
 /// needs tokio runtime.
 /// usage: `async_request_handler!(handle_request_impl);`
 /// ```rust
-/// async fn handle_request_impl(request: Request) -> anyhow::Result<Response>
+/// async fn handle_request_impl(request_id: i64) -> anyhow::Result<()>
 /// ```
 #[macro_export]
 macro_rules! async_request_handler {
     ($func:ident) => {
 
        #[no_mangle]
-        pub extern "C" fn handle_request(request: *mut std::os::raw::c_char) -> *mut std::os::raw::c_char {
-
-            use play_dylib_abi::*;
+        pub extern "C" fn handle_request(request_id: i64) {
             use std::panic::{self, AssertUnwindSafe};
-
-            let result = panic::catch_unwind(||{
-                let name = c_char_to_string(request);
-                let request: HttpRequest = serde_json::from_str(&name).unwrap();
-                use tokio::runtime::Runtime;
+            use tokio::runtime::Runtime;
+            
+            let result = panic::catch_unwind(|| {
                 let rt = Runtime::new().unwrap();
-                let response = HttpResponse::from_anyhow(rt.block_on($func(request)));
-                drop(rt);
-                response
+                rt.block_on($func(request_id))
             });
 
-            let response  = result.unwrap_or_else(|panic_info| {
+            if let Err(panic_info) = result {
                 let err_msg = if let Some(s) = panic_info.downcast_ref::<String>() {
                     format!("Panic occurred: {}", s)
                 } else if let Some(s) = panic_info.downcast_ref::<&str>() {
@@ -197,24 +210,9 @@ macro_rules! async_request_handler {
                 } else {
                     "Panic occurred: Unknown panic info".to_string()
                 };
-
-                let response =HttpResponse::from_panic_error(err_msg);
-                response
-            });
-
-            //convert response to c char string (make it compatible with ABI)
-            let result = serde_json::to_string(&response).unwrap();
-            string_to_c_char_mut(&result)
-        }
-
-
-      #[no_mangle]
-        pub extern "C" fn free_c_string(ptr: *mut std::os::raw::c_char) {
-            if !ptr.is_null() {
-                // 将裸指针转换回 CString，并自动释放内存
-                unsafe {
-                    drop(std::ffi::CString::from_raw(ptr));
-                }
+                eprintln!("Plugin panic: {}", err_msg);
+            } else if let Ok(Err(e)) = result {
+                eprintln!("Plugin error: {:?}", e);
             }
         }
     };
@@ -223,26 +221,21 @@ macro_rules! async_request_handler {
 
 /// usage: `request_handler!(handle_request_impl);`
 /// ```rust
-///  fn handle_request_impl(request: Request) -> anyhow::Result<Response>
+///  fn handle_request_impl(request_id: i64) -> anyhow::Result<()>
 /// ```
 #[macro_export]
 macro_rules! request_handler {
     ($func:ident) => {
 
        #[no_mangle]
-        pub extern "C" fn handle_request(request: *mut std::os::raw::c_char) -> *mut std::os::raw::c_char {
-
-            use play_dylib_abi::*;
+        pub extern "C" fn handle_request(request_id: i64) {
             use std::panic::{self, AssertUnwindSafe};
-
-            let result = panic::catch_unwind(||{
-                let name = c_char_to_string(request);
-                let request: HttpRequest = serde_json::from_str(&name).unwrap();
-                let response = HttpResponse::from_anyhow($func(request));
-                response
+            
+            let result = panic::catch_unwind(|| {
+                $func(request_id)
             });
 
-            let response  = result.unwrap_or_else(|panic_info| {
+            if let Err(panic_info) = result {
                 let err_msg = if let Some(s) = panic_info.downcast_ref::<String>() {
                     format!("Panic occurred: {}", s)
                 } else if let Some(s) = panic_info.downcast_ref::<&str>() {
@@ -250,23 +243,9 @@ macro_rules! request_handler {
                 } else {
                     "Panic occurred: Unknown panic info".to_string()
                 };
-
-                let response =HttpResponse::from_panic_error(err_msg);
-                response
-            });
-
-            //convert response to c char string (make it compatible with ABI)
-            let result = serde_json::to_string(&response).unwrap();
-            string_to_c_char_mut(&result)
-        }
-
-         #[no_mangle]
-        pub extern "C" fn free_c_string(ptr: *mut std::os::raw::c_char) {
-            if !ptr.is_null() {
-                // 将裸指针转换回 CString，并自动释放内存
-                unsafe {
-                    drop(std::ffi::CString::from_raw(ptr));
-                }
+                eprintln!("Plugin panic: {}", err_msg);
+            } else if let Ok(Err(e)) = result {
+                eprintln!("Plugin error: {:?}", e);
             }
         }
     };

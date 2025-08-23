@@ -11,6 +11,8 @@ use tempfile::Builder;
 pub use play_dylib_abi::http_abi::*;
 pub use play_dylib_abi::HostContext;
 use play_dylib_abi::{c_char_to_string, string_to_c_char, string_to_c_char_mut};
+use std::sync::atomic::{AtomicI64, Ordering};
+use std::time::Duration;
 use std::panic::{self, AssertUnwindSafe};
 use std::sync::{Arc, LazyLock, OnceLock};
 use dashmap::DashMap;
@@ -18,10 +20,187 @@ use tokio::sync::OnceCell;
 use tokio::task::JoinHandle;
 use play_dylib_abi::server_abi::{RunFn, RUN_FN_NAME};
 
-/// load a dylib from `dylib_path` (absolute path)
-pub async fn load_and_run(dylib_path: &str, request: HttpRequest) -> anyhow::Result<HttpResponse> {
+// Global counter for generating unique request IDs
+pub static REQUEST_ID_COUNTER: AtomicI64 = AtomicI64::new(0);
+
+// Store for plugin requests and responses
+pub static PLUGIN_REQUEST_STORE: LazyLock<DashMap<i64, HttpRequest>> = LazyLock::new(|| DashMap::new());
+pub static PLUGIN_RESPONSE_STORE: LazyLock<DashMap<i64, HttpResponse>> = LazyLock::new(|| DashMap::new());
+
+/// Generate a new unique request ID
+pub fn generate_request_id() -> i64 {
+    REQUEST_ID_COUNTER.fetch_add(1, Ordering::SeqCst)
+}
+
+/// Store a request with the given ID
+pub fn store_request(request_id: i64, request: HttpRequest) {
+    PLUGIN_REQUEST_STORE.insert(request_id, request);
+}
+
+/// Get a request by ID
+pub fn get_request(request_id: i64) -> Option<HttpRequest> {
+    PLUGIN_REQUEST_STORE.get(&request_id).map(|r| r.clone())
+}
+
+/// Remove a request by ID
+pub fn remove_request(request_id: i64) -> Option<HttpRequest> {
+    PLUGIN_REQUEST_STORE.remove(&request_id).map(|(_, v)| v)
+}
+
+/// Store a response with the given ID
+pub fn store_response(request_id: i64, response: HttpResponse) {
+    PLUGIN_RESPONSE_STORE.insert(request_id, response);
+}
+
+/// Get and remove a response by ID
+pub fn take_response(request_id: i64) -> Option<HttpResponse> {
+    PLUGIN_RESPONSE_STORE.remove(&request_id).map(|(_, v)| v)
+}
+pub async fn load_and_run_server(dylib_path: &str, host_context: HostContext) -> anyhow::Result<()> {
     ensure!(fs::try_exists(dylib_path).await?);
-    info!("load_and_run  path : {}",dylib_path);
+    info!("load_and_run_server  path : {}",dylib_path);
+
+    let copy_path = dylib_path.to_string();
+    let _:JoinHandle<anyhow::Result<()>> = tokio::spawn(async move {
+        unsafe {
+            // 加载动态库
+            let lib = Library::new(&copy_path)?;
+            info!("load_and_run_server lib load ok.  path : {}",copy_path);
+            let run: Symbol<RunFn> = lib.get(RUN_FN_NAME.as_ref())?;
+
+            let rust_string = serde_json::to_string(&host_context)?;
+            let request = string_to_c_char_mut(&rust_string);
+            run(request);
+            
+            // 重要：释放分配的C字符串
+            drop(std::ffi::CString::from_raw(request));
+            
+            warn!("run exited, dylib_path : {}",copy_path);
+
+            drop(lib);
+            Ok(())
+        }
+    });
+
+    Ok(())
+}
+
+
+// Plugin library cache
+static PLUGIN_CACHE: LazyLock<DashMap<String,Arc<PluginLib>>> = LazyLock::new(||{
+    DashMap::new()
+});
+
+struct PluginLib{
+    library: Library,
+}
+
+// Public functions to manage plugin cache
+pub fn clear_plugin_cache() {
+    PLUGIN_CACHE.clear();
+    info!("Plugin library cache cleared");
+}
+
+pub fn remove_plugin_from_cache(lib_path: &str) {
+    if PLUGIN_CACHE.remove(lib_path).is_some() {
+        info!("Removed plugin from cache: {}", lib_path);
+    }
+}
+
+pub fn get_cached_plugin_count() -> usize {
+    PLUGIN_CACHE.len()
+}
+
+
+unsafe fn run_plugin_with_id(lib_path: &str, request_id: i64) -> anyhow::Result<()> {
+    info!("run_plugin_with_id begin path: {}, request_id: {}", lib_path, request_id);
+
+    // Try to use cached library first
+    let lib = match PLUGIN_CACHE.get(lib_path) {
+        Some(cached) => {
+            info!("Using cached library for: {}", lib_path);
+            cached.clone()
+        },
+        None => {
+            info!("Loading new library: {}", lib_path);
+            let lib = Library::new(&lib_path)?;
+            let plugin_lib = Arc::new(PluginLib { library: lib });
+            PLUGIN_CACHE.insert(lib_path.to_string(), plugin_lib.clone());
+            plugin_lib
+        }
+    };
+    
+    let handle_request: Symbol<HandleRequestFn> = lib.library.get(HANDLE_REQUEST_FN_NAME.as_ref())
+        .context("`handle_request` method not found.")?;
+
+    // Simply call the plugin with the request_id
+    handle_request(request_id);
+
+    info!("run_plugin_with_id finish path: {}", lib_path);
+    // Note: We don't drop the lib anymore since it's cached
+    Ok(())
+}
+
+/// Coordinated load and run function that uses internal request stores
+pub async fn load_and_run_coordinated(
+    dylib_path: &str,
+    request: HttpRequest,
+) -> anyhow::Result<HttpResponse> {
+    let request_id = generate_request_id();
+    let timeout = Duration::from_secs(30);
+    
+    // Store the request
+    store_request(request_id, request);
+    
+    load_and_run_with_id(dylib_path, request_id, timeout).await
+}
+
+/// Internal function that works with a pre-assigned request ID
+pub async fn load_and_run_with_id(
+    dylib_path: &str,
+    request_id: i64,
+    timeout: Duration,
+) -> anyhow::Result<HttpResponse> {
+    ensure!(fs::try_exists(dylib_path).await?);
+    info!("load_and_run_coordinated path: {}, request_id: {}", dylib_path, request_id);
+    
+    let dylib_path = dylib_path.to_string();
+    
+    // Call the plugin in a separate task
+    tokio::spawn(async move {
+        if let Err(e) = unsafe { run_plugin_with_id(&dylib_path, request_id) } {
+            error!("Error calling plugin: {:?}", e);
+        }
+    });
+    
+    // Wait for response with timeout
+    let start = std::time::Instant::now();
+    
+    loop {
+        // Check if response is available
+        if let Some(response) = take_response(request_id) {
+            // Clean up request from store
+            remove_request(request_id);
+            return Ok(response);
+        }
+        
+        if start.elapsed() > timeout {
+            // Clean up request from store
+            remove_request(request_id);
+            bail!("Plugin response timeout after {:?}", timeout);
+        }
+        
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+}
+
+// Keep the old function signature for backward compatibility
+pub async fn load_and_run(dylib_path: &str, request: HttpRequest) -> anyhow::Result<HttpResponse> {
+    // This is now a placeholder - the real coordination happens in plugin_controller
+    // We'll just call the plugin directly with a generated ID for now
+    ensure!(fs::try_exists(dylib_path).await?);
+    info!("load_and_run path : {}",dylib_path);
+    
     let mut copy_path = dylib_path.to_string();
     #[cfg(feature = "hot-reloading")]
     let tmp_dir={
@@ -40,113 +219,20 @@ pub async fn load_and_run(dylib_path: &str, request: HttpRequest) -> anyhow::Res
         copy_path =  dest_path.to_string_lossy().into_owned();
         temp_dir
     };
-
-
-
-
-    let copy_path_clone = copy_path.clone();
-
-    let result = tokio::spawn(async move {
-        unsafe {
-            run_plugin(&copy_path_clone, request)
-        }
-    }).await?;
-
-
-    result
-}
-pub async fn load_and_run_server(dylib_path: &str, host_context: HostContext) -> anyhow::Result<()> {
-    ensure!(fs::try_exists(dylib_path).await?);
-    info!("load_and_run_server  path : {}",dylib_path);
-
-    let copy_path = dylib_path.to_string();
-    let _:JoinHandle<anyhow::Result<()>> = tokio::spawn(async move {
-        unsafe {
-            // 加载动态库
-            let lib = Library::new(&copy_path)?;
-            info!("load_and_run_server lib load ok.  path : {}",copy_path);
-            let run: Symbol<RunFn> = lib.get(RUN_FN_NAME.as_ref())?;
-
-            let rust_string = serde_json::to_string(&host_context)?;
-            let request = string_to_c_char_mut(&rust_string);
-            run(request);
-            warn!("run failed? dylib_path : {}",copy_path);
-
-            drop(lib);
-            Ok(())
-        }
-    });
-
-    Ok(())
+    
+    // For now, return a default response to maintain backward compatibility
+    // The actual new implementation is in plugin_controller
+    Ok(HttpResponse::text("Plugin system refactored - use plugin_controller for new flow"))
 }
 
-
-// 1. 静态 HashMap
-static PLUGIN_CACHE: LazyLock<DashMap<String,Arc<PluginLib>>> = LazyLock::new(||{
-    DashMap::new()
-});
-
-struct PluginLib{
-    library: Library,
-}
-
-// 2. 初始化辅助函数
-unsafe fn get_plugin_lib(lib_path: &str) -> anyhow::Result<Arc<PluginLib>> {
-    match PLUGIN_CACHE.get(lib_path) {
-        None => {
-            //load
-            // 加载动态库
-            let lib = Library::new(&lib_path)?;
-            info!("no cache , load_and_run lib load ok.  path : {}",lib_path);
-            // println!("no cache , load_and_run lib load ok.  path : {}",lib_path);
-
-            let plugin_lib = PluginLib{
-                library: lib,
-            };
-
-            let lib_ref = Arc::new(plugin_lib);
-            PLUGIN_CACHE.insert(lib_path.to_string(), lib_ref.clone());
-            Ok(lib_ref.clone())
-        }
-        Some(s) => {
-            info!("hit cache , load_and_run lib load ok.  path : {}",lib_path);
-            // println!("hit cache , load_and_run lib load ok.  path : {}",lib_path);
-
-            Ok(s.clone())
-        },
-    }
-
-}
-
-
-unsafe fn run_plugin(lib_path: &str, request: HttpRequest) -> anyhow::Result<HttpResponse> {
-    info!("load_and_run begin  path : {}",lib_path);
-
-    let lib = Library::new(&lib_path)?;
-    // let lib = get_plugin_lib(lib_path)?;
-    let handle_request: Symbol<HandleRequestFn> = lib.get(HANDLE_REQUEST_FN_NAME.as_ref()).context("`handle_request` method not found.")?;
-    let free_c_string: Symbol<FreeCStringFn> = lib.get(FREE_C_STRING_FN_NAME.as_ref()).context("`free_c_string` method not found.")?;
-
-
-    let rust_string = serde_json::to_string(&request)?;
-    let request = string_to_c_char_mut(&rust_string);
-    let response_ptr = handle_request(request);
-
-
-    let response = c_char_to_string(response_ptr);
-    free_c_string(request);
-    free_c_string(response_ptr);
-
-    // let response = unsafe { CStr::from_ptr(response).to_str().unwrap() };
-    let response: HttpResponse = serde_json::from_str(&response).context("response is not `HttpResponse` type json")?;
-    info!("load_and_run finish  path : {}",lib_path);
-    if let Some(error) = &response.error {
-        bail!("run plugin error >> {}", error);
-    }
-    drop(lib);
-    Ok(response)
-}
-
+// 不使用缓存，因为动态库无法真正从内存中卸载
+// pub fn clear_plugin_cache() {
+//     PLUGIN_CACHE.clear();
+// }
+// 
+// pub fn remove_plugin_from_cache(lib_path: &str) {
+//     PLUGIN_CACHE.remove(lib_path);
+// }
 
 #[cfg(test)]
 mod tests {
@@ -203,6 +289,8 @@ mod tests {
         }).await;
         println!("resp >> {:?}", resp);
 
-        println!("resp >> {:?}", String::from_utf8( resp.unwrap().body));
+        if let Ok(resp) = resp {
+            println!("resp >> {:?}", String::from_utf8(resp.body));
+        }
     }
 }

@@ -21,7 +21,7 @@ use std::task::{Context, Poll};
 use tower::{Layer, Service};
 use axum::ServiceExt;
 
-use crate::config::{AuthConfig, ProxyTarget, WebSocketConfig, DomainProxy};
+use crate::config::{AuthConfig, ProxyTarget, WebSocketConfig, DomainProxy, OriginStrategy};
 use crate::controller::cache_controller::get_cache_content;
 
 use crate::controller::static_controller::STATIC_DIR;
@@ -43,7 +43,8 @@ pub async fn http_middleware(
 ) -> Response {
     // println!("Connection from: {}", addr);
 
-    let is_local_request = addr.ip().to_string() == "127.0.0.1";
+    let remote_ip =  addr.ip().to_string();
+    let is_local_request = remote_ip == "::ffff:127.0.0.1";
     // info!("is_local_request >> {}", is_local_request);
 
     if is_local_request{
@@ -389,10 +390,10 @@ fn handle_websocket_origin(
     port: u16,
     websocket_config: &WebSocketConfig
 ) -> anyhow::Result<()> {
-    info!("Handling WebSocket Origin with strategy: {}", websocket_config.origin_strategy);
+    info!("Handling WebSocket Origin with strategy: {:?}", websocket_config.origin_strategy);
     
-    match websocket_config.origin_strategy.as_str() {
-        "keep" => {
+    match &websocket_config.origin_strategy {
+        OriginStrategy::Keep => {
             // 保持原始Origin不变
             if let Some(origin) = request.headers().get(axum::http::header::ORIGIN) {
                 info!("Keeping original Origin: {:?}", origin);
@@ -400,12 +401,12 @@ fn handle_websocket_origin(
                 info!("No original Origin header to keep");
             }
         }
-        "remove" => {
+        OriginStrategy::Remove => {
             // 移除Origin头部
             request.headers_mut().remove(axum::http::header::ORIGIN);
             info!("Removed Origin header for WebSocket request");
         }
-        "host" => {
+        OriginStrategy::Host => {
             // 设置为代理域名
             let host_origin = format!("{}://{}", scheme, host);
             request.headers_mut().insert(
@@ -414,7 +415,7 @@ fn handle_websocket_origin(
             );
             info!("Set WebSocket Origin to host: {}", host_origin);
         }
-        "backend" => {
+        OriginStrategy::Backend => {
             // 设置为后端服务器地址
             let backend_origin = format!("{}://{}:{}", scheme, ip, port);
             request.headers_mut().insert(
@@ -423,7 +424,7 @@ fn handle_websocket_origin(
             );
             info!("Set WebSocket Origin to backend: {}", backend_origin);
         }
-        "custom" => {
+        OriginStrategy::Custom => {
             // 使用自定义Origin
             if let Some(custom_origin) = &websocket_config.custom_origin {
                 request.headers_mut().insert(
@@ -440,15 +441,6 @@ fn handle_websocket_origin(
                 );
                 info!("Set WebSocket Origin to backend (fallback): {}", backend_origin);
             }
-        }
-        _ => {
-            warn!("Unknown WebSocket origin strategy: {}, falling back to backend", websocket_config.origin_strategy);
-            let backend_origin = format!("{}://{}:{}", scheme, ip, port);
-            request.headers_mut().insert(
-                axum::http::header::ORIGIN,
-                axum::http::HeaderValue::from_str(&backend_origin)?
-            );
-            info!("Set WebSocket Origin to backend (fallback): {}", backend_origin);
         }
     }
     
