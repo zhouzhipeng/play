@@ -10,47 +10,43 @@ struct Param {
 }
 
 
-// 异步处理函数
-async fn async_handle_request_impl(request: HttpRequest) -> anyhow::Result<HttpResponse> {
-    // 模拟一些异步操作
-    println!("Request handled request : {:?}", request);
+// 新的异步处理函数 - 使用 request_id
+async fn async_handle_request_impl(request_id: i64) -> anyhow::Result<()> {
+    println!("Handling request with ID: {}", request_id);
     
-    // 解析查询参数示例
-    // let params = request.parse_query::<Param>()?;
+    // 从 host 获取请求信息
+    // 注意：这里需要知道 host_url，通常可以从环境变量或配置中获取
+    let host_url = std::env::var("HOST").unwrap_or_else(|_| "http://127.0.0.1:3000".to_string());
     
-    // 异步HTTP请求示例
-    // let response = reqwest::get("https://crab.rs").await?.text().await?;
-    // println!("response : {}", response);
+    // 获取请求信息
+    let request = HttpRequest::fetch_from_host(request_id, &host_url).await?;
+    println!("Fetched request: {:?}", request);
+    
+    // 处理业务逻辑
 
-    Ok(HttpResponse::text("async test response"))
+        // 默认响应
+    let response = HttpResponse::json(&json!({
+            "query": request.query,
+            "age": 20,
+            "url": request.url,
+            "method": format!("{:?}", request.method),
+            "request_id": request_id
+        }));
+
+    // 将响应推送回 host
+    response.push_to_host(request_id, &host_url).await?;
+    println!("Response pushed for request ID: {}", request_id);
+    
+    Ok(())
 }
 
 
-fn handle_request_impl(request: HttpRequest) -> anyhow::Result<HttpResponse> {
-    println!("Request handled request : {:?}", request);
-    
-    // 根据不同的URL路径返回不同响应
-    if request.match_suffix("/test") {
-        // 解析查询参数示例
-        if let Ok(params) = request.parse_query::<Param>() {
-            return Ok(HttpResponse::json(&json!({
-                "parsed_params": params,
-                "message": "Query parameters parsed successfully"
-            })));
-        }
-    }
-    
-    // 默认响应
-    Ok(HttpResponse::json(&json!({
-        "name": "example",
-        "age": 20,
-        "url": request.url,
-        "method": format!("{:?}", request.method)
-    })))
-}
+// 同步版本也更新为新模式（虽然实际上需要异步来获取/推送数据）
+// 注意：同步版本无法直接使用 async 函数，所以这里仅作为示例
+// 实际使用中推荐使用 async_request_handler
 
-// async_request_handler!(async_handle_request_impl);
-request_handler!(handle_request_impl);
+// 使用新的异步处理器宏
+async_request_handler!(async_handle_request_impl);
 
 async_run!(run_server);
 
