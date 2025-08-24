@@ -192,8 +192,8 @@
 
                 <div class="grid grid-cols-2 gap-4 mb-4">
                     <div class="flex items-center">
-                        <input id="needConfigFile" type="checkbox" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                        <label class="ml-2 block text-gray-700 text-sm font-bold" for="needConfigFile">
+                        <input id="renderConfig" type="checkbox" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label class="ml-2 block text-gray-700 text-sm font-bold" for="renderConfig">
                             Render Config
                         </label>
                     </div>
@@ -304,7 +304,7 @@
                     </div>
                     <div class="col-span-1">
                         <dt class="text-xs font-medium text-gray-500">Render Config</dt>
-                        <dd id="viewNeedConfigFile" class="text-sm text-gray-900"></dd>
+                        <dd id="viewrenderConfig" class="text-sm text-gray-900"></dd>
                     </div>
                     <div class="col-span-1">
                         <dt class="text-xs font-medium text-gray-500">Create Process</dt>
@@ -360,7 +360,7 @@
             proxyDomain: document.getElementById('proxyDomain'),
             urlPrefix: document.getElementById('urlPrefix'),
             filePath: document.getElementById('filePath'),
-            needConfigFile: document.getElementById('needConfigFile'),
+            renderConfig: document.getElementById('renderConfig'),
             isServer: document.getElementById('isServer'),
             disable: document.getElementById('disable'),
             createProcess: document.getElementById('createProcess')
@@ -393,7 +393,7 @@
             filePath: document.getElementById('viewFilePath'),
             status: document.getElementById('viewStatus'),
             type: document.getElementById('viewType'),
-            needConfigFile: document.getElementById('viewNeedConfigFile'),
+            renderConfig: document.getElementById('viewrenderConfig'),
             createProcess: document.getElementById('viewCreateProcess'),
             created: document.getElementById('viewCreated'),
             updated: document.getElementById('viewUpdated')
@@ -752,7 +752,7 @@
                 elements.formFields.proxyDomain.value = plugin.proxy_domain || '';
                 elements.formFields.urlPrefix.value = plugin.url_prefix || '';
                 elements.formFields.filePath.value = plugin.file_path || '';
-                elements.formFields.needConfigFile.checked = !!plugin.render_config;
+                elements.formFields.renderConfig.checked = !!plugin.render_config;
                 elements.formFields.isServer.checked = !!plugin.is_server;
                 elements.formFields.disable.checked = !!plugin.disable;
                 elements.formFields.createProcess.checked = !!plugin.create_process;
@@ -787,7 +787,7 @@
                 </span>
             `;
         elements.viewFields.type.textContent = plugin.is_server ? 'Server' : 'Client';
-        elements.viewFields.needConfigFile.textContent = plugin.render_config ? 'Yes' : 'No';
+        elements.viewFields.renderConfig.textContent = plugin.render_config ? 'Yes' : 'No';
         elements.viewFields.createProcess.textContent = plugin.create_process ? 'Yes' : 'No';
         elements.viewFields.created.textContent = plugin.created ? new Date(plugin.created).toLocaleString() : '-';
         elements.viewFields.updated.textContent = plugin.updated ? new Date(plugin.updated).toLocaleString() : '-';
@@ -843,7 +843,7 @@
             proxy_domain: elements.formFields.proxyDomain.value.trim(),
             url_prefix: urlPrefix,
             file_path: elements.formFields.filePath.value.trim(),
-            render_config: elements.formFields.needConfigFile.checked,
+            render_config: elements.formFields.renderConfig.checked,
             is_server: elements.formFields.isServer.checked,
             disable: elements.formFields.disable.checked,
             create_process: elements.formFields.createProcess.checked
