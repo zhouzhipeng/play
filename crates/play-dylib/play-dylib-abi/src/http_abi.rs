@@ -201,8 +201,6 @@ macro_rules! async_request_handler {
             use std::panic::{self, AssertUnwindSafe};
             use tokio::runtime::Runtime;
             use play_dylib_abi::http_abi::{HttpRequest, HttpResponse};
-            
-            let result = panic::catch_unwind(|| {
                 let rt = Runtime::new().unwrap();
                 rt.block_on(async move {
                     // Get host URL from environment
@@ -219,14 +217,7 @@ macro_rules! async_request_handler {
                     };
                     
                     // Call user's handler function
-                    let response = match $func(request).await {
-                        Ok(resp) => resp,
-                        Err(e) => {
-                            eprintln!("User handler error for request {}: {:?}", request_id, e);
-                            // Return error response
-                            HttpResponse::from_anyhow(e)
-                        }
-                    };
+                    let response =HttpResponse::from_anyhow($func(request).await);
                     
                     // Push response back to host
                     if let Err(e) = response.push_to_host(request_id, &host_url).await {
@@ -235,25 +226,7 @@ macro_rules! async_request_handler {
                     }
                     
                     Ok(())
-                })
-            });
-
-            if let Err(panic_info) = result {
-                eprintln!("Plugin panic: {:?}", panic_info);
-                
-                // Try to send error response on panic
-                let rt = Runtime::new();
-                if let Ok(rt) = rt {
-                    let _ = rt.block_on(async {
-                        let host_url = std::env::var("HOST")
-                            .unwrap_or_else(|_| "http://127.0.0.1:3000".to_string());
-                        let error_response = HttpResponse::from_panic_error(format!("Plugin panic: {:?}", panic_info));
-                        let _ = error_response.push_to_host(request_id, &host_url).await;
-                    });
-                }
-            } else if let Ok(Err(e)) = result {
-                eprintln!("Plugin error: {:?}", e);
-            }
+                });
         }
     };
 }
