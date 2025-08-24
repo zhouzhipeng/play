@@ -109,7 +109,7 @@ pub async fn inner_run_plugin( plugin: &PluginConfig, request: Request<Body>)->R
         query: request.uri().query().unwrap_or_default().to_string(),
         url: url.to_string(),
         body: body_to_bytes(request.into_body()).await?,
-        rendered_config: if plugin.need_config_file{Some(read_config_file(true).await?)}else{None},
+        rendered_config: if plugin.need_config_file {Some(read_config_file(true).await?)}else{None},
     };
 
     // Use the new coordinated function from loader that handles environment setup
