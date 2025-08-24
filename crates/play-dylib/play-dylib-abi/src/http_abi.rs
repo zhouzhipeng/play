@@ -196,8 +196,7 @@ impl HttpResponse {
 #[macro_export]
 macro_rules! async_request_handler {
     ($func:ident) => {
-
-       #[no_mangle]
+        #[unsafe(no_mangle)]
         pub extern "C" fn handle_request(request_id: i64) {
             use std::panic::{self, AssertUnwindSafe};
             use tokio::runtime::Runtime;

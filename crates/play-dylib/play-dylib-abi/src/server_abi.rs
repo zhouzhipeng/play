@@ -12,8 +12,7 @@ pub const RUN_FN_NAME: &'static str = "run";
 #[macro_export]
 macro_rules! async_run {
     ($func:ident) => {
-
-       #[no_mangle]
+        #[unsafe(no_mangle)]
         pub extern "C" fn run(request: *mut std::os::raw::c_char){
 
             use play_dylib_abi::*;
