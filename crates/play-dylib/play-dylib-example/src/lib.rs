@@ -11,17 +11,9 @@ struct Param {
 
 
 // 新的异步处理函数 - 使用 request_id
-async fn async_handle_request_impl(request_id: i64) -> anyhow::Result<()> {
-    println!("Handling request with ID: {}", request_id);
-    
-    // 从 host 获取请求信息
-    // 注意：这里需要知道 host_url，通常可以从环境变量或配置中获取
-    let host_url = std::env::var("HOST").unwrap_or_else(|_| "http://127.0.0.1:3000".to_string());
-    
-    // 获取请求信息
-    let request = HttpRequest::fetch_from_host(request_id, &host_url).await?;
-    println!("Fetched request: {:?}", request);
-    
+async fn async_handle_request_impl(request: HttpRequest) -> anyhow::Result<HttpResponse> {
+    println!("Handling request with ID: {:?}", request);
+
     // 处理业务逻辑
 
         // 默认响应

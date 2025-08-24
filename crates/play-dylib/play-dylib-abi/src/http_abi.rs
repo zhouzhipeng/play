@@ -186,8 +186,13 @@ impl HttpResponse {
 /// needs tokio runtime.
 /// usage: `async_request_handler!(handle_request_impl);`
 /// ```rust
-/// async fn handle_request_impl(request_id: i64) -> anyhow::Result<()>
+/// async fn handle_request_impl(request: HttpRequest) -> anyhow::Result<HttpResponse>
 /// ```
+/// 
+/// The macro handles all the host communication:
+/// 1. Fetches request from host using request_id
+/// 2. Calls your function with the HttpRequest
+/// 3. Pushes the HttpResponse back to host
 #[macro_export]
 macro_rules! async_request_handler {
     ($func:ident) => {
@@ -196,10 +201,46 @@ macro_rules! async_request_handler {
         pub extern "C" fn handle_request(request_id: i64) {
             use std::panic::{self, AssertUnwindSafe};
             use tokio::runtime::Runtime;
+            use play_dylib_abi::http_abi::{HttpRequest, HttpResponse};
             
             let result = panic::catch_unwind(|| {
                 let rt = Runtime::new().unwrap();
-                rt.block_on($func(request_id))
+                rt.block_on(async move {
+                    // Get host URL from environment
+                    let host_url = std::env::var("HOST")
+                        .unwrap_or_else(|_| "http://127.0.0.1:3000".to_string());
+                    
+                    // Fetch request from host
+                    let request = match HttpRequest::fetch_from_host(request_id, &host_url).await {
+                        Ok(req) => req,
+                        Err(e) => {
+                            eprintln!("Failed to fetch request {}: {:?}", request_id, e);
+                            return Err(e);
+                        }
+                    };
+                    
+                    // Call user's handler function
+                    let response = match $func(request).await {
+                        Ok(resp) => resp,
+                        Err(e) => {
+                            eprintln!("User handler error for request {}: {:?}", request_id, e);
+                            // Return error response
+                            HttpResponse {
+                                status_code: 500,
+                                error: Some(format!("{:?}", e)),
+                                ..Default::default()
+                            }
+                        }
+                    };
+                    
+                    // Push response back to host
+                    if let Err(e) = response.push_to_host(request_id, &host_url).await {
+                        eprintln!("Failed to push response for request {}: {:?}", request_id, e);
+                        return Err(e);
+                    }
+                    
+                    Ok(())
+                })
             });
 
             if let Err(panic_info) = result {
@@ -211,39 +252,21 @@ macro_rules! async_request_handler {
                     "Panic occurred: Unknown panic info".to_string()
                 };
                 eprintln!("Plugin panic: {}", err_msg);
-            } else if let Ok(Err(e)) = result {
-                eprintln!("Plugin error: {:?}", e);
-            }
-        }
-    };
-}
-
-
-/// usage: `request_handler!(handle_request_impl);`
-/// ```rust
-///  fn handle_request_impl(request_id: i64) -> anyhow::Result<()>
-/// ```
-#[macro_export]
-macro_rules! request_handler {
-    ($func:ident) => {
-
-       #[no_mangle]
-        pub extern "C" fn handle_request(request_id: i64) {
-            use std::panic::{self, AssertUnwindSafe};
-            
-            let result = panic::catch_unwind(|| {
-                $func(request_id)
-            });
-
-            if let Err(panic_info) = result {
-                let err_msg = if let Some(s) = panic_info.downcast_ref::<String>() {
-                    format!("Panic occurred: {}", s)
-                } else if let Some(s) = panic_info.downcast_ref::<&str>() {
-                    format!("Panic occurred: {}", s)
-                } else {
-                    "Panic occurred: Unknown panic info".to_string()
-                };
-                eprintln!("Plugin panic: {}", err_msg);
+                
+                // Try to send error response on panic
+                let rt = Runtime::new();
+                if let Ok(rt) = rt {
+                    let _ = rt.block_on(async {
+                        let host_url = std::env::var("HOST")
+                            .unwrap_or_else(|_| "http://127.0.0.1:3000".to_string());
+                        let error_response = HttpResponse {
+                            status_code: 500,
+                            error: Some(err_msg),
+                            ..Default::default()
+                        };
+                        let _ = error_response.push_to_host(request_id, &host_url).await;
+                    });
+                }
             } else if let Ok(Err(e)) = result {
                 eprintln!("Plugin error: {:?}", e);
             }
