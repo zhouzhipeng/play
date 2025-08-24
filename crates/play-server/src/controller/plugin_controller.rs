@@ -108,22 +108,23 @@ pub async fn inner_run_plugin( plugin: &PluginConfig, request: Request<Body>)->R
     };
 
 
+    // Create HostContext for environment setup
+    let host_context = HostContext {
+        host_url: env::var("HOST")?,
+        data_dir: env::var(DATA_DIR)?,
+        config_text: None, // 不再在这里设置配置文件内容
+    };
+
     let plugin_request = HttpRequest {
         method,
         headers,
         query: request.uri().query().unwrap_or_default().to_string(),
         url: url.to_string(),
         body: body_to_bytes(request.into_body()).await?,
-        context: HostContext {
-            host_url: env::var("HOST")?,
-            plugin_prefix_url: plugin.url_prefix.to_string(),
-            data_dir: env::var(DATA_DIR)?,
-            config_text: if plugin.need_config_file{Some(read_config_file(true).await?)}else{None},
-        },
-
+        rendered_config: if plugin.need_config_file{Some(read_config_file(true).await?)}else{None},
     };
 
-    // Use the simplified coordinated function from loader
+    // Use the new coordinated function from loader that handles environment setup
     let plugin_resp = load_and_run_coordinated(
         &plugin.file_path,
         plugin_request,

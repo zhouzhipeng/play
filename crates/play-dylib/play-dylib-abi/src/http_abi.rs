@@ -26,15 +26,17 @@ pub struct HttpRequest {
     pub query: String,
     pub url: String,
     pub body: String,
+    pub rendered_config:Option<String>,
 }
 
 
 
 
 impl HttpRequest {
-    pub async fn fetch_from_host(request_id: i64, host_url: &str) -> anyhow::Result<Self> {
+    pub async fn fetch_from_host(request_id: i64) -> anyhow::Result<Self> {
+        let context = HostContext::from_env(false)?;
         let client = Client::new();
-        let url = format!("{}/admin/get-request-info?request_id={}", host_url, request_id);
+        let url = format!("{}/admin/get-request-info?request_id={}", context.host_url, request_id);
         let response = client.get(&url).send().await?;
         let request: HttpRequest = response.json().await?;
         Ok(request)
@@ -51,6 +53,20 @@ impl HttpRequest {
     pub fn parse_body_json<T: DeserializeOwned>(&self) -> anyhow::Result<T> {
         let p: T = serde_json::from_str(&self.body).context("parse body str error!")?;
         Ok(p)
+    }
+
+    /// Parse configuration with priority: rendered_config first, then HostContext
+    pub fn parse_config<T: DeserializeOwned>(&self) -> anyhow::Result<T> {
+        // 优先使用 rendered_config
+        if let Some(config_text) = &self.rendered_config {
+            let config: T = toml::from_str(config_text)
+                .context("Failed to parse rendered_config")?;
+            return Ok(config);
+        }
+        
+        // 如果没有 rendered_config，则从 HostContext 获取
+        let host_context = HostContext::from_env(true)?;
+        host_context.parse_config()
     }
 
 }
@@ -90,9 +106,10 @@ fn print_error(err: &anyhow::Error) -> String {
 
 
 impl HttpResponse {
-    pub async fn push_to_host(&self, request_id: i64, host_url: &str) -> anyhow::Result<()> {
+    pub async fn push_to_host(&self, request_id: i64) -> anyhow::Result<()> {
+        let context = HostContext::from_env(false)?;
         let client = Client::new();
-        let url = format!("{}/admin/push-response-info?request_id={}", host_url, request_id);
+        let url = format!("{}/admin/push-response-info?request_id={}", context.host_url, request_id);
         client.post(&url)
             .json(self)
             .send()
@@ -189,12 +206,8 @@ macro_rules! async_request_handler {
             use play_dylib_abi::http_abi::{HttpRequest, HttpResponse};
                 let rt = Runtime::new().unwrap();
                 rt.block_on(async move {
-                    // Get host URL from environment
-                    let host_url = std::env::var("HOST")
-                        .unwrap_or_else(|_| "http://127.0.0.1:3000".to_string());
-                    
                     // Fetch request from host
-                    let request = match HttpRequest::fetch_from_host(request_id, &host_url).await {
+                    let request = match HttpRequest::fetch_from_host(request_id).await {
                         Ok(req) => req,
                         Err(e) => {
                             eprintln!("Failed to fetch request {}: {:?}", request_id, e);
@@ -203,10 +216,10 @@ macro_rules! async_request_handler {
                     };
                     
                     // Call user's handler function
-                    let response =HttpResponse::from_anyhow($func(request).await);
+                    let response = HttpResponse::from_anyhow($func(request).await);
                     
                     // Push response back to host
-                    if let Err(e) = response.push_to_host(request_id, &host_url).await {
+                    if let Err(e) = response.push_to_host(request_id).await {
                         eprintln!("Failed to push response for request {}: {:?}", request_id, e);
                         return Err(e);
                     }
