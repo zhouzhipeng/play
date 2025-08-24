@@ -68,15 +68,12 @@ async fn run_plugin(s: axum::extract::State<Arc<AppState>>, request: Request<Bod
         !plugin.url_prefix.is_empty() &&
         (url.eq(&plugin.url_prefix) ||  url.starts_with(&format!("{}/", plugin.url_prefix)))
     }) {
-        Some(plugin) => match inner_run_plugin(plugin, request).await {
-            Ok(response) => response,
-            Err(e) => (
-                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Error: {}", e)
-            ).into_response()
-        },
+        Some(plugin) => inner_run_plugin(plugin, request).await.unwrap_or_else(|e| (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Error: {}", e)
+        ).into_response()),
         None => (
-            axum::http::StatusCode::NOT_FOUND,
+            StatusCode::NOT_FOUND,
             "Plugin not found for URL"
         ).into_response()
     }
@@ -88,7 +85,6 @@ pub use play_dylib_loader::{clear_plugin_cache, remove_plugin_from_cache};
 
 #[cfg(feature = "play-dylib-loader")]
 pub async fn inner_run_plugin( plugin: &PluginConfig, request: Request<Body>)->Result<Response, AppError>{
-    use play_dylib_loader::HostContext;
     use play_dylib_loader::*;
 
     let url = request.uri().path();
@@ -105,14 +101,6 @@ pub async fn inner_run_plugin( plugin: &PluginConfig, request: Request<Body>)->R
         "PUT"=>HttpMethod::PUT,
         "DELETE"=>HttpMethod::DELETE,
         _ => return_error!("unsupported http method")
-    };
-
-
-    // Create HostContext for environment setup
-    let host_context = HostContext {
-        host_url: env::var("HOST")?,
-        data_dir: env::var(DATA_DIR)?,
-        config_text: None, // 不再在这里设置配置文件内容
     };
 
     let plugin_request = HttpRequest {

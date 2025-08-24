@@ -53,7 +53,7 @@ pub fn store_response(request_id: i64, response: HttpResponse) {
 pub fn take_response(request_id: i64) -> Option<HttpResponse> {
     PLUGIN_RESPONSE_STORE.remove(&request_id).map(|(_, v)| v)
 }
-pub async fn load_and_run_server(dylib_path: &str, host_context: HostContext) -> anyhow::Result<()> {
+pub async fn load_and_run_server(dylib_path: &str) -> anyhow::Result<()> {
     ensure!(fs::try_exists(dylib_path).await?);
     info!("load_and_run_server path: {}", dylib_path);
 
