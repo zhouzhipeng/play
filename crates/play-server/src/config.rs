@@ -64,9 +64,9 @@ pub struct PluginConfig {
     pub file_path: String,
     #[serde(default)]
     pub name: String,
-    /// if true, will load config.toml content and pass to plugin execution.
+    /// if true, will load&render config.toml content and pass to plugin execution.
     #[serde(default)]
-    pub need_config_file: bool,
+    pub render_config: bool,
     #[serde(default)]
     pub is_server: bool,
     #[serde(default)]

@@ -36,7 +36,7 @@ async_request_handler!(async_handle_request_impl);
 async_run!(run_server);
 
 async fn run_server()->anyhow::Result<()> {
-    let host_context =  HostContext::from_env()?;
+    let host_context =  HostContext::from_env(true)?;
     println!("Server started with context: {:?}", host_context);
 
     // 创建一个更高效的循环，避免内存泄漏

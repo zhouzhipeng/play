@@ -14,7 +14,6 @@ use serde_json::{json, Value};
 pub struct HostContext {
     /// host http url , eg. http://127.0.0.1:3000
     pub host_url: String,
-    pub plugin_prefix_url: String,
     pub data_dir: String,
     pub config_text: Option<String>,
 }
@@ -26,38 +25,30 @@ impl HostContext {
         Ok(config)
     }
 
-    pub async fn render_template(&self, raw: &str, data : Value) -> anyhow::Result<String> {
-        let resp = Client::new().post(&format!("{}/functions/render-template", self.host_url.as_str()))
-            .form(&json!({
-                "raw_content": raw,
-                "data": data.to_string()
-            }))
-            .send().await?.text().await?;
-        Ok(resp)
-    }
 
-    /// Create HostContext from environment variables and config file
-    /// This simplifies server plugins by eliminating FFI data passing
-    pub fn from_env() -> anyhow::Result<Self> {
+    /// Create HostContext from environment variables
+    /// Reads config directly from DATA_DIR/config.toml if load_config is true
+    pub fn from_env(load_config: bool) -> anyhow::Result<Self> {
         let host_url = std::env::var("HOST")
             .unwrap_or_else(|_| "http://127.0.0.1:3000".to_string());
-        let plugin_prefix_url = std::env::var("PLUGIN_PREFIX_URL")
-            .unwrap_or_else(|_| "".to_string());
         let data_dir = std::env::var("DATA_DIR")
             .unwrap_or_else(|_| "".to_string());
         
-        // 从配置文件路径读取配置内容，而不是从环境变量
-        let config_text = if let Ok(config_path) = std::env::var("CONFIG_FILE_PATH") {
-            std::fs::read_to_string(&config_path)
-                .with_context(|| format!("Failed to read config file: {}", config_path))?
-                .into()
+        // Read config from DATA_DIR/config.toml if load_config is true
+        let config_text = if load_config && !data_dir.is_empty() {
+            let config_path = std::path::Path::new(&data_dir).join("config.toml");
+            if config_path.exists() {
+                Some(std::fs::read_to_string(&config_path)
+                    .with_context(|| format!("Failed to read config file: {:?}", config_path))?)
+            } else {
+                None
+            }
         } else {
             None
         };
         
         Ok(HostContext {
             host_url,
-            plugin_prefix_url,
             data_dir,
             config_text,
         })
