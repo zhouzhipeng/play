@@ -17,6 +17,7 @@ use http::StatusCode;
 use reqwest::{ClientBuilder, Url};
 use serde::Deserialize;
 use serde_json::{json, Value};
+use std::sync::Arc;
 use tokio_util::codec::{BytesCodec, FramedRead};
 use tracing::info;
 use zip::{ZipArchive, ZipWriter, CompressionMethod, write::{FileOptions, ExtendedFileOptions}};
@@ -28,17 +29,37 @@ use crate::{data_dir, promise, files_dir, HTML, method_router, R, return_error, 
 use crate::config::{Config, get_config_path, read_config_file, save_config_file};
 use crate::tables::change_log::ChangeLog;
 
-method_router!(
-    get : "/admin" -> enter_admin_page,
-    get : "/admin/upgrade" -> upgrade,
-    post : "/admin/save-config" -> save_config,
-    get : "/admin/reboot" -> reboot,
-    get : "/admin/backup" -> backup,
-    get : "/admin/backup-encrypted" -> backup_encrypted,
-    post : "/admin/restore" -> restore,
-    get : "/admin/logs" -> display_logs,
-    get : "/admin/clean-change-logs" -> clean_change_logs,
-);
+// Create the init function manually to handle conditional compilation
+pub fn init() -> axum::Router<std::sync::Arc<crate::AppState>> {
+    let mut router = axum::Router::new();
+    router = router.route("/admin", axum::routing::get(enter_admin_page));
+    router = router.route("/admin/upgrade", axum::routing::get(upgrade));
+    router = router.route("/admin/save-config", axum::routing::post(save_config));
+    router = router.route("/admin/reboot", axum::routing::get(reboot));
+    router = router.route("/admin/backup", axum::routing::get(backup));
+    router = router.route("/admin/backup-encrypted", axum::routing::get(backup_encrypted));
+    router = router.route("/admin/restore", axum::routing::post(restore));
+    router = router.route("/admin/logs", axum::routing::get(display_logs));
+    router = router.route("/admin/clean-change-logs", axum::routing::get(clean_change_logs));
+    
+    #[cfg(feature = "play-dylib-loader")]
+    {
+        router = router.route("/admin/get-request-info", axum::routing::get(get_request_info));
+        router = router.route("/admin/push-response-info", axum::routing::post(push_response_info));
+        router = router.route("/admin/store-request-info", axum::routing::post(store_request_info));
+    }
+    
+    router
+}
+
+// Use stores from play-dylib-loader
+#[cfg(feature = "play-dylib-loader")]
+use play_dylib_loader::{get_request, store_response};
+
+#[derive(Deserialize)]
+struct RequestIdQuery {
+    request_id: i64,
+}
 
 #[derive(Deserialize)]
 struct UpgradeRequest {
@@ -57,6 +78,36 @@ struct DeleteChangelogReq {
 
 fn default_days()->u32{
     3
+}
+
+#[cfg(feature = "play-dylib-loader")]
+async fn get_request_info(Query(RequestIdQuery { request_id }): Query<RequestIdQuery>) -> Response {
+    match get_request(request_id) {
+        Some(request) => {
+            Json(request).into_response()
+        },
+        None => {
+            (StatusCode::NOT_FOUND, format!("Request with id {} not found", request_id)).into_response()
+        }
+    }
+}
+
+#[cfg(feature = "play-dylib-loader")]
+async fn push_response_info(
+    Query(RequestIdQuery { request_id }): Query<RequestIdQuery>,
+    Json(response): Json<play_dylib_loader::HttpResponse>
+) -> Response {
+    store_response(request_id, response);
+    (StatusCode::OK, "Response stored successfully").into_response()
+}
+
+#[cfg(feature = "play-dylib-loader")]
+async fn store_request_info(
+    Query(RequestIdQuery { request_id }): Query<RequestIdQuery>,
+    Json(request): Json<play_dylib_loader::HttpRequest>
+) -> Response {
+    play_dylib_loader::store_request(request_id, request);
+    (StatusCode::OK, "Request stored successfully").into_response()
 }
 async fn clean_change_logs(s: S, Query(DeleteChangelogReq{days}): Query<DeleteChangelogReq>) -> R<String> {
     let days_ago = days;

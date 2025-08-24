@@ -7,10 +7,8 @@ use serde_json::{json, Value};
 use crate::HostContext;
 
 
-pub type HandleRequestFn = unsafe extern "C" fn(*mut std::os::raw::c_char) -> *mut std::os::raw::c_char;
-pub type FreeCStringFn = unsafe extern "C" fn(*mut std::os::raw::c_char);
+pub type HandleRequestFn = unsafe extern "C" fn(i64);
 pub const HANDLE_REQUEST_FN_NAME: &'static str = "handle_request";
-pub const FREE_C_STRING_FN_NAME: &'static str = "free_c_string";
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub enum HttpMethod {
@@ -35,6 +33,13 @@ pub struct HttpRequest {
 
 
 impl HttpRequest {
+    pub async fn fetch_from_host(request_id: i64, host_url: &str) -> anyhow::Result<Self> {
+        let client = Client::new();
+        let url = format!("{}/admin/get-request-info?request_id={}", host_url, request_id);
+        let response = client.get(&url).send().await?;
+        let request: HttpRequest = response.json().await?;
+        Ok(request)
+    }
 
     pub fn parse_query<T: DeserializeOwned>(&self) -> anyhow::Result<T> {
         let p: T = serde_urlencoded::from_str(&self.query).context("parse query str error!")?;
@@ -99,6 +104,16 @@ fn print_error(err: &anyhow::Error) -> String {
 
 
 impl HttpResponse {
+    pub async fn push_to_host(&self, request_id: i64, host_url: &str) -> anyhow::Result<()> {
+        let client = Client::new();
+        let url = format!("{}/admin/push-response-info?request_id={}", host_url, request_id);
+        client.post(&url)
+            .json(self)
+            .send()
+            .await?;
+        Ok(())
+    }
+    
     pub fn from_anyhow(r: anyhow::Result<Self>) -> HttpResponse {
         r.unwrap_or_else(|e| {
             HttpResponse {
@@ -171,29 +186,63 @@ impl HttpResponse {
 /// needs tokio runtime.
 /// usage: `async_request_handler!(handle_request_impl);`
 /// ```rust
-/// async fn handle_request_impl(request: Request) -> anyhow::Result<Response>
+/// async fn handle_request_impl(request: HttpRequest) -> anyhow::Result<HttpResponse>
 /// ```
+/// 
+/// The macro handles all the host communication:
+/// 1. Fetches request from host using request_id
+/// 2. Calls your function with the HttpRequest
+/// 3. Pushes the HttpResponse back to host
 #[macro_export]
 macro_rules! async_request_handler {
     ($func:ident) => {
-
-       #[no_mangle]
-        pub extern "C" fn handle_request(request: *mut std::os::raw::c_char) -> *mut std::os::raw::c_char {
-
-            use play_dylib_abi::*;
+        #[unsafe(no_mangle)]
+        pub extern "C" fn handle_request(request_id: i64) {
             use std::panic::{self, AssertUnwindSafe};
-
-            let result = panic::catch_unwind(||{
-                let name = c_char_to_string(request);
-                let request: HttpRequest = serde_json::from_str(&name).unwrap();
-                use tokio::runtime::Runtime;
+            use tokio::runtime::Runtime;
+            use play_dylib_abi::http_abi::{HttpRequest, HttpResponse};
+            
+            let result = panic::catch_unwind(|| {
                 let rt = Runtime::new().unwrap();
-                let response = HttpResponse::from_anyhow(rt.block_on($func(request)));
-                drop(rt);
-                response
+                rt.block_on(async move {
+                    // Get host URL from environment
+                    let host_url = std::env::var("HOST")
+                        .unwrap_or_else(|_| "http://127.0.0.1:3000".to_string());
+                    
+                    // Fetch request from host
+                    let request = match HttpRequest::fetch_from_host(request_id, &host_url).await {
+                        Ok(req) => req,
+                        Err(e) => {
+                            eprintln!("Failed to fetch request {}: {:?}", request_id, e);
+                            return Err(e);
+                        }
+                    };
+                    
+                    // Call user's handler function
+                    let response = match $func(request).await {
+                        Ok(resp) => resp,
+                        Err(e) => {
+                            eprintln!("User handler error for request {}: {:?}", request_id, e);
+                            // Return error response
+                            HttpResponse {
+                                status_code: 500,
+                                error: Some(format!("{:?}", e)),
+                                ..Default::default()
+                            }
+                        }
+                    };
+                    
+                    // Push response back to host
+                    if let Err(e) = response.push_to_host(request_id, &host_url).await {
+                        eprintln!("Failed to push response for request {}: {:?}", request_id, e);
+                        return Err(e);
+                    }
+                    
+                    Ok(())
+                })
             });
 
-            let response  = result.unwrap_or_else(|panic_info| {
+            if let Err(panic_info) = result {
                 let err_msg = if let Some(s) = panic_info.downcast_ref::<String>() {
                     format!("Panic occurred: {}", s)
                 } else if let Some(s) = panic_info.downcast_ref::<&str>() {
@@ -201,76 +250,24 @@ macro_rules! async_request_handler {
                 } else {
                     "Panic occurred: Unknown panic info".to_string()
                 };
-
-                let response =HttpResponse::from_panic_error(err_msg);
-                response
-            });
-
-            //convert response to c char string (make it compatible with ABI)
-            let result = serde_json::to_string(&response).unwrap();
-            string_to_c_char_mut(&result)
-        }
-
-
-      #[no_mangle]
-        pub extern "C" fn free_c_string(ptr: *mut std::os::raw::c_char) {
-            if !ptr.is_null() {
-                // 将裸指针转换回 CString，并自动释放内存
-                unsafe {
-                    drop(std::ffi::CString::from_raw(ptr));
+                eprintln!("Plugin panic: {}", err_msg);
+                
+                // Try to send error response on panic
+                let rt = Runtime::new();
+                if let Ok(rt) = rt {
+                    let _ = rt.block_on(async {
+                        let host_url = std::env::var("HOST")
+                            .unwrap_or_else(|_| "http://127.0.0.1:3000".to_string());
+                        let error_response = HttpResponse {
+                            status_code: 500,
+                            error: Some(err_msg),
+                            ..Default::default()
+                        };
+                        let _ = error_response.push_to_host(request_id, &host_url).await;
+                    });
                 }
-            }
-        }
-    };
-}
-
-
-/// usage: `request_handler!(handle_request_impl);`
-/// ```rust
-///  fn handle_request_impl(request: Request) -> anyhow::Result<Response>
-/// ```
-#[macro_export]
-macro_rules! request_handler {
-    ($func:ident) => {
-
-       #[no_mangle]
-        pub extern "C" fn handle_request(request: *mut std::os::raw::c_char) -> *mut std::os::raw::c_char {
-
-            use play_dylib_abi::*;
-            use std::panic::{self, AssertUnwindSafe};
-
-            let result = panic::catch_unwind(||{
-                let name = c_char_to_string(request);
-                let request: HttpRequest = serde_json::from_str(&name).unwrap();
-                let response = HttpResponse::from_anyhow($func(request));
-                response
-            });
-
-            let response  = result.unwrap_or_else(|panic_info| {
-                let err_msg = if let Some(s) = panic_info.downcast_ref::<String>() {
-                    format!("Panic occurred: {}", s)
-                } else if let Some(s) = panic_info.downcast_ref::<&str>() {
-                    format!("Panic occurred: {}", s)
-                } else {
-                    "Panic occurred: Unknown panic info".to_string()
-                };
-
-                let response =HttpResponse::from_panic_error(err_msg);
-                response
-            });
-
-            //convert response to c char string (make it compatible with ABI)
-            let result = serde_json::to_string(&response).unwrap();
-            string_to_c_char_mut(&result)
-        }
-
-         #[no_mangle]
-        pub extern "C" fn free_c_string(ptr: *mut std::os::raw::c_char) {
-            if !ptr.is_null() {
-                // 将裸指针转换回 CString，并自动释放内存
-                unsafe {
-                    drop(std::ffi::CString::from_raw(ptr));
-                }
+            } else if let Ok(Err(e)) = result {
+                eprintln!("Plugin error: {:?}", e);
             }
         }
     };

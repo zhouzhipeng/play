@@ -82,6 +82,10 @@ async fn run_plugin(s: axum::extract::State<Arc<AppState>>, request: Request<Bod
     }
 }
 
+// Export cache management functions from loader
+#[cfg(feature = "play-dylib-loader")]
+pub use play_dylib_loader::{clear_plugin_cache, remove_plugin_from_cache};
+
 #[cfg(feature = "play-dylib-loader")]
 pub async fn inner_run_plugin( plugin: &PluginConfig, request: Request<Body>)->Result<Response, AppError>{
     use play_dylib_loader::HostContext;
@@ -119,7 +123,11 @@ pub async fn inner_run_plugin( plugin: &PluginConfig, request: Request<Body>)->R
 
     };
 
-    let plugin_resp = load_and_run(&plugin.file_path, plugin_request).await?;
+    // Use the simplified coordinated function from loader
+    let plugin_resp = play_dylib_loader::load_and_run_coordinated(
+        &plugin.file_path,
+        plugin_request,
+    ).await?;
 
     let mut resp_builder = Response::builder()
         .status(StatusCode::from_u16(plugin_resp.status_code)?);
