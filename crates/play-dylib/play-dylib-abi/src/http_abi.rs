@@ -26,7 +26,6 @@ pub struct HttpRequest {
     pub query: String,
     pub url: String,
     pub body: String,
-    pub context: HostContext,
 }
 
 
@@ -53,20 +52,7 @@ impl HttpRequest {
         let p: T = serde_json::from_str(&self.body).context("parse body str error!")?;
         Ok(p)
     }
-    pub fn get_suffix_url(&self)->String{
-        self.url.strip_prefix(&self.context.plugin_prefix_url).unwrap().to_string()
-    }
 
-    pub fn match_suffix(&self, suffix: &str)->bool{
-        self.get_suffix_url().eq(suffix)
-    }
-    pub fn match_suffix_default(&self)->bool{
-        self.get_suffix_url().eq("")
-    }
-    
-    pub async fn render_template(&self, raw: &str, data: Value) -> anyhow::Result<String> {
-        self.context.render_template(raw, data).await
-    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
@@ -232,34 +218,3 @@ macro_rules! async_request_handler {
 }
 
 
-
-#[cfg(test)]
-mod tests{
-    use super::*;
-
-    #[tokio::test]
-    async fn test_render_template()->anyhow::Result<()>{
-        //host_url: env::var("HOST")?
-        let req = HttpRequest{
-            context: HostContext {
-                host_url: "http://127.0.0.1:3000".to_string(),
-                ..Default::default()
-            },
-            ..Default::default()
-        };
-
-        let resp = req.render_template(r#"
-        11{{c}}{{a}}222
-        % if flag:
-        aaa
-        % end
-        "#, json!({
-            "a":"sdfs",
-            "c":"你好啊332sss",
-            "flag":false,
-        })).await?;
-
-        println!("{:#?}", resp);
-        Ok(())
-    }
-}
