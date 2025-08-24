@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 use std::env;
-use std::ffi::{CStr, CString};
-use std::os::raw::c_char;
 use std::path::PathBuf;
 use anyhow::{bail, ensure, Context};
 use libloading::{Library, Symbol};
@@ -10,7 +8,6 @@ use log::{error, info, warn};
 use tempfile::Builder;
 pub use play_dylib_abi::http_abi::*;
 pub use play_dylib_abi::HostContext;
-use play_dylib_abi::{c_char_to_string, string_to_c_char, string_to_c_char_mut};
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::time::Duration;
 use std::panic::{self, AssertUnwindSafe};
@@ -58,24 +55,37 @@ pub fn take_response(request_id: i64) -> Option<HttpResponse> {
 }
 pub async fn load_and_run_server(dylib_path: &str, host_context: HostContext) -> anyhow::Result<()> {
     ensure!(fs::try_exists(dylib_path).await?);
-    info!("load_and_run_server  path : {}",dylib_path);
+    info!("load_and_run_server path: {}", dylib_path);
 
     let copy_path = dylib_path.to_string();
-    let _:JoinHandle<anyhow::Result<()>> = tokio::spawn(async move {
+    let _: JoinHandle<anyhow::Result<()>> = tokio::spawn(async move {
         unsafe {
             // 加载动态库
             let lib = Library::new(&copy_path)?;
-            info!("load_and_run_server lib load ok.  path : {}",copy_path);
+            info!("load_and_run_server lib load ok. path: {}", copy_path);
             let run: Symbol<RunFn> = lib.get(RUN_FN_NAME.as_ref())?;
 
-            let rust_string = serde_json::to_string(&host_context)?;
-            let request = string_to_c_char_mut(&rust_string);
-            run(request);
+            // 设置环境变量供插件使用
+            std::env::set_var("HOST", &host_context.host_url);
+            std::env::set_var("PLUGIN_PREFIX_URL", &host_context.plugin_prefix_url);
+            std::env::set_var("DATA_DIR", &host_context.data_dir);
             
-            // 重要：释放分配的C字符串
-            drop(std::ffi::CString::from_raw(request));
+            // 如果有配置内容，写入固定路径的临时文件
+            if let Some(config) = &host_context.config_text {
+                let config_dir = std::env::temp_dir().join("play-dylib-configs");
+                std::fs::create_dir_all(&config_dir)?;
+                let config_file_path = config_dir.join(format!("config_{}.toml", 
+                    std::process::id()));
+                std::fs::write(&config_file_path, config)?;
+                std::env::set_var("CONFIG_FILE_PATH", &config_file_path);
+                
+                info!("Config written to: {:?}", config_file_path);
+            }
+
+            // 调用新的简化接口（无参数）
+            run();
             
-            warn!("run exited, dylib_path : {}",copy_path);
+            warn!("run exited, dylib_path: {}", copy_path);
 
             drop(lib);
             Ok(())
@@ -84,6 +94,7 @@ pub async fn load_and_run_server(dylib_path: &str, host_context: HostContext) ->
 
     Ok(())
 }
+
 
 
 // Plugin library cache

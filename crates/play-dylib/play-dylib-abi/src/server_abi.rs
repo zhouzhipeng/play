@@ -1,36 +1,49 @@
-pub type RunFn = unsafe extern "C" fn(*mut std::os::raw::c_char);
+pub type RunFn = unsafe extern "C" fn();
 pub const RUN_FN_NAME: &'static str = "run";
 
-
-/// needs tokio runtime.
-/// usage: `async_run!(run);`
+/// Optimized server ABI following http_abi pattern.
+/// Eliminates FFI memory management by using simple parameter passing.
+/// 
+/// Usage: `async_run!(run_impl);`
 /// ```rust
-/// use std::task::Context;
-///
-///  async fn run_impl(context: Context){}
+/// async fn run_impl() -> anyhow::Result<()> {
+///     // Get context from environment
+///     let context = HostContext::from_env()?;
+///     // Your server logic here
+///     Ok(())
+/// }
 /// ```
+/// 
+/// The macro handles all the runtime management:
+/// 1. Creates tokio runtime 
+/// 2. Calls your function
+/// 3. Handles errors and panic recovery
 #[macro_export]
 macro_rules! async_run {
     ($func:ident) => {
         #[unsafe(no_mangle)]
-        pub extern "C" fn run(request: *mut std::os::raw::c_char){
-
-            use play_dylib_abi::*;
+        pub extern "C" fn run() {
             use std::panic::{self, AssertUnwindSafe};
-
-            let result = panic::catch_unwind(||{
-                let name = c_char_to_string(request);
-                let context: HostContext = serde_json::from_str(&name).unwrap();
-
-                use tokio::runtime::Runtime;
+            use tokio::runtime::Runtime;
+            
+            let result = panic::catch_unwind(|| {
                 let rt = Runtime::new().unwrap();
-                let result = rt.block_on($func(context));
-                println!("{:?}", result);
-                drop(rt);
-
+                rt.block_on(async move {
+                    // Call user's server function
+                    match $func().await {
+                        Ok(_) => {
+                            println!("Server function completed successfully");
+                            Ok(())
+                        }
+                        Err(e) => {
+                            eprintln!("Server function error: {:?}", e);
+                            Err(e)
+                        }
+                    }
+                })
             });
 
-            result.unwrap_or_else(|panic_info| {
+            if let Err(panic_info) = result {
                 let err_msg = if let Some(s) = panic_info.downcast_ref::<String>() {
                     format!("Panic occurred: {}", s)
                 } else if let Some(s) = panic_info.downcast_ref::<&str>() {
@@ -38,10 +51,11 @@ macro_rules! async_run {
                 } else {
                     "Panic occurred: Unknown panic info".to_string()
                 };
-                println!("Server run panic: {}", err_msg);
-            });
-
+                eprintln!("Server run panic: {}", err_msg);
+            } else if let Ok(Err(e)) = result {
+                eprintln!("Server error: {:?}", e);
+            }
         }
-
     };
 }
+

@@ -1,55 +1,13 @@
 pub mod http_abi;
 pub mod server_abi;
 
-use std::ffi::{CStr, CString};
-use std::os::raw::c_char;
 use anyhow::Context;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
 
-pub fn c_char_to_string(c_str: *const c_char) -> String {
-    unsafe {
-        CStr::from_ptr(c_str) // 从指针创建 C 风格字符串
-            .to_string_lossy() // 转换为 Rust String，处理无效 UTF-8 的情况
-            .into_owned() // 获取 String 的所有权
-    }
-}
 
-
-pub  fn string_to_c_char(rust_string: &str) -> *const c_char {
-    CString::new(rust_string) // 创建 CString
-        .expect("Failed to create CString") // 确保输入字符串中没有 null 字符
-        .into_raw() // 转换为原始指针
-}
-pub  fn string_to_c_char_mut(rust_string: &str) -> *mut c_char {
-    CString::new(rust_string) // 创建 CString
-        .expect("Failed to create CString") // 确保输入字符串中没有 null 字符
-        .into_raw() // 转换为原始指针
-}
-
-#[cfg(test)]
-mod tests{
-    use super::*;
-    #[test]
-    fn test_convert(){
-        // Rust String to *const c_char
-        let rust_str = "Hello, World!你好啊";
-        let c_str = string_to_c_char(rust_str);
-        println!("C String: {:?}", c_str);
-
-        // *const c_char back to Rust String
-        let back_to_rust = c_char_to_string(c_str);
-        println!("Back to Rust String: {}", back_to_rust);
-        
-        // IMPORTANT: Free the allocated C string to prevent memory leak
-        unsafe {
-            drop(std::ffi::CString::from_raw(c_str as *mut c_char));
-        }
-    }
-
-}
 
 /// env info provided by host
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
@@ -77,4 +35,32 @@ impl HostContext {
             .send().await?.text().await?;
         Ok(resp)
     }
+
+    /// Create HostContext from environment variables and config file
+    /// This simplifies server plugins by eliminating FFI data passing
+    pub fn from_env() -> anyhow::Result<Self> {
+        let host_url = std::env::var("HOST")
+            .unwrap_or_else(|_| "http://127.0.0.1:3000".to_string());
+        let plugin_prefix_url = std::env::var("PLUGIN_PREFIX_URL")
+            .unwrap_or_else(|_| "".to_string());
+        let data_dir = std::env::var("DATA_DIR")
+            .unwrap_or_else(|_| "".to_string());
+        
+        // 从配置文件路径读取配置内容，而不是从环境变量
+        let config_text = if let Ok(config_path) = std::env::var("CONFIG_FILE_PATH") {
+            std::fs::read_to_string(&config_path)
+                .with_context(|| format!("Failed to read config file: {}", config_path))?
+                .into()
+        } else {
+            None
+        };
+        
+        Ok(HostContext {
+            host_url,
+            plugin_prefix_url,
+            data_dir,
+            config_text,
+        })
+    }
+
 }

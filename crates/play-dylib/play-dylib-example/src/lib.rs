@@ -35,7 +35,8 @@ async_request_handler!(async_handle_request_impl);
 
 async_run!(run_server);
 
-async fn run_server(host_context: HostContext) {
+async fn run_server()->anyhow::Result<()> {
+    let host_context =  HostContext::from_env()?;
     println!("Server started with context: {:?}", host_context);
 
     // 创建一个更高效的循环，避免内存泄漏
@@ -52,4 +53,7 @@ async fn run_server(host_context: HostContext) {
             tokio::task::yield_now().await;
         }
     }
+
+
+    Ok(())
 }
