@@ -22,7 +22,6 @@ async fn async_handle_request_impl(request: HttpRequest) -> anyhow::Result<HttpR
             "age": 20,
             "url": request.url,
             "method": format!("{:?}", request.method),
-            "request_id": request_id
         }));
 
     // 将响应推送回 host

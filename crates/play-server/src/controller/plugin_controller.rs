@@ -3,7 +3,7 @@ use std::env;
 use std::sync::Arc;
 use crate::{return_error, AppState, S};
 use crate::AppError;
-use anyhow::Context;
+use anyhow::{anyhow, bail, Context};
 use axum::body::Body;
 use axum::response::{IntoResponse, Response};
 use futures_util::{StreamExt, TryStreamExt};
@@ -124,19 +124,25 @@ pub async fn inner_run_plugin( plugin: &PluginConfig, request: Request<Body>)->R
     };
 
     // Use the simplified coordinated function from loader
-    let plugin_resp = play_dylib_loader::load_and_run_coordinated(
+    let plugin_resp = load_and_run_coordinated(
         &plugin.file_path,
         plugin_request,
     ).await?;
 
-    let mut resp_builder = Response::builder()
-        .status(StatusCode::from_u16(plugin_resp.status_code)?);
-    for (k, v) in plugin_resp.headers {
-        resp_builder = resp_builder.header(k,v);
+    if let Some(e) = plugin_resp.error{
+         Err(anyhow!("{}",e).into())
+    }else{
+        let mut resp_builder = Response::builder()
+            .status(StatusCode::from_u16(plugin_resp.status_code)?);
+        for (k, v) in plugin_resp.headers {
+            resp_builder = resp_builder.header(k,v);
+        }
+
+        let response: Response = resp_builder.body(Body::from(plugin_resp.body))?.into_response();
+        Ok(response)
     }
 
-    let response: Response = resp_builder.body(Body::from(plugin_resp.body))?.into_response();
-    Ok(response)
+
 }
 
 
