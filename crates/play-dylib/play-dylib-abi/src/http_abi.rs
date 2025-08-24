@@ -224,11 +224,7 @@ macro_rules! async_request_handler {
                         Err(e) => {
                             eprintln!("User handler error for request {}: {:?}", request_id, e);
                             // Return error response
-                            HttpResponse {
-                                status_code: 500,
-                                error: Some(format!("{:?}", e)),
-                                ..Default::default()
-                            }
+                            HttpResponse::from_anyhow(e)
                         }
                     };
                     
@@ -243,14 +239,7 @@ macro_rules! async_request_handler {
             });
 
             if let Err(panic_info) = result {
-                let err_msg = if let Some(s) = panic_info.downcast_ref::<String>() {
-                    format!("Panic occurred: {}", s)
-                } else if let Some(s) = panic_info.downcast_ref::<&str>() {
-                    format!("Panic occurred: {}", s)
-                } else {
-                    "Panic occurred: Unknown panic info".to_string()
-                };
-                eprintln!("Plugin panic: {}", err_msg);
+                eprintln!("Plugin panic: {:?}", panic_info);
                 
                 // Try to send error response on panic
                 let rt = Runtime::new();
@@ -258,11 +247,7 @@ macro_rules! async_request_handler {
                     let _ = rt.block_on(async {
                         let host_url = std::env::var("HOST")
                             .unwrap_or_else(|_| "http://127.0.0.1:3000".to_string());
-                        let error_response = HttpResponse {
-                            status_code: 500,
-                            error: Some(err_msg),
-                            ..Default::default()
-                        };
+                        let error_response = HttpResponse::from_panic_error(format!("Plugin panic: {:?}", panic_info));
                         let _ = error_response.push_to_host(request_id, &host_url).await;
                     });
                 }
