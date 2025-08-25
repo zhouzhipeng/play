@@ -514,7 +514,7 @@ dependencies = [
 [[package]]
 name = "axum-reverse-proxy"
 version = "1.0.3"
-source = "git+https://github.com/zhouzhipeng/axum-reverse-proxy.git#b15c059c7222eaa2a16eae5450fd46edf0c76724"
+source = "git+https://github.com/zhouzhipeng/axum-reverse-proxy.git#0e86e937c0b23c31e93641884985809ec291f249"
 dependencies = [
  "axum",
  "base64 0.21.7",
@@ -3088,7 +3088,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2 0.5.10",
+ "socket2 0.4.10",
  "tokio",
  "tower-service",
  "tracing 0.1.41",
@@ -3155,7 +3155,7 @@ dependencies = [
  "libc",
  "percent-encoding",
  "pin-project-lite",
- "socket2 0.5.10",
+ "socket2 0.6.0",
  "tokio",
  "tower-service",
  "tracing 0.1.41",
@@ -3676,7 +3676,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07033963ba89ebaf1584d767badaa2e8fcec21aedea6b8c0346d487d49c28667"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.53.3",
 ]
 
 [[package]]
