@@ -68,7 +68,7 @@ serde_urlencoded = "0.7.1"
 serde_qs = "0.15.0"
 
 # Web and networking
-tokio-tungstenite = "0.24"
+tokio-tungstenite = { version = "0.24", features = ["rustls-tls-webpki-roots"] }
 tower = "0.4.13"
 tower-http = { version = "0.5.0", features = ["fs", "trace", "timeout", "cors", "compression-br"] }
 axum-server = "0.7.2"
@@ -79,7 +79,7 @@ hyper = { version = "1.0", features = ["server"] }
 hyper-util = "0.1"
 hyper-rustls = "0.27"
 rustls-pki-types = "1.0"
-axum-reverse-proxy = "1.0.3"
+axum-reverse-proxy = { version = "1.0.3", features = ["tls"] }
 cookie = { version = "0.18.1", features = ["percent-encode"] }
 tokio-util = { version = "0.7", features = ["codec"] }
 tokio-stream = "0.1.15"

@@ -529,8 +529,11 @@ async fn handle_custom_proxy_with_ignore_cert(
     
     if is_websocket {
         info!("WebSocket upgrade request with ignored certificates: {}", target_uri);
+        warn!("WebSocket with ignored certificates: trying fallback approach due to TLS compilation issues");
         
-        // 对于WebSocket，使用带有忽略证书验证的自定义客户端
+        // 对于WebSocket，由于TLS编译问题，我们使用一个备用方案
+        // 先尝试使用标准的ReverseProxy，如果失败再考虑其他选项
+        
         // 重新设置URI
         match target_uri.parse::<hyper::Uri>() {
             Ok(new_uri) => {
@@ -544,20 +547,32 @@ async fn handle_custom_proxy_with_ignore_cert(
             }
         }
         
+        // 如果是HTTPS WebSocket连接，暂时使用标准代理
+        // 这意味着证书验证不会被忽略，但至少WebSocket功能可以工作
         let target_base = format!("{}://{}:{}", scheme, ip, port);
         
-        // 创建忽略证书验证的自定义客户端
-        let custom_client = create_ignore_cert_client()
-            .map_err(|e| anyhow!("Failed to create custom client: {}", e))?;
+        // 尝试创建自定义客户端，但如果失败就使用标准代理
+        let proxy_result = match create_ignore_cert_client() {
+            Ok(custom_client) => {
+                info!("Using custom client with certificate verification DISABLED for WebSocket");
+                let mut proxy = axum_reverse_proxy::ReverseProxy::new_with_client("", &target_base, custom_client);
+                use tower::Service;
+                proxy.call(request).await
+            }
+            Err(e) => {
+                warn!("Failed to create custom client for WebSocket: {}, falling back to standard proxy", e);
+                warn!("WebSocket will use STANDARD certificate verification");
+                let mut proxy = axum_reverse_proxy::ReverseProxy::new("", &target_base);
+                use tower::Service;
+                proxy.call(request).await
+            }
+        };
         
-        let mut proxy = axum_reverse_proxy::ReverseProxy::new_with_client("", &target_base, custom_client);
-        
-        use tower::Service;
-        return match proxy.call(request).await {
+        return match proxy_result {
             Ok(response) => {
                 let status = response.status();
                 if status == StatusCode::SWITCHING_PROTOCOLS {
-                    info!("WebSocket upgrade successful (with certificate verification DISABLED): {}", target_base);
+                    info!("WebSocket upgrade successful: {}", target_base);
                 } else {
                     warn!("WebSocket upgrade failed: {} -> {}", status, target_base);
                 }
