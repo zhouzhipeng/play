@@ -529,11 +529,8 @@ async fn handle_custom_proxy_with_ignore_cert(
     
     if is_websocket {
         info!("WebSocket upgrade request with ignored certificates: {}", target_uri);
-        warn!("WebSocket with ignored certificates: trying fallback approach due to TLS compilation issues");
         
-        // 对于WebSocket，由于TLS编译问题，我们使用一个备用方案
-        // 先尝试使用标准的ReverseProxy，如果失败再考虑其他选项
-        
+        // 使用本地 fork 的 axum-reverse-proxy，应该已经修复了 TLS 编译问题
         // 重新设置URI
         match target_uri.parse::<hyper::Uri>() {
             Ok(new_uri) => {
@@ -547,44 +544,58 @@ async fn handle_custom_proxy_with_ignore_cert(
             }
         }
         
-        // 如果是HTTPS WebSocket连接，暂时使用标准代理
-        // 这意味着证书验证不会被忽略，但至少WebSocket功能可以工作
         let target_base = format!("{}://{}:{}", scheme, ip, port);
         
-        // 尝试创建自定义客户端，但如果失败就使用标准代理
-        let proxy_result = match create_ignore_cert_client() {
+        // 尝试使用自定义客户端（忽略证书验证）
+        match create_ignore_cert_client() {
             Ok(custom_client) => {
-                info!("Using custom client with certificate verification DISABLED for WebSocket");
+                info!("WebSocket: Using custom client with certificate verification DISABLED for {}", target_base);
                 let mut proxy = axum_reverse_proxy::ReverseProxy::new_with_client("", &target_base, custom_client);
                 use tower::Service;
-                proxy.call(request).await
+                
+                return match proxy.call(request).await {
+                    Ok(response) => {
+                        let status = response.status();
+                        if status == StatusCode::SWITCHING_PROTOCOLS {
+                            info!("WebSocket upgrade successful (certificate verification DISABLED): {}", target_base);
+                        } else {
+                            warn!("WebSocket upgrade failed: {} -> {}", status, target_base);
+                        }
+                        Ok(response)
+                    }
+                    Err(e) => {
+                        warn!("WebSocket proxy error with custom client: {:?}", e);
+                        Ok(axum::response::Response::builder()
+                            .status(StatusCode::BAD_GATEWAY)
+                            .body(format!("WebSocket proxy error: {:?}", e).into())?)
+                    }
+                };
             }
             Err(e) => {
-                warn!("Failed to create custom client for WebSocket: {}, falling back to standard proxy", e);
-                warn!("WebSocket will use STANDARD certificate verification");
+                warn!("Failed to create custom client for WebSocket, falling back to standard proxy: {}", e);
+                // 回退到标准代理
                 let mut proxy = axum_reverse_proxy::ReverseProxy::new("", &target_base);
                 use tower::Service;
-                proxy.call(request).await
+                
+                return match proxy.call(request).await {
+                    Ok(response) => {
+                        let status = response.status();
+                        if status == StatusCode::SWITCHING_PROTOCOLS {
+                            warn!("WebSocket upgrade successful (with STANDARD certificate verification): {}", target_base);
+                        } else {
+                            warn!("WebSocket upgrade failed: {} -> {}", status, target_base);
+                        }
+                        Ok(response)
+                    }
+                    Err(e) => {
+                        warn!("WebSocket proxy error with standard client: {:?}", e);
+                        Ok(axum::response::Response::builder()
+                            .status(StatusCode::BAD_GATEWAY)
+                            .body(format!("WebSocket proxy error: {:?}", e).into())?)
+                    }
+                };
             }
-        };
-        
-        return match proxy_result {
-            Ok(response) => {
-                let status = response.status();
-                if status == StatusCode::SWITCHING_PROTOCOLS {
-                    info!("WebSocket upgrade successful: {}", target_base);
-                } else {
-                    warn!("WebSocket upgrade failed: {} -> {}", status, target_base);
-                }
-                Ok(response)
-            }
-            Err(e) => {
-                warn!("WebSocket proxy error: {:?}", e);
-                Ok(axum::response::Response::builder()
-                    .status(StatusCode::BAD_GATEWAY)
-                    .body(format!("WebSocket proxy error: {:?}", e).into())?)
-            }
-        };
+        }
     }
     
     info!("HTTP request with ignored certificates: {}", target_uri);
