@@ -94,3 +94,6 @@ tempfile = { workspace = true }
 html-escape = { workspace = true }
 uuid = { workspace = true }
 lazy_static = { workspace = true }
+hyper-util = { workspace = true }
+hyper-rustls = { workspace = true }
+rustls-pki-types = { workspace = true }
