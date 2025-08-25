@@ -7,5 +7,4 @@ WORKDIR /app
 COPY . .
 
 # rm to prevent real build is failed but still can copy file.
-RUN mv .cargo/config-prod.toml .cargo/config.toml &&\
-cargo dev_server && rm -rf target/release/play-server
+RUN cargo dev_server && rm -rf target/release/play-server
