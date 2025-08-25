@@ -84,6 +84,9 @@ pub struct DomainProxy {
     /// 是否使用HTTPS协议（默认根据端口自动判断：443为https，其他为http）
     #[serde(default)]
     pub use_https: Option<bool>,
+    /// 是否忽略HTTPS证书警告（默认false，仅在开发环境使用）
+    #[serde(default)]
+    pub ignore_cert: bool,
     #[serde(flatten)]
     pub websocket_config: WebSocketConfig,
 }
@@ -153,6 +156,7 @@ impl Default for DomainProxy {
                 folder_path: String::default(),
             },
             use_https: None,
+            ignore_cert: false,
             websocket_config: WebSocketConfig::default(),
         }
     }

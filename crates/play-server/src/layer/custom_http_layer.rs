@@ -25,6 +25,7 @@ use crate::config::{AuthConfig, ProxyTarget, WebSocketConfig, DomainProxy, Origi
 use crate::controller::cache_controller::get_cache_content;
 
 use crate::controller::static_controller::STATIC_DIR;
+
 use crate::{files_dir, AppState, S};
 use futures::TryStreamExt;
 use http::{header, HeaderName, HeaderValue, Method, StatusCode, Uri};
@@ -340,8 +341,15 @@ pub async fn serve_upstream_proxy_with_config(
         }
     }
     
-    // 创建反向代理 - 使用空字符串作为前缀，因为我们已经设置了完整的URI
-    let mut proxy = ReverseProxy::new("", &target_base);
+    // 创建反向代理
+    let mut proxy = if domain_config.ignore_cert && scheme == "https" {
+        warn!("Creating proxy with certificate verification DISABLED for {}", target_base);
+        
+        // 使用自定义的代理实现来忽略证书
+        return handle_custom_proxy_with_ignore_cert(request, &full_target_uri, domain_config, &host, &scheme, ip, port).await;
+    } else {
+        ReverseProxy::new("", &target_base)
+    };
     
     // 使用Tower Service trait调用代理
     match proxy.call(request).await {
@@ -447,6 +455,142 @@ fn handle_websocket_origin(
     Ok(())
 }
 
+// 自定义代理处理函数，用于忽略HTTPS证书验证
+async fn handle_custom_proxy_with_ignore_cert(
+    mut request: Request<axum::body::Body>,
+    target_uri: &str,
+    domain_config: &DomainProxy,
+    host: &str,
+    scheme: &str,
+    ip: &str,
+    port: u16
+) -> anyhow::Result<Response> {
+    use axum::body::{to_bytes, Body};
+    use http::HeaderMap;
+    
+    // 检查是否是WebSocket升级请求
+    let is_websocket = request.headers().get(axum::http::header::UPGRADE)
+        .and_then(|v| v.to_str().ok())
+        .map(|v| v.to_lowercase() == "websocket")
+        .unwrap_or(false);
+    
+    if is_websocket {
+        info!("WebSocket upgrade request with ignored certificates: {}", target_uri);
+        warn!("WebSocket connections will use standard certificate verification");
+        warn!("Certificate ignoring is not supported for WebSocket upgrades with axum_reverse_proxy");
+        
+        // 对于WebSocket，直接使用标准的ReverseProxy
+        // 重新设置URI
+        match target_uri.parse::<hyper::Uri>() {
+            Ok(new_uri) => {
+                *request.uri_mut() = new_uri;
+            }
+            Err(e) => {
+                warn!("Failed to parse target URI for WebSocket: {}, error: {}", target_uri, e);
+                return Ok(axum::response::Response::builder()
+                    .status(StatusCode::BAD_REQUEST)
+                    .body("Invalid target URI".into())?);
+            }
+        }
+        
+        let target_base = format!("{}://{}:{}", scheme, ip, port);
+        let mut proxy = axum_reverse_proxy::ReverseProxy::new("", &target_base);
+        
+        use tower::Service;
+        return match proxy.call(request).await {
+            Ok(response) => {
+                let status = response.status();
+                if status == StatusCode::SWITCHING_PROTOCOLS {
+                    info!("WebSocket upgrade successful (with standard certificate verification): {}", target_base);
+                } else {
+                    warn!("WebSocket upgrade failed: {} -> {}", status, target_base);
+                }
+                Ok(response)
+            }
+            Err(e) => {
+                warn!("WebSocket proxy error: {:?}", e);
+                Ok(axum::response::Response::builder()
+                    .status(StatusCode::BAD_GATEWAY)
+                    .body(format!("WebSocket proxy error: {:?}", e).into())?)
+            }
+        };
+    }
+    
+    info!("HTTP request with ignored certificates: {}", target_uri);
+    
+    // 创建忽略证书验证的reqwest客户端
+    let client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
+        .danger_accept_invalid_hostnames(true)
+        .build()
+        .map_err(|e| anyhow!("Failed to create client: {}", e))?;
+    
+    // 转换请求方法
+    let method = match request.method() {
+        &http::Method::GET => reqwest::Method::GET,
+        &http::Method::POST => reqwest::Method::POST,
+        &http::Method::PUT => reqwest::Method::PUT,
+        &http::Method::DELETE => reqwest::Method::DELETE,
+        &http::Method::HEAD => reqwest::Method::HEAD,
+        &http::Method::OPTIONS => reqwest::Method::OPTIONS,
+        &http::Method::PATCH => reqwest::Method::PATCH,
+        other => {
+            warn!("Unsupported HTTP method: {}", other);
+            return Ok(axum::response::Response::builder()
+                .status(StatusCode::METHOD_NOT_ALLOWED)
+                .body("Unsupported HTTP method".into())?);
+        }
+    };
+    
+    // 获取请求体
+    let body = std::mem::replace(request.body_mut(), Body::empty());
+    let body_bytes = to_bytes(body, usize::MAX).await
+        .map_err(|e| anyhow!("Failed to read request body: {}", e))?;
+    
+    // 构建reqwest请求
+    let mut req_builder = client
+        .request(method, target_uri)
+        .body(body_bytes.to_vec());
+    
+    // 复制请求头，跳过某些不应该转发的头
+    let skip_headers = ["host", "content-length", "connection"];
+    for (name, value) in request.headers().iter() {
+        let name_str = name.as_str().to_lowercase();
+        if !skip_headers.contains(&name_str.as_str()) {
+            if let Ok(value_str) = value.to_str() {
+                req_builder = req_builder.header(name.as_str(), value_str);
+            }
+        }
+    }
+    
+    // 发送请求
+    let response = req_builder
+        .send()
+        .await
+        .map_err(|e| anyhow!("Proxy request failed: {}", e))?;
+        
+    // 构建响应
+    let mut response_builder = axum::response::Response::builder()
+        .status(response.status().as_u16());
+    
+    // 复制响应头，跳过某些不应该转发的头
+    let skip_response_headers = ["content-length", "connection", "transfer-encoding"];
+    for (name, value) in response.headers().iter() {
+        let name_str = name.as_str().to_lowercase();
+        if !skip_response_headers.contains(&name_str.as_str()) {
+            response_builder = response_builder.header(name.as_str(), value.as_bytes());
+        }
+    }
+    
+    // 获取响应体
+    let response_bytes = response.bytes().await
+        .map_err(|e| anyhow!("Failed to read response body: {}", e))?;
+    
+    Ok(response_builder
+        .body(Body::from(response_bytes.to_vec()))?)
+}
+
+
 // 兼容性函数：不带配置的代理函数（向后兼容）
 pub async fn serve_upstream_proxy(
     state: S, 
@@ -463,6 +607,7 @@ pub async fn serve_upstream_proxy(
             port 
         },
         use_https: None,
+        ignore_cert: false,
         websocket_config: WebSocketConfig::default(),
     };
     serve_upstream_proxy_with_config(state, host, request, ip, port, &default_domain_config).await
