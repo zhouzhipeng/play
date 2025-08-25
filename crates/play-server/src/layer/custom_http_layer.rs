@@ -397,9 +397,7 @@ pub async fn serve_upstream_proxy_with_config(
     // 创建反向代理
     let mut proxy = if domain_config.ignore_cert && scheme == "https" {
         warn!("Creating proxy with certificate verification DISABLED for {}", target_base);
-        
-        // 使用自定义的代理实现来忽略证书
-        return handle_custom_proxy_with_ignore_cert(request, &full_target_uri, domain_config, &host, &scheme, ip, port).await;
+        ReverseProxy::new("", &target_base).with_ignore_cert(true)
     } else {
         ReverseProxy::new("", &target_base)
     };
@@ -550,7 +548,8 @@ async fn handle_custom_proxy_with_ignore_cert(
         match create_ignore_cert_client() {
             Ok(custom_client) => {
                 info!("WebSocket: Using custom client with certificate verification DISABLED for {}", target_base);
-                let mut proxy = axum_reverse_proxy::ReverseProxy::new_with_client("", &target_base, custom_client);
+                let mut proxy = axum_reverse_proxy::ReverseProxy::new_with_client("", &target_base, custom_client)
+                    .with_ignore_cert(true);
                 use tower::Service;
                 
                 return match proxy.call(request).await {
