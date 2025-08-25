@@ -514,7 +514,6 @@ dependencies = [
 [[package]]
 name = "axum-reverse-proxy"
 version = "1.0.3"
-source = "git+https://github.com/zhouzhipeng/axum-reverse-proxy.git#d861b9ee98b1b106aa1bfc93327767b2361179f8"
 dependencies = [
  "axum",
  "base64 0.21.7",

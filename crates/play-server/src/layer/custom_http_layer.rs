@@ -397,7 +397,15 @@ pub async fn serve_upstream_proxy_with_config(
     // 创建反向代理
     let mut proxy = if domain_config.ignore_cert && scheme == "https" {
         warn!("Creating proxy with certificate verification DISABLED for {}", target_base);
-        ReverseProxy::new("", &target_base).with_ignore_cert(true)
+        match create_ignore_cert_client() {
+            Ok(custom_client) => {
+                ReverseProxy::new_with_client("", &target_base, custom_client).with_ignore_cert(true)
+            }
+            Err(e) => {
+                warn!("Failed to create ignore cert client: {}, using standard proxy", e);
+                ReverseProxy::new("", &target_base)
+            }
+        }
     } else {
         ReverseProxy::new("", &target_base)
     };
