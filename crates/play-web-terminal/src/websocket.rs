@@ -55,7 +55,7 @@ async fn handle_socket(socket: WebSocket) {
             };
             
             if let Err(e) = sender.send(Message::Text(json.into())).await {
-                error!("Failed to send WebSocket message: {}", e);
+                debug!("Failed to send WebSocket message: {}", e);
                 break;
             }
         }
