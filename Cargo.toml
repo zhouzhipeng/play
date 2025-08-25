@@ -79,13 +79,15 @@ hyper = { version = "1.0", features = ["server"] }
 hyper-util = "0.1"
 hyper-rustls = "0.27"
 rustls-pki-types = "1.0"
-axum-reverse-proxy = { version = "1.0.3", features = ["tls"] }
+#axum-reverse-proxy = { path = "../axum-reverse-proxy", features = ["tls"] }
+axum-reverse-proxy = { git="https://github.com/zhouzhipeng/axum-reverse-proxy.git", features = ["tls"] }
 cookie = { version = "0.18.1", features = ["percent-encode"] }
 tokio-util = { version = "0.7", features = ["codec"] }
 tokio-stream = "0.1.15"
 
 # Crypto and encoding
 md5 = "0.7.0"
+sha1 = "0.10"
 sha2 = "0.10"
 sha3 = "0.10.8"
 base64 = "0.22.1"
