@@ -10,7 +10,3 @@ frequency = "never"
 
 [alias]
 dev_server = "build --locked --package play-server --release --features=server"
-
-
-[patch."https://github.com/zhouzhipeng/axum-reverse-proxy.git"]
-axum-reverse-proxy = { path = "../axum-reverse-proxy" }
