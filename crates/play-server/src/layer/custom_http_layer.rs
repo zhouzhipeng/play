@@ -27,6 +27,59 @@ use crate::controller::cache_controller::get_cache_content;
 use crate::controller::static_controller::STATIC_DIR;
 
 use crate::{files_dir, AppState, S};
+
+// 自定义证书验证器，用于忽略所有证书验证（仅开发环境使用）
+#[derive(Debug)]
+struct NoVerifier;
+
+impl rustls::client::danger::ServerCertVerifier for NoVerifier {
+    fn verify_server_cert(
+        &self,
+        _end_entity: &rustls_pki_types::CertificateDer<'_>,
+        _intermediates: &[rustls_pki_types::CertificateDer<'_>],
+        _server_name: &rustls_pki_types::ServerName<'_>,
+        _ocsp_response: &[u8],
+        _now: rustls_pki_types::UnixTime,
+    ) -> Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
+        Ok(rustls::client::danger::ServerCertVerified::assertion())
+    }
+    
+    fn verify_tls12_signature(
+        &self,
+        _message: &[u8],
+        _cert: &rustls_pki_types::CertificateDer<'_>,
+        _dss: &rustls::DigitallySignedStruct,
+    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+        Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
+    }
+    
+    fn verify_tls13_signature(
+        &self,
+        _message: &[u8],
+        _cert: &rustls_pki_types::CertificateDer<'_>,
+        _dss: &rustls::DigitallySignedStruct,
+    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+        Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
+    }
+    
+    fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
+        vec![
+            rustls::SignatureScheme::RSA_PKCS1_SHA1,
+            rustls::SignatureScheme::ECDSA_SHA1_Legacy,
+            rustls::SignatureScheme::RSA_PKCS1_SHA256,
+            rustls::SignatureScheme::ECDSA_NISTP256_SHA256,
+            rustls::SignatureScheme::RSA_PKCS1_SHA384,
+            rustls::SignatureScheme::ECDSA_NISTP384_SHA384,
+            rustls::SignatureScheme::RSA_PKCS1_SHA512,
+            rustls::SignatureScheme::ECDSA_NISTP521_SHA512,
+            rustls::SignatureScheme::RSA_PSS_SHA256,
+            rustls::SignatureScheme::RSA_PSS_SHA384,
+            rustls::SignatureScheme::RSA_PSS_SHA512,
+            rustls::SignatureScheme::ED25519,
+            rustls::SignatureScheme::ED448,
+        ]
+    }
+}
 use futures::TryStreamExt;
 use http::{header, HeaderName, HeaderValue, Method, StatusCode, Uri};
 use mime_guess::mime;
@@ -476,10 +529,8 @@ async fn handle_custom_proxy_with_ignore_cert(
     
     if is_websocket {
         info!("WebSocket upgrade request with ignored certificates: {}", target_uri);
-        warn!("WebSocket connections will use standard certificate verification");
-        warn!("Certificate ignoring is not supported for WebSocket upgrades with axum_reverse_proxy");
         
-        // 对于WebSocket，直接使用标准的ReverseProxy
+        // 对于WebSocket，使用带有忽略证书验证的自定义客户端
         // 重新设置URI
         match target_uri.parse::<hyper::Uri>() {
             Ok(new_uri) => {
@@ -494,14 +545,19 @@ async fn handle_custom_proxy_with_ignore_cert(
         }
         
         let target_base = format!("{}://{}:{}", scheme, ip, port);
-        let mut proxy = axum_reverse_proxy::ReverseProxy::new("", &target_base);
+        
+        // 创建忽略证书验证的自定义客户端
+        let custom_client = create_ignore_cert_client()
+            .map_err(|e| anyhow!("Failed to create custom client: {}", e))?;
+        
+        let mut proxy = axum_reverse_proxy::ReverseProxy::new_with_client("", &target_base, custom_client);
         
         use tower::Service;
         return match proxy.call(request).await {
             Ok(response) => {
                 let status = response.status();
                 if status == StatusCode::SWITCHING_PROTOCOLS {
-                    info!("WebSocket upgrade successful (with standard certificate verification): {}", target_base);
+                    info!("WebSocket upgrade successful (with certificate verification DISABLED): {}", target_base);
                 } else {
                     warn!("WebSocket upgrade failed: {} -> {}", status, target_base);
                 }
@@ -588,6 +644,34 @@ async fn handle_custom_proxy_with_ignore_cert(
     
     Ok(response_builder
         .body(Body::from(response_bytes.to_vec()))?)
+}
+
+// 创建忽略证书验证的HTTP客户端
+fn create_ignore_cert_client() -> Result<hyper_util::client::legacy::Client<hyper_rustls::HttpsConnector<hyper_util::client::legacy::connect::HttpConnector>, axum::body::Body>, Box<dyn std::error::Error + Send + Sync>> {
+    use std::sync::Arc;
+    use rustls::ClientConfig;
+    use hyper_rustls::HttpsConnectorBuilder;
+    use hyper_util::client::legacy::Client;
+    use hyper_util::rt::TokioExecutor;
+    
+    // 创建忽略证书验证的 rustls 配置
+    let config = ClientConfig::builder()
+        .dangerous() // 启用危险配置
+        .with_custom_certificate_verifier(Arc::new(NoVerifier))
+        .with_no_client_auth();
+    
+    // 创建 HTTPS 连接器
+    let https_connector = HttpsConnectorBuilder::new()
+        .with_tls_config(config)
+        .https_or_http()
+        .enable_http1()
+        .build();
+    
+    // 创建客户端
+    let client = Client::builder(TokioExecutor::new())
+        .build(https_connector);
+        
+    Ok(client)
 }
 
 
