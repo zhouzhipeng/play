@@ -512,8 +512,7 @@ dependencies = [
 [[package]]
 name = "axum-reverse-proxy"
 version = "1.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "84bb2eec9f1a2c150ce1204d843d690db0da305f6f2848cbfd4a840c830b4f0b"
+source = "git+https://github.com/zhouzhipeng/axum-reverse-proxy.git#72bbeb5a7e3baf11c5a1f6a83ce4a2f3455ce6b6"
 dependencies = [
  "axum",
  "base64 0.21.7",
@@ -4797,6 +4796,7 @@ dependencies = [
  "axum-reverse-proxy",
  "axum-server 0.7.2",
  "axum-test",
+ "base64 0.22.1",
  "chrono",
  "cookie",
  "difference",
@@ -4814,6 +4814,8 @@ dependencies = [
  "http-body 1.0.1",
  "http-body-util",
  "hyper 1.7.0",
+ "hyper-rustls",
+ "hyper-util",
  "include_dir",
  "infer",
  "lazy_static",
@@ -4832,13 +4834,16 @@ dependencies = [
  "regex",
  "reqwest",
  "rustls 0.23.31",
+ "rustls-pki-types",
  "self-replace",
  "serde",
  "serde_json",
+ "sha2",
  "sqlx",
  "tempfile",
  "tokio",
  "tokio-stream",
+ "tokio-tungstenite 0.24.0",
  "tokio-util",
  "toml",
  "tower 0.4.13",
@@ -6980,8 +6985,12 @@ checksum = "edc5f74e248dc973e0dbb7b74c7e0d6fcc301c694ff50049504004ef4d0cdcd9"
 dependencies = [
  "futures-util",
  "log",
+ "rustls 0.23.31",
+ "rustls-pki-types",
  "tokio",
+ "tokio-rustls 0.26.2",
  "tungstenite 0.24.0",
+ "webpki-roots 0.26.11",
 ]
 
 [[package]]
@@ -7344,6 +7353,8 @@ dependencies = [
  "httparse",
  "log",
  "rand 0.8.5",
+ "rustls 0.23.31",
+ "rustls-pki-types",
  "sha1",
  "thiserror 1.0.69",
  "utf-8",

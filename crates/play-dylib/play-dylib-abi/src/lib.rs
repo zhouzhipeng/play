@@ -1,62 +1,19 @@
 pub mod http_abi;
 pub mod server_abi;
 
-use std::ffi::{CStr, CString};
-use std::os::raw::c_char;
 use anyhow::Context;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
 
-pub fn c_char_to_string(c_str: *const c_char) -> String {
-    unsafe {
-        CStr::from_ptr(c_str) // 从指针创建 C 风格字符串
-            .to_string_lossy() // 转换为 Rust String，处理无效 UTF-8 的情况
-            .into_owned() // 获取 String 的所有权
-    }
-}
 
-
-pub  fn string_to_c_char(rust_string: &str) -> *const c_char {
-    CString::new(rust_string) // 创建 CString
-        .expect("Failed to create CString") // 确保输入字符串中没有 null 字符
-        .into_raw() // 转换为原始指针
-}
-pub  fn string_to_c_char_mut(rust_string: &str) -> *mut c_char {
-    CString::new(rust_string) // 创建 CString
-        .expect("Failed to create CString") // 确保输入字符串中没有 null 字符
-        .into_raw() // 转换为原始指针
-}
-
-#[cfg(test)]
-mod tests{
-    use super::*;
-    #[test]
-    fn test_convert(){
-        // Rust String to *const c_char
-        let rust_str = "Hello, World!你好啊";
-        let c_str = string_to_c_char(rust_str);
-        println!("C String: {:?}", c_str);
-
-        // *const c_char back to Rust String
-        let back_to_rust = c_char_to_string(c_str);
-        println!("Back to Rust String: {}", back_to_rust);
-        
-        // IMPORTANT: Free the allocated C string to prevent memory leak
-        unsafe {
-            drop(std::ffi::CString::from_raw(c_str as *mut c_char));
-        }
-    }
-
-}
 
 /// env info provided by host
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub struct HostContext {
     /// host http url , eg. http://127.0.0.1:3000
     pub host_url: String,
-    pub plugin_prefix_url: String,
     pub data_dir: String,
     pub config_text: Option<String>,
 }
@@ -68,13 +25,33 @@ impl HostContext {
         Ok(config)
     }
 
-    pub async fn render_template(&self, raw: &str, data : Value) -> anyhow::Result<String> {
-        let resp = Client::new().post(&format!("{}/functions/render-template", self.host_url.as_str()))
-            .form(&json!({
-                "raw_content": raw,
-                "data": data.to_string()
-            }))
-            .send().await?.text().await?;
-        Ok(resp)
+
+    /// Create HostContext from environment variables
+    /// Reads config directly from DATA_DIR/config.toml if load_config is true
+    pub fn from_env(load_config: bool) -> anyhow::Result<Self> {
+        let host_url = std::env::var("HOST")
+            .unwrap_or_else(|_| "http://127.0.0.1:3000".to_string());
+        let data_dir = std::env::var("DATA_DIR")
+            .unwrap_or_else(|_| "".to_string());
+        
+        // Read config from DATA_DIR/config.toml if load_config is true
+        let config_text = if load_config && !data_dir.is_empty() {
+            let config_path = std::path::Path::new(&data_dir).join("config.toml");
+            if config_path.exists() {
+                Some(std::fs::read_to_string(&config_path)
+                    .with_context(|| format!("Failed to read config file: {:?}", config_path))?)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        
+        Ok(HostContext {
+            host_url,
+            data_dir,
+            config_text,
+        })
     }
+
 }

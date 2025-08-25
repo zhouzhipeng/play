@@ -738,14 +738,7 @@ pub async fn start_server_with_config(data_dir: String, config: &Config) -> anyh
                         error!(" plugin process load_and_run_server error: {:?}", e);
                     }
                 } else {
-                    let context = HostContext {
-                        host_url: env::var("HOST")?,
-                        plugin_prefix_url: "".to_string(),
-                        data_dir: env::var(DATA_DIR)?,
-                        config_text: Some(read_config_file(true).await?),
-                    };
-
-                    if let Err(e) = load_and_run_server(&path, context).await {
+                    if let Err(e) = load_and_run_server(&path).await {
                         error!(" plugin load_and_run_server error: {:?}", e);
                     }
                 }

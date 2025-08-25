@@ -3,7 +3,7 @@ use std::env;
 use std::sync::Arc;
 use crate::{return_error, AppState, S};
 use crate::AppError;
-use anyhow::Context;
+use anyhow::{anyhow, bail, Context};
 use axum::body::Body;
 use axum::response::{IntoResponse, Response};
 use futures_util::{StreamExt, TryStreamExt};
@@ -68,15 +68,12 @@ async fn run_plugin(s: axum::extract::State<Arc<AppState>>, request: Request<Bod
         !plugin.url_prefix.is_empty() &&
         (url.eq(&plugin.url_prefix) ||  url.starts_with(&format!("{}/", plugin.url_prefix)))
     }) {
-        Some(plugin) => match inner_run_plugin(plugin, request).await {
-            Ok(response) => response,
-            Err(e) => (
-                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Error: {}", e)
-            ).into_response()
-        },
+        Some(plugin) => inner_run_plugin(plugin, request).await.unwrap_or_else(|e| (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Error: {}", e)
+        ).into_response()),
         None => (
-            axum::http::StatusCode::NOT_FOUND,
+            StatusCode::NOT_FOUND,
             "Plugin not found for URL"
         ).into_response()
     }
@@ -88,7 +85,6 @@ pub use play_dylib_loader::{clear_plugin_cache, remove_plugin_from_cache};
 
 #[cfg(feature = "play-dylib-loader")]
 pub async fn inner_run_plugin( plugin: &PluginConfig, request: Request<Body>)->Result<Response, AppError>{
-    use play_dylib_loader::HostContext;
     use play_dylib_loader::*;
 
     let url = request.uri().path();
@@ -107,36 +103,35 @@ pub async fn inner_run_plugin( plugin: &PluginConfig, request: Request<Body>)->R
         _ => return_error!("unsupported http method")
     };
 
-
     let plugin_request = HttpRequest {
         method,
         headers,
         query: request.uri().query().unwrap_or_default().to_string(),
         url: url.to_string(),
         body: body_to_bytes(request.into_body()).await?,
-        context: HostContext {
-            host_url: env::var("HOST")?,
-            plugin_prefix_url: plugin.url_prefix.to_string(),
-            data_dir: env::var(DATA_DIR)?,
-            config_text: if plugin.need_config_file{Some(read_config_file(true).await?)}else{None},
-        },
-
+        rendered_config: if plugin.render_config {Some(read_config_file(true).await?)}else{None},
     };
 
-    // Use the simplified coordinated function from loader
-    let plugin_resp = play_dylib_loader::load_and_run_coordinated(
+    // Use the new coordinated function from loader that handles environment setup
+    let plugin_resp = load_and_run_coordinated(
         &plugin.file_path,
         plugin_request,
     ).await?;
 
-    let mut resp_builder = Response::builder()
-        .status(StatusCode::from_u16(plugin_resp.status_code)?);
-    for (k, v) in plugin_resp.headers {
-        resp_builder = resp_builder.header(k,v);
+    if let Some(e) = plugin_resp.error{
+         Err(anyhow!("{}",e).into())
+    }else{
+        let mut resp_builder = Response::builder()
+            .status(StatusCode::from_u16(plugin_resp.status_code)?);
+        for (k, v) in plugin_resp.headers {
+            resp_builder = resp_builder.header(k,v);
+        }
+
+        let response: Response = resp_builder.body(Body::from(plugin_resp.body))?.into_response();
+        Ok(response)
     }
 
-    let response: Response = resp_builder.body(Body::from(plugin_resp.body))?.into_response();
-    Ok(response)
+
 }
 
 
