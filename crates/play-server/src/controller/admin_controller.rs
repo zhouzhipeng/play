@@ -82,6 +82,8 @@ struct DeleteChangelogReq {
 #[derive(Deserialize)]
 struct TranslateRequest {
     text: String,
+    #[serde(default)]
+    complex_mode: bool,
 }
 
 fn default_days()->u32{
@@ -454,7 +456,8 @@ async fn translator_page() -> HTML {
 }
 
 async fn translate_text(Form(req): Form<TranslateRequest>) -> R<Json<Value>> {
-    let system_prompt = r#"You are an expert bilingual Chinese-English dictionary with pronunciation expertise.
+    let system_prompt = if req.complex_mode {
+        r#"You are an expert bilingual Chinese-English dictionary with pronunciation expertise.
 
 Auto-detect input language and provide comprehensive translation:
 
@@ -530,7 +533,38 @@ Respond with this exact JSON structure:
   }
 }
 
-Provide accurate, comprehensive information. Return only the JSON object without any markdown formatting or code blocks."#;
+Provide accurate, comprehensive information. Return only the JSON object without any markdown formatting or code blocks."#
+    } else {
+        r#"You are a fast bilingual Chinese-English translator.
+
+Auto-detect input language and provide quick translation with basic pronunciation:
+
+FOR ENGLISH INPUT → CHINESE:
+- Simplified Chinese
+- Pinyin with tone marks
+
+FOR CHINESE INPUT → ENGLISH:
+- English translation
+- Basic IPA pronunciation
+
+Respond with this exact JSON structure (ONLY translations and pronunciation):
+{
+  "input": "user input",
+  "detected_language": "english|chinese",
+  "translations": {
+    "primary": "main translation",
+    "alternatives": ["alt1", "alt2"],
+    "chinese_simplified": "简体",
+    "english": "English translation"
+  },
+  "pronunciation": {
+    "pinyin_tones": "pīnyīn with tone marks",
+    "ipa_us": "/aɪˈpiːeɪ/"
+  }
+}
+
+Be fast and concise. Return only the JSON object without any markdown formatting or code blocks."#
+    };
 
     // Call Claude with the translation request
     let output = Command::new("claude")
