@@ -86,6 +86,9 @@ async fn root(s: S) -> HTML {
                     li {
                         a { href: "/static/crontab-manager.html", "Crontab Manager" }
                     }
+                    li {
+                        a { href: "/admin/translator", "Translator" }
+                    }
                 }
                 h2 { "Short Links" }
                 ul {
