@@ -334,6 +334,62 @@ async fn backup_encrypted_to_cloud(s: S) -> R<String> {
                 bail!("Failed to upload to GitHub: {}", error_text);
             }
 
+            // Clean up old backup files - keep only latest 10
+            // Get the assets from the release info we already have
+            let assets_url = format!("https://api.github.com/repos/zhouzhipeng/play/releases/tags/backup");
+            let assets_response = client
+                .get(&assets_url)
+                .header("Authorization", format!("Bearer {}", github_token))
+                .header("Accept", "application/vnd.github+json")
+                .header("X-GitHub-Api-Version", "2022-11-28")
+                .header("User-Agent", "play-server-backup")
+                .send()
+                .await?;
+
+            if assets_response.status().is_success() {
+                let release_data: Value = assets_response.json().await?;
+                let assets = release_data["assets"].as_array().unwrap_or(&Vec::new()).clone();
+                
+                // Filter only backup files (matching pattern play_backup_*.zip)
+                let mut backup_files: Vec<(String, String, String)> = assets
+                    .iter()
+                    .filter_map(|asset| {
+                        let name = asset["name"].as_str()?;
+                        let id = asset["id"].as_u64()?.to_string();
+                        let created_at = asset["created_at"].as_str()?.to_string();
+                        if name.starts_with("play_backup_") && name.ends_with(".zip") {
+                            Some((name.to_string(), id, created_at))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+
+                // Sort by created_at timestamp (newest first)
+                backup_files.sort_by(|a, b| b.2.cmp(&a.2));
+
+                // Delete files beyond the 10th position
+                if backup_files.len() > 10 {
+                    for (name, id, _) in backup_files.iter().skip(10) {
+                        let delete_url = format!("https://api.github.com/repos/zhouzhipeng/play/releases/assets/{}", id);
+                        let delete_response = client
+                            .delete(&delete_url)
+                            .header("Authorization", format!("Bearer {}", github_token))
+                            .header("Accept", "application/vnd.github+json")
+                            .header("X-GitHub-Api-Version", "2022-11-28")
+                            .header("User-Agent", "play-server-backup")
+                            .send()
+                            .await?;
+                        
+                        if delete_response.status().is_success() {
+                            info!("Deleted old backup file: {}", name);
+                        } else {
+                            error!("Failed to delete old backup file: {}", name);
+                        }
+                    }
+                }
+            }
+
             // Clean up local file after successful upload
             fs::remove_file(&target_file)?;
             fs::remove_dir_all(&folder_path)?;
