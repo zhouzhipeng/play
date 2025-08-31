@@ -161,7 +161,7 @@ impl LocalTerminal {
                                     }
                                 }
                                 Err(mpsc::error::TrySendError::Closed(_)) => {
-                                    error!("WebSocket channel closed");
+                                    debug!("WebSocket channel closed");
                                     break;
                                 }
                             }

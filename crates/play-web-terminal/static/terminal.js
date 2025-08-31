@@ -128,6 +128,12 @@ class WebTerminal {
     connect() {
         // Clean up any existing connection first
         if (this.ws) {
+            // Clear heartbeat interval
+            if (this.heartbeatInterval) {
+                clearInterval(this.heartbeatInterval);
+                this.heartbeatInterval = null;
+            }
+            
             // Remove event handlers to prevent memory leaks
             this.ws.onopen = null;
             this.ws.onmessage = null;
@@ -178,6 +184,13 @@ class WebTerminal {
             this.reconnectDelay = 1000; // Reset delay
             this.isHandlingDisconnect = false; // Ensure flag is reset
             this.ws.send(JSON.stringify({ type: 'Connect' }));
+            
+            // Start heartbeat to keep connection alive (prevents Cloudflare 100s timeout)
+            this.heartbeatInterval = setInterval(() => {
+                if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                    this.ws.send(JSON.stringify({ type: 'Ping' }));
+                }
+            }, 30000); // Every 30 seconds
         };
         
         this.ws.onmessage = (event) => {
@@ -219,6 +232,11 @@ class WebTerminal {
                         this.ws.close();
                     }
                     break;
+                    
+                case 'Pong':
+                    // Heartbeat response - connection is alive
+                    console.debug('Received pong - connection alive');
+                    break;
             }
         };
         
@@ -231,6 +249,12 @@ class WebTerminal {
         
         this.ws.onclose = (event) => {
             clearTimeout(connectionTimeout); // Clear timeout on close
+            
+            // Clear heartbeat interval
+            if (this.heartbeatInterval) {
+                clearInterval(this.heartbeatInterval);
+                this.heartbeatInterval = null;
+            }
             
             // Log close reason for debugging
             console.log(`WebSocket closed: code=${event.code}, reason=${event.reason}, wasClean=${event.wasClean}`);
@@ -279,6 +303,12 @@ class WebTerminal {
     }
     
     disconnect() {
+        // Clear heartbeat interval
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+            this.heartbeatInterval = null;
+        }
+        
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
             this.ws.send(JSON.stringify({ type: 'Disconnect' }));
             this.ws.close();

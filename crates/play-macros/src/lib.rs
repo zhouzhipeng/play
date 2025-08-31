@@ -33,8 +33,8 @@ pub fn inspect_struct(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     // Create output based on the extracted information
     let field_names: Vec<String> = fields.iter().filter(|field|field.ident.is_some()).map(|field| field.ident.as_ref().unwrap().to_string()).collect();
-    println!("fields >> {:?}", field_names);
-    println!("Parameter: {:?}", param);
+    // println!("fields >> {:?}", field_names);
+    // println!("Parameter: {:?}", param);
 
     // TokenStream::from(expanded)
     // TokenStream::from()
