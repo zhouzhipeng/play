@@ -11,6 +11,7 @@ use axum::body::Bytes;
 use axum::extract::{Multipart, Query};
 use axum::response::{Html, IntoResponse, Response};
 use chrono::Local;
+use std::process::Command;
 use fs_extra::dir::CopyOptions;
 use futures_util::TryStreamExt;
 use http::StatusCode;
@@ -41,6 +42,8 @@ pub fn init() -> axum::Router<std::sync::Arc<crate::AppState>> {
     router = router.route("/admin/restore", axum::routing::post(restore));
     router = router.route("/admin/logs", axum::routing::get(display_logs));
     router = router.route("/admin/clean-change-logs", axum::routing::get(clean_change_logs));
+    router = router.route("/admin/translator", axum::routing::get(translator_page));
+    router = router.route("/admin/translate", axum::routing::post(translate_text));
     
     #[cfg(feature = "play-dylib-loader")]
     {
@@ -74,6 +77,11 @@ struct SaveConfigReq {
 struct DeleteChangelogReq {
     #[serde(default="default_days")]
     days: u32,
+}
+
+#[derive(Deserialize)]
+struct TranslateRequest {
+    text: String,
 }
 
 fn default_days()->u32{
@@ -437,6 +445,140 @@ fn copy_dir_contents(src: &Path, dst: &Path) -> io::Result<()> {
     Ok(())
 }
 
+// Translator functions
+static TRANSLATOR_HTML: &str = include_str!("templates/translator.html");
+
+async fn translator_page() -> HTML {
+    let html = TRANSLATOR_HTML.replace("{{title}}", "Translator Tool");
+    Ok(Html(html))
+}
+
+async fn translate_text(Form(req): Form<TranslateRequest>) -> R<Json<Value>> {
+    let system_prompt = r#"You are an expert bilingual Chinese-English dictionary with pronunciation expertise.
+
+Auto-detect input language and provide comprehensive translation:
+
+FOR ENGLISH INPUT → CHINESE:
+- Simplified & Traditional Chinese
+- Pinyin with tone marks (e.g., zhōngwén)
+- Tone numbers (e.g., zhong1wen2)
+- HSK level classification
+
+FOR CHINESE INPUT → ENGLISH:
+- English translation(s)
+- IPA pronunciation (e.g., /ˈɪŋɡlɪʃ/)
+- American phonetic (e.g., ING-glish)
+- British phonetic (e.g., ING-glish)
+- Syllable breakdown
+
+ALWAYS include:
+- Multiple definitions if applicable
+- Common collocations
+- Usage frequency
+- Register level (formal/informal/neutral)
+
+Respond with this exact JSON structure:
+{
+  "input": "user input",
+  "detected_language": "english|chinese",
+  "translations": {
+    "primary": "main translation",
+    "alternatives": ["alt1", "alt2"],
+    "chinese_simplified": "简体",
+    "chinese_traditional": "繁體",
+    "english": "English translation"
+  },
+  "pronunciation": {
+    "pinyin_tones": "pīnyīn with tone marks",
+    "pinyin_numbers": "pin1yin1 with numbers",
+    "ipa_us": "/aɪˈpiːeɪ/",
+    "ipa_uk": "/aɪˈpiːeɪ/",
+    "phonetic_us": "fuh-NET-ik",
+    "phonetic_uk": "fuh-NET-ik",
+    "syllables": "syl-la-bles",
+    "stress": "primary stress on syllable 2"
+  },
+  "grammar": {
+    "part_of_speech": "noun|verb|adj|etc",
+    "gender": "if applicable",
+    "plural": "plural form if applicable",
+    "verb_forms": "past/present/future if verb"
+  },
+  "definitions": [
+    {"meaning": "definition 1", "register": "formal|informal|neutral"},
+    {"meaning": "definition 2", "register": "formal|informal|neutral"}
+  ],
+  "examples": [
+    {
+      "source": "example in source language",
+      "target": "example in target language",
+      "context": "usage context"
+    }
+  ],
+  "related_words": {
+    "synonyms": ["syn1", "syn2"],
+    "antonyms": ["ant1", "ant2"],
+    "collocations": ["common phrase 1", "common phrase 2"],
+    "derivatives": ["related word 1", "related word 2"]
+  },
+  "metadata": {
+    "frequency": "very_common|common|uncommon|rare",
+    "difficulty": "HSK1-6|beginner|intermediate|advanced",
+    "domain": "general|technical|medical|legal|etc",
+    "origin": "etymology if interesting",
+    "cultural_notes": "cultural context if relevant"
+  }
+}
+
+Provide accurate, comprehensive information. Return only the JSON object without any markdown formatting or code blocks."#;
+
+    // Call Claude with the translation request
+    let output = Command::new("claude")
+        .arg("-p")
+        .arg(&req.text)
+        .arg("--append-system-prompt")
+        .arg(system_prompt)
+        .arg("--output-format")
+        .arg("json")
+        .arg("--max-turns")
+        .arg("1")
+        .output()
+        .map_err(|e| anyhow!("Failed to execute claude command: {}", e))?;
+
+    if !output.status.success() {
+        let error_msg = String::from_utf8_lossy(&output.stderr);
+        return_error!("Claude command failed: {}", error_msg);
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    
+    // Parse the output to extract the result field
+    let parsed: Value = serde_json::from_str(&stdout)
+        .map_err(|e| anyhow!("Failed to parse claude output: {}", e))?;
+    
+    // Extract the result field
+    let result = parsed.get("result")
+        .ok_or_else(|| anyhow!("No result field in claude output"))?;
+    
+    // The result contains markdown-wrapped JSON, extract and parse it
+    let result_str = result.as_str()
+        .ok_or_else(|| anyhow!("Result field is not a string"))?;
+    
+    // Remove markdown code block formatting
+    let json_str = if result_str.starts_with("```json\n") {
+        result_str.strip_prefix("```json\n").unwrap().strip_suffix("\n```").unwrap()
+    } else if result_str.starts_with("```\n") {
+        result_str.strip_prefix("```\n").unwrap().strip_suffix("\n```").unwrap()
+    } else {
+        result_str
+    };
+    
+    // Parse the clean JSON
+    let translation_result: Value = serde_json::from_str(json_str)
+        .map_err(|e| anyhow!("Failed to parse translation JSON: {}", e))?;
+    
+    Ok(Json(translation_result))
+}
 
 
 #[cfg(test)]
