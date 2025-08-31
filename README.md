@@ -33,7 +33,7 @@ cargo build --features debug
 
 ### Install as Linux Service
 ```bash
-curl -sSL https://raw.githubusercontent.com/zhouzhipeng/play/main/scripts/install_service.sh | sudo bash
+bash <(curl -Ls https://raw.githubusercontent.com/zhouzhipeng/play/main/scripts/install_service.sh)
 ```
 
 ### Docker Support
