@@ -106,7 +106,7 @@ impl GeneralData {
                 .map(|f| format!("'{}', json_extract(data, '$.{}')", f, f))
                 .collect::<Vec<String>>() // Collect the strings into a new vector.
                 .join(", ");
-            info!("fields >> {}", fields);
+            // info!("fields >> {}", fields);
             format!(
                 "id, cat, is_deleted, created,updated, json_object({}) as data",
                 fields

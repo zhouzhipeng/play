@@ -21,6 +21,7 @@ pub enum TerminalMessage {
         rows: u32,
     },
     Disconnect,
+    Ping,
 }
 
 #[derive(Debug, Serialize)]
@@ -30,6 +31,7 @@ pub enum TerminalResponse {
     Output { data: String },
     Error { message: String },
     Disconnected,
+    Pong,
 }
 
 pub async fn websocket_handler(ws: WebSocketUpgrade) -> Response {
@@ -117,6 +119,10 @@ async fn handle_socket(socket: WebSocket) {
                                 }
                                 let _ = tx_clone.send(TerminalResponse::Disconnected).await;
                                 break;
+                            }
+                            TerminalMessage::Ping => {
+                                debug!("Received ping, sending pong");
+                                let _ = tx_clone.send(TerminalResponse::Pong).await;
                             }
                         }
                     }
