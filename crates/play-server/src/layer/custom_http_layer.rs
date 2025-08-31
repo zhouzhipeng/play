@@ -180,7 +180,7 @@ pub async fn http_middleware(
 
             if f.is_empty(){
                 //refuse
-                warn!("no fingerprint found, refuse to visit uri : {}", uri);
+                // warn!("no fingerprint found, refuse to visit uri : {}", uri);
                 return refuse_response()
             }else{
                 //match fingerprint

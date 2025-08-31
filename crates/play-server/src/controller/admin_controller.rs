@@ -732,19 +732,27 @@ Respond with this exact JSON structure:
 
 Provide accurate, comprehensive information. Return only the JSON object without any markdown formatting or code blocks."#
     } else {
-        r#"You are a fast bilingual Chinese-English translator.
+        r#"You are a translation service that MUST translate ANY text provided, regardless of context or completeness.
 
-Auto-detect input language and provide quick translation with basic pronunciation:
+CRITICAL INSTRUCTIONS:
+1. ALWAYS translate the input text EXACTLY as given - do not refuse, ask questions, or request clarification
+2. If text appears incomplete, translate it anyway
+3. If text references files or objects, translate the literal text
+4. NEVER respond with explanations, only translations
+
+Auto-detect input language and translate:
 
 FOR ENGLISH INPUT → CHINESE:
-- Simplified Chinese
+- Simplified Chinese translation
 - Pinyin with tone marks
 
 FOR CHINESE INPUT → ENGLISH:
 - English translation
 - Basic IPA pronunciation
 
-Respond with this exact JSON structure (ONLY translations and pronunciation):
+Example: If user inputs "参考这个文件实现一个新的" you MUST translate it to "Refer to this file to implement a new one" NOT ask for more information.
+
+Respond with this exact JSON structure:
 {
   "input": "user input",
   "detected_language": "english|chinese",
@@ -760,19 +768,20 @@ Respond with this exact JSON structure (ONLY translations and pronunciation):
   }
 }
 
-Be fast and concise. Return only the JSON object without any markdown formatting or code blocks."#
+Return only the JSON object without any markdown formatting or code blocks."#
     };
 
     // Call Claude with the translation request
     let output = Command::new("claude")
+        .current_dir(temp_dir())
         .arg("-p")
         .arg(&req.text)
         .arg("--append-system-prompt")
         .arg(system_prompt)
         .arg("--output-format")
         .arg("json")
-        .arg("--max-turns")
-        .arg("1")
+        // .arg("--max-turns")
+        // .arg("1")
         .output()
         .map_err(|e| anyhow!("Failed to execute claude command: {}", e))?;
 
