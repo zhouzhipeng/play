@@ -20,7 +20,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use std::sync::Arc;
 use tokio_util::codec::{BytesCodec, FramedRead};
-use tracing::info;
+use tracing::{info, error};
 use zip::{ZipArchive, ZipWriter, CompressionMethod, write::{FileOptions, ExtendedFileOptions}};
 
 use play_shared::{current_timestamp, timestamp_to_date_str};
@@ -39,6 +39,7 @@ pub fn init() -> axum::Router<std::sync::Arc<crate::AppState>> {
     router = router.route("/admin/reboot", axum::routing::get(reboot));
     router = router.route("/admin/backup", axum::routing::get(backup));
     router = router.route("/admin/backup-encrypted", axum::routing::get(backup_encrypted));
+    router = router.route("/admin/backup-encrypted-to-cloud", axum::routing::get(backup_encrypted_to_cloud));
     router = router.route("/admin/restore", axum::routing::post(restore));
     router = router.route("/admin/logs", axum::routing::get(display_logs));
     router = router.route("/admin/clean-change-logs", axum::routing::get(clean_change_logs));
@@ -220,6 +221,146 @@ async fn backup(s: S) -> R<impl IntoResponse> {
             return_error!("file not found!")
         }
     }
+}
+
+async fn backup_encrypted_to_cloud(s: S) -> R<String> {
+    // Check GitHub token early
+    let github_token = s.config.misc_config.github_token.clone();
+    if github_token.is_empty() {
+        return_error!("GitHub token not configured in config.toml");
+    }
+
+    // Clone necessary config values for the spawned task
+    let database_url = s.config.database.url.clone();
+    let passcode = s.config.auth_config.passcode.clone();
+    let mail_notify_url = s.config.misc_config.mail_notify_url.clone();
+
+    // Spawn background task
+    tokio::spawn(async move {
+        let result = async {
+            let files_path = files_dir!();
+
+            //make a temp dir
+            let folder_path = data_dir!().join("backup");
+            if folder_path.exists() {
+                fs::remove_dir_all(&folder_path)?;
+            }
+            fs::create_dir(&folder_path)?;
+
+            //db file path
+            let db_path = Path::new(&database_url["sqlite://".len()..database_url.len()]).to_path_buf();
+
+            //config file path
+            let config_file_path = get_config_path()?;
+
+            fs_extra::copy_items(&vec![files_path, db_path, config_file_path.into()], &folder_path, &CopyOptions { copy_inside: true, ..Default::default() })?;
+
+            // Create unencrypted zip first
+            let temp_file = data_dir!().join("play_temp.zip");
+            if temp_file.exists() {
+                tokio::fs::remove_file(&temp_file).await?;
+            }
+            crate::controller::files_controller::zip_dir(&folder_path, &temp_file)?;
+
+            // Create encrypted zip with passcode
+            let timestamp = current_timestamp!();
+            let date_str = timestamp_to_date_str!(timestamp);
+            let backup_filename = format!("play_backup_{}.zip", date_str);
+            let target_file = data_dir!().join(&backup_filename);
+            if target_file.exists() {
+                tokio::fs::remove_file(&target_file).await?;
+            }
+
+            // Read the temp zip and create encrypted version
+            let temp_data = fs::read(&temp_file)?;
+            let encrypted_file = File::create(&target_file)?;
+            let mut zip = ZipWriter::new(encrypted_file);
+            
+            let options = FileOptions::<ExtendedFileOptions>::default()
+                .compression_method(CompressionMethod::Deflated)
+                .with_aes_encryption(zip::AesMode::Aes256, passcode.as_str());
+            
+            zip.start_file("play_backup.zip", options)?;
+            std::io::Write::write_all(&mut zip, &temp_data)?;
+            zip.finish()?;
+
+            // Clean up temp file
+            fs::remove_file(&temp_file)?;
+
+            // Read the encrypted file
+            let file_data = fs::read(&target_file)?;
+            
+            let client = ClientBuilder::new()
+                .timeout(Duration::from_secs(300))
+                .build()?;
+
+            // First, get the release ID for the 'backup' tag
+            let release_url = "https://api.github.com/repos/zhouzhipeng/play/releases/tags/backup";
+
+            // Get the release information again to get the upload URL
+            let release_response = client
+                .get(release_url)
+                .header("Authorization", format!("Bearer {}", github_token))
+                .header("Accept", "application/vnd.github+json")
+                .header("X-GitHub-Api-Version", "2022-11-28")
+                .header("User-Agent", "play-server-backup")
+                .send()
+                .await?;
+
+            let release_info: Value = release_response.json().await?;
+            let upload_url_template = release_info["upload_url"]
+                .as_str()
+                .ok_or_else(|| anyhow!("Upload URL not found in release info"))?;
+            
+            // Remove the {?name,label} template part and add our filename
+            let actual_upload_url = upload_url_template
+                .replace("{?name,label}", "")
+                + "?name=" + &backup_filename;
+
+            // Upload the file
+            let upload_response = client
+                .post(&actual_upload_url)
+                .header("Authorization", format!("Bearer {}", github_token))
+                .header("Accept", "application/vnd.github+json")
+                .header("X-GitHub-Api-Version", "2022-11-28")
+                .header("User-Agent", "play-server-backup")
+                .header("Content-Type", "application/zip")
+                .body(file_data)
+                .send()
+                .await?;
+
+            if !upload_response.status().is_success() {
+                let error_text = upload_response.text().await?;
+                bail!("Failed to upload to GitHub: {}", error_text);
+            }
+
+            // Clean up local file after successful upload
+            fs::remove_file(&target_file)?;
+            fs::remove_dir_all(&folder_path)?;
+
+            Ok::<String, anyhow::Error>(format!("Backup {} successfully uploaded to GitHub releases", backup_filename))
+        }.await;
+
+        // Log the result and send notification
+        match result {
+            Ok(msg) => {
+                info!("Cloud backup success: {}", msg);
+                // Send success notification
+                let sender = urlencoding::encode("cloud backup success").into_owned();
+                let title = urlencoding::encode(&msg).into_owned();
+                let _ = reqwest::get(format!("{}/{}/{}", mail_notify_url, sender, title)).await;
+            }
+            Err(e) => {
+                error!("Cloud backup failed: {}", e);
+                // Send error notification
+                let sender = urlencoding::encode("cloud backup error").into_owned();
+                let title = urlencoding::encode(&format!("Backup failed: {}", e)).into_owned();
+                let _ = reqwest::get(format!("{}/{}/{}", mail_notify_url, sender, title)).await;
+            }
+        }
+    });
+
+    Ok("Backup to cloud started in background. You will receive a notification when complete.".to_string())
 }
 
 async fn backup_encrypted(s: S) -> R<impl IntoResponse> {
