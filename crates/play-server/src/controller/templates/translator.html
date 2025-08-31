@@ -43,7 +43,24 @@
             }
         }
         .input-section {
+            margin-bottom: 15px;
+        }
+        .options-section {
             margin-bottom: 20px;
+            text-align: center;
+        }
+        .checkbox-label {
+            display: inline-flex;
+            align-items: center;
+            cursor: pointer;
+            font-size: 14px;
+            color: #555;
+        }
+        .checkbox-label input[type="checkbox"] {
+            margin-right: 8px;
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
         }
         textarea {
             width: 100%;
@@ -292,6 +309,14 @@
                 <textarea id="inputText" name="text" placeholder="Enter text to translate (English ↔ Chinese)..." required></textarea>
             </div>
             
+            <div class="options-section">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="complexMode" name="complex_mode">
+                    <span class="checkmark"></span>
+                    Complex mode (detailed analysis - slower)
+                </label>
+            </div>
+            
             <div class="button-section">
                 <button type="submit" id="translateBtn">Translate</button>
             </div>
@@ -350,24 +375,31 @@
             const inputText = document.getElementById('inputText').value.trim();
             if (!inputText) return;
             
+            const complexMode = document.getElementById('complexMode').checked;
+            
             const loadingEl = document.getElementById('loading');
             const errorEl = document.getElementById('error');
             const resultEl = document.getElementById('resultSection');
             const btn = document.getElementById('translateBtn');
             
-            // Show loading state
+            // Show loading state with different messages
+            loadingEl.textContent = complexMode ? '🔄 Detailed analysis in progress...' : '🔄 Translating...';
             loadingEl.style.display = 'block';
             errorEl.style.display = 'none';
             resultEl.style.display = 'none';
             btn.disabled = true;
             
             try {
+                const formData = new URLSearchParams();
+                formData.append('text', inputText);
+                formData.append('complex_mode', complexMode);
+                
                 const response = await fetch('/admin/translate', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
                     },
-                    body: `text=${encodeURIComponent(inputText)}`
+                    body: formData
                 });
                 
                 if (!response.ok) {
@@ -375,7 +407,7 @@
                 }
                 
                 const result = await response.json();
-                displayResult(result);
+                displayResult(result, complexMode);
                 
             } catch (error) {
                 console.error('Translation error:', error);
@@ -387,7 +419,7 @@
             }
         });
         
-        function displayResult(data) {
+        function displayResult(data, isComplexMode) {
             // Translations
             const translationsContent = document.getElementById('translationsContent');
             let translationsHtml = `<div class="translation-main">${data.translations?.primary || 'N/A'}</div>`;
@@ -418,85 +450,104 @@
             }
             pronunciationContent.innerHTML = pronunciationHtml || 'No pronunciation data';
             
-            // Grammar
-            const grammarContent = document.getElementById('grammarContent');
-            let grammarHtml = '';
-            if (data.grammar) {
-                const g = data.grammar;
-                if (g.part_of_speech) grammarHtml += `<div><strong>Part of Speech:</strong> ${g.part_of_speech}</div>`;
-                if (g.gender) grammarHtml += `<div><strong>Gender:</strong> ${g.gender}</div>`;
-                if (g.plural) grammarHtml += `<div><strong>Plural:</strong> ${g.plural}</div>`;
-                if (g.verb_forms) grammarHtml += `<div><strong>Verb Forms:</strong> ${g.verb_forms}</div>`;
-            }
-            grammarContent.innerHTML = grammarHtml || 'No grammar data';
+            // Hide/show additional sections based on complex mode
+            const grammarCard = document.querySelector('.result-card:nth-child(3)');
+            const definitionsCard = document.querySelector('.result-card:nth-child(4)');
+            const examplesCard = document.querySelector('.result-card:nth-child(5)');
+            const relatedWordsCard = document.querySelector('.result-card:nth-child(6)');
+            const metadataCard = document.querySelector('.result-card:nth-child(7)');
             
-            // Definitions
-            const definitionsContent = document.getElementById('definitionsContent');
-            let definitionsHtml = '';
-            if (data.definitions?.length > 0) {
-                data.definitions.forEach(def => {
-                    definitionsHtml += `<div class="definition-item">
-                        ${def.meaning}
-                        <span class="register-badge">${def.register}</span>
-                    </div>`;
+            if (isComplexMode) {
+                // Show all sections in complex mode
+                [grammarCard, definitionsCard, examplesCard, relatedWordsCard, metadataCard].forEach(card => {
+                    if (card) card.style.display = 'block';
+                });
+                
+                // Grammar
+                const grammarContent = document.getElementById('grammarContent');
+                let grammarHtml = '';
+                if (data.grammar) {
+                    const g = data.grammar;
+                    if (g.part_of_speech) grammarHtml += `<div><strong>Part of Speech:</strong> ${g.part_of_speech}</div>`;
+                    if (g.gender) grammarHtml += `<div><strong>Gender:</strong> ${g.gender}</div>`;
+                    if (g.plural) grammarHtml += `<div><strong>Plural:</strong> ${g.plural}</div>`;
+                    if (g.verb_forms) grammarHtml += `<div><strong>Verb Forms:</strong> ${g.verb_forms}</div>`;
+                }
+                grammarContent.innerHTML = grammarHtml || 'No grammar data';
+                
+                // Definitions
+                const definitionsContent = document.getElementById('definitionsContent');
+                let definitionsHtml = '';
+                if (data.definitions?.length > 0) {
+                    data.definitions.forEach(def => {
+                        definitionsHtml += `<div class="definition-item">
+                            ${def.meaning}
+                            <span class="register-badge">${def.register}</span>
+                        </div>`;
+                    });
+                }
+                definitionsContent.innerHTML = definitionsHtml || 'No definitions available';
+                
+                // Examples
+                const examplesContent = document.getElementById('examplesContent');
+                let examplesHtml = '';
+                if (data.examples?.length > 0) {
+                    data.examples.forEach(ex => {
+                        examplesHtml += `<div class="example-item">
+                            <div class="example-source">${ex.source}</div>
+                            <div class="example-target">${ex.target}</div>
+                            <div class="example-context">${ex.context}</div>
+                        </div>`;
+                    });
+                }
+                examplesContent.innerHTML = examplesHtml || 'No examples available';
+                
+                // Related Words
+                const relatedWordsContent = document.getElementById('relatedWordsContent');
+                let relatedHtml = '';
+                if (data.related_words) {
+                    const r = data.related_words;
+                    if (r.synonyms?.length > 0) {
+                        relatedHtml += `<div><strong>Synonyms:</strong><div class="word-list">`;
+                        r.synonyms.forEach(word => relatedHtml += `<span class="word-tag">${word}</span>`);
+                        relatedHtml += `</div></div>`;
+                    }
+                    if (r.antonyms?.length > 0) {
+                        relatedHtml += `<div><strong>Antonyms:</strong><div class="word-list">`;
+                        r.antonyms.forEach(word => relatedHtml += `<span class="word-tag">${word}</span>`);
+                        relatedHtml += `</div></div>`;
+                    }
+                    if (r.collocations?.length > 0) {
+                        relatedHtml += `<div><strong>Collocations:</strong><div class="word-list">`;
+                        r.collocations.forEach(word => relatedHtml += `<span class="word-tag">${word}</span>`);
+                        relatedHtml += `</div></div>`;
+                    }
+                    if (r.derivatives?.length > 0) {
+                        relatedHtml += `<div><strong>Derivatives:</strong><div class="word-list">`;
+                        r.derivatives.forEach(word => relatedHtml += `<span class="word-tag">${word}</span>`);
+                        relatedHtml += `</div></div>`;
+                    }
+                }
+                relatedWordsContent.innerHTML = relatedHtml || 'No related words available';
+                
+                // Metadata
+                const metadataContent = document.getElementById('metadataContent');
+                let metadataHtml = '';
+                if (data.metadata) {
+                    const m = data.metadata;
+                    if (m.frequency) metadataHtml += `<div class="metadata-item"><span class="metadata-label">Frequency:</span> ${m.frequency}</div>`;
+                    if (m.difficulty) metadataHtml += `<div class="metadata-item"><span class="metadata-label">Difficulty:</span> ${m.difficulty}</div>`;
+                    if (m.domain) metadataHtml += `<div class="metadata-item"><span class="metadata-label">Domain:</span> ${m.domain}</div>`;
+                    if (m.origin) metadataHtml += `<div class="metadata-item"><span class="metadata-label">Origin:</span> ${m.origin}</div>`;
+                    if (m.cultural_notes) metadataHtml += `<div class="metadata-item"><span class="metadata-label">Cultural Notes:</span> ${m.cultural_notes}</div>`;
+                }
+                metadataContent.innerHTML = metadataHtml || 'No metadata available';
+            } else {
+                // Hide additional sections in simple mode
+                [grammarCard, definitionsCard, examplesCard, relatedWordsCard, metadataCard].forEach(card => {
+                    if (card) card.style.display = 'none';
                 });
             }
-            definitionsContent.innerHTML = definitionsHtml || 'No definitions available';
-            
-            // Examples
-            const examplesContent = document.getElementById('examplesContent');
-            let examplesHtml = '';
-            if (data.examples?.length > 0) {
-                data.examples.forEach(ex => {
-                    examplesHtml += `<div class="example-item">
-                        <div class="example-source">${ex.source}</div>
-                        <div class="example-target">${ex.target}</div>
-                        <div class="example-context">${ex.context}</div>
-                    </div>`;
-                });
-            }
-            examplesContent.innerHTML = examplesHtml || 'No examples available';
-            
-            // Related Words
-            const relatedWordsContent = document.getElementById('relatedWordsContent');
-            let relatedHtml = '';
-            if (data.related_words) {
-                const r = data.related_words;
-                if (r.synonyms?.length > 0) {
-                    relatedHtml += `<div><strong>Synonyms:</strong><div class="word-list">`;
-                    r.synonyms.forEach(word => relatedHtml += `<span class="word-tag">${word}</span>`);
-                    relatedHtml += `</div></div>`;
-                }
-                if (r.antonyms?.length > 0) {
-                    relatedHtml += `<div><strong>Antonyms:</strong><div class="word-list">`;
-                    r.antonyms.forEach(word => relatedHtml += `<span class="word-tag">${word}</span>`);
-                    relatedHtml += `</div></div>`;
-                }
-                if (r.collocations?.length > 0) {
-                    relatedHtml += `<div><strong>Collocations:</strong><div class="word-list">`;
-                    r.collocations.forEach(word => relatedHtml += `<span class="word-tag">${word}</span>`);
-                    relatedHtml += `</div></div>`;
-                }
-                if (r.derivatives?.length > 0) {
-                    relatedHtml += `<div><strong>Derivatives:</strong><div class="word-list">`;
-                    r.derivatives.forEach(word => relatedHtml += `<span class="word-tag">${word}</span>`);
-                    relatedHtml += `</div></div>`;
-                }
-            }
-            relatedWordsContent.innerHTML = relatedHtml || 'No related words available';
-            
-            // Metadata
-            const metadataContent = document.getElementById('metadataContent');
-            let metadataHtml = '';
-            if (data.metadata) {
-                const m = data.metadata;
-                if (m.frequency) metadataHtml += `<div class="metadata-item"><span class="metadata-label">Frequency:</span> ${m.frequency}</div>`;
-                if (m.difficulty) metadataHtml += `<div class="metadata-item"><span class="metadata-label">Difficulty:</span> ${m.difficulty}</div>`;
-                if (m.domain) metadataHtml += `<div class="metadata-item"><span class="metadata-label">Domain:</span> ${m.domain}</div>`;
-                if (m.origin) metadataHtml += `<div class="metadata-item"><span class="metadata-label">Origin:</span> ${m.origin}</div>`;
-                if (m.cultural_notes) metadataHtml += `<div class="metadata-item"><span class="metadata-label">Cultural Notes:</span> ${m.cultural_notes}</div>`;
-            }
-            metadataContent.innerHTML = metadataHtml || 'No metadata available';
             
             // Show results
             document.getElementById('resultSection').style.display = 'block';
