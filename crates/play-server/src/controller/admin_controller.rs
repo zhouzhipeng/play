@@ -782,6 +782,8 @@ Be fast and concise. Return only the JSON object without any markdown formatting
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
+
+    info!("Claude stdout: {}", stdout);
     
     // Parse the output to extract the result field
     let parsed: Value = serde_json::from_str(&stdout)
