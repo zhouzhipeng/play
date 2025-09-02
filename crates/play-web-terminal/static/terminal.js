@@ -394,23 +394,24 @@ class WebTerminal {
     }
     
     updateStatus(status) {
-        const statusEl = document.getElementById('status');
-        statusEl.className = 'status ' + status;
+        // Update session toggle button text to show current session
+        const toggleText = document.getElementById('session-toggle-text');
+        if (toggleText) {
+            if (status === 'connected' && this.currentSession) {
+                toggleText.textContent = this.currentSession;
+            } else if (status === 'connected' && this.tmuxAvailable) {
+                toggleText.textContent = 'Sessions';
+            } else if (status === 'connected') {
+                toggleText.textContent = 'No tmux';
+            } else {
+                toggleText.textContent = 'Sessions';
+            }
+        }
         
-        switch (status) {
-            case 'connected':
-                let statusText = 'Connected';
-                if (this.currentSession) {
-                    statusText += ` (session: ${this.currentSession})`;
-                }
-                statusEl.textContent = statusText;
-                break;
-            case 'connecting':
-                statusEl.textContent = 'Connecting...';
-                break;
-            case 'disconnected':
-                statusEl.textContent = 'Disconnected';
-                break;
+        // Keep minimal status handling for backward compatibility if needed
+        const statusEl = document.getElementById('status');
+        if (statusEl) {
+            statusEl.style.display = 'none'; // Hide the status element
         }
     }
     
@@ -444,6 +445,15 @@ class WebTerminal {
                     transition: all 0.3s ease;
                     font-size: 12px;
                     font-weight: 600;
+                    max-width: 200px;
+                }
+                
+                #session-toggle-text {
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    max-width: 160px;
+                    display: inline-block;
                 }
                 
                 .session-toggle:hover {
@@ -659,7 +669,7 @@ class WebTerminal {
             </style>
             
             <button class="session-toggle" id="session-toggle">
-                <span>Sessions</span>
+                <span id="session-toggle-text">Sessions</span>
                 <span class="arrow">▼</span>
             </button>
             
@@ -783,11 +793,13 @@ class WebTerminal {
     disconnectFromSession() {
         if (this.currentSession) {
             if (confirm(`Disconnect from session '${this.currentSession}'?`)) {
+                const sessionName = this.currentSession;
                 this.currentSession = null;
                 if (this.ws && this.ws.readyState === WebSocket.OPEN) {
                     // Connect to a regular terminal (no session)
                     this.ws.send(JSON.stringify({ type: 'Connect' }));
-                    this.terminal.writeln(`\r\n\x1b[33mDisconnected from tmux session\x1b[0m`);
+                    this.terminal.writeln(`\r\n\x1b[33mDisconnected from tmux session: ${sessionName}\x1b[0m`);
+                    this.updateStatus('connected'); // Update button text
                 }
             }
         }
@@ -838,6 +850,7 @@ class WebTerminal {
             this.currentSession = null;
             // Reconnect to a regular terminal
             this.ws.send(JSON.stringify({ type: 'Connect' }));
+            this.updateStatus('connected'); // Update button text
         }
         this.listSessions();
     }
