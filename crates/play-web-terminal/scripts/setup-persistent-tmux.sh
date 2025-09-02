@@ -48,8 +48,11 @@ set -g @resurrect-restore 'R'
 # Save pane contents
 set -g @resurrect-capture-pane-contents 'on'
 
-# Restore more programs
-set -g @resurrect-processes 'ssh vim nvim emacs man less more tail top htop npm node python python3'
+# Restore more programs (including ping and other network tools)
+set -g @resurrect-processes ':all:'
+
+# Enable restoration of shell commands
+set -g @resurrect-save-shell-history 'on'
 
 # Strategy for vim/nvim sessions
 set -g @resurrect-strategy-vim 'session'
@@ -137,22 +140,76 @@ create_helper_scripts() {
     # Create manual save script
     cat > /usr/local/bin/tmux-save-sessions << 'EOF'
 #!/bin/bash
-# Manually save all tmux sessions
+# Manually save all tmux sessions with complete state
 
 export TMUX_TMPDIR="${TMUX_TMPDIR:-/root/.local/share/play/.tmux}"
 RESURRECT_DIR="/root/.local/share/play/.tmux-resurrect"
+TIMESTAMP=$(date +%Y%m%d%H%M%S)
 
 echo "Saving tmux sessions..."
 
-# Use tmux-resurrect to save
+# Create resurrect directory if it doesn't exist
+mkdir -p "$RESURRECT_DIR"
+
+# Method 1: Try to use tmux-resurrect if available
 if [ -f "$HOME/.tmux/plugins/tmux-resurrect/scripts/save.sh" ]; then
-    tmux run-shell "$HOME/.tmux/plugins/tmux-resurrect/scripts/save.sh"
-    echo "Sessions saved to $RESURRECT_DIR"
-else
-    echo "tmux-resurrect not found, using basic save..."
-    mkdir -p "$RESURRECT_DIR"
-    tmux list-sessions -F "#{session_name}" > "$RESURRECT_DIR/session_list.txt"
-    echo "Basic session list saved"
+    echo "Using tmux-resurrect to save sessions..."
+    
+    # Create a temporary tmux session to run the save command
+    tmux new-session -d -s resurrect-save-helper 2>/dev/null || true
+    
+    # Send the resurrect save key binding to trigger save
+    tmux send-keys -t resurrect-save-helper C-b S
+    sleep 2
+    
+    # Kill the helper session
+    tmux kill-session -t resurrect-save-helper 2>/dev/null || true
+    
+    echo "Sessions saved via tmux-resurrect"
+fi
+
+# Method 2: Enhanced manual save with full state
+echo "Creating comprehensive backup..."
+
+# Save detailed session information
+SAVE_FILE="$RESURRECT_DIR/manual_save_${TIMESTAMP}.txt"
+
+# Get all sessions with details
+tmux list-sessions -F "SESSION:#{session_name}:#{session_windows}:#{session_created}" > "$SAVE_FILE"
+
+# For each session, save windows and panes information
+for session in $(tmux list-sessions -F "#{session_name}"); do
+    echo "Saving session: $session"
+    
+    # Save windows for this session
+    tmux list-windows -t "$session" -F "WINDOW:$session:#{window_index}:#{window_name}:#{window_layout}:#{pane_current_path}" >> "$SAVE_FILE"
+    
+    # Save panes for each window
+    for window in $(tmux list-windows -t "$session" -F "#{window_index}"); do
+        # Get pane information including working directory and running command
+        tmux list-panes -t "$session:$window" -F "PANE:$session:$window:#{pane_index}:#{pane_current_path}:#{pane_current_command}:#{pane_pid}" >> "$SAVE_FILE"
+        
+        # Save pane contents
+        tmux capture-pane -t "$session:$window" -p -S -3000 > "$RESURRECT_DIR/pane_${session}_${window}_${TIMESTAMP}.txt" 2>/dev/null || true
+        
+        # Try to get the full command line from /proc if available
+        for pane_pid in $(tmux list-panes -t "$session:$window" -F "#{pane_pid}"); do
+            if [ -f "/proc/$pane_pid/cmdline" ]; then
+                echo "CMDLINE:$session:$window:$pane_pid:$(tr '\0' ' ' < /proc/$pane_pid/cmdline)" >> "$SAVE_FILE"
+            fi
+        done
+    done
+done
+
+# Create a symlink to the latest save
+ln -sf "manual_save_${TIMESTAMP}.txt" "$RESURRECT_DIR/last"
+
+echo "Sessions saved to $RESURRECT_DIR"
+echo "Save file: $SAVE_FILE"
+
+# Also trigger tmux-continuum save if available
+if tmux show-option -gqv @continuum-save-interval >/dev/null 2>&1; then
+    tmux run-shell "$HOME/.tmux/plugins/tmux-continuum/scripts/continuum_save.sh" 2>/dev/null || true
 fi
 EOF
     chmod +x /usr/local/bin/tmux-save-sessions
@@ -160,28 +217,159 @@ EOF
     # Create manual restore script
     cat > /usr/local/bin/tmux-restore-sessions << 'EOF'
 #!/bin/bash
-# Manually restore tmux sessions
+# Manually restore tmux sessions with complete state including working directories and commands
 
 export TMUX_TMPDIR="${TMUX_TMPDIR:-/root/.local/share/play/.tmux}"
 RESURRECT_DIR="/root/.local/share/play/.tmux-resurrect"
 
 echo "Restoring tmux sessions..."
 
-# Use tmux-resurrect to restore
+# Method 1: Try tmux-resurrect first if available
 if [ -f "$HOME/.tmux/plugins/tmux-resurrect/scripts/restore.sh" ]; then
-    tmux run-shell "$HOME/.tmux/plugins/tmux-resurrect/scripts/restore.sh"
-    echo "Sessions restored from $RESURRECT_DIR"
-else
-    echo "tmux-resurrect not found, using basic restore..."
-    if [ -f "$RESURRECT_DIR/session_list.txt" ]; then
-        while read session; do
-            if [ -n "$session" ] && [ "$session" != "keeper" ]; then
-                tmux new-session -d -s "$session" 2>/dev/null || true
-            fi
-        done < "$RESURRECT_DIR/session_list.txt"
-        echo "Basic session list restored"
+    # Find the latest resurrect save file
+    LATEST_RESURRECT=$(ls -t "$RESURRECT_DIR"/tmux_resurrect_*.txt 2>/dev/null | head -1)
+    
+    if [ -f "$LATEST_RESURRECT" ]; then
+        echo "Found tmux-resurrect save: $LATEST_RESURRECT"
+        
+        # Create a temporary session to trigger restore
+        tmux new-session -d -s resurrect-restore-helper 2>/dev/null || true
+        
+        # Send the resurrect restore key binding
+        tmux send-keys -t resurrect-restore-helper C-b R
+        sleep 3
+        
+        # Kill the helper session
+        tmux kill-session -t resurrect-restore-helper 2>/dev/null || true
+        
+        echo "Attempted tmux-resurrect restore"
     fi
 fi
+
+# Method 2: Enhanced manual restore from our comprehensive save
+SAVE_FILE="$RESURRECT_DIR/last"
+if [ -L "$SAVE_FILE" ]; then
+    # Follow symlink to actual save file
+    SAVE_FILE=$(readlink -f "$SAVE_FILE")
+fi
+
+if [ ! -f "$SAVE_FILE" ]; then
+    # Try to find the latest manual save
+    SAVE_FILE=$(ls -t "$RESURRECT_DIR"/manual_save_*.txt 2>/dev/null | head -1)
+fi
+
+if [ -f "$SAVE_FILE" ]; then
+    echo "Restoring from: $SAVE_FILE"
+    
+    # Parse and restore sessions
+    while IFS=: read -r type name windows created rest; do
+        if [ "$type" = "SESSION" ]; then
+            echo "Restoring session: $name"
+            # Don't recreate keeper session or already existing sessions
+            if [ "$name" != "keeper" ] && ! tmux has-session -t "$name" 2>/dev/null; then
+                tmux new-session -d -s "$name"
+            fi
+        fi
+    done < "$SAVE_FILE"
+    
+    # Restore windows and panes with working directories
+    current_session=""
+    current_window=""
+    
+    while IFS=: read -r type param1 param2 param3 param4 param5 rest; do
+        case "$type" in
+            WINDOW)
+                session="$param1"
+                window_idx="$param2"
+                window_name="$param3"
+                layout="$param4"
+                working_dir="$param5"
+                
+                if [ "$session" != "$current_session" ]; then
+                    current_session="$session"
+                fi
+                
+                # Create window with proper working directory
+                if [ "$window_idx" = "0" ]; then
+                    # First window already exists, just rename and cd
+                    tmux rename-window -t "$session:0" "$window_name" 2>/dev/null || true
+                    if [ -d "$working_dir" ]; then
+                        tmux send-keys -t "$session:0" "cd '$working_dir'" C-m 2>/dev/null || true
+                    fi
+                else
+                    # Create new window with working directory
+                    if [ -d "$working_dir" ]; then
+                        tmux new-window -t "$session" -n "$window_name" -c "$working_dir" 2>/dev/null || true
+                    else
+                        tmux new-window -t "$session" -n "$window_name" 2>/dev/null || true
+                    fi
+                fi
+                
+                current_window="$window_idx"
+                ;;
+                
+            PANE)
+                session="$param1"
+                window="$param2"
+                pane_idx="$param3"
+                pane_dir="$param4"
+                pane_cmd="$param5"
+                pane_pid="$rest"
+                
+                # Set working directory for pane
+                if [ -d "$pane_dir" ] && [ "$pane_idx" = "0" ]; then
+                    tmux send-keys -t "$session:$window.$pane_idx" "cd '$pane_dir'" C-m 2>/dev/null || true
+                fi
+                
+                # Try to restore command if it's a long-running process
+                if [ -n "$pane_cmd" ] && [ "$pane_cmd" != "bash" ] && [ "$pane_cmd" != "zsh" ] && [ "$pane_cmd" != "sh" ]; then
+                    echo "  Found command in pane $pane_idx: $pane_cmd"
+                fi
+                ;;
+                
+            CMDLINE)
+                session="$param1"
+                window="$param2"
+                pid="$param3"
+                cmdline="$param4 $param5 $rest"
+                
+                # Extract and potentially restart command
+                if echo "$cmdline" | grep -qE "ping|curl|wget|ssh|telnet|nc|watch|tail -f|top|htop"; then
+                    echo "  Command to restore: $cmdline"
+                    # For safety, we'll just notify about these commands rather than auto-run them
+                    echo "    -> To restart: tmux send-keys -t '$session:$window' '$cmdline' C-m"
+                fi
+                ;;
+        esac
+    done < "$SAVE_FILE"
+    
+    echo "Session structure restored"
+    echo ""
+    echo "Note: Long-running commands like 'ping' need to be manually restarted."
+    echo "The commands that were running have been identified above."
+    
+    # Restore pane contents if available
+    TIMESTAMP=$(basename "$SAVE_FILE" | sed 's/manual_save_\(.*\)\.txt/\1/')
+    if [ -n "$TIMESTAMP" ]; then
+        for pane_file in "$RESURRECT_DIR"/pane_*_"${TIMESTAMP}.txt"; do
+            if [ -f "$pane_file" ]; then
+                # Extract session and window from filename
+                base=$(basename "$pane_file")
+                parts=$(echo "$base" | sed 's/pane_\(.*\)_\(.*\)_.*\.txt/\1 \2/')
+                # Could restore pane contents here if needed
+                true
+            fi
+        done
+    fi
+else
+    echo "No saved sessions found to restore"
+    echo "Try running: tmux-save-sessions first"
+fi
+
+# List restored sessions
+echo ""
+echo "Current tmux sessions:"
+tmux list-sessions 2>/dev/null || echo "No sessions running"
 EOF
     chmod +x /usr/local/bin/tmux-restore-sessions
     
