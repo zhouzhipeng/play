@@ -21,14 +21,22 @@ echo
 install_tmux_resurrect() {
     echo "Installing tmux-resurrect for session persistence..."
     
-    # Install tmux plugin manager (TPM) first
-    if [ ! -d "$HOME/.tmux/plugins/tpm" ]; then
-        git clone https://github.com/tmux-plugins/tpm "$HOME/.tmux/plugins/tpm"
-    fi
+    # Clean up any existing installation
+    rm -rf "$HOME/.tmux/plugins"
+    
+    # Create plugin directory
+    mkdir -p "$HOME/.tmux/plugins"
+    
+    # Install tmux plugin manager (TPM)
+    echo "Installing tmux plugin manager..."
+    git clone https://github.com/tmux-plugins/tpm "$HOME/.tmux/plugins/tpm"
     
     # Create tmux config with resurrect plugin
     cat > "$HOME/.tmux.conf" << 'EOF'
 # tmux configuration for persistent sessions
+
+# Set plugin path
+set-environment -g TMUX_PLUGIN_MANAGER_PATH '~/.tmux/plugins/'
 
 # Set base directory for tmux-resurrect saves
 set -g @resurrect-dir '/root/.local/share/play/.tmux-resurrect'
@@ -41,7 +49,7 @@ set -g @resurrect-restore 'R'
 set -g @resurrect-capture-pane-contents 'on'
 
 # Restore more programs
-set -g @resurrect-processes 'ssh vim nvim emacs man less more tail top htop'
+set -g @resurrect-processes 'ssh vim nvim emacs man less more tail top htop npm node python python3'
 
 # Strategy for vim/nvim sessions
 set -g @resurrect-strategy-vim 'session'
@@ -57,12 +65,19 @@ set -g @continuum-restore 'on'
 set -g @continuum-save-interval '5' # Save every 5 minutes
 set -g @continuum-boot 'on' # Auto start tmux on boot
 
-# Initialize TMUX plugin manager
+# Initialize TMUX plugin manager (keep this at the bottom of tmux.conf)
 run '~/.tmux/plugins/tpm/tpm'
 EOF
     
-    # Install plugins
-    "$HOME/.tmux/plugins/tpm/bin/install_plugins"
+    # Manually install the plugins since install_plugins might not work
+    echo "Installing tmux-resurrect plugin..."
+    git clone https://github.com/tmux-plugins/tmux-resurrect "$HOME/.tmux/plugins/tmux-resurrect"
+    
+    echo "Installing tmux-continuum plugin..."
+    git clone https://github.com/tmux-plugins/tmux-continuum "$HOME/.tmux/plugins/tmux-continuum"
+    
+    # Source the config in any running tmux sessions
+    tmux source-file "$HOME/.tmux.conf" 2>/dev/null || true
     
     echo "tmux-resurrect installed successfully"
 }
