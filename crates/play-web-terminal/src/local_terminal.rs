@@ -91,10 +91,23 @@ impl LocalTerminal {
                 
                 if session_exists {
                     debug!("Attaching to existing tmux session: {}", session);
-                    tmux_cmd.args(&["attach-session", "-t", session]);
+                    // Use -d flag to detach other clients to avoid size conflicts
+                    // This ensures the new client's size is used
+                    tmux_cmd.args(&["attach-session", "-d", "-t", session]);
                 } else {
                     debug!("Creating new tmux session: {}", session);
+                    // Set aggressive-resize to better handle multiple clients
                     tmux_cmd.args(&["new-session", "-s", session]);
+                    
+                    // Set session options for better multi-client handling
+                    let _ = Command::new("tmux")
+                        .args(&["set-option", "-t", session, "aggressive-resize", "on"])
+                        .output();
+                    
+                    // Also set detach-on-destroy to avoid session termination
+                    let _ = Command::new("tmux")
+                        .args(&["set-option", "-t", session, "detach-on-destroy", "off"])
+                        .output();
                 }
                 
                 tmux_cmd

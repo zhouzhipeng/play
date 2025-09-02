@@ -102,6 +102,17 @@ impl SessionManager {
             return Err(Error::Custom(format!("Failed to create tmux session: {}", error_msg)));
         }
 
+        // Configure session for better multi-client handling
+        // aggressive-resize: Makes windows resize to the smallest client viewing them
+        let _ = Command::new("tmux")
+            .args(&["set-option", "-t", &session_name, "aggressive-resize", "on"])
+            .output();
+        
+        // window-size: Set to smallest to avoid dots when clients have different sizes
+        let _ = Command::new("tmux")
+            .args(&["set-window-option", "-t", &session_name, "window-size", "smallest"])
+            .output();
+
         let session = TmuxSession {
             id: Uuid::new_v4().to_string(),
             name: session_name.clone(),
@@ -210,6 +221,7 @@ impl SessionManager {
             return Ok(());
         }
 
+        // First try to resize the window
         let output = Command::new("tmux")
             .args(&[
                 "resize-window",
@@ -224,6 +236,11 @@ impl SessionManager {
             let error_msg = String::from_utf8_lossy(&output.stderr);
             warn!("Failed to resize tmux session: {}", error_msg);
         }
+
+        // Force a refresh to clear any dots/artifacts
+        let _ = Command::new("tmux")
+            .args(&["refresh-client", "-t", session_name])
+            .output();
 
         debug!("Resized tmux session {} to {}x{}", session_name, cols, rows);
         Ok(())
