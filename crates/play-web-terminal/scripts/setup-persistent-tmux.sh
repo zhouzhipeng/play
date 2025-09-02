@@ -74,15 +74,29 @@ EOF
     
     # Manually install the plugins since install_plugins might not work
     echo "Installing tmux-resurrect plugin..."
-    git clone https://github.com/tmux-plugins/tmux-resurrect "$HOME/.tmux/plugins/tmux-resurrect"
+    if [ ! -d "$HOME/.tmux/plugins/tmux-resurrect" ]; then
+        git clone https://github.com/tmux-plugins/tmux-resurrect "$HOME/.tmux/plugins/tmux-resurrect"
+    else
+        echo "  tmux-resurrect already installed, updating..."
+        cd "$HOME/.tmux/plugins/tmux-resurrect" && git pull
+    fi
     
     echo "Installing tmux-continuum plugin..."
-    git clone https://github.com/tmux-plugins/tmux-continuum "$HOME/.tmux/plugins/tmux-continuum"
+    if [ ! -d "$HOME/.tmux/plugins/tmux-continuum" ]; then
+        git clone https://github.com/tmux-plugins/tmux-continuum "$HOME/.tmux/plugins/tmux-continuum"
+    else
+        echo "  tmux-continuum already installed, updating..."
+        cd "$HOME/.tmux/plugins/tmux-continuum" && git pull
+    fi
+    
+    # Make sure the plugin scripts are executable
+    chmod +x "$HOME/.tmux/plugins/tmux-resurrect/scripts/"*.sh 2>/dev/null || true
+    chmod +x "$HOME/.tmux/plugins/tmux-continuum/scripts/"*.sh 2>/dev/null || true
     
     # Source the config in any running tmux sessions
     tmux source-file "$HOME/.tmux.conf" 2>/dev/null || true
     
-    echo "tmux-resurrect installed successfully"
+    echo "tmux plugins installed successfully"
 }
 
 # 2. Create systemd service that restores sessions on boot
@@ -155,15 +169,14 @@ mkdir -p "$RESURRECT_DIR"
 if [ -f "$HOME/.tmux/plugins/tmux-resurrect/scripts/save.sh" ]; then
     echo "Using tmux-resurrect to save sessions..."
     
-    # Create a temporary tmux session to run the save command
-    tmux new-session -d -s resurrect-save-helper 2>/dev/null || true
-    
-    # Send the resurrect save key binding to trigger save
-    tmux send-keys -t resurrect-save-helper C-b S
-    sleep 2
-    
-    # Kill the helper session
-    tmux kill-session -t resurrect-save-helper 2>/dev/null || true
+    # Direct execution of the save script
+    bash "$HOME/.tmux/plugins/tmux-resurrect/scripts/save.sh" 2>/dev/null || {
+        # Fallback: try using tmux key binding
+        tmux new-session -d -s resurrect-save-helper 2>/dev/null || true
+        tmux send-keys -t resurrect-save-helper C-b S
+        sleep 2
+        tmux kill-session -t resurrect-save-helper 2>/dev/null || true
+    }
     
     echo "Sessions saved via tmux-resurrect"
 fi
@@ -208,8 +221,9 @@ echo "Sessions saved to $RESURRECT_DIR"
 echo "Save file: $SAVE_FILE"
 
 # Also trigger tmux-continuum save if available
-if tmux show-option -gqv @continuum-save-interval >/dev/null 2>&1; then
-    tmux run-shell "$HOME/.tmux/plugins/tmux-continuum/scripts/continuum_save.sh" 2>/dev/null || true
+if [ -f "$HOME/.tmux/plugins/tmux-continuum/scripts/continuum_save.sh" ]; then
+    bash "$HOME/.tmux/plugins/tmux-continuum/scripts/continuum_save.sh" 2>/dev/null || true
+    echo "Triggered tmux-continuum save"
 fi
 EOF
     chmod +x /usr/local/bin/tmux-save-sessions
