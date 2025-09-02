@@ -1,15 +1,17 @@
 use axum::{
-    extract::WebSocketUpgrade,
-    response::{Html, IntoResponse, Response},
-    routing::get,
+    extract::{State, WebSocketUpgrade},
+    response::{Html, IntoResponse, Response, Json},
+    routing::{delete, get, post},
     Router,
     body::Body,
     http::{header, StatusCode},
 };
+use serde_json::json;
+use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
 use tracing::debug;
 
-use crate::websocket::websocket_handler;
+use crate::{session_manager::SessionManager, websocket::websocket_handler};
 
 // Embed all static resources
 const INDEX_HTML: &str = include_str!("../static/index.html");
@@ -18,7 +20,7 @@ const XTERM_JS: &str = include_str!("../static/xterm.js");
 const XTERM_CSS: &str = include_str!("../static/xterm.min.css");
 const ADDON_FIT_JS: &str = include_str!("../static/addon-fit.js");
 
-pub fn create_router<S>() -> Router<S> 
+pub fn create_router<S>() -> Router<S>
 where
     S: Clone + Send + Sync + 'static,
 {
@@ -27,20 +29,65 @@ where
         .allow_methods(Any)
         .allow_headers(Any);
 
+    let session_manager = Arc::new(SessionManager::new());
+
     Router::new()
         .route("/web-terminal", get(terminal_page))
         .route("/web-terminal/ws", get(ws_handler))
         .route("/web-terminal/assets/{*path}", get(serve_asset))
+        .route("/web-terminal/api/sessions", get(list_sessions).post(create_session))
+        .route("/web-terminal/api/sessions/{name}", delete(delete_session))
         .layer(cors)
+        .with_state(session_manager)
 }
 
 async fn terminal_page() -> impl IntoResponse {
     Html(INDEX_HTML.to_string())
 }
 
-async fn ws_handler(ws: WebSocketUpgrade) -> impl IntoResponse {
+async fn ws_handler(
+    State(session_manager): State<Arc<SessionManager>>,
+    ws: WebSocketUpgrade,
+) -> impl IntoResponse {
     debug!("WebSocket upgrade handler called!");
-    websocket_handler(ws).await
+    websocket_handler(ws, session_manager).await
+}
+
+async fn list_sessions(
+    State(session_manager): State<Arc<SessionManager>>,
+) -> impl IntoResponse {
+    let sessions = session_manager.list_sessions();
+    Json(json!({ "sessions": sessions }))
+}
+
+async fn create_session(
+    State(session_manager): State<Arc<SessionManager>>,
+    Json(payload): Json<serde_json::Value>,
+) -> impl IntoResponse {
+    let name = payload.get("name").and_then(|v| v.as_str()).map(|s| s.to_string());
+    
+    match session_manager.create_session(name) {
+        Ok(session) => {
+            (StatusCode::CREATED, Json(json!({ "session": session })))
+        }
+        Err(e) => {
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": e.to_string() })))
+        }
+    }
+}
+
+async fn delete_session(
+    State(session_manager): State<Arc<SessionManager>>,
+    axum::extract::Path(name): axum::extract::Path<String>,
+) -> impl IntoResponse {
+    match session_manager.delete_session(&name) {
+        Ok(_) => {
+            (StatusCode::OK, Json(json!({ "message": "Session deleted" })))
+        }
+        Err(e) => {
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": e.to_string() })))
+        }
+    }
 }
 
 async fn serve_asset(axum::extract::Path(path): axum::extract::Path<String>) -> impl IntoResponse {

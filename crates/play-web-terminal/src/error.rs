@@ -16,6 +16,9 @@ pub enum Error {
     
     #[error("Session closed")]
     SessionClosed,
+    
+    #[error("{0}")]
+    Custom(String),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

@@ -13,8 +13,13 @@ class WebTerminal {
         this.outputBuffer = [];
         this.isProcessingBuffer = false;
         
+        // Session management
+        this.currentSession = null;
+        this.tmuxAvailable = false;
+        
         this.initializeTerminal();
         this.setupEventListeners();
+        this.setupSessionUI();
         this.connect(); // Auto-connect on load
     }
     
@@ -199,7 +204,10 @@ class WebTerminal {
             switch (msg.type) {
                 case 'Connected':
                     this.isConnected = true;
+                    this.currentSession = msg.session_name || null;
+                    this.tmuxAvailable = msg.tmux_available || false;
                     this.updateStatus('connected');
+                    this.updateSessionUI();
                     this.terminal.focus();
                     // Ensure proper sizing after connection
                     if (this.fitAddon) {
@@ -208,7 +216,22 @@ class WebTerminal {
                     // Send resize after fitting
                     setTimeout(() => {
                         this.sendResize();
+                        if (this.tmuxAvailable) {
+                            this.listSessions();
+                        }
                     }, 50);
+                    break;
+                
+                case 'SessionCreated':
+                    this.handleSessionCreated(msg.session);
+                    break;
+                
+                case 'SessionList':
+                    this.handleSessionList(msg.sessions);
+                    break;
+                
+                case 'SessionDeleted':
+                    this.handleSessionDeleted(msg.name);
                     break;
                     
                 case 'Output':
@@ -376,7 +399,11 @@ class WebTerminal {
         
         switch (status) {
             case 'connected':
-                statusEl.textContent = 'Connected';
+                let statusText = 'Connected';
+                if (this.currentSession) {
+                    statusText += ` (session: ${this.currentSession})`;
+                }
+                statusEl.textContent = statusText;
                 break;
             case 'connecting':
                 statusEl.textContent = 'Connecting...';
@@ -386,9 +413,137 @@ class WebTerminal {
                 break;
         }
     }
+    
+    setupSessionUI() {
+        // Add session management controls to the page
+        const sessionControls = document.createElement('div');
+        sessionControls.id = 'session-controls';
+        sessionControls.style.cssText = 'position: absolute; top: 10px; right: 10px; z-index: 1000; background: #1e1e1e; padding: 10px; border-radius: 5px; display: none;';
+        sessionControls.innerHTML = `
+            <div style="color: #cccccc; margin-bottom: 10px;">
+                <strong>tmux Sessions</strong>
+                <button id="refresh-sessions" style="margin-left: 10px; padding: 2px 8px;">Refresh</button>
+                <button id="new-session" style="margin-left: 5px; padding: 2px 8px;">New</button>
+            </div>
+            <div id="session-list" style="max-height: 200px; overflow-y: auto;"></div>
+        `;
+        document.body.appendChild(sessionControls);
+        
+        // Add event listeners for session controls
+        document.getElementById('refresh-sessions')?.addEventListener('click', () => {
+            this.listSessions();
+        });
+        
+        document.getElementById('new-session')?.addEventListener('click', () => {
+            const name = prompt('Enter session name (leave empty for auto-generated):');
+            this.createSession(name);
+        });
+        
+        // Use event delegation for dynamically created buttons
+        document.getElementById('session-list')?.addEventListener('click', (e) => {
+            if (e.target.tagName === 'BUTTON') {
+                const action = e.target.dataset.action;
+                const sessionName = e.target.dataset.session;
+                
+                if (action === 'connect') {
+                    this.connectToSession(sessionName);
+                } else if (action === 'delete') {
+                    this.deleteSession(sessionName);
+                }
+            }
+        });
+    }
+    
+    updateSessionUI() {
+        const controls = document.getElementById('session-controls');
+        if (controls) {
+            controls.style.display = this.tmuxAvailable ? 'block' : 'none';
+        }
+    }
+    
+    listSessions() {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify({ type: 'ListSessions' }));
+        }
+    }
+    
+    createSession(name) {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify({ 
+                type: 'CreateSession',
+                name: name || null
+            }));
+        }
+    }
+    
+    connectToSession(sessionName) {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify({ 
+                type: 'ConnectToSession',
+                session_name: sessionName
+            }));
+        }
+    }
+    
+    deleteSession(sessionName) {
+        if (confirm(`Delete session '${sessionName}'?`)) {
+            if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                this.ws.send(JSON.stringify({ 
+                    type: 'DeleteSession',
+                    name: sessionName
+                }));
+            }
+        }
+    }
+    
+    handleSessionCreated(session) {
+        this.terminal.writeln(`\r\n\x1b[32mSession created: ${session.name}\x1b[0m`);
+        this.listSessions();
+        // Auto-connect to the new session
+        this.connectToSession(session.name);
+    }
+    
+    handleSessionList(sessions) {
+        const listElement = document.getElementById('session-list');
+        if (!listElement) return;
+        
+        if (sessions.length === 0) {
+            listElement.innerHTML = '<div style="color: #666;">No sessions</div>';
+            return;
+        }
+        
+        listElement.innerHTML = sessions.map(session => `
+            <div style="color: #cccccc; padding: 5px; border-bottom: 1px solid #333;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>${session.name} ${this.currentSession === session.name ? '(current)' : ''}</span>
+                    <div>
+                        ${this.currentSession !== session.name ? 
+                            `<button data-action="connect" data-session="${session.name}" style="padding: 2px 6px; margin-left: 5px;">Connect</button>` : ''}
+                        <button data-action="delete" data-session="${session.name}" style="padding: 2px 6px; margin-left: 5px;">Delete</button>
+                    </div>
+                </div>
+                <div style="font-size: 11px; color: #666;">
+                    Windows: ${session.window_count} | Clients: ${session.attached_clients}
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    handleSessionDeleted(name) {
+        this.terminal.writeln(`\r\n\x1b[33mSession deleted: ${name}\x1b[0m`);
+        if (this.currentSession === name) {
+            this.currentSession = null;
+            // Reconnect to a regular terminal
+            this.ws.send(JSON.stringify({ type: 'Connect' }));
+        }
+        this.listSessions();
+    }
 }
 
 // Wait for all scripts to load
+// Global variable to hold the terminal instance
+let webTerminal = null;
+
 function initTerminal() {
     // Only check for Terminal since addons are optional in 5.5.0
     if (typeof Terminal === 'undefined') {
@@ -397,7 +552,10 @@ function initTerminal() {
         return;
     }
     console.log('Terminal loaded, initializing...');
-    new WebTerminal();
+    // Create and store globally
+    webTerminal = new WebTerminal();
+    // Also make it available on window for onclick handlers
+    window.webTerminal = webTerminal;
 }
 
 // Use window.onload to ensure all scripts are loaded
