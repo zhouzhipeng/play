@@ -177,9 +177,16 @@ impl SessionManager {
                 for line in sessions_str.lines() {
                     let parts: Vec<&str> = line.split(':').collect();
                     if parts.len() >= 4 {
+                        let session_name = parts[0];
+                        
+                        // Skip the keeper session (it's just for keeping tmux alive)
+                        if session_name == "keeper" {
+                            continue;
+                        }
+                        
                         let session = TmuxSession {
                             id: Uuid::new_v4().to_string(),
-                            name: parts[0].to_string(),
+                            name: session_name.to_string(),
                             created_at: chrono::Utc::now(),
                             last_accessed: chrono::Utc::now(),
                             window_count: parts[2].parse().unwrap_or(1),
@@ -251,7 +258,11 @@ impl SessionManager {
         }
 
         self.sync_existing_sessions();
-        self.sessions.lock().unwrap().values().cloned().collect()
+        self.sessions.lock().unwrap()
+            .values()
+            .filter(|session| session.name != "keeper") // Hide keeper session
+            .cloned()
+            .collect()
     }
 
     pub fn get_session(&self, name: &str) -> Option<TmuxSession> {
