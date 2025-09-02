@@ -418,35 +418,319 @@ class WebTerminal {
         // Add session management controls to the page
         const sessionControls = document.createElement('div');
         sessionControls.id = 'session-controls';
-        sessionControls.style.cssText = 'position: absolute; top: 10px; right: 10px; z-index: 1000; background: #1e1e1e; padding: 10px; border-radius: 5px; display: none;';
         sessionControls.innerHTML = `
-            <div style="color: #cccccc; margin-bottom: 10px;">
-                <strong>tmux Sessions</strong>
-                <button id="refresh-sessions" style="margin-left: 10px; padding: 2px 8px;">Refresh</button>
-                <button id="new-session" style="margin-left: 5px; padding: 2px 8px;">New</button>
+            <style>
+                #session-controls {
+                    position: fixed;
+                    top: 10px;
+                    right: 10px;
+                    z-index: 1000;
+                    font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+                    font-size: 12px;
+                    display: none;
+                }
+                
+                .session-toggle {
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    border: none;
+                    padding: 8px 12px;
+                    border-radius: 20px;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+                    transition: all 0.3s ease;
+                    font-size: 12px;
+                    font-weight: 600;
+                }
+                
+                .session-toggle:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+                }
+                
+                .session-toggle .arrow {
+                    transition: transform 0.3s ease;
+                    display: inline-block;
+                }
+                
+                .session-toggle.expanded .arrow {
+                    transform: rotate(180deg);
+                }
+                
+                .session-panel {
+                    position: absolute;
+                    top: 100%;
+                    right: 0;
+                    margin-top: 8px;
+                    background: rgba(30, 30, 30, 0.95);
+                    backdrop-filter: blur(10px);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    border-radius: 12px;
+                    padding: 0;
+                    min-width: 280px;
+                    max-width: 350px;
+                    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+                    max-height: 0;
+                    overflow: hidden;
+                    opacity: 0;
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                }
+                
+                .session-panel.show {
+                    max-height: 400px;
+                    opacity: 1;
+                    padding: 12px;
+                }
+                
+                .session-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding-bottom: 10px;
+                    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+                    margin-bottom: 10px;
+                }
+                
+                .session-title {
+                    color: #fff;
+                    font-weight: 600;
+                    font-size: 13px;
+                }
+                
+                .session-actions {
+                    display: flex;
+                    gap: 6px;
+                }
+                
+                .session-btn {
+                    background: rgba(255, 255, 255, 0.1);
+                    color: #fff;
+                    border: 1px solid rgba(255, 255, 255, 0.2);
+                    padding: 4px 10px;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 11px;
+                    transition: all 0.2s ease;
+                }
+                
+                .session-btn:hover {
+                    background: rgba(255, 255, 255, 0.2);
+                    border-color: rgba(255, 255, 255, 0.3);
+                }
+                
+                .session-btn.primary {
+                    background: rgba(102, 126, 234, 0.8);
+                    border-color: rgba(102, 126, 234, 1);
+                }
+                
+                .session-btn.primary:hover {
+                    background: rgba(102, 126, 234, 1);
+                }
+                
+                #session-list {
+                    max-height: 280px;
+                    overflow-y: auto;
+                    margin: 0 -4px;
+                    padding: 0 4px;
+                }
+                
+                #session-list::-webkit-scrollbar {
+                    width: 6px;
+                }
+                
+                #session-list::-webkit-scrollbar-track {
+                    background: rgba(255, 255, 255, 0.05);
+                    border-radius: 3px;
+                }
+                
+                #session-list::-webkit-scrollbar-thumb {
+                    background: rgba(255, 255, 255, 0.2);
+                    border-radius: 3px;
+                }
+                
+                #session-list::-webkit-scrollbar-thumb:hover {
+                    background: rgba(255, 255, 255, 0.3);
+                }
+                
+                .session-item {
+                    background: rgba(255, 255, 255, 0.05);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    border-radius: 8px;
+                    padding: 10px;
+                    margin-bottom: 8px;
+                    transition: all 0.2s ease;
+                }
+                
+                .session-item:hover {
+                    background: rgba(255, 255, 255, 0.08);
+                    border-color: rgba(255, 255, 255, 0.2);
+                }
+                
+                .session-item.current {
+                    background: rgba(102, 126, 234, 0.2);
+                    border-color: rgba(102, 126, 234, 0.5);
+                }
+                
+                .session-item-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 6px;
+                }
+                
+                .session-name {
+                    color: #fff;
+                    font-weight: 500;
+                    font-size: 12px;
+                }
+                
+                .session-badge {
+                    background: rgba(102, 126, 234, 0.8);
+                    color: white;
+                    padding: 2px 6px;
+                    border-radius: 4px;
+                    font-size: 10px;
+                    font-weight: 600;
+                }
+                
+                .session-item-actions {
+                    display: flex;
+                    gap: 4px;
+                }
+                
+                .session-item-btn {
+                    background: rgba(255, 255, 255, 0.1);
+                    color: #fff;
+                    border: 1px solid rgba(255, 255, 255, 0.2);
+                    padding: 3px 8px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 10px;
+                    transition: all 0.2s ease;
+                }
+                
+                .session-item-btn:hover {
+                    background: rgba(255, 255, 255, 0.2);
+                }
+                
+                .session-item-btn.connect {
+                    background: rgba(76, 175, 80, 0.8);
+                    border-color: rgba(76, 175, 80, 1);
+                }
+                
+                .session-item-btn.connect:hover {
+                    background: rgba(76, 175, 80, 1);
+                }
+                
+                .session-item-btn.delete {
+                    background: rgba(244, 67, 54, 0.8);
+                    border-color: rgba(244, 67, 54, 1);
+                }
+                
+                .session-item-btn.delete:hover {
+                    background: rgba(244, 67, 54, 1);
+                }
+                
+                .session-item-btn.disconnect {
+                    background: rgba(255, 152, 0, 0.8);
+                    border-color: rgba(255, 152, 0, 1);
+                }
+                
+                .session-item-btn.disconnect:hover {
+                    background: rgba(255, 152, 0, 1);
+                }
+                
+                .session-info {
+                    color: rgba(255, 255, 255, 0.6);
+                    font-size: 10px;
+                    display: flex;
+                    gap: 12px;
+                }
+                
+                .session-empty {
+                    color: rgba(255, 255, 255, 0.4);
+                    text-align: center;
+                    padding: 20px;
+                    font-style: italic;
+                }
+            </style>
+            
+            <button class="session-toggle" id="session-toggle">
+                <span>Sessions</span>
+                <span class="arrow">▼</span>
+            </button>
+            
+            <div class="session-panel" id="session-panel">
+                <div class="session-header">
+                    <span class="session-title">tmux Sessions</span>
+                    <div class="session-actions">
+                        <button class="session-btn" id="refresh-sessions" title="Refresh">↻</button>
+                        <button class="session-btn primary" id="new-session" title="New Session">+ New</button>
+                    </div>
+                </div>
+                <div id="session-list"></div>
             </div>
-            <div id="session-list" style="max-height: 200px; overflow-y: auto;"></div>
         `;
         document.body.appendChild(sessionControls);
         
+        // Toggle button functionality
+        const toggleBtn = document.getElementById('session-toggle');
+        const panel = document.getElementById('session-panel');
+        
+        toggleBtn?.addEventListener('click', () => {
+            const isExpanded = toggleBtn.classList.contains('expanded');
+            if (isExpanded) {
+                toggleBtn.classList.remove('expanded');
+                panel.classList.remove('show');
+            } else {
+                toggleBtn.classList.add('expanded');
+                panel.classList.add('show');
+                this.listSessions(); // Refresh list when opening
+            }
+        });
+        
+        // Close panel when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!sessionControls.contains(e.target)) {
+                toggleBtn?.classList.remove('expanded');
+                panel?.classList.remove('show');
+            }
+        });
+        
         // Add event listeners for session controls
-        document.getElementById('refresh-sessions')?.addEventListener('click', () => {
+        document.getElementById('refresh-sessions')?.addEventListener('click', (e) => {
+            e.stopPropagation();
             this.listSessions();
         });
         
-        document.getElementById('new-session')?.addEventListener('click', () => {
+        document.getElementById('new-session')?.addEventListener('click', (e) => {
+            e.stopPropagation();
             const name = prompt('Enter session name (leave empty for auto-generated):');
-            this.createSession(name);
+            if (name !== null) {
+                this.createSession(name);
+            }
         });
         
         // Use event delegation for dynamically created buttons
         document.getElementById('session-list')?.addEventListener('click', (e) => {
+            e.stopPropagation();
             if (e.target.tagName === 'BUTTON') {
                 const action = e.target.dataset.action;
                 const sessionName = e.target.dataset.session;
                 
                 if (action === 'connect') {
                     this.connectToSession(sessionName);
+                    // Close panel after connecting
+                    toggleBtn?.classList.remove('expanded');
+                    panel?.classList.remove('show');
+                } else if (action === 'disconnect') {
+                    this.disconnectFromSession();
+                    // Close panel after disconnecting
+                    toggleBtn?.classList.remove('expanded');
+                    panel?.classList.remove('show');
                 } else if (action === 'delete') {
                     this.deleteSession(sessionName);
                 }
@@ -496,6 +780,19 @@ class WebTerminal {
         }
     }
     
+    disconnectFromSession() {
+        if (this.currentSession) {
+            if (confirm(`Disconnect from session '${this.currentSession}'?`)) {
+                this.currentSession = null;
+                if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                    // Connect to a regular terminal (no session)
+                    this.ws.send(JSON.stringify({ type: 'Connect' }));
+                    this.terminal.writeln(`\r\n\x1b[33mDisconnected from tmux session\x1b[0m`);
+                }
+            }
+        }
+    }
+    
     handleSessionCreated(session) {
         this.terminal.writeln(`\r\n\x1b[32mSession created: ${session.name}\x1b[0m`);
         this.listSessions();
@@ -508,25 +805,31 @@ class WebTerminal {
         if (!listElement) return;
         
         if (sessions.length === 0) {
-            listElement.innerHTML = '<div style="color: #666;">No sessions</div>';
+            listElement.innerHTML = '<div class="session-empty">No active sessions</div>';
             return;
         }
         
-        listElement.innerHTML = sessions.map(session => `
-            <div style="color: #cccccc; padding: 5px; border-bottom: 1px solid #333;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span>${session.name} ${this.currentSession === session.name ? '(current)' : ''}</span>
-                    <div>
-                        ${this.currentSession !== session.name ? 
-                            `<button data-action="connect" data-session="${session.name}" style="padding: 2px 6px; margin-left: 5px;">Connect</button>` : ''}
-                        <button data-action="delete" data-session="${session.name}" style="padding: 2px 6px; margin-left: 5px;">Delete</button>
+        listElement.innerHTML = sessions.map(session => {
+            const isCurrent = this.currentSession === session.name;
+            return `
+                <div class="session-item ${isCurrent ? 'current' : ''}">
+                    <div class="session-item-header">
+                        <span class="session-name">${session.name}</span>
+                        ${isCurrent ? '<span class="session-badge">CURRENT</span>' : ''}
+                    </div>
+                    <div class="session-item-actions">
+                        ${!isCurrent ? 
+                            `<button class="session-item-btn connect" data-action="connect" data-session="${session.name}">Connect</button>` 
+                            : `<button class="session-item-btn disconnect" data-action="disconnect" data-session="${session.name}">Disconnect</button>`}
+                        <button class="session-item-btn delete" data-action="delete" data-session="${session.name}">Delete</button>
+                    </div>
+                    <div class="session-info">
+                        <span>Windows: ${session.window_count}</span>
+                        <span>Clients: ${session.attached_clients}</span>
                     </div>
                 </div>
-                <div style="font-size: 11px; color: #666;">
-                    Windows: ${session.window_count} | Clients: ${session.attached_clients}
-                </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
     }
     
     handleSessionDeleted(name) {
