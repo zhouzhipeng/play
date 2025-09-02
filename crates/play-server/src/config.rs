@@ -189,7 +189,10 @@ pub struct AuthConfig {
 }
 #[derive(Deserialize, Debug, Clone, Default)]
 pub struct MiscConfig {
+    #[serde(default)]
     pub mail_notify_url: String,
+    #[serde(default)]
+    pub github_token: String,
 }
 
 
