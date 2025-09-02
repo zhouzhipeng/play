@@ -111,10 +111,10 @@ ExecStart=/bin/bash -c 'tmux new-session -d -s keeper "while true; do sleep 8640
 ExecStartPost=/bin/sleep 2
 
 # Restore saved sessions if they exist
-ExecStartPost=/bin/bash -c 'if [ -f $TMUX_RESURRECT_DIR/last ]; then tmux run-shell "$HOME/.tmux/plugins/tmux-resurrect/scripts/restore.sh"; fi'
+ExecStartPost=/usr/local/bin/tmux-restore-sessions
 
 # Save sessions before stopping
-ExecStop=/bin/bash -c 'tmux run-shell "$HOME/.tmux/plugins/tmux-resurrect/scripts/save.sh"'
+ExecStop=/usr/local/bin/tmux-save-sessions
 ExecStop=/usr/bin/tmux kill-server
 
 Restart=on-failure
