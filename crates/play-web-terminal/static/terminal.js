@@ -792,15 +792,13 @@ class WebTerminal {
     
     disconnectFromSession() {
         if (this.currentSession) {
-            if (confirm(`Disconnect from session '${this.currentSession}'?`)) {
-                const sessionName = this.currentSession;
-                this.currentSession = null;
-                if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-                    // Connect to a regular terminal (no session)
-                    this.ws.send(JSON.stringify({ type: 'Connect' }));
-                    this.terminal.writeln(`\r\n\x1b[33mDisconnected from tmux session: ${sessionName}\x1b[0m`);
-                    this.updateStatus('connected'); // Update button text
-                }
+            const sessionName = this.currentSession;
+            this.currentSession = null;
+            if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                // Connect to a regular terminal (no session)
+                this.ws.send(JSON.stringify({ type: 'Connect' }));
+                this.terminal.writeln(`\r\n\x1b[33mDisconnected from tmux session: ${sessionName}\x1b[0m`);
+                this.updateStatus('connected'); // Update button text
             }
         }
     }
