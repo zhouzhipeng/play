@@ -1,16 +1,19 @@
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use std::io::{Read, Write};
+use std::process::Command;
 use std::sync::mpsc as std_mpsc;
 use tokio::sync::mpsc;
 use mpsc::error;
 use tokio::task::JoinHandle;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 use crate::{websocket::TerminalResponse, Error, Result};
 
 pub struct LocalTerminal {
     input_tx: Option<std_mpsc::Sender<TerminalCommand>>,
     terminal_task: Option<JoinHandle<()>>,
+    session_name: Option<String>,
+    use_tmux: bool,
 }
 
 enum TerminalCommand {
@@ -20,17 +23,36 @@ enum TerminalCommand {
 }
 
 impl LocalTerminal {
-    pub async fn new() -> Result<Self> {
+    pub async fn new(session_name: Option<String>) -> Result<Self> {
+        let use_tmux = session_name.is_some() && Self::check_tmux_available();
+        
+        if session_name.is_some() && !use_tmux {
+            warn!("tmux session requested but tmux is not available, falling back to regular terminal");
+        }
+        
         Ok(Self {
             input_tx: None,
             terminal_task: None,
+            session_name,
+            use_tmux,
         })
+    }
+    
+    fn check_tmux_available() -> bool {
+        Command::new("which")
+            .arg("tmux")
+            .output()
+            .map(|output| output.status.success())
+            .unwrap_or(false)
     }
 
     pub async fn start(&mut self, tx: mpsc::Sender<TerminalResponse>) {
         // Use std::sync::mpsc for cross-thread communication
         let (input_tx, input_rx) = std_mpsc::channel::<TerminalCommand>();
         self.input_tx = Some(input_tx);
+        
+        let use_tmux = self.use_tmux;
+        let session_name = self.session_name.clone();
         
         let handle = tokio::task::spawn_blocking(move || {
             // Create a new pty
@@ -55,19 +77,57 @@ impl LocalTerminal {
             
             // Get the shell from environment or use default
             let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string());
-            let mut cmd = CommandBuilder::new(&shell);
-            
-            // Use interactive shell instead of login shell to prevent quick exit
-            if shell.contains("bash") {
-                cmd.args(&["-i"]); // Interactive bash
-            } else if shell.contains("zsh") {
-                cmd.args(&["-i"]); // Interactive zsh  
-            } else if shell.contains("fish") {
-                cmd.args(&["-i"]); // Interactive fish
+            let mut cmd = if use_tmux && session_name.is_some() {
+                // Use tmux to attach to or create session
+                let session = session_name.as_ref().unwrap();
+                let mut tmux_cmd = CommandBuilder::new("tmux");
+                
+                // Check if session exists
+                let session_exists = Command::new("tmux")
+                    .args(&["has-session", "-t", session])
+                    .output()
+                    .map(|output| output.status.success())
+                    .unwrap_or(false);
+                
+                if session_exists {
+                    debug!("Attaching to existing tmux session: {}", session);
+                    // Use -d flag to detach other clients to avoid size conflicts
+                    // This ensures the new client's size is used
+                    tmux_cmd.args(&["attach-session", "-d", "-t", session]);
+                } else {
+                    debug!("Creating new tmux session: {}", session);
+                    // Set aggressive-resize to better handle multiple clients
+                    tmux_cmd.args(&["new-session", "-s", session]);
+                    
+                    // Set session options for better multi-client handling
+                    let _ = Command::new("tmux")
+                        .args(&["set-option", "-t", session, "aggressive-resize", "on"])
+                        .output();
+                    
+                    // Also set detach-on-destroy to avoid session termination
+                    let _ = Command::new("tmux")
+                        .args(&["set-option", "-t", session, "detach-on-destroy", "off"])
+                        .output();
+                }
+                
+                tmux_cmd
             } else {
-                // For other shells, try interactive flag
-                cmd.args(&["-i"]);
-            }
+                let mut shell_cmd = CommandBuilder::new(&shell);
+                
+                // Use interactive shell instead of login shell to prevent quick exit
+                if shell.contains("bash") {
+                    shell_cmd.args(&["-i"]); // Interactive bash
+                } else if shell.contains("zsh") {
+                    shell_cmd.args(&["-i"]); // Interactive zsh  
+                } else if shell.contains("fish") {
+                    shell_cmd.args(&["-i"]); // Interactive fish
+                } else {
+                    // For other shells, try interactive flag
+                    shell_cmd.args(&["-i"]);
+                }
+                
+                shell_cmd
+            };
             
             // Set working directory to DATA_DIR if available
             if let Ok(data_dir) = std::env::var("DATA_DIR") {
@@ -83,8 +143,13 @@ impl LocalTerminal {
             cmd.env("TERM", "xterm-256color");
             cmd.env("COLORTERM", "truecolor");
             
-            // Spawn the shell
-            debug!("Attempting to spawn shell: {}", shell);
+            // Spawn the shell or tmux
+            let spawn_msg = if use_tmux && session_name.is_some() {
+                format!("tmux session: {}", session_name.as_ref().unwrap())
+            } else {
+                format!("shell: {}", shell)
+            };
+            debug!("Attempting to spawn {}", spawn_msg);
             let mut child = match pair.slave.spawn_command(cmd) {
                 Ok(child) => child,
                 Err(e) => {
@@ -97,7 +162,7 @@ impl LocalTerminal {
                 }
             };
             
-            debug!("Local terminal started successfully with shell: {}", shell);
+            debug!("Local terminal started successfully with {}", spawn_msg);
             
             // Get writer for the master PTY
             let mut writer = match pair.master.take_writer() {
@@ -119,8 +184,7 @@ impl LocalTerminal {
             
             let rt = tokio::runtime::Handle::current();
             
-            // Send initial connected message
-            let _ = rt.block_on(tx.send(TerminalResponse::Connected));
+            // Note: Connected message is now sent from websocket.rs with session info
             
             // Create a channel for output thread to signal when it's done
             let (output_done_tx, output_done_rx) = std_mpsc::channel::<()>();

@@ -4973,6 +4973,7 @@ dependencies = [
  "anyhow",
  "axum",
  "bytes",
+ "chrono",
  "futures-util",
  "mime_guess",
  "portable-pty",
@@ -4984,6 +4985,7 @@ dependencies = [
  "tower 0.4.13",
  "tower-http 0.5.2",
  "tracing 0.2.0",
+ "uuid",
 ]
 
 [[package]]
