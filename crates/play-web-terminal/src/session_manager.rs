@@ -5,6 +5,7 @@ use std::process::Command;
 use std::sync::{Arc, Mutex};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TmuxSession {
@@ -24,11 +25,16 @@ pub struct SessionManager {
 
 impl SessionManager {
     pub fn new() -> Self {
+        // Set up persistent tmux socket before checking availability
+        Self::setup_persistent_tmux_socket();
+        
         let tmux_available = Self::check_tmux_available();
         if !tmux_available {
             warn!("tmux is not available, sessions will not persist across connections");
         } else {
             info!("tmux is available, persistent sessions enabled");
+            // Ensure tmux server is running
+            Self::ensure_tmux_server();
         }
 
         let manager = Self {
@@ -41,6 +47,109 @@ impl SessionManager {
         }
 
         manager
+    }
+    
+    fn setup_persistent_tmux_socket() {
+        // Use a persistent location for tmux socket (not /tmp which can be cleared)
+        if let Ok(home) = std::env::var("DATA_DIR") {
+            let socket_dir = PathBuf::from(&home).join(".tmux");
+            
+            // Create the directory if it doesn't exist
+            if let Err(e) = std::fs::create_dir_all(&socket_dir) {
+                warn!("Failed to create tmux socket directory: {}", e);
+                return;
+            }
+            
+            // Set TMUX_TMPDIR to use our persistent location
+            std::env::set_var("TMUX_TMPDIR", socket_dir.to_str().unwrap_or(""));
+            debug!("Set TMUX_TMPDIR to: {:?}", socket_dir);
+        }
+    }
+    
+    fn ensure_tmux_server() {
+        // Get the socket directory path
+        let socket_dir = std::env::var("DATA_DIR")
+            .or_else(|_| std::env::var("HOME"))
+            .map(|dir| PathBuf::from(&dir).join(".tmux"))
+            .unwrap_or_else(|_| PathBuf::from("/tmp/.tmux"));
+        
+        // Ensure socket directory exists with proper permissions
+        if let Err(e) = std::fs::create_dir_all(&socket_dir) {
+            error!("Failed to create tmux socket directory: {}", e);
+            return;
+        }
+        
+        // Set permissions to 700 (rwx------)
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if let Err(e) = std::fs::set_permissions(&socket_dir, std::fs::Permissions::from_mode(0o700)) {
+                warn!("Failed to set socket directory permissions: {}", e);
+            }
+        }
+        
+        let socket_path = socket_dir.to_str().unwrap_or("/tmp/.tmux");
+        debug!("Using tmux socket directory: {}", socket_path);
+        
+        // Start tmux server with explicit socket path
+        let output = Command::new("tmux")
+            .env("TMUX_TMPDIR", socket_path)
+            .args(&["-S", &format!("{}/default", socket_path)])
+            .arg("start-server")
+            .output();
+            
+        match output {
+            Ok(output) if output.status.success() => {
+                info!("tmux server started/verified successfully at {}", socket_path);
+            }
+            Ok(output) => {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                if !stderr.contains("server already running") && !stdout.contains("server already running") {
+                    warn!("tmux server start warning: stderr={}, stdout={}", stderr, stdout);
+                } else {
+                    debug!("tmux server already running");
+                }
+            }
+            Err(e) => {
+                error!("Failed to start tmux server: {}", e);
+                return;
+            }
+        }
+        
+        // Verify server is working by listing sessions with same socket path
+        let verify = Command::new("tmux")
+            .env("TMUX_TMPDIR", socket_path)
+            .args(&["-S", &format!("{}/default", socket_path)])
+            .args(&["list-sessions"])
+            .output();
+            
+        if let Ok(output) = verify {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            if stderr.contains("no server running") {
+                error!("tmux server not running after start attempt at {}", socket_path);
+                
+                // Try alternative start method
+                info!("Attempting alternative tmux server start method...");
+                let alt_start = Command::new("tmux")
+                    .env("TMUX_TMPDIR", socket_path)
+                    .args(&["new-session", "-d", "-s", "temp-init"])
+                    .output();
+                
+                if let Ok(output) = alt_start {
+                    if output.status.success() {
+                        info!("tmux server started via temp session creation");
+                        // Clean up temp session
+                        let _ = Command::new("tmux")
+                            .env("TMUX_TMPDIR", socket_path)
+                            .args(&["kill-session", "-t", "temp-init"])
+                            .output();
+                    }
+                }
+            } else if output.status.success() || stderr.contains("no sessions") {
+                info!("tmux server verified and running at {}", socket_path);
+            }
+        }
     }
 
     fn check_tmux_available() -> bool {
@@ -92,9 +201,17 @@ impl SessionManager {
             return Err(Error::Custom("tmux is not available".to_string()));
         }
 
-        let output = Command::new("tmux")
-            .args(&["new-session", "-d", "-s", &session_name])
-            .output()
+        // Build tmux command with working directory if DATA_DIR is set
+        let mut cmd = Command::new("tmux");
+        cmd.args(&["new-session", "-d", "-s", &session_name]);
+        
+        // Set working directory to DATA_DIR if available
+        if let Ok(data_dir) = std::env::var("DATA_DIR") {
+            cmd.args(&["-c", &data_dir]);
+            debug!("Creating tmux session with working directory: {}", data_dir);
+        }
+        
+        let output = cmd.output()
             .map_err(|e| Error::Custom(format!("Failed to create tmux session: {}", e)))?;
 
         if !output.status.success() {

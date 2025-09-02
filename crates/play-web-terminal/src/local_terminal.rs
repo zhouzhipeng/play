@@ -24,6 +24,9 @@ enum TerminalCommand {
 
 impl LocalTerminal {
     pub async fn new(session_name: Option<String>) -> Result<Self> {
+        // Set up persistent tmux socket location
+        Self::setup_tmux_environment();
+        
         let use_tmux = session_name.is_some() && Self::check_tmux_available();
         
         if session_name.is_some() && !use_tmux {
@@ -38,7 +41,24 @@ impl LocalTerminal {
         })
     }
     
+    fn setup_tmux_environment() {
+        // Use DATA_DIR if available, otherwise fall back to HOME
+        let base_dir = std::env::var("DATA_DIR")
+            .or_else(|_| std::env::var("HOME"))
+            .unwrap_or_else(|_| "/tmp".to_string());
+        
+        let socket_dir = format!("{}/.tmux", base_dir);
+        std::env::set_var("TMUX_TMPDIR", &socket_dir);
+        
+        // Ensure directory exists
+        let _ = std::fs::create_dir_all(&socket_dir);
+        debug!("Set TMUX_TMPDIR to: {}", socket_dir);
+    }
+    
     fn check_tmux_available() -> bool {
+        // First ensure tmux environment is set up
+        Self::setup_tmux_environment();
+        
         Command::new("which")
             .arg("tmux")
             .output()
@@ -96,8 +116,16 @@ impl LocalTerminal {
                     tmux_cmd.args(&["attach-session", "-d", "-t", session]);
                 } else {
                     debug!("Creating new tmux session: {}", session);
-                    // Set aggressive-resize to better handle multiple clients
-                    tmux_cmd.args(&["new-session", "-s", session]);
+                    // Create new session with working directory if DATA_DIR is set
+                    let mut args = vec!["new-session", "-s", session];
+                    
+                    // Set working directory to DATA_DIR if available
+                    if let Ok(data_dir) = std::env::var("DATA_DIR") {
+                        // Note: We can't use -c flag with CommandBuilder, so we'll set it after creation
+                        debug!("Will set working directory to DATA_DIR: {}", data_dir);
+                    }
+                    
+                    tmux_cmd.args(&args);
                     
                     // Set session options for better multi-client handling
                     let _ = Command::new("tmux")
@@ -108,6 +136,13 @@ impl LocalTerminal {
                     let _ = Command::new("tmux")
                         .args(&["set-option", "-t", session, "detach-on-destroy", "off"])
                         .output();
+                    
+                    // Send cd command to change to DATA_DIR after session creation
+                    if let Ok(data_dir) = std::env::var("DATA_DIR") {
+                        let _ = Command::new("tmux")
+                            .args(&["send-keys", "-t", session, &format!("cd '{}'", data_dir), "Enter"])
+                            .output();
+                    }
                 }
                 
                 tmux_cmd
