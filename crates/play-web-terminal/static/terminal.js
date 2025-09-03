@@ -250,7 +250,16 @@ class WebTerminal {
             this.reconnectAttempts = 0; // Reset on successful connection
             this.reconnectDelay = 1000; // Reset delay
             this.isHandlingDisconnect = false; // Ensure flag is reset
-            this.ws.send(JSON.stringify({ type: 'Connect' }));
+            
+            // Check if we should connect to a specific session
+            if (window.targetSessionName) {
+                this.ws.send(JSON.stringify({ 
+                    type: 'ConnectToSession',
+                    session_name: window.targetSessionName
+                }));
+            } else {
+                this.ws.send(JSON.stringify({ type: 'Connect' }));
+            }
             
             // Start heartbeat to keep connection alive (prevents Cloudflare 100s timeout)
             this.heartbeatInterval = setInterval(() => {
@@ -271,6 +280,12 @@ class WebTerminal {
                     this.updateStatus('connected');
                     this.updateSessionUI();
                     this.terminal.focus();
+                    
+                    // Update page title if connected to a specific session
+                    if (this.currentSession) {
+                        document.title = `Web Terminal - ${this.currentSession}`;
+                    }
+                    
                     // Ensure proper sizing after connection
                     if (this.fitAddon) {
                         this.fitAddon.fit();
@@ -715,6 +730,15 @@ class WebTerminal {
                     background: rgba(255, 152, 0, 1);
                 }
                 
+                .session-item-btn.open-new {
+                    background: rgba(156, 39, 176, 0.8);
+                    border-color: rgba(156, 39, 176, 1);
+                }
+                
+                .session-item-btn.open-new:hover {
+                    background: rgba(156, 39, 176, 1);
+                }
+                
                 .session-info {
                     color: rgba(255, 255, 255, 0.6);
                     font-size: 10px;
@@ -805,6 +829,9 @@ class WebTerminal {
                     panel?.classList.remove('show');
                 } else if (action === 'delete') {
                     this.deleteSession(sessionName);
+                } else if (action === 'open-new') {
+                    // Open session in new tab/window
+                    window.open(`/web-terminal/${sessionName}`, '_blank');
                 }
             }
         });
@@ -893,6 +920,7 @@ class WebTerminal {
                         ${!isCurrent ? 
                             `<button class="session-item-btn connect" data-action="connect" data-session="${session.name}">Connect</button>` 
                             : `<button class="session-item-btn disconnect" data-action="disconnect" data-session="${session.name}">Disconnect</button>`}
+                        <button class="session-item-btn open-new" data-action="open-new" data-session="${session.name}">Open New</button>
                         <button class="session-item-btn delete" data-action="delete" data-session="${session.name}">Delete</button>
                     </div>
                     <div class="session-info">

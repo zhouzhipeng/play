@@ -323,33 +323,33 @@ impl LocalTerminal {
                     }
                 }
                 
-                // Check if child process is still running
-                if let Ok(Some(status)) = child.try_wait() {
-                    error!("Shell exited unexpectedly with status: {:?}", status);
-                    
-                    // Send error message instead of just disconnected
-                    let error_msg = if status.success() {
-                        "Shell session ended normally".to_string()
-                    } else {
-                        format!("Shell exited with error code: {:?}", status)
-                    };
-                    
-                    let _ = rt.block_on(tx.send(TerminalResponse::Error {
-                        message: error_msg,
-                    }));
-                    let _ = rt.block_on(tx.send(TerminalResponse::Disconnected));
-                    break;
-                }
-                
+                // // Check if child process is still running
+                // if let Ok(Some(status)) = child.try_wait() {
+                //     error!("Shell exited unexpectedly with status: {:?}", status);
+                //
+                //     // Send error message instead of just disconnected
+                //     let error_msg = if status.success() {
+                //         "Shell session ended normally".to_string()
+                //     } else {
+                //         format!("Shell exited with error code: {:?}", status)
+                //     };
+                //
+                //     let _ = rt.block_on(tx.send(TerminalResponse::Error {
+                //         message: error_msg,
+                //     }));
+                //     let _ = rt.block_on(tx.send(TerminalResponse::Disconnected));
+                //     break;
+                // }
+                //
                 // Check if output thread has finished
-                if output_done_rx.try_recv().is_ok() {
-                    error!("Output thread finished unexpectedly - shell may have crashed");
-                    let _ = rt.block_on(tx.send(TerminalResponse::Error {
-                        message: "Terminal output stream ended unexpectedly".to_string(),
-                    }));
-                    let _ = rt.block_on(tx.send(TerminalResponse::Disconnected));
-                    break;
-                }
+                // if output_done_rx.try_recv().is_ok() {
+                //     error!("Output thread finished unexpectedly - shell may have crashed");
+                //     let _ = rt.block_on(tx.send(TerminalResponse::Error {
+                //         message: "Terminal output stream ended unexpectedly".to_string(),
+                //     }));
+                //     let _ = rt.block_on(tx.send(TerminalResponse::Disconnected));
+                //     break;
+                // }
             }
             
             debug!("Closing local terminal");
