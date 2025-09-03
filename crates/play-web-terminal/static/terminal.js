@@ -34,6 +34,11 @@ class WebTerminal {
             cursorBlink: true,
             fontSize: 14,
             fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+            scrollback: 1000,
+            // Disable mouse wheel sending arrow keys
+            scrollSensitivity: 0,
+            // Alternative: disable application cursor keys mode
+            applicationCursor: false,
             theme: {
                 background: '#1e1e1e',
                 foreground: '#cccccc',
@@ -65,6 +70,19 @@ class WebTerminal {
         }
         
         this.terminal.open(document.getElementById('terminal'));
+        
+        // Disable mouse wheel from sending arrow keys
+        // Override the wheel event to prevent default terminal behavior
+        const terminalElement = document.getElementById('terminal');
+        terminalElement.addEventListener('wheel', (e) => {
+            // Prevent the terminal from interpreting wheel events as arrow keys
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Allow normal scrolling of the terminal buffer
+            const scrollAmount = e.deltaY > 0 ? 3 : -3;
+            this.terminal.scrollLines(scrollAmount);
+        }, { passive: false });
         
         // Fit terminal to container
         if (this.fitAddon) {
