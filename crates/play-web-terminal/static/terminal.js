@@ -83,7 +83,15 @@ class WebTerminal {
             e.stopPropagation();
             e.stopImmediatePropagation();
             
-            // Implement our own scrolling for the terminal buffer
+            // Check if horizontal scrolling (deltaX) is significant
+            // This prevents browser back/forward navigation on horizontal swipe
+            if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+                // Just prevent the default behavior for horizontal scrolling
+                // Don't scroll the terminal for horizontal movements
+                return false;
+            }
+            
+            // Implement our own scrolling for the terminal buffer (vertical only)
             const scrollAmount = e.deltaY > 0 ? 3 : -3;
             this.terminal.scrollLines(scrollAmount);
             
