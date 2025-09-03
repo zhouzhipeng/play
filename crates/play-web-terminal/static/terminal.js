@@ -35,10 +35,12 @@ class WebTerminal {
             fontSize: 14,
             fontFamily: 'Menlo, Monaco, "Courier New", monospace',
             scrollback: 1000,
-            // Disable mouse wheel sending arrow keys
-            scrollSensitivity: 0,
-            // Alternative: disable application cursor keys mode
+            // Disable all mouse events from being sent to the terminal
+            mouseEvents: false,
+            // Disable application cursor mode
             applicationCursor: false,
+            // Disable alternate screen buffer (used by vim, less, etc)
+            alternateScroll: false,
             theme: {
                 background: '#1e1e1e',
                 foreground: '#cccccc',
@@ -71,18 +73,45 @@ class WebTerminal {
         
         this.terminal.open(document.getElementById('terminal'));
         
-        // Disable mouse wheel from sending arrow keys
-        // Override the wheel event to prevent default terminal behavior
+        // Completely override mouse wheel behavior
         const terminalElement = document.getElementById('terminal');
-        terminalElement.addEventListener('wheel', (e) => {
-            // Prevent the terminal from interpreting wheel events as arrow keys
+        
+        // Capture wheel events at multiple levels
+        const preventWheel = (e) => {
+            // Stop the event completely
             e.preventDefault();
             e.stopPropagation();
+            e.stopImmediatePropagation();
             
-            // Allow normal scrolling of the terminal buffer
+            // Implement our own scrolling for the terminal buffer
             const scrollAmount = e.deltaY > 0 ? 3 : -3;
             this.terminal.scrollLines(scrollAmount);
-        }, { passive: false });
+            
+            return false;
+        };
+        
+        // Add listeners at capture phase to intercept early
+        terminalElement.addEventListener('wheel', preventWheel, { capture: true, passive: false });
+        terminalElement.addEventListener('mousewheel', preventWheel, { capture: true, passive: false });
+        terminalElement.addEventListener('DOMMouseScroll', preventWheel, { capture: true, passive: false });
+        
+        // Also prevent on the terminal's viewport element if it exists
+        setTimeout(() => {
+            const viewport = terminalElement.querySelector('.xterm-viewport');
+            if (viewport) {
+                viewport.addEventListener('wheel', preventWheel, { capture: true, passive: false });
+                viewport.addEventListener('mousewheel', preventWheel, { capture: true, passive: false });
+                viewport.addEventListener('DOMMouseScroll', preventWheel, { capture: true, passive: false });
+            }
+            
+            // Also on the screen element
+            const screen = terminalElement.querySelector('.xterm-screen');
+            if (screen) {
+                screen.addEventListener('wheel', preventWheel, { capture: true, passive: false });
+                screen.addEventListener('mousewheel', preventWheel, { capture: true, passive: false });
+                screen.addEventListener('DOMMouseScroll', preventWheel, { capture: true, passive: false });
+            }
+        }, 100);
         
         // Fit terminal to container
         if (this.fitAddon) {
@@ -123,6 +152,13 @@ class WebTerminal {
         });
         
         this.terminal.onData(data => {
+            // Filter out mouse-related escape sequences
+            // Mouse sequences typically start with \x1b[M or \x1b[< 
+            if (data.includes('\x1b[M') || data.includes('\x1b[<')) {
+                console.log('Filtered mouse escape sequence');
+                return;
+            }
+            
             if (this.isConnected && this.ws && this.ws.readyState === WebSocket.OPEN) {
                 this.ws.send(JSON.stringify({
                     type: 'Input',
