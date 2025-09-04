@@ -117,6 +117,22 @@ impl SessionManager {
             }
         }
         
+        // Set global history limit for all sessions
+        let _ = Command::new("tmux")
+            .env("TMUX_TMPDIR", socket_path)
+            .args(&["-S", &format!("{}/default", socket_path)])
+            .args(&["set-option", "-g", "history-limit", "100000"])
+            .output();
+        debug!("Set global tmux history-limit to 100000");
+        
+        // Globally disable mouse mode to prevent scroll-to-arrow-key conversion
+        let _ = Command::new("tmux")
+            .env("TMUX_TMPDIR", socket_path)
+            .args(&["-S", &format!("{}/default", socket_path)])
+            .args(&["set-option", "-g", "mouse", "off"])
+            .output();
+        debug!("Globally disabled tmux mouse mode");
+        
         // Verify server is working by listing sessions with same socket path
         let verify = Command::new("tmux")
             .env("TMUX_TMPDIR", socket_path)
@@ -236,6 +252,42 @@ impl SessionManager {
         let _ = Command::new("tmux")
             .args(&["set-window-option", "-t", &session_name, "window-size", "smallest"])
             .output();
+        
+        // Set large history limit to preserve session content
+        let _ = Command::new("tmux")
+            .args(&["set-option", "-t", &session_name, "history-limit", "100000"])
+            .output();
+        
+        // Explicitly disable ALL mouse-related features to prevent scroll-to-arrow-key conversion
+        let _ = Command::new("tmux")
+            .args(&["set-option", "-t", &session_name, "mouse", "off"])
+            .output();
+        
+        // Disable mouse in copy mode
+        let _ = Command::new("tmux")
+            .args(&["set-option", "-t", &session_name, "mode-mouse", "off"])
+            .output();
+        
+        // Disable all mouse buttons
+        let _ = Command::new("tmux")
+            .args(&["set-option", "-t", &session_name, "mouse-select-pane", "off"])
+            .output();
+        let _ = Command::new("tmux")
+            .args(&["set-option", "-t", &session_name, "mouse-select-window", "off"])
+            .output();
+        let _ = Command::new("tmux")
+            .args(&["set-option", "-t", &session_name, "mouse-resize-pane", "off"])
+            .output();
+        
+        // Also disable terminal mouse features
+        let _ = Command::new("tmux")
+            .args(&["set-option", "-t", &session_name, "terminal-features", "*:no-mouse"])
+            .output();
+        
+        // Disable terminal overrides that might enable mouse
+        let _ = Command::new("tmux")
+            .args(&["set-option", "-t", &session_name, "terminal-overrides", "*:no-mouse:no-scroll"])
+            .output();
 
         let session = TmuxSession {
             id: Uuid::new_v4().to_string(),
@@ -344,6 +396,50 @@ impl SessionManager {
         Ok(())
     }
 
+    pub fn disable_mouse_for_session(&self, session_name: &str) {
+        if !self.tmux_available {
+            return;
+        }
+        
+        // Disable ALL mouse-related options for the session
+        let _ = Command::new("tmux")
+            .args(&["set-option", "-t", session_name, "mouse", "off"])
+            .output();
+        
+        // For older tmux versions
+        let _ = Command::new("tmux")
+            .args(&["set-option", "-t", session_name, "mode-mouse", "off"])
+            .output();
+        let _ = Command::new("tmux")
+            .args(&["set-option", "-t", session_name, "mouse-select-pane", "off"])
+            .output();
+        let _ = Command::new("tmux")
+            .args(&["set-option", "-t", session_name, "mouse-select-window", "off"])
+            .output();
+        let _ = Command::new("tmux")
+            .args(&["set-option", "-t", session_name, "mouse-resize-pane", "off"])
+            .output();
+        
+        // Disable terminal mouse features
+        let _ = Command::new("tmux")
+            .args(&["set-option", "-t", session_name, "terminal-features", "*:no-mouse"])
+            .output();
+        
+        // Set terminal overrides to explicitly disable mouse
+        let _ = Command::new("tmux")
+            .args(&["set-option", "-t", session_name, "terminal-overrides", "*:Ms=\\E]52;c;%p1%s\\007:no-mouse:no-scroll"])
+            .output();
+        
+        // Don't send escape sequences as they appear as text in the terminal
+        
+        // Send a refresh to apply the changes
+        let _ = Command::new("tmux")
+            .args(&["refresh-client", "-t", session_name])
+            .output();
+        
+        debug!("Comprehensively disabled all mouse modes for session: {}", session_name);
+    }
+    
     pub fn resize_session(&self, session_name: &str, cols: u16, rows: u16) -> Result<(), Error> {
         if !self.tmux_available {
             return Ok(());

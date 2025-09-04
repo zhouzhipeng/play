@@ -136,6 +136,8 @@ async fn handle_socket(socket: WebSocket, session_manager: Arc<SessionManager>) 
                                         
                                         if session_manager.is_tmux_available() {
                                             let _ = session_manager.attach_to_session(&session_name);
+                                            // Force disable mouse mode after attaching
+                                            session_manager.disable_mouse_for_session(&session_name);
                                         }
                                         
                                         terminal = Some(local_term);
