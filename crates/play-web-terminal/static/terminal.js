@@ -34,14 +34,11 @@ class WebTerminal {
             cursorBlink: true,
             fontSize: 14,
             fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-            scrollback: 10000, // Large scrollback buffer
+            scrollback: 999999, // Maximum scrollback buffer to never lose history
             convertEol: true,
-            // Disable mouse wheel scrolling to prevent arrow key simulation
-            wheelScrollLines: 0,
-            // Disable alternate buffer scrolling
-            alternateScroll: false,
-            // Disable mouse event reporting to the terminal
-            mouseEvents: false,
+            // Completely disable mouse events
+            disableStdin: false,
+            logLevel: 'off',
             theme: {
                 background: '#1e1e1e',
                 foreground: '#cccccc',
@@ -74,19 +71,35 @@ class WebTerminal {
         
         this.terminal.open(document.getElementById('terminal'));
         
-        // Prevent wheel events from being processed by xterm
+        // Completely block wheel events from reaching the terminal
         const terminalElement = document.getElementById('terminal');
         if (terminalElement) {
-            // Stop wheel events from reaching xterm's internal handlers
-            terminalElement.addEventListener('wheel', (e) => {
+            // Stop all wheel events completely - use scrollbar instead
+            const blockWheel = (e) => {
+                e.stopImmediatePropagation();
                 e.stopPropagation();
-                // Let the browser handle page scrolling naturally
-            }, { capture: true });
+                e.preventDefault();
+                return false;
+            };
+            
+            // Add multiple listeners to ensure we catch everything
+            terminalElement.addEventListener('wheel', blockWheel, { passive: false, capture: true });
+            terminalElement.addEventListener('mousewheel', blockWheel, { passive: false, capture: true });
+            terminalElement.addEventListener('DOMMouseScroll', blockWheel, { passive: false, capture: true });
+            
+            // Also block on the viewport after it's created
+            setTimeout(() => {
+                const viewport = terminalElement.querySelector('.xterm-viewport');
+                if (viewport) {
+                    viewport.addEventListener('wheel', blockWheel, { passive: false, capture: true });
+                    viewport.addEventListener('mousewheel', blockWheel, { passive: false, capture: true });
+                    viewport.addEventListener('DOMMouseScroll', blockWheel, { passive: false, capture: true });
+                }
+            }, 100);
         }
         
         // Fit terminal to container
         if (this.fitAddon) {
-            // Initial fit
             this.fitAddon.fit();
             // Fit after a short delay to ensure proper sizing
             setTimeout(() => {
@@ -101,17 +114,21 @@ class WebTerminal {
         window.addEventListener('resize', () => {
             clearTimeout(resizeTimeout);
             resizeTimeout = setTimeout(() => {
-                if (this.fitAddon && this.fitAddon.fit) {
+                if (this.fitAddon) {
                     this.fitAddon.fit();
-                    if (this.isConnected && this.ws) {
-                        this.sendResize();
-                    }
+                }
+                if (this.isConnected && this.ws) {
+                    this.sendResize();
                 }
             }, 100);
         });
         
-        // Add keyboard shortcut for manual reconnect (Ctrl+R or Cmd+R)
+        // Track keyboard events to distinguish from scroll-generated events
+        this.lastKeyboardEvent = 0;
         window.addEventListener('keydown', (e) => {
+            // Mark that a real keyboard event happened
+            this.lastKeyboardEvent = Date.now();
+            
             if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
                 if (!this.isConnected && (!this.ws || this.ws.readyState === WebSocket.CLOSED)) {
                     e.preventDefault();
@@ -123,11 +140,28 @@ class WebTerminal {
         });
         
         this.terminal.onData(data => {
-            // Filter out mouse-related escape sequences
-            // Mouse sequences typically start with \x1b[M or \x1b[< 
-            if (data.includes('\x1b[M') || data.includes('\x1b[<')) {
-                console.log('Filtered mouse escape sequence');
-                return;
+            // Filter out mouse and arrow key escape sequences
+            // Mouse sequences: \x1b[M or \x1b[<
+            // Arrow keys: \x1b[A (up), \x1b[B (down), \x1b[C (right), \x1b[D (left)
+            // Also filter \x1bOA, \x1bOB, \x1bOC, \x1bOD (alternate arrow key codes)
+            if (data.includes('\x1b[M') || 
+                data.includes('\x1b[<') ||
+                data === '\x1b[A' || 
+                data === '\x1b[B' || 
+                data === '\x1b[C' || 
+                data === '\x1b[D' ||
+                data === '\x1bOA' || 
+                data === '\x1bOB' || 
+                data === '\x1bOC' || 
+                data === '\x1bOD') {
+                // Check if this is from actual keyboard input
+                if (this.lastKeyboardEvent && (Date.now() - this.lastKeyboardEvent) < 50) {
+                    // This is from keyboard, allow it
+                } else {
+                    // This is likely from scroll, block it
+                    console.log('Filtered scroll-generated arrow key');
+                    return;
+                }
             }
             
             if (this.isConnected && this.ws && this.ws.readyState === WebSocket.OPEN) {
@@ -249,11 +283,11 @@ class WebTerminal {
                         document.title = `Web Terminal - ${this.currentSession}`;
                     }
                     
-                    // Ensure proper sizing after connection
+                    // Fit terminal and send dimensions to backend
                     if (this.fitAddon) {
                         this.fitAddon.fit();
                     }
-                    // Send resize after fitting
+                    
                     setTimeout(() => {
                         this.sendResize();
                         if (this.tmuxAvailable) {
@@ -380,7 +414,7 @@ class WebTerminal {
     
     sendResize() {
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            // If fitAddon is available, use it; otherwise use terminal dimensions
+            // Use fitAddon to get current dimensions if available
             if (this.fitAddon && this.fitAddon.proposeDimensions) {
                 const dims = this.fitAddon.proposeDimensions();
                 if (dims) {
@@ -391,7 +425,7 @@ class WebTerminal {
                     }));
                 }
             } else if (this.terminal) {
-                // Fallback to terminal's cols/rows
+                // Fallback to terminal's current dimensions
                 this.ws.send(JSON.stringify({
                     type: 'Resize',
                     cols: this.terminal.cols || 80,
