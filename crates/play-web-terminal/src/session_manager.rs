@@ -1,6 +1,7 @@
 use crate::error::Error;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::env;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 use tracing::{debug, error, info, warn};
@@ -48,22 +49,29 @@ impl SessionManager {
 
         manager
     }
+
+    fn desired_history_limit() -> String {
+        // Prefer app-specific env, fallback to generic tmux var, then a larger default
+        env::var("WEB_TERMINAL_TMUX_HISTORY_LIMIT")
+            .or_else(|_| env::var("TMUX_HISTORY_LIMIT"))
+            .unwrap_or_else(|_| "200000".to_string())
+    }
     
     fn setup_persistent_tmux_socket() {
-        // Use a persistent location for tmux socket (not /tmp which can be cleared)
-        if let Ok(home) = std::env::var("DATA_DIR") {
-            let socket_dir = PathBuf::from(&home).join(".tmux");
-            
-            // Create the directory if it doesn't exist
-            if let Err(e) = std::fs::create_dir_all(&socket_dir) {
-                warn!("Failed to create tmux socket directory: {}", e);
-                return;
-            }
-            
-            // Set TMUX_TMPDIR to use our persistent location
-            std::env::set_var("TMUX_TMPDIR", socket_dir.to_str().unwrap_or(""));
-            debug!("Set TMUX_TMPDIR to: {:?}", socket_dir);
+        // Use a persistent location for tmux socket (prefer DATA_DIR or HOME)
+        let base_dir = std::env::var("DATA_DIR")
+            .or_else(|_| std::env::var("HOME"))
+            .unwrap_or_else(|_| "/tmp".to_string());
+        let socket_dir = PathBuf::from(&base_dir).join(".tmux");
+
+        // Create the directory if it doesn't exist
+        if let Err(e) = std::fs::create_dir_all(&socket_dir) {
+            warn!("Failed to create tmux socket directory: {}", e);
+            return;
         }
+        // Set TMUX_TMPDIR to use our persistent location for ALL tmux commands
+        std::env::set_var("TMUX_TMPDIR", socket_dir.to_str().unwrap_or(""));
+        debug!("Set TMUX_TMPDIR to: {:?}", socket_dir);
     }
     
     fn ensure_tmux_server() {
@@ -121,9 +129,12 @@ impl SessionManager {
         let _ = Command::new("tmux")
             .env("TMUX_TMPDIR", socket_path)
             .args(&["-S", &format!("{}/default", socket_path)])
-            .args(&["set-option", "-g", "history-limit", "100000"])
+            .args(&["set-option", "-g", "history-limit", &Self::desired_history_limit()])
             .output();
-        debug!("Set global tmux history-limit to 100000");
+        debug!(
+            "Set global tmux history-limit to {}",
+            Self::desired_history_limit()
+        );
         
         // Globally disable mouse mode to prevent scroll-to-arrow-key conversion
         let _ = Command::new("tmux")
@@ -132,6 +143,16 @@ impl SessionManager {
             .args(&["set-option", "-g", "mouse", "off"])
             .output();
         debug!("Globally disabled tmux mouse mode");
+
+        // Optionally disable alternate screen globally to improve web scroll UX
+        if std::env::var("WEB_TERMINAL_DISABLE_ALT_SCREEN").map(|v| v == "1" || v.to_lowercase() == "true").unwrap_or(false) {
+            let _ = Command::new("tmux")
+                .env("TMUX_TMPDIR", socket_path)
+                .args(&["-S", &format!("{}/default", socket_path)])
+                .args(&["set-option", "-ag", "terminal-overrides", ",*:smcup@:rmcup@"])
+                .output();
+            debug!("Appended terminal-overrides to disable alt screen globally (smcup/rmcup)");
+        }
         
         // Verify server is working by listing sessions with same socket path
         let verify = Command::new("tmux")
@@ -253,9 +274,9 @@ impl SessionManager {
             .args(&["set-window-option", "-t", &session_name, "window-size", "smallest"])
             .output();
         
-        // Set large history limit to preserve session content
+        // Set history limit to preserve session content
         let _ = Command::new("tmux")
-            .args(&["set-option", "-t", &session_name, "history-limit", "100000"])
+            .args(&["set-option", "-t", &session_name, "history-limit", &Self::desired_history_limit()])
             .output();
         
         // Explicitly disable ALL mouse-related features to prevent scroll-to-arrow-key conversion
@@ -288,6 +309,13 @@ impl SessionManager {
         let _ = Command::new("tmux")
             .args(&["set-option", "-t", &session_name, "terminal-overrides", "*:no-mouse:no-scroll"])
             .output();
+
+        // Optionally disable alternate screen for the session
+        if std::env::var("WEB_TERMINAL_DISABLE_ALT_SCREEN").map(|v| v == "1" || v.to_lowercase() == "true").unwrap_or(false) {
+            let _ = Command::new("tmux")
+                .args(&["set-option", "-ag", "-t", &session_name, "terminal-overrides", ",*:smcup@:rmcup@"])
+                .output();
+        }
 
         let session = TmuxSession {
             id: Uuid::new_v4().to_string(),
@@ -351,10 +379,23 @@ impl SessionManager {
             session.last_accessed = chrono::Utc::now();
             session.attached_clients += 1;
             self.sessions.lock().unwrap().insert(name.to_string(), session);
+            // Ensure history limit matches configured value for existing sessions
+            self.ensure_session_history_limit(name);
             Ok(())
         } else {
             Err(Error::Custom(format!("Session '{}' not found", name)))
         }
+    }
+
+    pub fn ensure_session_history_limit(&self, session_name: &str) {
+        if !self.tmux_available {
+            return;
+        }
+        let limit = Self::desired_history_limit();
+        let _ = Command::new("tmux")
+            .args(&["set-option", "-t", session_name, "history-limit", &limit])
+            .output();
+        debug!("Ensured tmux history-limit for {} is {}", session_name, limit);
     }
 
     pub fn detach_from_session(&self, name: &str) -> Result<(), Error> {
@@ -438,6 +479,59 @@ impl SessionManager {
             .output();
         
         debug!("Comprehensively disabled all mouse modes for session: {}", session_name);
+    }
+    
+    pub fn scroll_session(&self, session_name: &str, direction: &str, lines: u32) -> Result<(), Error> {
+        if !self.tmux_available {
+            return Err(Error::Custom("tmux is not available".to_string()));
+        }
+
+        // Enter copy-mode (harmless if already in copy-mode)
+        let _ = Command::new("tmux")
+            .args(&["copy-mode", "-t", session_name])
+            .output();
+
+        let cmd = match direction {
+            "up" => "scroll-up",
+            "down" => "scroll-down",
+            _ => "scroll-up",
+        };
+
+        // For large values, try page/half-page for fewer invocations
+        let mut remaining = lines as i64;
+        // Use page size approximations; tmux will handle safely even if screen smaller
+        while remaining > 0 {
+            if remaining >= 20 {
+                let action = if direction == "up" { "page-up" } else { "page-down" };
+                let _ = Command::new("tmux")
+                    .args(&["send-keys", "-t", session_name, "-X", action])
+                    .output();
+                remaining -= 20;
+            } else if remaining >= 10 {
+                let action = if direction == "up" { "halfpage-up" } else { "halfpage-down" };
+                let _ = Command::new("tmux")
+                    .args(&["send-keys", "-t", session_name, "-X", action])
+                    .output();
+                remaining -= 10;
+            } else {
+                // Send line-by-line for the remainder
+                for _ in 0..remaining {
+                    let _ = Command::new("tmux")
+                        .args(&["send-keys", "-t", session_name, "-X", cmd])
+                        .output();
+                }
+                remaining = 0;
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn cancel_copy_mode(&self, session_name: &str) {
+        if !self.tmux_available { return; }
+        let _ = Command::new("tmux")
+            .args(&["send-keys", "-t", session_name, "-X", "cancel"])
+            .output();
     }
     
     pub fn resize_session(&self, session_name: &str, cols: u16, rows: u16) -> Result<(), Error> {
