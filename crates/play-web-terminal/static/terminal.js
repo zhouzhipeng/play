@@ -16,11 +16,23 @@ class WebTerminal {
         // Session management
         this.currentSession = null;
         this.tmuxAvailable = false;
+        // Scroll strategy for tmux sessions (default: auto)
+        this.tmuxScrollMode = 'auto'; // 'auto' | 'dom' | 'tmux'
         
         this.initializeTerminal();
         this.setupEventListeners();
         this.setupSessionUI();
         this.connect(); // Auto-connect on load
+    }
+
+    setScrollMode(mode) {
+        const allowed = ['auto', 'dom', 'tmux'];
+        if (allowed.includes(mode)) {
+            this.tmuxScrollMode = mode;
+            console.log('[WebTerminal] tmuxScrollMode =', mode);
+        } else {
+            console.warn('[WebTerminal] Invalid scroll mode:', mode);
+        }
     }
     
     setupWheelHandler() {
@@ -40,7 +52,8 @@ class WebTerminal {
         const flushWheel = () => {
             if (wheelAccum === 0) return;
             const direction = wheelAccum < 0 ? 'up' : 'down';
-            const lines = Math.min(200, Math.max(1, Math.round(Math.abs(wheelAccum) / 40)));
+            const lineUnit = /Mac/i.test(navigator.platform) ? 50 : 40; // pixels per line heuristic
+            const lines = Math.min(100, Math.max(1, Math.round(Math.abs(wheelAccum) / lineUnit)));
             wheelAccum = 0;
             if (this.currentSession && this.tmuxAvailable && this.ws && this.ws.readyState === WebSocket.OPEN) {
                 this.ws.send(JSON.stringify({ type: 'TmuxScroll', direction, lines }));
@@ -55,10 +68,30 @@ class WebTerminal {
                 e.stopPropagation();
                 if (e.stopImmediatePropagation) e.stopImmediatePropagation();
 
-                // Accumulate and throttle scroll to tmux copy-mode
-                wheelAccum += e.deltaY;
-                if (wheelFlushTimer) clearTimeout(wheelFlushTimer);
-                wheelFlushTimer = setTimeout(flushWheel, 30);
+                const viewport = container.querySelector('.xterm-viewport');
+                const canDomScroll = !!(viewport && viewport.scrollHeight > viewport.clientHeight);
+
+                // Auto mode: try DOM when possible for smoothness + scrollbar; fall back to tmux at edges or when no scrollback
+                const useDom = (this.tmuxScrollMode === 'dom') || (this.tmuxScrollMode === 'auto' && canDomScroll);
+                if (useDom && viewport) {
+                    const atTop = viewport.scrollTop <= 0;
+                    const atBottom = viewport.scrollTop + viewport.clientHeight >= viewport.scrollHeight - 1;
+                    const goingUp = e.deltaY < 0;
+                    const goingDown = e.deltaY > 0;
+
+                    if ((goingUp && atTop) || (goingDown && atBottom)) {
+                        wheelAccum += e.deltaY;
+                        if (wheelFlushTimer) clearTimeout(wheelFlushTimer);
+                        wheelFlushTimer = setTimeout(flushWheel, 16);
+                    } else {
+                        viewport.scrollTop += e.deltaY;
+                    }
+                } else {
+                    // Accumulate and throttle scroll to tmux copy-mode
+                    wheelAccum += e.deltaY;
+                    if (wheelFlushTimer) clearTimeout(wheelFlushTimer);
+                    wheelFlushTimer = setTimeout(flushWheel, 16);
+                }
                 return false;
             }
             return true;
