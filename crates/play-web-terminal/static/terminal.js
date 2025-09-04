@@ -34,10 +34,14 @@ class WebTerminal {
             cursorBlink: true,
             fontSize: 14,
             fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-            scrollback: 1000,
-            // Disable all mouse events and scrolling features
-            disableStdin: false,
-            scrollSensitivity: 1,
+            scrollback: 10000, // Large scrollback buffer
+            convertEol: true,
+            // Disable mouse wheel scrolling to prevent arrow key simulation
+            wheelScrollLines: 0,
+            // Disable alternate buffer scrolling
+            alternateScroll: false,
+            // Disable mouse event reporting to the terminal
+            mouseEvents: false,
             theme: {
                 background: '#1e1e1e',
                 foreground: '#cccccc',
@@ -69,6 +73,16 @@ class WebTerminal {
         }
         
         this.terminal.open(document.getElementById('terminal'));
+        
+        // Prevent wheel events from being processed by xterm
+        const terminalElement = document.getElementById('terminal');
+        if (terminalElement) {
+            // Stop wheel events from reaching xterm's internal handlers
+            terminalElement.addEventListener('wheel', (e) => {
+                e.stopPropagation();
+                // Let the browser handle page scrolling naturally
+            }, { capture: true });
+        }
         
         // Fit terminal to container
         if (this.fitAddon) {
