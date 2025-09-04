@@ -23,6 +23,44 @@ class WebTerminal {
         this.connect(); // Auto-connect on load
     }
     
+    setupWheelHandler() {
+        const terminalElement = document.getElementById('terminal');
+        if (!terminalElement) return;
+        
+        const handleWheel = (e) => {
+            // If we're in a tmux session, completely prevent wheel events
+            // This stops tmux from converting scroll to arrow keys
+            if (this.currentSession && this.tmuxAvailable) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                
+                // Manually scroll the terminal viewport
+                const viewport = terminalElement.querySelector('.xterm-viewport');
+                if (viewport) {
+                    // Scroll the viewport directly
+                    viewport.scrollTop += e.deltaY;
+                }
+                return false;
+            }
+            // For local terminal, allow normal scrolling
+        };
+        
+        // Add wheel listener with ability to prevent default for tmux
+        terminalElement.addEventListener('wheel', handleWheel, { passive: false, capture: true });
+        
+        // Store handler for later updates
+        this.wheelHandler = handleWheel;
+        
+        // Also handle on the viewport after it's created
+        setTimeout(() => {
+            const viewport = terminalElement.querySelector('.xterm-viewport');
+            if (viewport) {
+                viewport.addEventListener('wheel', handleWheel, { passive: false, capture: true });
+            }
+        }, 100);
+    }
+    
     initializeTerminal() {
         // Check if Terminal is loaded
         if (typeof Terminal === 'undefined') {
@@ -34,35 +72,36 @@ class WebTerminal {
             cursorBlink: true,
             fontSize: 14,
             fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-            scrollback: 10000, // Large scrollback buffer
+            scrollback: 999999, // Maximum scrollback buffer to never lose history
             convertEol: true,
-            // Disable mouse wheel scrolling to prevent arrow key simulation
-            wheelScrollLines: 0,
-            // Disable alternate buffer scrolling
-            alternateScroll: false,
-            // Disable mouse event reporting to the terminal
-            mouseEvents: false,
+            // Mouse configuration: allow scrolling but disable mouse input events
+            disableStdin: false, // Keep false to allow keyboard input
+            // Disable all mouse tracking modes to prevent mouse events from generating input
+            mouseEvents: false, // Disable mouse event tracking
+            logLevel: 'off',
             theme: {
-                background: '#1e1e1e',
-                foreground: '#cccccc',
-                cursor: '#ffffff',
-                selection: '#264f78',
-                black: '#000000',
-                red: '#cd3131',
-                green: '#0dbc79',
-                yellow: '#e5e510',
-                blue: '#2472c8',
-                magenta: '#bc3fbc',
-                cyan: '#11a8cd',
-                white: '#e5e5e5',
-                brightBlack: '#666666',
-                brightRed: '#f14c4c',
-                brightGreen: '#23d18b',
-                brightYellow: '#f5f543',
-                brightBlue: '#3b8eea',
-                brightMagenta: '#d670d6',
-                brightCyan: '#29b8db',
-                brightWhite: '#e5e5e5'
+                // Zellij-inspired Catppuccin Mocha theme
+                background: '#1e1e2e',
+                foreground: '#cdd6f4',
+                cursor: '#f5e0dc',
+                cursorAccent: '#1e1e2e',
+                selection: 'rgba(137, 180, 250, 0.3)',
+                black: '#45475a',
+                red: '#f38ba8',
+                green: '#a6e3a1',
+                yellow: '#f9e2af',
+                blue: '#89b4fa',
+                magenta: '#f5c2e7',
+                cyan: '#94e2d5',
+                white: '#bac2de',
+                brightBlack: '#585b70',
+                brightRed: '#f38ba8',
+                brightGreen: '#a6e3a1',
+                brightYellow: '#f9e2af',
+                brightBlue: '#89b4fa',
+                brightMagenta: '#f5c2e7',
+                brightCyan: '#94e2d5',
+                brightWhite: '#a6adc8'
             }
         });
         
@@ -74,19 +113,11 @@ class WebTerminal {
         
         this.terminal.open(document.getElementById('terminal'));
         
-        // Prevent wheel events from being processed by xterm
-        const terminalElement = document.getElementById('terminal');
-        if (terminalElement) {
-            // Stop wheel events from reaching xterm's internal handlers
-            terminalElement.addEventListener('wheel', (e) => {
-                e.stopPropagation();
-                // Let the browser handle page scrolling naturally
-            }, { capture: true });
-        }
+        // Store reference for wheel handler
+        this.setupWheelHandler();
         
         // Fit terminal to container
         if (this.fitAddon) {
-            // Initial fit
             this.fitAddon.fit();
             // Fit after a short delay to ensure proper sizing
             setTimeout(() => {
@@ -101,16 +132,15 @@ class WebTerminal {
         window.addEventListener('resize', () => {
             clearTimeout(resizeTimeout);
             resizeTimeout = setTimeout(() => {
-                if (this.fitAddon && this.fitAddon.fit) {
+                if (this.fitAddon) {
                     this.fitAddon.fit();
-                    if (this.isConnected && this.ws) {
-                        this.sendResize();
-                    }
+                }
+                if (this.isConnected && this.ws) {
+                    this.sendResize();
                 }
             }, 100);
         });
         
-        // Add keyboard shortcut for manual reconnect (Ctrl+R or Cmd+R)
         window.addEventListener('keydown', (e) => {
             if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
                 if (!this.isConnected && (!this.ws || this.ws.readyState === WebSocket.CLOSED)) {
@@ -123,10 +153,10 @@ class WebTerminal {
         });
         
         this.terminal.onData(data => {
-            // Filter out mouse-related escape sequences
-            // Mouse sequences typically start with \x1b[M or \x1b[< 
+            // Filter out mouse escape sequences only
+            // Mouse sequences: \x1b[M or \x1b[<
             if (data.includes('\x1b[M') || data.includes('\x1b[<')) {
-                console.log('Filtered mouse escape sequence');
+                console.log('Filtered mouse event');
                 return;
             }
             
@@ -209,7 +239,8 @@ class WebTerminal {
         
         this.ws.onopen = () => {
             clearTimeout(connectionTimeout); // Clear timeout on successful connection
-            this.terminal.clear();
+            // Don't clear terminal to preserve session history
+            // this.terminal.clear();
             this.reconnectAttempts = 0; // Reset on successful connection
             this.reconnectDelay = 1000; // Reset delay
             this.isHandlingDisconnect = false; // Ensure flag is reset
@@ -244,16 +275,19 @@ class WebTerminal {
                     this.updateSessionUI();
                     this.terminal.focus();
                     
+                    // Re-setup wheel handler now that we know the session type
+                    this.setupWheelHandler();
+                    
                     // Update page title if connected to a specific session
                     if (this.currentSession) {
                         document.title = `Web Terminal - ${this.currentSession}`;
                     }
                     
-                    // Ensure proper sizing after connection
+                    // Fit terminal and send dimensions to backend
                     if (this.fitAddon) {
                         this.fitAddon.fit();
                     }
-                    // Send resize after fitting
+                    
                     setTimeout(() => {
                         this.sendResize();
                         if (this.tmuxAvailable) {
@@ -380,7 +414,7 @@ class WebTerminal {
     
     sendResize() {
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            // If fitAddon is available, use it; otherwise use terminal dimensions
+            // Use fitAddon to get current dimensions if available
             if (this.fitAddon && this.fitAddon.proposeDimensions) {
                 const dims = this.fitAddon.proposeDimensions();
                 if (dims) {
@@ -391,7 +425,7 @@ class WebTerminal {
                     }));
                 }
             } else if (this.terminal) {
-                // Fallback to terminal's cols/rows
+                // Fallback to terminal's current dimensions
                 this.ws.send(JSON.stringify({
                     type: 'Resize',
                     cols: this.terminal.cols || 80,
@@ -472,20 +506,21 @@ class WebTerminal {
                 }
                 
                 .session-toggle {
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    color: white;
-                    border: none;
-                    padding: 8px 12px;
-                    border-radius: 20px;
+                    background: linear-gradient(135deg, #89b4fa 0%, #cba6f7 100%);
+                    color: #1e1e2e;
+                    border: 1px solid rgba(137, 180, 250, 0.3);
+                    padding: 8px 16px;
+                    border-radius: 24px;
                     cursor: pointer;
                     display: flex;
                     align-items: center;
-                    gap: 6px;
-                    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-                    transition: all 0.3s ease;
-                    font-size: 12px;
+                    gap: 8px;
+                    box-shadow: 0 4px 12px rgba(137, 180, 250, 0.2);
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                    font-size: 13px;
                     font-weight: 600;
                     max-width: 200px;
+                    letter-spacing: 0.3px;
                 }
                 
                 #session-toggle-text {

@@ -3,85 +3,190 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Terminal</title>
+    <title>Zellij-style Terminal</title>
     <link rel="stylesheet" href="/web-terminal/assets/xterm.min.css" />
     <style>
+        :root {
+            /* Zellij-inspired color palette (Catppuccin-like) */
+            --bg-base: #1e1e2e;
+            --bg-surface: #313244;
+            --bg-overlay: #45475a;
+            --text-primary: #cdd6f4;
+            --text-secondary: #a6adc8;
+            --text-dim: #7f849c;
+            --accent-green: #a6e3a1;
+            --accent-teal: #94e2d5;
+            --accent-blue: #89b4fa;
+            --accent-mauve: #cba6f7;
+            --accent-pink: #f5c2e7;
+            --accent-peach: #fab387;
+            --accent-red: #f38ba8;
+            --accent-yellow: #f9e2af;
+            --border-subtle: rgba(147, 153, 178, 0.2);
+            --border-active: rgba(137, 180, 250, 0.5);
+        }
+        
+        * {
+            box-sizing: border-box;
+        }
+        
         body {
             margin: 0;
             padding: 0;
-            background: #1e1e1e;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            overflow-y: auto;
-            min-height: 100vh;
+            background: var(--bg-base);
+            font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            color: var(--text-primary);
         }
         
         .header {
-            background: #2d2d30;
-            padding: 10px 20px;
-            border-bottom: 1px solid #3e3e42;
+            background: var(--bg-surface);
+            padding: 12px 24px;
+            border-bottom: 1px solid var(--border-subtle);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            position: sticky;
-            top: 0;
-            z-index: 100;
+            flex-shrink: 0;
+            backdrop-filter: blur(10px);
+            background: linear-gradient(90deg, 
+                rgba(49, 50, 68, 0.95) 0%, 
+                rgba(69, 71, 90, 0.95) 100%);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
         }
         
         .title {
-            color: #ccc;
-            font-size: 16px;
-            font-weight: 500;
+            color: var(--text-primary);
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .title::before {
+            content: '';
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, var(--accent-teal) 0%, var(--accent-blue) 100%);
+            border-radius: 6px;
+            display: inline-block;
+            box-shadow: 0 2px 8px rgba(137, 180, 250, 0.3);
         }
         
         .status {
-            padding: 5px 10px;
-            border-radius: 3px;
+            padding: 6px 14px;
+            border-radius: 20px;
             font-size: 12px;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+            transition: all 0.3s ease;
+            border: 1px solid transparent;
         }
         
         .status.connected {
-            background: #4caf50;
-            color: white;
+            background: linear-gradient(135deg, var(--accent-green), var(--accent-teal));
+            color: var(--bg-base);
+            box-shadow: 0 2px 8px rgba(166, 227, 161, 0.3);
+            animation: pulse-green 2s infinite;
         }
         
         .status.disconnected {
-            background: #f44336;
+            background: linear-gradient(135deg, var(--accent-red), var(--accent-pink));
             color: white;
+            box-shadow: 0 2px 8px rgba(243, 139, 168, 0.3);
         }
         
         .status.connecting {
-            background: #ff9800;
-            color: white;
+            background: linear-gradient(135deg, var(--accent-yellow), var(--accent-peach));
+            color: var(--bg-base);
+            box-shadow: 0 2px 8px rgba(250, 179, 135, 0.3);
+            animation: pulse-yellow 1s infinite;
+        }
+        
+        @keyframes pulse-green {
+            0%, 100% { box-shadow: 0 2px 8px rgba(166, 227, 161, 0.3); }
+            50% { box-shadow: 0 2px 16px rgba(166, 227, 161, 0.5); }
+        }
+        
+        @keyframes pulse-yellow {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
         }
         
         #terminal-container {
-            padding: 10px;
-            min-height: calc(100vh - 60px); /* Adjust based on header height */
+            flex: 1;
+            padding: 16px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        
+        #terminal-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 100px;
+            background: linear-gradient(180deg, 
+                rgba(137, 180, 250, 0.05) 0%, 
+                transparent 100%);
+            pointer-events: none;
         }
         
         #terminal {
-            height: auto;
-            min-height: 600px; /* Minimum height for terminal */
+            flex: 1;
+            overflow: hidden;
+            background: rgba(30, 30, 46, 0.6);
+            border-radius: 12px;
+            padding: 8px;
+            border: 1px solid var(--border-subtle);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(5px);
         }
         
-        /* Let xterm determine its own height */
+        /* Make xterm fill its container and use internal scrolling */
         .xterm {
-            height: auto;
+            height: 100%;
+            padding: 8px;
         }
         
+        /* Enable xterm's viewport scrolling */
         .xterm-viewport {
-            overflow-y: hidden !important; /* Disable xterm's internal scrolling */
-            height: auto !important;
+            overflow-y: scroll !important;
         }
         
-        .xterm-screen {
-            height: auto !important;
+        /* Custom scrollbar styling */
+        .xterm-viewport::-webkit-scrollbar {
+            width: 10px;
+        }
+        
+        .xterm-viewport::-webkit-scrollbar-track {
+            background: rgba(69, 71, 90, 0.3);
+            border-radius: 10px;
+        }
+        
+        .xterm-viewport::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, var(--accent-blue), var(--accent-mauve));
+            border-radius: 10px;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+        }
+        
+        .xterm-viewport::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(180deg, var(--accent-mauve), var(--accent-pink));
+            background-clip: padding-box;
         }
     </style>
 </head>
 <body>
     <div class="header">
-        <div class="title">Web Terminal</div>
+        <div class="title">Zellij Terminal</div>
         <div class="status connecting" id="status">Connecting...</div>
     </div>
     

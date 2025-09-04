@@ -137,6 +137,31 @@ impl LocalTerminal {
                         .args(&["set-option", "-t", session, "detach-on-destroy", "off"])
                         .output();
                     
+                    // Set large history limit to preserve session content
+                    let _ = Command::new("tmux")
+                        .args(&["set-option", "-t", session, "history-limit", "100000"])
+                        .output();
+                    
+                    // Explicitly disable ALL mouse-related features to prevent scroll-to-arrow-key conversion
+                    let _ = Command::new("tmux")
+                        .args(&["set-option", "-t", session, "mouse", "off"])
+                        .output();
+                    
+                    // Disable mouse in copy mode (for older tmux versions)
+                    let _ = Command::new("tmux")
+                        .args(&["set-option", "-t", session, "mode-mouse", "off"])
+                        .output();
+                    
+                    // Also disable terminal mouse features
+                    let _ = Command::new("tmux")
+                        .args(&["set-option", "-t", session, "terminal-features", "*:no-mouse"])
+                        .output();
+                    
+                    // Disable terminal overrides that might enable mouse
+                    let _ = Command::new("tmux")
+                        .args(&["set-option", "-t", session, "terminal-overrides", "*:no-mouse:no-scroll"])
+                        .output();
+                    
                     // Send cd command to change to DATA_DIR after session creation
                     if let Ok(data_dir) = std::env::var("DATA_DIR") {
                         let _ = Command::new("tmux")
@@ -198,6 +223,32 @@ impl LocalTerminal {
             };
             
             debug!("Local terminal started successfully with {}", spawn_msg);
+            
+            // If attaching to existing tmux session, capture and send the scrollback buffer
+            if use_tmux && session_name.is_some() {
+                let session = session_name.as_ref().unwrap();
+                // Capture the entire pane history including scrollback
+                // -p: output to stdout, -S -: start from beginning of history
+                let capture_output = Command::new("tmux")
+                    .args(&["capture-pane", "-t", session, "-p", "-S", "-"])
+                    .output();
+                
+                if let Ok(output) = capture_output {
+                    if output.status.success() {
+                        let history = String::from_utf8_lossy(&output.stdout);
+                        if !history.is_empty() {
+                            debug!("Captured {} bytes of tmux history", history.len());
+                            // Send the history to the client
+                            let rt_for_history = tokio::runtime::Handle::current();
+                            let _ = rt_for_history.block_on(tx.send(TerminalResponse::Output {
+                                data: history.to_string(),
+                            }));
+                        }
+                    } else {
+                        debug!("Failed to capture tmux pane: {:?}", String::from_utf8_lossy(&output.stderr));
+                    }
+                }
+            }
             
             // Get writer for the master PTY
             let mut writer = match pair.master.take_writer() {
