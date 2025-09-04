@@ -11,9 +11,8 @@
             padding: 0;
             background: #1e1e1e;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
+            overflow-y: auto;
+            min-height: 100vh;
         }
         
         .header {
@@ -23,6 +22,9 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
         
         .title {
@@ -53,27 +55,27 @@
         }
         
         #terminal-container {
-            flex: 1;
             padding: 10px;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            min-height: 0; /* Important for Firefox */
+            min-height: calc(100vh - 60px); /* Adjust based on header height */
         }
         
         #terminal {
-            flex: 1;
-            height: 100%;
-            overflow: hidden;
+            height: auto;
+            min-height: 600px; /* Minimum height for terminal */
         }
         
-        /* Ensure xterm canvas fills the container */
+        /* Let xterm determine its own height */
         .xterm {
-            height: 100%;
+            height: auto;
         }
         
         .xterm-viewport {
-            overflow-y: auto !important;
+            overflow-y: hidden !important; /* Disable xterm's internal scrolling */
+            height: auto !important;
+        }
+        
+        .xterm-screen {
+            height: auto !important;
         }
     </style>
 </head>
