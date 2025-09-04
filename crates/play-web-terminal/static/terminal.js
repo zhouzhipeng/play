@@ -73,51 +73,31 @@ class WebTerminal {
         
         this.terminal.open(document.getElementById('terminal'));
         
-        // Completely override mouse wheel behavior
+        // Handle mouse wheel behavior to prevent horizontal navigation but allow vertical scrolling
         const terminalElement = document.getElementById('terminal');
         
-        // Capture wheel events at multiple levels
-        const preventWheel = (e) => {
-            // Stop the event completely
-            e.preventDefault();
-            e.stopPropagation();
-            e.stopImmediatePropagation();
-            
-            // Check if horizontal scrolling (deltaX) is significant
-            // This prevents browser back/forward navigation on horizontal swipe
+        // Handle wheel events
+        const handleWheel = (e) => {
+            // Only prevent horizontal scrolling to avoid browser back/forward navigation
             if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
-                // Just prevent the default behavior for horizontal scrolling
-                // Don't scroll the terminal for horizontal movements
+                // Horizontal scroll detected - prevent browser navigation
+                e.preventDefault();
+                e.stopPropagation();
                 return false;
             }
             
-            // Implement our own scrolling for the terminal buffer (vertical only)
-            const scrollAmount = e.deltaY > 0 ? 3 : -3;
-            this.terminal.scrollLines(scrollAmount);
-            
-            return false;
+            // For vertical scrolling, let the terminal handle it naturally
+            // The terminal's built-in scrolling will work
         };
         
-        // Add listeners at capture phase to intercept early
-        terminalElement.addEventListener('wheel', preventWheel, { capture: true, passive: false });
-        terminalElement.addEventListener('mousewheel', preventWheel, { capture: true, passive: false });
-        terminalElement.addEventListener('DOMMouseScroll', preventWheel, { capture: true, passive: false });
+        // Add listener with passive: false to allow preventDefault when needed
+        terminalElement.addEventListener('wheel', handleWheel, { passive: false });
         
-        // Also prevent on the terminal's viewport element if it exists
+        // Also handle on the terminal's viewport element if it exists
         setTimeout(() => {
             const viewport = terminalElement.querySelector('.xterm-viewport');
             if (viewport) {
-                viewport.addEventListener('wheel', preventWheel, { capture: true, passive: false });
-                viewport.addEventListener('mousewheel', preventWheel, { capture: true, passive: false });
-                viewport.addEventListener('DOMMouseScroll', preventWheel, { capture: true, passive: false });
-            }
-            
-            // Also on the screen element
-            const screen = terminalElement.querySelector('.xterm-screen');
-            if (screen) {
-                screen.addEventListener('wheel', preventWheel, { capture: true, passive: false });
-                screen.addEventListener('mousewheel', preventWheel, { capture: true, passive: false });
-                screen.addEventListener('DOMMouseScroll', preventWheel, { capture: true, passive: false });
+                viewport.addEventListener('wheel', handleWheel, { passive: false });
             }
         }, 100);
         
