@@ -35,12 +35,9 @@ class WebTerminal {
             fontSize: 14,
             fontFamily: 'Menlo, Monaco, "Courier New", monospace',
             scrollback: 1000,
-            // Disable all mouse events from being sent to the terminal
-            mouseEvents: false,
-            // Disable application cursor mode
-            applicationCursor: false,
-            // Disable alternate screen buffer (used by vim, less, etc)
-            alternateScroll: false,
+            // Disable all mouse events and scrolling features
+            disableStdin: false,
+            scrollSensitivity: 1,
             theme: {
                 background: '#1e1e1e',
                 foreground: '#cccccc',
@@ -72,40 +69,6 @@ class WebTerminal {
         }
         
         this.terminal.open(document.getElementById('terminal'));
-        
-        // Handle mouse wheel behavior to prevent horizontal navigation and handle vertical scrolling
-        const terminalElement = document.getElementById('terminal');
-        
-        // Handle wheel events
-        const handleWheel = (e) => {
-            // Prevent default for all wheel events to avoid sending to terminal
-            e.preventDefault();
-            e.stopPropagation();
-            
-            // Check if horizontal scrolling (for browser back/forward prevention)
-            if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
-                // Horizontal scroll - just prevent it, don't do anything
-                return false;
-            }
-            
-            // For vertical scrolling, manually scroll the terminal buffer
-            // This scrolls the viewport without sending input to the terminal
-            const scrollAmount = e.deltaY > 0 ? 3 : -3;
-            this.terminal.scrollLines(scrollAmount);
-            
-            return false;
-        };
-        
-        // Add listener with passive: false to allow preventDefault
-        terminalElement.addEventListener('wheel', handleWheel, { passive: false });
-        
-        // Also handle on the terminal's viewport element if it exists
-        setTimeout(() => {
-            const viewport = terminalElement.querySelector('.xterm-viewport');
-            if (viewport) {
-                viewport.addEventListener('wheel', handleWheel, { passive: false });
-            }
-        }, 100);
         
         // Fit terminal to container
         if (this.fitAddon) {
