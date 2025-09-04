@@ -169,3 +169,7 @@ DELETE /web-terminal/api/sessions/{session_name}
 - Limit number of concurrent sessions
 - Close unused sessions to free resources
 - Monitor system load with `top` or `htop`
+
+## Configuration
+
+- `WEB_TERMINAL_TMUX_HISTORY_LIMIT` (or `TMUX_HISTORY_LIMIT`): Sets tmux pane scrollback history (lines). Defaults to `200000` if unset. This applies globally and is also enforced per-session when creating or attaching, so existing sessions get updated the next time you connect.

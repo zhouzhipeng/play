@@ -16,49 +16,120 @@ class WebTerminal {
         // Session management
         this.currentSession = null;
         this.tmuxAvailable = false;
+        // Scroll strategy for tmux sessions (default: auto)
+        this.tmuxScrollMode = 'auto'; // 'auto' | 'dom' | 'tmux'
         
         this.initializeTerminal();
         this.setupEventListeners();
         this.setupSessionUI();
         this.connect(); // Auto-connect on load
     }
+
+    setScrollMode(mode) {
+        const allowed = ['auto', 'dom', 'tmux'];
+        if (allowed.includes(mode)) {
+            this.tmuxScrollMode = mode;
+            console.log('[WebTerminal] tmuxScrollMode =', mode);
+        } else {
+            console.warn('[WebTerminal] Invalid scroll mode:', mode);
+        }
+    }
     
     setupWheelHandler() {
-        const terminalElement = document.getElementById('terminal');
-        if (!terminalElement) return;
-        
+        const container = document.getElementById('terminal');
+        if (!container) return;
+
+        // Clean up previous listeners
+        if (this._wheelDetachFns && Array.isArray(this._wheelDetachFns)) {
+            this._wheelDetachFns.forEach(fn => {
+                try { fn(); } catch (_) {}
+            });
+        }
+        this._wheelDetachFns = [];
+
+        let wheelAccum = 0;
+        let wheelFlushTimer = null;
+        const flushWheel = () => {
+            if (wheelAccum === 0) return;
+            const direction = wheelAccum < 0 ? 'up' : 'down';
+            const lineUnit = /Mac/i.test(navigator.platform) ? 50 : 40; // pixels per line heuristic
+            const lines = Math.min(100, Math.max(1, Math.round(Math.abs(wheelAccum) / lineUnit)));
+            wheelAccum = 0;
+            if (this.currentSession && this.tmuxAvailable && this.ws && this.ws.readyState === WebSocket.OPEN) {
+                this.ws.send(JSON.stringify({ type: 'TmuxScroll', direction, lines }));
+                this._tmuxScrollUsed = true;
+            }
+        };
+
         const handleWheel = (e) => {
-            // If we're in a tmux session, completely prevent wheel events
-            // This stops tmux from converting scroll to arrow keys
             if (this.currentSession && this.tmuxAvailable) {
+                // Stop xterm/tmux from seeing the wheel
                 e.preventDefault();
                 e.stopPropagation();
-                e.stopImmediatePropagation();
-                
-                // Manually scroll the terminal viewport
-                const viewport = terminalElement.querySelector('.xterm-viewport');
-                if (viewport) {
-                    // Scroll the viewport directly
-                    viewport.scrollTop += e.deltaY;
+                if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+
+                const viewport = container.querySelector('.xterm-viewport');
+                const canDomScroll = !!(viewport && viewport.scrollHeight > viewport.clientHeight);
+
+                // Auto mode: try DOM when possible for smoothness + scrollbar; fall back to tmux at edges or when no scrollback
+                const useDom = (this.tmuxScrollMode === 'dom') || (this.tmuxScrollMode === 'auto' && canDomScroll);
+                if (useDom && viewport) {
+                    const atTop = viewport.scrollTop <= 0;
+                    const atBottom = viewport.scrollTop + viewport.clientHeight >= viewport.scrollHeight - 1;
+                    const goingUp = e.deltaY < 0;
+                    const goingDown = e.deltaY > 0;
+
+                    if ((goingUp && atTop) || (goingDown && atBottom)) {
+                        wheelAccum += e.deltaY;
+                        if (wheelFlushTimer) clearTimeout(wheelFlushTimer);
+                        wheelFlushTimer = setTimeout(flushWheel, 16);
+                    } else {
+                        viewport.scrollTop += e.deltaY;
+                    }
+                } else {
+                    // Accumulate and throttle scroll to tmux copy-mode
+                    wheelAccum += e.deltaY;
+                    if (wheelFlushTimer) clearTimeout(wheelFlushTimer);
+                    wheelFlushTimer = setTimeout(flushWheel, 16);
                 }
                 return false;
             }
-            // For local terminal, allow normal scrolling
+            return true;
         };
-        
-        // Add wheel listener with ability to prevent default for tmux
-        terminalElement.addEventListener('wheel', handleWheel, { passive: false, capture: true });
-        
-        // Store handler for later updates
         this.wheelHandler = handleWheel;
-        
-        // Also handle on the viewport after it's created
-        setTimeout(() => {
-            const viewport = terminalElement.querySelector('.xterm-viewport');
-            if (viewport) {
-                viewport.addEventListener('wheel', handleWheel, { passive: false, capture: true });
-            }
-        }, 100);
+
+        // Attach in capture phase BEFORE xterm.js sees the event.
+        const bind = (el) => {
+            el.addEventListener('wheel', handleWheel, { passive: false, capture: true });
+            // Some browsers still emit legacy events
+            el.addEventListener('mousewheel', handleWheel, { passive: false, capture: true });
+            el.addEventListener('DOMMouseScroll', handleWheel, { passive: false, capture: true });
+            this._wheelDetachFns.push(() => {
+                el.removeEventListener('wheel', handleWheel, { capture: true });
+                el.removeEventListener('mousewheel', handleWheel, { capture: true });
+                el.removeEventListener('DOMMouseScroll', handleWheel, { capture: true });
+            });
+        };
+
+        // Bind to container immediately
+        bind(container);
+
+        // Note: We intentionally do NOT scroll the DOM in tmux mode.
+        // We forward wheel to tmux copy-mode so server-side pane history is used.
+
+        // Bind to xterm internals once available
+        const attachInternals = () => {
+            const viewport = container.querySelector('.xterm-viewport');
+            const screen = container.querySelector('.xterm-screen');
+            const xtermRoot = container.querySelector('.xterm');
+            if (viewport) bind(viewport);
+            if (screen) bind(screen);
+            if (xtermRoot) bind(xtermRoot);
+        };
+        // Try now and again shortly in case xterm just mounted
+        attachInternals();
+        setTimeout(attachInternals, 50);
+        setTimeout(attachInternals, 150);
     }
     
     initializeTerminal() {
@@ -161,6 +232,11 @@ class WebTerminal {
             }
             
             if (this.isConnected && this.ws && this.ws.readyState === WebSocket.OPEN) {
+                // If we scrolled via tmux copy-mode, cancel it so typing goes to the app
+                if (this.currentSession && this.tmuxAvailable && this._tmuxScrollUsed) {
+                    try { this.ws.send(JSON.stringify({ type: 'TmuxCancelCopyMode' })); } catch (_) {}
+                    this._tmuxScrollUsed = false;
+                }
                 this.ws.send(JSON.stringify({
                     type: 'Input',
                     data: data

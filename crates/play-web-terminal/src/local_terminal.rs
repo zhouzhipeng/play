@@ -40,6 +40,12 @@ impl LocalTerminal {
             use_tmux,
         })
     }
+
+    fn desired_history_limit() -> String {
+        std::env::var("WEB_TERMINAL_TMUX_HISTORY_LIMIT")
+            .or_else(|_| std::env::var("TMUX_HISTORY_LIMIT"))
+            .unwrap_or_else(|_| "200000".to_string())
+    }
     
     fn setup_tmux_environment() {
         // Use DATA_DIR if available, otherwise fall back to HOME
@@ -137,9 +143,9 @@ impl LocalTerminal {
                         .args(&["set-option", "-t", session, "detach-on-destroy", "off"])
                         .output();
                     
-                    // Set large history limit to preserve session content
+                    // Set history limit to preserve session content
                     let _ = Command::new("tmux")
-                        .args(&["set-option", "-t", session, "history-limit", "100000"])
+                        .args(&["set-option", "-t", session, "history-limit", &Self::desired_history_limit()])
                         .output();
                     
                     // Explicitly disable ALL mouse-related features to prevent scroll-to-arrow-key conversion
@@ -161,6 +167,13 @@ impl LocalTerminal {
                     let _ = Command::new("tmux")
                         .args(&["set-option", "-t", session, "terminal-overrides", "*:no-mouse:no-scroll"])
                         .output();
+
+                    // Optionally disable alternate screen for better scroll UX
+                    if std::env::var("WEB_TERMINAL_DISABLE_ALT_SCREEN").map(|v| v == "1" || v.to_lowercase() == "true").unwrap_or(false) {
+                        let _ = Command::new("tmux")
+                            .args(&["set-option", "-ag", "-t", session, "terminal-overrides", ",*:smcup@:rmcup@"])
+                            .output();
+                    }
                     
                     // Send cd command to change to DATA_DIR after session creation
                     if let Ok(data_dir) = std::env::var("DATA_DIR") {
