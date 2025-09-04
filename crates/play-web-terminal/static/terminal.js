@@ -73,24 +73,30 @@ class WebTerminal {
         
         this.terminal.open(document.getElementById('terminal'));
         
-        // Handle mouse wheel behavior to prevent horizontal navigation but allow vertical scrolling
+        // Handle mouse wheel behavior to prevent horizontal navigation and handle vertical scrolling
         const terminalElement = document.getElementById('terminal');
         
         // Handle wheel events
         const handleWheel = (e) => {
-            // Only prevent horizontal scrolling to avoid browser back/forward navigation
+            // Prevent default for all wheel events to avoid sending to terminal
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Check if horizontal scrolling (for browser back/forward prevention)
             if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
-                // Horizontal scroll detected - prevent browser navigation
-                e.preventDefault();
-                e.stopPropagation();
+                // Horizontal scroll - just prevent it, don't do anything
                 return false;
             }
             
-            // For vertical scrolling, let the terminal handle it naturally
-            // The terminal's built-in scrolling will work
+            // For vertical scrolling, manually scroll the terminal buffer
+            // This scrolls the viewport without sending input to the terminal
+            const scrollAmount = e.deltaY > 0 ? 3 : -3;
+            this.terminal.scrollLines(scrollAmount);
+            
+            return false;
         };
         
-        // Add listener with passive: false to allow preventDefault when needed
+        // Add listener with passive: false to allow preventDefault
         terminalElement.addEventListener('wheel', handleWheel, { passive: false });
         
         // Also handle on the terminal's viewport element if it exists
