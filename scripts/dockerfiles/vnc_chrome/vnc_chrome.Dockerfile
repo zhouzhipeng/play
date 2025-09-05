@@ -19,7 +19,7 @@ RUN set -eux; \
     apt-get install -y --no-install-recommends \
       locales \
       tigervnc-standalone-server tigervnc-common tigervnc-tools \
-      fluxbox xterm x11-xserver-utils \
+      x11-xserver-utils x11-utils xdotool matchbox-window-manager \
       novnc websockify python3 \
       chromium ca-certificates fonts-dejavu-core fonts-noto-cjk fonts-noto-color-emoji fonts-unifont \
       curl procps supervisor \
@@ -31,13 +31,10 @@ RUN set -eux; \
 
 # Create non-root user
 RUN useradd -m -s /bin/bash app && \
-    mkdir -p /home/app/.vnc /home/app/.fluxbox /opt/novnc && \
-    printf 'session.screen0.rootCommand:\txsetroot -solid "#303030"\nsession.screen0.toolbar.visible:\tfalse\nsession.screen0.slit.autoHide:\ttrue\n' > /home/app/.fluxbox/init && \
+    mkdir -p /home/app/.vnc /opt/novnc && \
     chown -R app:app /home/app /opt/novnc
 
-# Basic VNC xstartup to launch a minimal WM
-RUN printf '#!/bin/sh\n[ -x /usr/bin/fluxbox ] && exec /usr/bin/fluxbox\nexec /usr/bin/xterm\n' > /etc/vnc_xstartup && \
-    chmod +x /etc/vnc_xstartup
+## No window manager required; Chromium runs directly on Xvnc
 
 # noVNC helper symlink for convenience
 RUN ln -s /usr/share/novnc/utils/novnc_proxy /usr/local/bin/novnc_proxy
@@ -45,6 +42,10 @@ RUN ln -s /usr/share/novnc/utils/novnc_proxy /usr/local/bin/novnc_proxy
 # Startup script: launches TigerVNC (:1), noVNC (6901, HTTP), and Chromium
 ADD start-vnc.sh /usr/local/bin/start-vnc.sh
 RUN chmod +x /usr/local/bin/start-vnc.sh && chown app:app /usr/local/bin/start-vnc.sh
+
+# Helper to keep Chromium window fitted to desktop
+ADD x-auto-fit.sh /usr/local/bin/x-auto-fit.sh
+RUN chmod +x /usr/local/bin/x-auto-fit.sh && chown app:app /usr/local/bin/x-auto-fit.sh
 
 # Provide a stub fbsetbg to stop wallpaper popups
 ADD fbsetbg /usr/local/bin/fbsetbg

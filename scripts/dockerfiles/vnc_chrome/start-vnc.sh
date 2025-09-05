@@ -37,36 +37,84 @@ else
   fi
 fi
 
-# Write xstartup if missing
-if [ ! -f "$HOME/.vnc/xstartup" ]; then
-  cp /etc/vnc_xstartup "$HOME/.vnc/xstartup"
-  chmod +x "$HOME/.vnc/xstartup"
-fi
+# No vncserver xstartup needed; Xtigervnc is launched directly
 
 # Ensure any stale locks are removed (best effort)
 rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 || true
 
-echo "Starting TigerVNC on display ${DISPLAY} (${RESOLUTION}), localhost-only..."
-vncserver "$DISPLAY" \
+echo "Starting TigerVNC (Xtigervnc) on display ${DISPLAY} (${RESOLUTION}), localhost-only..."
+XVNCSRV=$(command -v Xtigervnc || true)
+if [ -z "${XVNCSRV}" ]; then
+  XVNCSRV=$(command -v Xvnc || true)
+fi
+if [ -z "${XVNCSRV}" ]; then
+  echo "Error: Xtigervnc/Xvnc not found." >&2
+  exit 1
+fi
+
+AUTH_FLAG=""
+if [ -f "$HOME/.vnc/passwd" ] && [ -n "${VNC_PW:-}" ] && [ ! "${VNC_PASSWORDLESS}" = "true" ] && [ ! "${VNC_PASSWORDLESS}" = "1" ]; then
+  AUTH_FLAG="-rfbauth $HOME/.vnc/passwd"
+fi
+
+"${XVNCSRV}" "$DISPLAY" \
   -geometry "${RESOLUTION}" \
-  -localhost yes \
+  -localhost=1 \
   -rfbport "$VNC_PORT" \
   ${VNC_SECURITY_FLAGS} \
-  -fg \
-  -xstartup "$HOME/.vnc/xstartup" &
+  -depth 24 \
+  -AlwaysShared \
+  ${AUTH_FLAG} \
+  &
 VNC_PID=$!
 
-# Wait a moment for VNC to initialize
-sleep 1
+# Wait for VNC to listen on the port to avoid connection refused
+echo "Waiting for VNC to be ready on localhost:${VNC_PORT}..."
+for i in $(seq 1 60); do
+  if bash -lc "</dev/tcp/127.0.0.1/${VNC_PORT}" 2>/dev/null; then
+    echo "VNC is ready."
+    break
+  fi
+  if ! kill -0 "$VNC_PID" 2>/dev/null; then
+    echo "VNC server process exited unexpectedly." >&2
+    break
+  fi
+  sleep 0.5
+done
+
+# Set a neutral background color so a blank desktop isn't pure black
+if command -v xsetroot >/dev/null 2>&1; then
+  xsetroot -solid "#303030" || true
+fi
+
+# Start a minimal WM without titlebars/panels to ensure Chrome maps correctly
+if command -v matchbox-window-manager >/dev/null 2>&1; then
+  echo "Starting matchbox-window-manager (no titlebar) ..."
+  matchbox-window-manager -use_titlebar no >/dev/null 2>&1 &
+  sleep 0.2
+fi
+
 
 # Start Chromium after the VNC server is up (optional)
 if [ "${AUTO_START_CHROME}" = "true" ] || [ "${AUTO_START_CHROME}" = "1" ]; then
   echo "Launching Chromium (auto-restart on exit)..."
+  CHROME_BIN=""
+  for c in chromium chromium-browser google-chrome-stable google-chrome; do
+    if command -v "$c" >/dev/null 2>&1; then CHROME_BIN=$(command -v "$c"); break; fi
+  done
+  if [ -z "$CHROME_BIN" ]; then
+    echo "Chromium/Chrome not found in PATH" >&2
+  fi
+  LOGFILE="$HOME/.chromium.log"
   (
     while true; do
-      chromium \
+      "$CHROME_BIN" \
+        --no-sandbox \
+        --disable-gpu \
+        --ozone-platform=x11 \
         --disable-dev-shm-usage \
         --user-data-dir="$HOME/.config/chromium-profile" \
+        --window-position=0,0 \
         --start-maximized \
         --no-first-run \
         --disable-infobars \
@@ -75,15 +123,18 @@ if [ "${AUTO_START_CHROME}" = "true" ] || [ "${AUTO_START_CHROME}" = "1" ]; then
       echo "Chromium exited; restarting in 1s..." >&2
       sleep 1
     done
-  ) >/dev/null 2>&1 &
+  ) >>"$LOGFILE" 2>&1 &
 fi
 
 # Start noVNC in HTTP mode, bind to 0.0.0.0 to support normal and host networking
 echo "Starting noVNC on :${NOVNC_PORT} (HTTP), proxying VNC localhost:${VNC_PORT}..."
 novnc_proxy \
   --listen 0.0.0.0:"${NOVNC_PORT}" \
-  --vnc localhost:"${VNC_PORT}"
+  --vnc 127.0.0.1:"${VNC_PORT}"
+
+# Keep Chromium fitted to desktop size (follows noVNC resize=remote)
+/usr/local/bin/x-auto-fit.sh &
 
 # noVNC runs in foreground; ensure VNC is cleaned on exit
-trap 'echo "Stopping VNC..."; vncserver -kill "$DISPLAY" >/dev/null 2>&1 || true' EXIT
+trap 'echo "Stopping VNC..."; kill "$VNC_PID" >/dev/null 2>&1 || true; rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true' EXIT
 wait "$VNC_PID" || true
