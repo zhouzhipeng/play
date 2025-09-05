@@ -114,7 +114,13 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1rem;
+            padding: 4px;
+        }
+
+        .logo-icon svg {
+            width: 100%;
+            height: 100%;
+            color: white;
         }
 
         nav {
@@ -340,50 +346,53 @@
             transform: translateY(-1px);
         }
 
-        .pages-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 8px;
+        /* Compact Business Pages Section */
+        .pages-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
         }
 
-        .page-item {
+        .page-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
             background: var(--bg-card);
             border: 1px solid var(--border-color);
-            border-radius: var(--radius-sm);
-            padding: 10px;
+            border-radius: 6px;
             text-decoration: none;
             color: var(--text-primary);
-            display: flex;
-            align-items: center;
-            gap: 10px;
+            font-size: 0.85rem;
             transition: var(--transition);
-            font-size: 0.9rem;
+            position: relative;
         }
 
-        .page-item:hover {
+        .page-link:hover {
             background: var(--bg-hover);
             border-color: var(--accent-primary);
-            transform: translateX(4px);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-sm);
         }
 
-        .page-icon {
-            width: 24px;
-            height: 24px;
-            background: var(--bg-secondary);
-            border-radius: 4px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            font-size: 0.85rem;
+        .page-link-icon {
+            font-size: 0.9rem;
+            opacity: 0.7;
         }
 
-        .page-title {
+        .page-link-text {
             font-weight: 500;
-            color: var(--text-primary);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+        }
+
+        .page-badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            width: 8px;
+            height: 8px;
+            background: var(--accent-primary);
+            border-radius: 50%;
+            border: 2px solid var(--bg-card);
         }
 
         footer {
@@ -426,12 +435,6 @@
             }
         }
 
-        @media (max-width: 1024px) {
-            .cards-grid {
-                grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-            }
-        }
-
         @media (max-width: 768px) {
             .mobile-menu {
                 display: block;
@@ -459,10 +462,6 @@
 
             .cards-grid {
                 grid-template-columns: repeat(2, 1fr);
-            }
-
-            .pages-grid {
-                grid-template-columns: 1fr;
             }
 
             .section-header {
@@ -527,8 +526,19 @@
         <div class="container">
             <div class="header-content">
                 <a href="/" class="logo">
-                    <div class="logo-icon">🎮</div>
-                    <span>PlayTool</span>
+                    <div class="logo-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <!-- Terminal/Code bracket -->
+                            <path d="M7 8L3 12L7 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M17 8L21 12L17 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <!-- Center slash -->
+                            <path d="M14 4L10 20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            <!-- Tool dots representing config/settings -->
+                            <circle cx="12" cy="7" r="1" fill="currentColor"/>
+                            <circle cx="12" cy="17" r="1" fill="currentColor"/>
+                        </svg>
+                    </div>
+                    <span>Play</span>
                 </a>
                 <button class="mobile-menu" id="mobileMenu" aria-label="Toggle menu">☰</button>
                 <nav id="navigation">
@@ -543,7 +553,7 @@
     <div class="main-wrapper">
         <main id="main" class="container">
             <section class="hero">
-                <h1>PlayTool Dashboard</h1>
+                <h1>Play Dashboard</h1>
                 <p class="hero-subtitle">Manage pages, plugins, files and more</p>
                 
                 <div class="search-container">
@@ -593,7 +603,7 @@
 
         searchBox.addEventListener('input', (e) => {
             const query = e.target.value.toLowerCase();
-            const cards = document.querySelectorAll('.card, .page-item, .chip');
+            const cards = document.querySelectorAll('.card, .page-link, .chip');
             
             cards.forEach(card => {
                 const text = card.textContent.toLowerCase();

@@ -164,7 +164,7 @@ async fn root(s: S) -> HTML {
         content.push_str("</div></section>");
     }
 
-    // Business pages with modern list design
+    // Business pages - compact pill style
     if !pages.is_empty() {
         content.push_str(r#"
             <section class="section">
@@ -176,15 +176,34 @@ async fn root(s: S) -> HTML {
                 </div>
                 <div class="pages-list">
         "#);
-        for item in pages {
+        for (index, item) in pages.iter().enumerate() {
             let href = escape_html(&format!("/pages{}", item.url));
             let title = escape_html(&item.title);
+            
+            // Use different icons based on content
+            let icon = if item.url.contains("api") {
+                "⚡"
+            } else if item.url.contains("doc") {
+                "📖" 
+            } else if item.url.contains("report") {
+                "📊"
+            } else if item.url.contains("admin") {
+                "⚙️"
+            } else {
+                "📄"
+            };
+            
+            // Add badge for special pages
+            let has_badge = item.url.contains("new") || item.url.contains("beta") || index < 2;
+            
             content.push_str(&format!(r#"
-                <a class="page-item" href="{}">
-                    <div class="page-icon">📄</div>
-                    <div class="page-title">{}</div>
+                <a class="page-link" href="{}">
+                    <span class="page-link-icon">{}</span>
+                    <span class="page-link-text">{}</span>
+                    {}
                 </a>
-            "#, href, title));
+            "#, href, icon, title, 
+            if has_badge { r#"<span class="page-badge"></span>"# } else { "" }));
         }
         content.push_str("</div></section>");
     }
