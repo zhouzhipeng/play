@@ -3,8 +3,9 @@ FROM debian:bookworm-slim
 # Minimal, HTTP-only noVNC on 6901; no 5901 exposed and works with --network host
 
 ENV DEBIAN_FRONTEND=noninteractive \
-    LANG=C.UTF-8 \
-    LC_ALL=C.UTF-8 \
+    LANG=en_US.UTF-8 \
+    LC_ALL=en_US.UTF-8 \
+    LANGUAGE=en_US:en \
     TZ=UTC \
     DISPLAY=:1 \
     VNC_PORT=5901 \
@@ -16,17 +17,21 @@ ENV DEBIAN_FRONTEND=noninteractive \
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
+      locales \
       tigervnc-standalone-server tigervnc-common tigervnc-tools \
-      fluxbox xterm \
+      fluxbox xterm x11-xserver-utils \
       novnc websockify python3 \
       chromium ca-certificates fonts-dejavu-core \
       curl procps supervisor \
     ; \
+    sed -i 's/^# \(en_US.UTF-8\)/\1/' /etc/locale.gen; \
+    locale-gen en_US.UTF-8; \
     rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
 RUN useradd -m -s /bin/bash app && \
-    mkdir -p /home/app/.vnc /opt/novnc && \
+    mkdir -p /home/app/.vnc /home/app/.fluxbox /opt/novnc && \
+    printf 'session.screen0.rootCommand:\txsetroot -solid "#303030"\n' > /home/app/.fluxbox/init && \
     chown -R app:app /home/app /opt/novnc
 
 # Basic VNC xstartup to launch a minimal WM
@@ -39,6 +44,10 @@ RUN ln -s /usr/share/novnc/utils/novnc_proxy /usr/local/bin/novnc_proxy
 # Startup script: launches TigerVNC (:1), noVNC (6901, HTTP), and Chromium
 ADD start-vnc.sh /usr/local/bin/start-vnc.sh
 RUN chmod +x /usr/local/bin/start-vnc.sh && chown app:app /usr/local/bin/start-vnc.sh
+
+# Provide a stub fbsetbg to stop wallpaper popups
+ADD fbsetbg /usr/local/bin/fbsetbg
+RUN chmod +x /usr/local/bin/fbsetbg
 
 # Default landing page: redirect "/" to "/vnc.html?autoconnect=1"
 ADD novnc-index.html /usr/share/novnc/index.html

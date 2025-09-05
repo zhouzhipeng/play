@@ -6,24 +6,34 @@ set -euo pipefail
 : "${VNC_PORT:=5901}"
 : "${NOVNC_PORT:=6901}"
 : "${RESOLUTION:=1920x1080}"
-: "${VNC_PW:=vncpassword}"
+: "${VNC_PW:=}"
+: "${VNC_PASSWORDLESS:=true}"
 : "${AUTO_START_CHROME:=true}"
 
 export DISPLAY
 
 mkdir -p "$HOME/.vnc"
 
-# Set VNC password (TigerVNC expects a special hashed format via vncpasswd -f)
-if [ ! -f "$HOME/.vnc/passwd" ]; then
-  if command -v tigervncpasswd >/dev/null 2>&1; then
-    tigervncpasswd -f <<<"${VNC_PW}" > "$HOME/.vnc/passwd"
-    chmod 600 "$HOME/.vnc/passwd"
-  elif command -v vncpasswd >/dev/null 2>&1; then
-    # shellcheck disable=SC2312
-    vncpasswd -f <<<"${VNC_PW}" > "$HOME/.vnc/passwd"
-    chmod 600 "$HOME/.vnc/passwd"
-  else
-    echo "Warning: no vncpasswd tool found; VNC may prompt for a password."
+# Configure VNC authentication
+VNC_SECURITY_FLAGS=""
+if [ "${VNC_PASSWORDLESS}" = "true" ] || [ "${VNC_PASSWORDLESS}" = "1" ] || [ -z "${VNC_PW}" ]; then
+  # No password, explicitly disable auth
+  echo "Configuring TigerVNC with no authentication (SecurityTypes=None)"
+  rm -f "$HOME/.vnc/passwd" 2>/dev/null || true
+  VNC_SECURITY_FLAGS="-SecurityTypes None"
+else
+  # Set VNC password (TigerVNC expects a special hashed format via vncpasswd -f)
+  if [ ! -f "$HOME/.vnc/passwd" ]; then
+    if command -v tigervncpasswd >/dev/null 2>&1; then
+      tigervncpasswd -f <<<"${VNC_PW}" > "$HOME/.vnc/passwd"
+      chmod 600 "$HOME/.vnc/passwd"
+    elif command -v vncpasswd >/dev/null 2>&1; then
+      # shellcheck disable=SC2312
+      vncpasswd -f <<<"${VNC_PW}" > "$HOME/.vnc/passwd"
+      chmod 600 "$HOME/.vnc/passwd"
+    else
+      echo "Warning: no vncpasswd tool found; consider setting VNC_PASSWORDLESS=true."
+    fi
   fi
 fi
 
@@ -41,6 +51,7 @@ vncserver "$DISPLAY" \
   -geometry "${RESOLUTION}" \
   -localhost yes \
   -rfbport "$VNC_PORT" \
+  ${VNC_SECURITY_FLAGS} \
   -fg \
   -xstartup "$HOME/.vnc/xstartup" &
 VNC_PID=$!
@@ -53,7 +64,6 @@ if [ "${AUTO_START_CHROME}" = "true" ] || [ "${AUTO_START_CHROME}" = "1" ]; then
   echo "Launching Chromium..."
   # Disable sandbox for container; use an isolated user-data-dir
   chromium \
-    --no-sandbox \
     --disable-dev-shm-usage \
     --user-data-dir="$HOME/.config/chromium-profile" \
     --start-maximized \
