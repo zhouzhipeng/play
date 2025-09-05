@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Minimal stub to avoid Fluxbox fbsetbg warnings.
+# Sets a solid background and exits successfully.
+exec xsetroot -solid "#303030"
+
