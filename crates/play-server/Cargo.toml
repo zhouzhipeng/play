@@ -10,7 +10,7 @@ before-packaging-command = "cargo dev_ui"
 
 [features]
 default = []
-debug = ["play-dylib-loader","play-lua"]
+debug = ["play-lua"]
 use_mysql = ["sqlx/mysql", "play-shared/sqlparser"]
 server = ["play-dylib-loader","play-lua","play-redis"]
 ui = ["play-dylib-loader","play-lua"]
@@ -87,8 +87,6 @@ futures-core = { workspace = true }
 cookie = { workspace = true }
 tokio-stream = { workspace = true }
 zip-extensions = { workspace = true }
-dioxus-ssr = { workspace = true }
-dioxus = { workspace = true }
 fs_extra = { workspace = true }
 tempfile = { workspace = true }
 html-escape = { workspace = true }
