@@ -1,5 +1,5 @@
 use axum::{
-    extract::{State, WebSocketUpgrade},
+    extract::{State, WebSocketUpgrade, Path, Query},
     response::{Html, IntoResponse, Response, Json},
     routing::{delete, get, post},
     Router,
@@ -37,12 +37,28 @@ where
         .route("/web-terminal/assets/{*path}", get(serve_asset))
         .route("/web-terminal/api/sessions", get(list_sessions).post(create_session))
         .route("/web-terminal/api/sessions/{name}", delete(delete_session))
+        .route("/web-terminal/{session_name}", get(terminal_page_with_session))
         .layer(cors)
         .with_state(session_manager)
 }
 
 async fn terminal_page() -> impl IntoResponse {
     Html(INDEX_HTML.to_string())
+}
+
+async fn terminal_page_with_session(Path(session_name): Path<String>) -> impl IntoResponse {
+    // Inject the session name into the HTML
+    let html = INDEX_HTML.replace(
+        "</body>",
+        &format!(
+            r#"<script>
+                window.targetSessionName = "{}";
+            </script>
+            </body>"#,
+            session_name
+        ),
+    );
+    Html(html)
 }
 
 async fn ws_handler(

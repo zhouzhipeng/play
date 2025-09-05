@@ -31,6 +31,11 @@ pub enum TerminalMessage {
         cols: u32,
         rows: u32,
     },
+    TmuxScroll {
+        direction: String, // "up" | "down"
+        lines: u32,
+    },
+    TmuxCancelCopyMode,
     Disconnect,
     Ping,
 }
@@ -136,6 +141,10 @@ async fn handle_socket(socket: WebSocket, session_manager: Arc<SessionManager>) 
                                         
                                         if session_manager.is_tmux_available() {
                                             let _ = session_manager.attach_to_session(&session_name);
+                                            // Force disable mouse mode after attaching
+                                            session_manager.disable_mouse_for_session(&session_name);
+                                            // Ensure generous scrollback for this session
+                                            session_manager.ensure_session_history_limit(&session_name);
                                         }
                                         
                                         terminal = Some(local_term);
@@ -213,15 +222,31 @@ async fn handle_socket(socket: WebSocket, session_manager: Arc<SessionManager>) 
                                     } else {
                                         debug!("Input sent successfully");
                                     }
-                                } else {
-                                    error!("No terminal available to send input");
+                        } else {
+                            error!("No terminal available to send input");
+                        }
+                    }
+                    TerminalMessage::TmuxScroll { direction, lines } => {
+                        if let Some(session_name) = current_session.as_ref() {
+                            if session_manager.is_tmux_available() {
+                                if let Err(e) = session_manager.scroll_session(session_name, &direction, lines) {
+                                    error!("Failed to tmux-scroll: {}", e);
                                 }
                             }
-                            TerminalMessage::Resize { cols, rows } => {
-                                if let Some(ref mut term) = terminal {
-                                    if let Err(e) = term.resize(cols as u16, rows as u16).await {
-                                        error!("Failed to resize terminal: {}", e);
-                                    }
+                        }
+                    }
+                    TerminalMessage::TmuxCancelCopyMode => {
+                        if let Some(session_name) = current_session.as_ref() {
+                            if session_manager.is_tmux_available() {
+                                session_manager.cancel_copy_mode(session_name);
+                            }
+                        }
+                    }
+                    TerminalMessage::Resize { cols, rows } => {
+                        if let Some(ref mut term) = terminal {
+                            if let Err(e) = term.resize(cols as u16, rows as u16).await {
+                                error!("Failed to resize terminal: {}", e);
+                            }
                                 }
                             }
                             TerminalMessage::Disconnect => {

@@ -2,23 +2,19 @@ use std::path::PathBuf;
 use axum::body::Body;
 use axum::extract::Query;
 use axum::response::{Html, IntoResponse, Response};
-use chrono::{TimeZone, Utc};
-use dioxus::prelude::*;
-use http::Request;
+// removed dioxus usage; render pure HTML
 use serde::Deserialize;
-use serde_json::{json, Value};
+// serde_json available elsewhere if needed; not used here
 use tokio::fs::File;
 use tokio_util::codec::{BytesCodec, FramedRead};
 use tracing::{info, warn};
 
 use play_shared::constants::CAT_FINGERPRINT;
-use play_shared::timestamp_to_date_str;
 
-use crate::{method_router, return_error, template};
+use crate::{method_router, return_error};
 use crate::{HTML, R, S};
 use crate::config::get_config_path;
 use crate::controller::admin_controller::shutdown;
-use crate::controller::cache_controller::generate_cache_key;
 use crate::controller::pages_controller::PageDto;
 use crate::tables::general_data::GeneralData;
 
@@ -49,6 +45,21 @@ fn has_extension(url: &str)->bool{
     extension.is_some()
 }
 
+fn escape_html(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    for c in input.chars() {
+        match c {
+            '&' => out.push_str("&amp;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '"' => out.push_str("&quot;"),
+            '\'' => out.push_str("&#39;"),
+            _ => out.push(c),
+        }
+    }
+    out
+}
+
 async fn root(s: S) -> HTML {
     let built_time = env!("BUILT_TIME").parse::<i64>()?;
     // return_error!("test");
@@ -60,59 +71,125 @@ async fn root(s: S) -> HTML {
         )
         .collect::<Vec<PageDto>>();
 
-    let html = dioxus_ssr::render_element(rsx!{
-        div { class: "row",
-            div { class: "col",
-                h2 { "System Tools" }
-                ul {
-                    li {
-                        a { href: "/static/page-editor.html", "Page Editor" }
-                    }
-                    li {
-                        a { href: "/static/plugin-manager.html", "Plugin Manager" }
-                    }
-                    li {
-                        a { href: "/static/shortlink-manager.html", "Shortlinks Manager" }
-                    }
-                    li {
-                        a { href: "/static/file-explorer.html", "File Browser" }
-                    }
-                    li {
-                        a { href: "/static/fileupload.html", "Upload File" }
-                    }
-                    li {
-                        a { href: "/web-terminal", "Web Terminal" }
-                    }
-                    li {
-                        a { href: "/static/crontab-manager.html", "Crontab Manager" }
-                    }
-                    li {
-                        a { href: "/admin/translator", "Translator" }
-                    }
-                }
-                h2 { "Short Links" }
-                ul {
-                    for item in &s.config.shortlinks{
-                    li {
-                        a { target: "_blank", href: "{item.from}", "{&item.from[1..]}" }
-                    }
-                    }
-                }
-            }
-            div { class: "col",
-                h2 { "Business Pages" }
-                ul {
-                    for item in pages{
-                    li {
-                        a { href: "/pages{item.url}","{item.title}" }
-                    }
-                    }
-                }
-            }
-        }
-    });
+    // Build the inner content HTML (modern layout)
+    let mut content = String::new();
 
-    let html = INDEX_NEW_HTML.replace("{{content}}", &html)
+    // Quick Actions Section with compact card grid
+    content.push_str(r#"
+        <section class="section">
+            <div class="section-header">
+                <h2>
+                    <span class="section-icon">⚡</span>
+                    Quick Actions
+                </h2>
+            </div>
+            <div class="cards-grid">
+                <a class="card" href="/static/page-editor.html">
+                    <div class="card-icon">📝</div>
+                    <div class="card-content">
+                        <div class="card-title">Page Editor</div>
+                        <div class="card-description">Create and edit pages</div>
+                    </div>
+                </a>
+                <a class="card" href="/static/file-explorer.html">
+                    <div class="card-icon">📁</div>
+                    <div class="card-content">
+                        <div class="card-title">File Browser</div>
+                        <div class="card-description">Browse and manage files</div>
+                    </div>
+                </a>
+                <a class="card" href="/static/fileupload.html">
+                    <div class="card-icon">⬆️</div>
+                    <div class="card-content">
+                        <div class="card-title">Upload Files</div>
+                        <div class="card-description">Quick file uploads</div>
+                    </div>
+                </a>
+                <a class="card" href="/static/plugin-manager.html">
+                    <div class="card-icon">🔌</div>
+                    <div class="card-content">
+                        <div class="card-title">Plugin Manager</div>
+                        <div class="card-description">Configure plugins</div>
+                    </div>
+                </a>
+                <a class="card" href="/web-terminal">
+                    <div class="card-icon">⌨️</div>
+                    <div class="card-content">
+                        <div class="card-title">Web Terminal</div>
+                        <div class="card-description">Run commands</div>
+                    </div>
+                </a>
+                <a class="card" href="/static/crontab-manager.html">
+                    <div class="card-icon">⏱️</div>
+                    <div class="card-content">
+                        <div class="card-title">Crontab</div>
+                        <div class="card-description">Schedule tasks</div>
+                    </div>
+                </a>
+                <a class="card" href="/admin/translator">
+                    <div class="card-icon">🌐</div>
+                    <div class="card-content">
+                        <div class="card-title">Translator</div>
+                        <div class="card-description">Translate text</div>
+                    </div>
+                </a>
+                <a class="card" href="/static/shortlink-manager.html">
+                    <div class="card-icon">🔗</div>
+                    <div class="card-content">
+                        <div class="card-title">Shortlinks</div>
+                        <div class="card-description">Manage URLs</div>
+                    </div>
+                </a>
+            </div>
+        </section>
+    "#);
+
+    // Short links section with modern chips
+    if !s.config.shortlinks.is_empty() {
+        content.push_str(r#"
+            <section class="section">
+                <div class="section-header">
+                    <h2>
+                        <span class="section-icon">🔖</span>
+                        Quick Links
+                    </h2>
+                </div>
+                <div class="chips-container">
+        "#);
+        for item in &s.config.shortlinks {
+            let href = escape_html(&item.from);
+            let text = escape_html(item.from.trim_start_matches('/'));
+            content.push_str(&format!(r#"<a class="chip" target="_blank" href="{}">🔗 {}</a>"#, href, text));
+        }
+        content.push_str("</div></section>");
+    }
+
+    // Business pages with modern list design
+    if !pages.is_empty() {
+        content.push_str(r#"
+            <section class="section">
+                <div class="section-header">
+                    <h2>
+                        <span class="section-icon">📚</span>
+                        Business Pages
+                    </h2>
+                </div>
+                <div class="pages-list">
+        "#);
+        for item in pages {
+            let href = escape_html(&format!("/pages{}", item.url));
+            let title = escape_html(&item.title);
+            content.push_str(&format!(r#"
+                <a class="page-item" href="{}">
+                    <div class="page-icon">📄</div>
+                    <div class="page-title">{}</div>
+                </a>
+            "#, href, title));
+        }
+        content.push_str("</div></section>");
+    }
+
+    let html = INDEX_NEW_HTML.replace("{{content}}", &content)
         .replace("{{built_time}}", built_time.to_string().as_str());
 
 
@@ -167,4 +244,3 @@ async fn serve_config_file(s: S) -> impl IntoResponse {
     let body = Body::from_stream(stream);
     Response::new(body)
 }
-

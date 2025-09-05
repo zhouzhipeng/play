@@ -76,7 +76,40 @@ struct ApplyResponse {
 }
 
 async fn handle_apply_crontab(s: S) -> R<Json<ApplyResponse>> {
-    // Query all crontab entries
+    // First, get the current system crontab
+    let current_output = Command::new("sh")
+        .arg("-c")
+        .arg("crontab -l 2>/dev/null || true")
+        .output()
+        .await?;
+    
+    let current_crontab = String::from_utf8_lossy(&current_output.stdout);
+    
+    // Parse existing crontab entries and extract commands
+    let mut existing_entries: Vec<String> = Vec::new();
+    let mut existing_commands: Vec<String> = Vec::new();
+    
+    for line in current_crontab.lines() {
+        let trimmed = line.trim();
+        // Skip empty lines and comments
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            existing_entries.push(line.to_string());
+            continue;
+        }
+        
+        // Parse the cron line to extract the command part
+        let parts: Vec<&str> = trimmed.splitn(6, ' ').collect();
+        if parts.len() == 6 {
+            let command = parts[5];
+            existing_commands.push(command.to_string());
+            existing_entries.push(line.to_string());
+        } else {
+            // Keep malformed lines as-is
+            existing_entries.push(line.to_string());
+        }
+    }
+    
+    // Query all crontab entries from database
     let entries = GeneralData::query_composite(
         "*",
         "crontab",
@@ -87,8 +120,10 @@ async fn handle_apply_crontab(s: S) -> R<Json<ApplyResponse>> {
         &s.db,
     ).await?;
 
-    // Format entries into a standard crontab string
-    let mut crontab_str = String::new();
+    // Collect database commands to check for duplicates
+    let mut db_commands: Vec<String> = Vec::new();
+    let mut db_crontab_lines: Vec<String> = Vec::new();
+    
     for entry in &entries {
         let data_map = entry.extract_data()?;
 
@@ -114,14 +149,51 @@ async fn handle_apply_crontab(s: S) -> R<Json<ApplyResponse>> {
         let command = get_value_as_string(&data_map, "command").unwrap_or_else(|| "".to_string());
 
         if !command.is_empty() {
-            crontab_str.push_str(&format!("{} {} {} {} {} {}\n", minute, hour, day_of_month, month, day_of_week, command));
+            db_commands.push(command.clone());
+            db_crontab_lines.push(format!("{} {} {} {} {} {}", minute, hour, day_of_month, month, day_of_week, command));
         }
+    }
+    
+    // Build the final crontab string
+    let mut final_crontab = String::new();
+    
+    // First, add existing entries that don't have matching commands in the database
+    for (i, line) in existing_entries.iter().enumerate() {
+        let trimmed = line.trim();
+        
+        // Always keep empty lines and comments
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            final_crontab.push_str(line);
+            final_crontab.push('\n');
+            continue;
+        }
+        
+        // Check if this is a cron entry
+        let parts: Vec<&str> = trimmed.splitn(6, ' ').collect();
+        if parts.len() == 6 {
+            let command = parts[5];
+            // Only keep if command is not in database entries
+            if !db_commands.contains(&command.to_string()) {
+                final_crontab.push_str(line);
+                final_crontab.push('\n');
+            }
+        } else {
+            // Keep malformed lines as-is
+            final_crontab.push_str(line);
+            final_crontab.push('\n');
+        }
+    }
+    
+    // Add all database entries (they override matching commands)
+    for db_line in db_crontab_lines {
+        final_crontab.push_str(&db_line);
+        final_crontab.push('\n');
     }
 
     // Execute a shell command to update the system's crontab
     let output = Command::new("sh")
         .arg("-c")
-        .arg(format!("echo \"{}\" | crontab", crontab_str))
+        .arg(format!("echo \"{}\" | crontab -", final_crontab.trim_end()))
         .output()
         .await?;
 

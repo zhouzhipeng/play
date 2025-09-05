@@ -24,6 +24,9 @@ enum TerminalCommand {
 
 impl LocalTerminal {
     pub async fn new(session_name: Option<String>) -> Result<Self> {
+        // Set up persistent tmux socket location
+        Self::setup_tmux_environment();
+        
         let use_tmux = session_name.is_some() && Self::check_tmux_available();
         
         if session_name.is_some() && !use_tmux {
@@ -37,8 +40,31 @@ impl LocalTerminal {
             use_tmux,
         })
     }
+
+    fn desired_history_limit() -> String {
+        std::env::var("WEB_TERMINAL_TMUX_HISTORY_LIMIT")
+            .or_else(|_| std::env::var("TMUX_HISTORY_LIMIT"))
+            .unwrap_or_else(|_| "200000".to_string())
+    }
+    
+    fn setup_tmux_environment() {
+        // Use DATA_DIR if available, otherwise fall back to HOME
+        let base_dir = std::env::var("DATA_DIR")
+            .or_else(|_| std::env::var("HOME"))
+            .unwrap_or_else(|_| "/tmp".to_string());
+        
+        let socket_dir = format!("{}/.tmux", base_dir);
+        std::env::set_var("TMUX_TMPDIR", &socket_dir);
+        
+        // Ensure directory exists
+        let _ = std::fs::create_dir_all(&socket_dir);
+        debug!("Set TMUX_TMPDIR to: {}", socket_dir);
+    }
     
     fn check_tmux_available() -> bool {
+        // First ensure tmux environment is set up
+        Self::setup_tmux_environment();
+        
         Command::new("which")
             .arg("tmux")
             .output()
@@ -96,8 +122,16 @@ impl LocalTerminal {
                     tmux_cmd.args(&["attach-session", "-d", "-t", session]);
                 } else {
                     debug!("Creating new tmux session: {}", session);
-                    // Set aggressive-resize to better handle multiple clients
-                    tmux_cmd.args(&["new-session", "-s", session]);
+                    // Create new session with working directory if DATA_DIR is set
+                    let mut args = vec!["new-session", "-s", session];
+                    
+                    // Set working directory to DATA_DIR if available
+                    if let Ok(data_dir) = std::env::var("DATA_DIR") {
+                        // Note: We can't use -c flag with CommandBuilder, so we'll set it after creation
+                        debug!("Will set working directory to DATA_DIR: {}", data_dir);
+                    }
+                    
+                    tmux_cmd.args(&args);
                     
                     // Set session options for better multi-client handling
                     let _ = Command::new("tmux")
@@ -108,6 +142,45 @@ impl LocalTerminal {
                     let _ = Command::new("tmux")
                         .args(&["set-option", "-t", session, "detach-on-destroy", "off"])
                         .output();
+                    
+                    // Set history limit to preserve session content
+                    let _ = Command::new("tmux")
+                        .args(&["set-option", "-t", session, "history-limit", &Self::desired_history_limit()])
+                        .output();
+                    
+                    // Explicitly disable ALL mouse-related features to prevent scroll-to-arrow-key conversion
+                    let _ = Command::new("tmux")
+                        .args(&["set-option", "-t", session, "mouse", "off"])
+                        .output();
+                    
+                    // Disable mouse in copy mode (for older tmux versions)
+                    let _ = Command::new("tmux")
+                        .args(&["set-option", "-t", session, "mode-mouse", "off"])
+                        .output();
+                    
+                    // Also disable terminal mouse features
+                    let _ = Command::new("tmux")
+                        .args(&["set-option", "-t", session, "terminal-features", "*:no-mouse"])
+                        .output();
+                    
+                    // Disable terminal overrides that might enable mouse
+                    let _ = Command::new("tmux")
+                        .args(&["set-option", "-t", session, "terminal-overrides", "*:no-mouse:no-scroll"])
+                        .output();
+
+                    // Optionally disable alternate screen for better scroll UX
+                    if std::env::var("WEB_TERMINAL_DISABLE_ALT_SCREEN").map(|v| v == "1" || v.to_lowercase() == "true").unwrap_or(false) {
+                        let _ = Command::new("tmux")
+                            .args(&["set-option", "-ag", "-t", session, "terminal-overrides", ",*:smcup@:rmcup@"])
+                            .output();
+                    }
+                    
+                    // Send cd command to change to DATA_DIR after session creation
+                    if let Ok(data_dir) = std::env::var("DATA_DIR") {
+                        let _ = Command::new("tmux")
+                            .args(&["send-keys", "-t", session, &format!("cd '{}'", data_dir), "Enter"])
+                            .output();
+                    }
                 }
                 
                 tmux_cmd
@@ -163,6 +236,32 @@ impl LocalTerminal {
             };
             
             debug!("Local terminal started successfully with {}", spawn_msg);
+            
+            // If attaching to existing tmux session, capture and send the scrollback buffer
+            if use_tmux && session_name.is_some() {
+                let session = session_name.as_ref().unwrap();
+                // Capture the entire pane history including scrollback
+                // -p: output to stdout, -S -: start from beginning of history
+                let capture_output = Command::new("tmux")
+                    .args(&["capture-pane", "-t", session, "-p", "-S", "-"])
+                    .output();
+                
+                if let Ok(output) = capture_output {
+                    if output.status.success() {
+                        let history = String::from_utf8_lossy(&output.stdout);
+                        if !history.is_empty() {
+                            debug!("Captured {} bytes of tmux history", history.len());
+                            // Send the history to the client
+                            let rt_for_history = tokio::runtime::Handle::current();
+                            let _ = rt_for_history.block_on(tx.send(TerminalResponse::Output {
+                                data: history.to_string(),
+                            }));
+                        }
+                    } else {
+                        debug!("Failed to capture tmux pane: {:?}", String::from_utf8_lossy(&output.stderr));
+                    }
+                }
+            }
             
             // Get writer for the master PTY
             let mut writer = match pair.master.take_writer() {
@@ -288,33 +387,33 @@ impl LocalTerminal {
                     }
                 }
                 
-                // Check if child process is still running
-                if let Ok(Some(status)) = child.try_wait() {
-                    error!("Shell exited unexpectedly with status: {:?}", status);
-                    
-                    // Send error message instead of just disconnected
-                    let error_msg = if status.success() {
-                        "Shell session ended normally".to_string()
-                    } else {
-                        format!("Shell exited with error code: {:?}", status)
-                    };
-                    
-                    let _ = rt.block_on(tx.send(TerminalResponse::Error {
-                        message: error_msg,
-                    }));
-                    let _ = rt.block_on(tx.send(TerminalResponse::Disconnected));
-                    break;
-                }
-                
+                // // Check if child process is still running
+                // if let Ok(Some(status)) = child.try_wait() {
+                //     error!("Shell exited unexpectedly with status: {:?}", status);
+                //
+                //     // Send error message instead of just disconnected
+                //     let error_msg = if status.success() {
+                //         "Shell session ended normally".to_string()
+                //     } else {
+                //         format!("Shell exited with error code: {:?}", status)
+                //     };
+                //
+                //     let _ = rt.block_on(tx.send(TerminalResponse::Error {
+                //         message: error_msg,
+                //     }));
+                //     let _ = rt.block_on(tx.send(TerminalResponse::Disconnected));
+                //     break;
+                // }
+                //
                 // Check if output thread has finished
-                if output_done_rx.try_recv().is_ok() {
-                    error!("Output thread finished unexpectedly - shell may have crashed");
-                    let _ = rt.block_on(tx.send(TerminalResponse::Error {
-                        message: "Terminal output stream ended unexpectedly".to_string(),
-                    }));
-                    let _ = rt.block_on(tx.send(TerminalResponse::Disconnected));
-                    break;
-                }
+                // if output_done_rx.try_recv().is_ok() {
+                //     error!("Output thread finished unexpectedly - shell may have crashed");
+                //     let _ = rt.block_on(tx.send(TerminalResponse::Error {
+                //         message: "Terminal output stream ended unexpectedly".to_string(),
+                //     }));
+                //     let _ = rt.block_on(tx.send(TerminalResponse::Disconnected));
+                //     break;
+                // }
             }
             
             debug!("Closing local terminal");

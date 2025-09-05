@@ -16,11 +16,120 @@ class WebTerminal {
         // Session management
         this.currentSession = null;
         this.tmuxAvailable = false;
+        // Scroll strategy for tmux sessions (default: auto)
+        this.tmuxScrollMode = 'auto'; // 'auto' | 'dom' | 'tmux'
         
         this.initializeTerminal();
         this.setupEventListeners();
         this.setupSessionUI();
         this.connect(); // Auto-connect on load
+    }
+
+    setScrollMode(mode) {
+        const allowed = ['auto', 'dom', 'tmux'];
+        if (allowed.includes(mode)) {
+            this.tmuxScrollMode = mode;
+            console.log('[WebTerminal] tmuxScrollMode =', mode);
+        } else {
+            console.warn('[WebTerminal] Invalid scroll mode:', mode);
+        }
+    }
+    
+    setupWheelHandler() {
+        const container = document.getElementById('terminal');
+        if (!container) return;
+
+        // Clean up previous listeners
+        if (this._wheelDetachFns && Array.isArray(this._wheelDetachFns)) {
+            this._wheelDetachFns.forEach(fn => {
+                try { fn(); } catch (_) {}
+            });
+        }
+        this._wheelDetachFns = [];
+
+        let wheelAccum = 0;
+        let wheelFlushTimer = null;
+        const flushWheel = () => {
+            if (wheelAccum === 0) return;
+            const direction = wheelAccum < 0 ? 'up' : 'down';
+            const lineUnit = /Mac/i.test(navigator.platform) ? 50 : 40; // pixels per line heuristic
+            const lines = Math.min(100, Math.max(1, Math.round(Math.abs(wheelAccum) / lineUnit)));
+            wheelAccum = 0;
+            if (this.currentSession && this.tmuxAvailable && this.ws && this.ws.readyState === WebSocket.OPEN) {
+                this.ws.send(JSON.stringify({ type: 'TmuxScroll', direction, lines }));
+                this._tmuxScrollUsed = true;
+            }
+        };
+
+        const handleWheel = (e) => {
+            if (this.currentSession && this.tmuxAvailable) {
+                // Stop xterm/tmux from seeing the wheel
+                e.preventDefault();
+                e.stopPropagation();
+                if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+
+                const viewport = container.querySelector('.xterm-viewport');
+                const canDomScroll = !!(viewport && viewport.scrollHeight > viewport.clientHeight);
+
+                // Auto mode: try DOM when possible for smoothness + scrollbar; fall back to tmux at edges or when no scrollback
+                const useDom = (this.tmuxScrollMode === 'dom') || (this.tmuxScrollMode === 'auto' && canDomScroll);
+                if (useDom && viewport) {
+                    const atTop = viewport.scrollTop <= 0;
+                    const atBottom = viewport.scrollTop + viewport.clientHeight >= viewport.scrollHeight - 1;
+                    const goingUp = e.deltaY < 0;
+                    const goingDown = e.deltaY > 0;
+
+                    if ((goingUp && atTop) || (goingDown && atBottom)) {
+                        wheelAccum += e.deltaY;
+                        if (wheelFlushTimer) clearTimeout(wheelFlushTimer);
+                        wheelFlushTimer = setTimeout(flushWheel, 16);
+                    } else {
+                        viewport.scrollTop += e.deltaY;
+                    }
+                } else {
+                    // Accumulate and throttle scroll to tmux copy-mode
+                    wheelAccum += e.deltaY;
+                    if (wheelFlushTimer) clearTimeout(wheelFlushTimer);
+                    wheelFlushTimer = setTimeout(flushWheel, 16);
+                }
+                return false;
+            }
+            return true;
+        };
+        this.wheelHandler = handleWheel;
+
+        // Attach in capture phase BEFORE xterm.js sees the event.
+        const bind = (el) => {
+            el.addEventListener('wheel', handleWheel, { passive: false, capture: true });
+            // Some browsers still emit legacy events
+            el.addEventListener('mousewheel', handleWheel, { passive: false, capture: true });
+            el.addEventListener('DOMMouseScroll', handleWheel, { passive: false, capture: true });
+            this._wheelDetachFns.push(() => {
+                el.removeEventListener('wheel', handleWheel, { capture: true });
+                el.removeEventListener('mousewheel', handleWheel, { capture: true });
+                el.removeEventListener('DOMMouseScroll', handleWheel, { capture: true });
+            });
+        };
+
+        // Bind to container immediately
+        bind(container);
+
+        // Note: We intentionally do NOT scroll the DOM in tmux mode.
+        // We forward wheel to tmux copy-mode so server-side pane history is used.
+
+        // Bind to xterm internals once available
+        const attachInternals = () => {
+            const viewport = container.querySelector('.xterm-viewport');
+            const screen = container.querySelector('.xterm-screen');
+            const xtermRoot = container.querySelector('.xterm');
+            if (viewport) bind(viewport);
+            if (screen) bind(screen);
+            if (xtermRoot) bind(xtermRoot);
+        };
+        // Try now and again shortly in case xterm just mounted
+        attachInternals();
+        setTimeout(attachInternals, 50);
+        setTimeout(attachInternals, 150);
     }
     
     initializeTerminal() {
@@ -34,27 +143,36 @@ class WebTerminal {
             cursorBlink: true,
             fontSize: 14,
             fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+            scrollback: 999999, // Maximum scrollback buffer to never lose history
+            convertEol: true,
+            // Mouse configuration: allow scrolling but disable mouse input events
+            disableStdin: false, // Keep false to allow keyboard input
+            // Disable all mouse tracking modes to prevent mouse events from generating input
+            mouseEvents: false, // Disable mouse event tracking
+            logLevel: 'off',
             theme: {
-                background: '#1e1e1e',
-                foreground: '#cccccc',
-                cursor: '#ffffff',
-                selection: '#264f78',
-                black: '#000000',
-                red: '#cd3131',
-                green: '#0dbc79',
-                yellow: '#e5e510',
-                blue: '#2472c8',
-                magenta: '#bc3fbc',
-                cyan: '#11a8cd',
-                white: '#e5e5e5',
-                brightBlack: '#666666',
-                brightRed: '#f14c4c',
-                brightGreen: '#23d18b',
-                brightYellow: '#f5f543',
-                brightBlue: '#3b8eea',
-                brightMagenta: '#d670d6',
-                brightCyan: '#29b8db',
-                brightWhite: '#e5e5e5'
+                // Zellij-inspired Catppuccin Mocha theme
+                background: '#1e1e2e',
+                foreground: '#cdd6f4',
+                cursor: '#f5e0dc',
+                cursorAccent: '#1e1e2e',
+                selection: 'rgba(137, 180, 250, 0.3)',
+                black: '#45475a',
+                red: '#f38ba8',
+                green: '#a6e3a1',
+                yellow: '#f9e2af',
+                blue: '#89b4fa',
+                magenta: '#f5c2e7',
+                cyan: '#94e2d5',
+                white: '#bac2de',
+                brightBlack: '#585b70',
+                brightRed: '#f38ba8',
+                brightGreen: '#a6e3a1',
+                brightYellow: '#f9e2af',
+                brightBlue: '#89b4fa',
+                brightMagenta: '#f5c2e7',
+                brightCyan: '#94e2d5',
+                brightWhite: '#a6adc8'
             }
         });
         
@@ -66,9 +184,11 @@ class WebTerminal {
         
         this.terminal.open(document.getElementById('terminal'));
         
+        // Store reference for wheel handler
+        this.setupWheelHandler();
+        
         // Fit terminal to container
         if (this.fitAddon) {
-            // Initial fit
             this.fitAddon.fit();
             // Fit after a short delay to ensure proper sizing
             setTimeout(() => {
@@ -83,16 +203,15 @@ class WebTerminal {
         window.addEventListener('resize', () => {
             clearTimeout(resizeTimeout);
             resizeTimeout = setTimeout(() => {
-                if (this.fitAddon && this.fitAddon.fit) {
+                if (this.fitAddon) {
                     this.fitAddon.fit();
-                    if (this.isConnected && this.ws) {
-                        this.sendResize();
-                    }
+                }
+                if (this.isConnected && this.ws) {
+                    this.sendResize();
                 }
             }, 100);
         });
         
-        // Add keyboard shortcut for manual reconnect (Ctrl+R or Cmd+R)
         window.addEventListener('keydown', (e) => {
             if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
                 if (!this.isConnected && (!this.ws || this.ws.readyState === WebSocket.CLOSED)) {
@@ -105,7 +224,19 @@ class WebTerminal {
         });
         
         this.terminal.onData(data => {
+            // Filter out mouse escape sequences only
+            // Mouse sequences: \x1b[M or \x1b[<
+            if (data.includes('\x1b[M') || data.includes('\x1b[<')) {
+                console.log('Filtered mouse event');
+                return;
+            }
+            
             if (this.isConnected && this.ws && this.ws.readyState === WebSocket.OPEN) {
+                // If we scrolled via tmux copy-mode, cancel it so typing goes to the app
+                if (this.currentSession && this.tmuxAvailable && this._tmuxScrollUsed) {
+                    try { this.ws.send(JSON.stringify({ type: 'TmuxCancelCopyMode' })); } catch (_) {}
+                    this._tmuxScrollUsed = false;
+                }
                 this.ws.send(JSON.stringify({
                     type: 'Input',
                     data: data
@@ -184,11 +315,21 @@ class WebTerminal {
         
         this.ws.onopen = () => {
             clearTimeout(connectionTimeout); // Clear timeout on successful connection
-            this.terminal.clear();
+            // Don't clear terminal to preserve session history
+            // this.terminal.clear();
             this.reconnectAttempts = 0; // Reset on successful connection
             this.reconnectDelay = 1000; // Reset delay
             this.isHandlingDisconnect = false; // Ensure flag is reset
-            this.ws.send(JSON.stringify({ type: 'Connect' }));
+            
+            // Check if we should connect to a specific session
+            if (window.targetSessionName) {
+                this.ws.send(JSON.stringify({ 
+                    type: 'ConnectToSession',
+                    session_name: window.targetSessionName
+                }));
+            } else {
+                this.ws.send(JSON.stringify({ type: 'Connect' }));
+            }
             
             // Start heartbeat to keep connection alive (prevents Cloudflare 100s timeout)
             this.heartbeatInterval = setInterval(() => {
@@ -209,11 +350,20 @@ class WebTerminal {
                     this.updateStatus('connected');
                     this.updateSessionUI();
                     this.terminal.focus();
-                    // Ensure proper sizing after connection
+                    
+                    // Re-setup wheel handler now that we know the session type
+                    this.setupWheelHandler();
+                    
+                    // Update page title if connected to a specific session
+                    if (this.currentSession) {
+                        document.title = `Web Terminal - ${this.currentSession}`;
+                    }
+                    
+                    // Fit terminal and send dimensions to backend
                     if (this.fitAddon) {
                         this.fitAddon.fit();
                     }
-                    // Send resize after fitting
+                    
                     setTimeout(() => {
                         this.sendResize();
                         if (this.tmuxAvailable) {
@@ -340,7 +490,7 @@ class WebTerminal {
     
     sendResize() {
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            // If fitAddon is available, use it; otherwise use terminal dimensions
+            // Use fitAddon to get current dimensions if available
             if (this.fitAddon && this.fitAddon.proposeDimensions) {
                 const dims = this.fitAddon.proposeDimensions();
                 if (dims) {
@@ -351,7 +501,7 @@ class WebTerminal {
                     }));
                 }
             } else if (this.terminal) {
-                // Fallback to terminal's cols/rows
+                // Fallback to terminal's current dimensions
                 this.ws.send(JSON.stringify({
                     type: 'Resize',
                     cols: this.terminal.cols || 80,
@@ -432,20 +582,21 @@ class WebTerminal {
                 }
                 
                 .session-toggle {
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    color: white;
-                    border: none;
-                    padding: 8px 12px;
-                    border-radius: 20px;
+                    background: linear-gradient(135deg, #89b4fa 0%, #cba6f7 100%);
+                    color: #1e1e2e;
+                    border: 1px solid rgba(137, 180, 250, 0.3);
+                    padding: 8px 16px;
+                    border-radius: 24px;
                     cursor: pointer;
                     display: flex;
                     align-items: center;
-                    gap: 6px;
-                    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-                    transition: all 0.3s ease;
-                    font-size: 12px;
+                    gap: 8px;
+                    box-shadow: 0 4px 12px rgba(137, 180, 250, 0.2);
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                    font-size: 13px;
                     font-weight: 600;
                     max-width: 200px;
+                    letter-spacing: 0.3px;
                 }
                 
                 #session-toggle-text {
@@ -653,6 +804,15 @@ class WebTerminal {
                     background: rgba(255, 152, 0, 1);
                 }
                 
+                .session-item-btn.open-new {
+                    background: rgba(156, 39, 176, 0.8);
+                    border-color: rgba(156, 39, 176, 1);
+                }
+                
+                .session-item-btn.open-new:hover {
+                    background: rgba(156, 39, 176, 1);
+                }
+                
                 .session-info {
                     color: rgba(255, 255, 255, 0.6);
                     font-size: 10px;
@@ -743,6 +903,9 @@ class WebTerminal {
                     panel?.classList.remove('show');
                 } else if (action === 'delete') {
                     this.deleteSession(sessionName);
+                } else if (action === 'open-new') {
+                    // Open session in new tab/window
+                    window.open(`/web-terminal/${sessionName}`, '_blank');
                 }
             }
         });
@@ -792,15 +955,13 @@ class WebTerminal {
     
     disconnectFromSession() {
         if (this.currentSession) {
-            if (confirm(`Disconnect from session '${this.currentSession}'?`)) {
-                const sessionName = this.currentSession;
-                this.currentSession = null;
-                if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-                    // Connect to a regular terminal (no session)
-                    this.ws.send(JSON.stringify({ type: 'Connect' }));
-                    this.terminal.writeln(`\r\n\x1b[33mDisconnected from tmux session: ${sessionName}\x1b[0m`);
-                    this.updateStatus('connected'); // Update button text
-                }
+            const sessionName = this.currentSession;
+            this.currentSession = null;
+            if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                // Connect to a regular terminal (no session)
+                this.ws.send(JSON.stringify({ type: 'Connect' }));
+                this.terminal.writeln(`\r\n\x1b[33mDisconnected from tmux session: ${sessionName}\x1b[0m`);
+                this.updateStatus('connected'); // Update button text
             }
         }
     }
@@ -833,6 +994,7 @@ class WebTerminal {
                         ${!isCurrent ? 
                             `<button class="session-item-btn connect" data-action="connect" data-session="${session.name}">Connect</button>` 
                             : `<button class="session-item-btn disconnect" data-action="disconnect" data-session="${session.name}">Disconnect</button>`}
+                        <button class="session-item-btn open-new" data-action="open-new" data-session="${session.name}">Open New</button>
                         <button class="session-item-btn delete" data-action="delete" data-session="${session.name}">Delete</button>
                     </div>
                     <div class="session-info">
