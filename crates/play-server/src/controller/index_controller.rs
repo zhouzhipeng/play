@@ -126,13 +126,7 @@ async fn root(s: S) -> HTML {
                         <div class="card-description">Schedule tasks</div>
                     </div>
                 </a>
-                <a class="card" href="/admin/translator">
-                    <div class="card-icon">🌐</div>
-                    <div class="card-content">
-                        <div class="card-title">Translator</div>
-                        <div class="card-description">Translate text</div>
-                    </div>
-                </a>
+
                 <a class="card" href="/static/shortlink-manager.html">
                     <div class="card-icon">🔗</div>
                     <div class="card-content">
