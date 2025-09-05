@@ -21,9 +21,10 @@ RUN set -eux; \
       tigervnc-standalone-server tigervnc-common tigervnc-tools \
       fluxbox xterm x11-xserver-utils \
       novnc websockify python3 \
-      chromium ca-certificates fonts-dejavu-core \
+      chromium ca-certificates fonts-dejavu-core fonts-noto-cjk fonts-noto-color-emoji fonts-unifont \
       curl procps supervisor \
     ; \
+    fc-cache -f; \
     sed -i 's/^# \(en_US.UTF-8\)/\1/' /etc/locale.gen; \
     locale-gen en_US.UTF-8; \
     rm -rf /var/lib/apt/lists/*
