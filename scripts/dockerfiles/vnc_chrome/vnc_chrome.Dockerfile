@@ -32,7 +32,7 @@ RUN set -eux; \
 # Create non-root user
 RUN useradd -m -s /bin/bash app && \
     mkdir -p /home/app/.vnc /home/app/.fluxbox /opt/novnc && \
-    printf 'session.screen0.rootCommand:\txsetroot -solid "#303030"\n' > /home/app/.fluxbox/init && \
+    printf 'session.screen0.rootCommand:\txsetroot -solid "#303030"\nsession.screen0.toolbar.visible:\tfalse\nsession.screen0.slit.autoHide:\ttrue\n' > /home/app/.fluxbox/init && \
     chown -R app:app /home/app /opt/novnc
 
 # Basic VNC xstartup to launch a minimal WM

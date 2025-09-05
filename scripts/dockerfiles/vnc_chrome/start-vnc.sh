@@ -61,16 +61,21 @@ sleep 1
 
 # Start Chromium after the VNC server is up (optional)
 if [ "${AUTO_START_CHROME}" = "true" ] || [ "${AUTO_START_CHROME}" = "1" ]; then
-  echo "Launching Chromium..."
-  # Disable sandbox for container; use an isolated user-data-dir
-  chromium \
-    --disable-dev-shm-usage \
-    --user-data-dir="$HOME/.config/chromium-profile" \
-    --start-maximized \
-    --no-first-run \
-    --disable-infobars \
-    --autoplay-policy=no-user-gesture-required \
-    >/dev/null 2>&1 &
+  echo "Launching Chromium (auto-restart on exit)..."
+  (
+    while true; do
+      chromium \
+        --disable-dev-shm-usage \
+        --user-data-dir="$HOME/.config/chromium-profile" \
+        --start-maximized \
+        --no-first-run \
+        --disable-infobars \
+        --autoplay-policy=no-user-gesture-required \
+        "$@"
+      echo "Chromium exited; restarting in 1s..." >&2
+      sleep 1
+    done
+  ) >/dev/null 2>&1 &
 fi
 
 # Start noVNC in HTTP mode, bind to 0.0.0.0 to support normal and host networking
