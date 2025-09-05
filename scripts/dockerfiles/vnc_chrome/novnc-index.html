@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>noVNC</title>
+    <meta http-equiv="refresh" content="0; url=/vnc.html?autoconnect=1&resize=remote&reconnect=true" />
+    <script>
+      // JS fallback for environments ignoring meta refresh
+      (function () {
+        var target = "/vnc.html?autoconnect=1&resize=remote&reconnect=true";
+        if (location.pathname !== "/" || location.search || location.hash) return;
+        try { window.location.replace(target); } catch (e) { window.location.href = target; }
+      })();
+    </script>
+  </head>
+  <body>
+    <noscript>
+      <a href="/vnc.html?autoconnect=1&resize=remote&reconnect=true">Open noVNC</a>
+    </noscript>
+  </body>
+  </html>
+
