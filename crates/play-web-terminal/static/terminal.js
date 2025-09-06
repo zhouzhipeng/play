@@ -28,7 +28,7 @@ class WebTerminal {
         this.autoSaveInterval = null;
         this.autoSavePeriodMs = 15000; // 15s
         this.MAX_HISTORY_BYTES = 100000; // cap for update payloads
-        // Scrolling state to throttle autosave updates
+        // Scrolling state to throttle autosave updates (manual only via UI buttons)
         this.isScrolling = false;
         this.scrollIdleTimer = null;
         this.scrollIdleMs = 1200;
@@ -36,6 +36,7 @@ class WebTerminal {
         this.initializeTerminal();
         this.setupEventListeners();
         this.setupSessionUI();
+        this.setupScrollControls();
         this.connect(); // Auto-connect on load
     }
 
@@ -216,14 +217,6 @@ class WebTerminal {
 
         let wheelAccum = 0;
         let wheelFlushTimer = null;
-        const markScrollingActive = () => {
-            this.isScrolling = true;
-            if (this.scrollIdleTimer) clearTimeout(this.scrollIdleTimer);
-            this.scrollIdleTimer = setTimeout(() => {
-                this.isScrolling = false;
-            }, this.scrollIdleMs);
-        };
-
         const flushWheel = () => {
             if (wheelAccum === 0) return;
             const direction = wheelAccum < 0 ? 'up' : 'down';
@@ -233,43 +226,15 @@ class WebTerminal {
             if (this.currentSession && this.tmuxAvailable && this.ws && this.ws.readyState === WebSocket.OPEN) {
                 this.ws.send(JSON.stringify({ type: 'TmuxScroll', direction, lines }));
                 this._tmuxScrollUsed = true;
-                markScrollingActive();
             }
         };
 
         const handleWheel = (e) => {
             if (this.currentSession && this.tmuxAvailable) {
-                // Stop xterm/tmux from seeing the wheel
+                // Disable mouse scrolling entirely in tmux sessions
                 e.preventDefault();
                 e.stopPropagation();
                 if (e.stopImmediatePropagation) e.stopImmediatePropagation();
-
-                const viewport = container.querySelector('.xterm-viewport');
-                const canDomScroll = !!(viewport && viewport.scrollHeight > viewport.clientHeight);
-
-                // Auto mode: try DOM when possible for smoothness + scrollbar; fall back to tmux at edges or when no scrollback
-                const useDom = (this.tmuxScrollMode === 'dom') || (this.tmuxScrollMode === 'auto' && canDomScroll);
-                if (useDom && viewport) {
-                    const atTop = viewport.scrollTop <= 0;
-                    const atBottom = viewport.scrollTop + viewport.clientHeight >= viewport.scrollHeight - 1;
-                    const goingUp = e.deltaY < 0;
-                    const goingDown = e.deltaY > 0;
-
-                    if ((goingUp && atTop) || (goingDown && atBottom)) {
-                        wheelAccum += e.deltaY;
-                        if (wheelFlushTimer) clearTimeout(wheelFlushTimer);
-                        wheelFlushTimer = setTimeout(flushWheel, 16);
-                    } else {
-                        viewport.scrollTop += e.deltaY;
-                    }
-                    markScrollingActive();
-                } else {
-                    // Accumulate and throttle scroll to tmux copy-mode
-                    wheelAccum += e.deltaY;
-                    if (wheelFlushTimer) clearTimeout(wheelFlushTimer);
-                    wheelFlushTimer = setTimeout(flushWheel, 16);
-                    markScrollingActive();
-                }
                 return false;
             }
             return true;
@@ -415,18 +380,24 @@ class WebTerminal {
                 return;
             }
             
-                if (this.isConnected && this.ws && this.ws.readyState === WebSocket.OPEN) {
-                    // If we scrolled via tmux copy-mode, cancel it so typing goes to the app
-                    if (this.currentSession && this.tmuxAvailable && this._tmuxScrollUsed) {
-                        try { this.ws.send(JSON.stringify({ type: 'TmuxCancelCopyMode' })); } catch (_) {}
-                        this._tmuxScrollUsed = false;
-                        this.isScrolling = false;
+            if (this.isConnected && this.ws && this.ws.readyState === WebSocket.OPEN) {
+                // If in view-only (tmux copy-mode), cancel it on first key press
+                if (this.currentSession && this.tmuxAvailable && (this._tmuxScrollUsed || this.isScrolling)) {
+                    try { this.ws.send(JSON.stringify({ type: 'TmuxCancelCopyMode' })); } catch (_) {}
+                    this._tmuxScrollUsed = false;
+                    this.isScrolling = false;
+                    // Ensure terminal regains focus if a scroll button had it
+                    const ae = document.activeElement;
+                    if (ae && (ae.id === 'scroll-up' || ae.id === 'scroll-down')) {
+                        try { ae.blur(); } catch(_){}
                     }
-                    this.ws.send(JSON.stringify({
-                        type: 'Input',
-                        data: data
-                    }));
+                    try { this.terminal && this.terminal.focus(); } catch(_){}
                 }
+                this.ws.send(JSON.stringify({
+                    type: 'Input',
+                    data: data
+                }));
+            }
         });
         
         // Only set resize handler if terminal supports it
@@ -444,6 +415,53 @@ class WebTerminal {
                 this.disconnect();
             }
         });
+    }
+
+    // Manual scroll controls: small overlay with Up/Down to enter view-only mode deliberately
+    setupScrollControls() {
+        // Add controls only once
+        if (document.getElementById('scroll-controls')) return;
+        const controls = document.createElement('div');
+        controls.id = 'scroll-controls';
+        controls.innerHTML = `
+            <style>
+                #scroll-controls { position: fixed; right: 12px; bottom: 18px; z-index: 1000; display: flex; flex-direction: column; gap: 6px; }
+                #scroll-controls .btn { width: 36px; height: 36px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(49,50,68,0.9); color: #cdd6f4; cursor: pointer; font-size: 16px; display:flex; align-items:center; justify-content:center; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+                #scroll-controls .btn:hover { background: rgba(69,71,90,0.95); }
+            </style>
+            <button class="btn" id="scroll-up" title="Scroll up">▲</button>
+            <button class="btn" id="scroll-down" title="Scroll down">▼</button>
+        `;
+        controls.style.display = 'none';
+        document.body.appendChild(controls);
+
+        const bumpViewOnly = () => {
+            this.isScrolling = true;
+            if (this.scrollIdleTimer) clearTimeout(this.scrollIdleTimer);
+            this.scrollIdleTimer = setTimeout(() => {
+                this.isScrolling = false;
+            }, this.scrollIdleMs);
+        };
+
+        const sendScroll = (direction) => {
+            if (!this.currentSession || !this.tmuxAvailable || !this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+            // Use a reasonable default lines per click
+            const lines = 20;
+            this.ws.send(JSON.stringify({ type: 'TmuxScroll', direction, lines }));
+            this._tmuxScrollUsed = true;
+            bumpViewOnly();
+            // Return focus to terminal immediately after clicking
+            setTimeout(() => { try { this.terminal && this.terminal.focus(); } catch(_){} }, 0);
+        };
+        const btnUp = controls.querySelector('#scroll-up');
+        const btnDown = controls.querySelector('#scroll-down');
+        // Prevent buttons from taking focus
+        btnUp.setAttribute('tabindex', '-1');
+        btnDown.setAttribute('tabindex', '-1');
+        btnUp.addEventListener('mousedown', (e) => { e.preventDefault(); });
+        btnDown.addEventListener('mousedown', (e) => { e.preventDefault(); });
+        btnUp.addEventListener('click', (e) => { e.stopPropagation(); sendScroll('up'); });
+        btnDown.addEventListener('click', (e) => { e.stopPropagation(); sendScroll('down'); });
     }
     
     connect() {
@@ -1571,6 +1589,12 @@ class WebTerminal {
         const controls = document.getElementById('session-controls');
         if (controls) {
             controls.style.display = this.tmuxAvailable ? 'block' : 'none';
+        }
+        const scrollCtrls = document.getElementById('scroll-controls');
+        if (scrollCtrls) {
+            // Show only for tmux sessions (not local terminal)
+            const show = !!(this.tmuxAvailable && this.currentSession);
+            scrollCtrls.style.display = show ? 'flex' : 'none';
         }
     }
     
