@@ -781,6 +781,45 @@ class WebTerminal {
         return kept.join('\n');
     }
 
+    renderPreviewTerminal(container, raw) {
+        try {
+            // Dispose existing instance
+            if (container._xterm && container._xterm.dispose) {
+                try { container._xterm.dispose(); } catch(_){}
+            }
+            container.innerHTML = '';
+            const fontSize = (this.terminal && this.terminal.options && this.terminal.options.fontSize) ? this.terminal.options.fontSize : 14;
+            const fontFamily = (this.terminal && this.terminal.options && this.terminal.options.fontFamily) ? this.terminal.options.fontFamily : 'Menlo, Monaco, "Courier New", monospace';
+            const theme = (this.terminal && this.terminal.options && this.terminal.options.theme) ? this.terminal.options.theme : undefined;
+            const term = new Terminal({
+                convertEol: true,
+                disableStdin: true,
+                cursorBlink: false,
+                scrollback: 1000,
+                fontSize,
+                fontFamily,
+                theme
+            });
+            let fitAddon = null;
+            if (typeof FitAddon !== 'undefined') {
+                fitAddon = new FitAddon.FitAddon();
+                term.loadAddon(fitAddon);
+            }
+            container.style.height = container.style.height || '220px';
+            term.open(container);
+            // Avoid OSC clipboard operations for safety: strip OSC 52
+            raw = raw.replace(/\x1b\]52;[\s\S]*?(?:\x07|\x1b\\)/g, '');
+            term.write(raw);
+            if (fitAddon) {
+                setTimeout(() => { try { fitAddon.fit(); } catch(_){ } }, 0);
+            }
+            container._xterm = term;
+        } catch (e) {
+            // Fallback: plain HTML if something goes wrong
+            container.innerText = raw;
+        }
+    }
+
     // Base64 helpers
     base64FromArrayBuffer(buf) {
         let binary = '';
@@ -1328,7 +1367,7 @@ class WebTerminal {
                 .saved-name { font-weight: 600; color:#fff; }
                 .saved-meta { color: rgba(255,255,255,0.6); font-size: 12px; }
                 .saved-actions { margin-left: auto; display: flex; gap: 6px; }
-                .saved-preview { display:none; margin-top:6px; border:1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.25); border-radius:6px; padding:8px; font-family: Menlo, Monaco, "Courier New", monospace; font-size: var(--terminal-font-size, 14px); white-space: pre-wrap; color:#cdd6f4; max-height:220px; overflow:auto; }
+                .saved-preview { display:none; margin-top:6px; border:1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.25); border-radius:6px; padding:8px; font-family: Menlo, Monaco, "Courier New", monospace; font-size: var(--terminal-font-size, 14px); white-space: pre-wrap; color:#cdd6f4; max-height:220px;  }
                 .btn { background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); padding: 6px 12px; border-radius: 6px; cursor: pointer; }
                 .btn.primary { background: rgba(137,180,250,0.8); border-color: rgba(137,180,250,1); color: #1e1e2e; font-weight: 700; }
                 .search-row { display:flex; gap:8px; margin-bottom: 10px; }
@@ -1712,8 +1751,8 @@ class WebTerminal {
                     if ((!raw || raw.length === 0) && chosen.history_gzip_b64 && chosen.history_encoding === 'gzip+base64') {
                         try { raw = await this.gunzipBase64ToText(chosen.history_gzip_b64); } catch (_) {}
                     }
-                    raw = (raw || '').slice(-20000);
-                    // Render with an offscreen xterm instance for exact fidelity
+                    // raw = (raw || '').slice(-20000);
+                    // // Render with an offscreen xterm instance for exact fidelity
                     this.renderPreviewTerminal(prevEl, raw);
                     prevEl.style.display = 'block';
                     btn.textContent = 'Hide';
