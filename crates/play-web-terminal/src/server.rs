@@ -37,6 +37,7 @@ where
         .route("/web-terminal/assets/{*path}", get(serve_asset))
         .route("/web-terminal/api/sessions", get(list_sessions).post(create_session))
         .route("/web-terminal/api/sessions/{name}", delete(delete_session))
+        .route("/web-terminal/api/sessions/{name}/cwd", get(get_session_cwd))
         .route("/web-terminal/{session_name}", get(terminal_page_with_session))
         .layer(cors)
         .with_state(session_manager)
@@ -128,4 +129,18 @@ async fn serve_asset(axum::extract::Path(path): axum::extract::Path<String>) -> 
         .header(header::CACHE_CONTROL, "public, max-age=31536000") // Cache for 1 year
         .body(Body::from(content))
         .unwrap()
+}
+
+async fn get_session_cwd(
+    State(session_manager): State<Arc<SessionManager>>,
+    Path(name): Path<String>,
+) -> impl IntoResponse {
+    match session_manager.get_session_cwd(&name) {
+        Ok(cwd) => (StatusCode::OK, Json(json!({ "cwd": cwd }))).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": e.to_string() })),
+        )
+            .into_response(),
+    }
 }

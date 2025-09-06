@@ -437,6 +437,25 @@ impl SessionManager {
         Ok(())
     }
 
+    pub fn get_session_cwd(&self, session_name: &str) -> Result<String, Error> {
+        if !self.tmux_available {
+            return Err(Error::Custom("tmux is not available".to_string()));
+        }
+
+        let output = Command::new("tmux")
+            .args(&["display-message", "-p", "-t", session_name, "#{pane_current_path}"])
+            .output()
+            .map_err(|e| Error::Custom(format!("Failed to query tmux session cwd: {}", e)))?;
+
+        if !output.status.success() {
+            let error_msg = String::from_utf8_lossy(&output.stderr);
+            return Err(Error::Custom(format!("Failed to get session cwd: {}", error_msg)));
+        }
+
+        let cwd = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        Ok(cwd)
+    }
+
     pub fn disable_mouse_for_session(&self, session_name: &str) {
         if !self.tmux_available {
             return;

@@ -19,10 +19,164 @@ class WebTerminal {
         // Scroll strategy for tmux sessions (default: auto)
         this.tmuxScrollMode = 'auto'; // 'auto' | 'dom' | 'tmux'
         
+        // Data API client (lazy)
+        this.dataClient = null;
+        this._dataApiPromise = null;
+        this._dataApiTried = false;
+        this.sessionHistory = '';
+        this.lastSavedSignature = '';
+        this.autoSaveInterval = null;
+        this.autoSavePeriodMs = 15000; // 15s
+
         this.initializeTerminal();
         this.setupEventListeners();
         this.setupSessionUI();
         this.connect(); // Auto-connect on load
+    }
+
+    // --- ANSI decoding helpers for preview ---
+    escapeHtml(str) {
+        return str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
+    sanitizeAnsiForPreview(str) {
+        let s = str;
+        // Remove OSC sequences: ESC ] ... BEL or ST
+        s = s.replace(/\x1b\][\s\S]*?(?:\x07|\x1b\\)/g, '');
+        // Remove CSI sequences that are not SGR ('m')
+        s = s.replace(/\x1b\[[0-?]*[ -\/]*[@-~]/g, (m) => (m.endsWith('m') ? m : ''));
+        // Remove charset selection ESC ( B, ESC ) 0 etc.
+        s = s.replace(/\x1b[\(\)][0-9A-Za-z]/g, '');
+        // Remove other single-character ESC sequences (C1 7-bit)
+        s = s.replace(/\x1b[@-Z\\-_]/g, '');
+        return s;
+    }
+
+    ansiToHtml(input) {
+        if (!input) return '';
+        // Normalize newlines
+        let text = input.replace(/\r/g, '');
+        text = this.sanitizeAnsiForPreview(text);
+        const parts = text.split(/\x1b\[/g); // split by ESC[
+        // Active style state
+        let fg = null, bg = null, bold = false, underline = false, italic = false, inverse = false;
+        let spanOpen = false;
+
+        // 16/bright color maps
+        const colorMap = {
+            30: '#000000', 31: '#f38ba8', 32: '#a6e3a1', 33: '#f9e2af', 34: '#89b4fa', 35: '#f5c2e7', 36: '#94e2d5', 37: '#cdd6f4',
+            90: '#585b70', 91: '#f38ba8', 92: '#a6e3a1', 93: '#f9e2af', 94: '#89b4fa', 95: '#f5c2e7', 96: '#94e2d5', 97: '#ffffff'
+        };
+        const bgMap = {
+            40: '#000000', 41: '#f38ba8', 42: '#a6e3a1', 43: '#f9e2af', 44: '#89b4fa', 45: '#f5c2e7', 46: '#94e2d5', 47: '#cdd6f4',
+            100: '#585b70', 101: '#f38ba8', 102: '#a6e3a1', 103: '#f9e2af', 104: '#89b4fa', 105: '#f5c2e7', 106: '#94e2d5', 107: '#ffffff'
+        };
+
+        const toHex = (n) => {
+            const h = Math.max(0, Math.min(255, n)).toString(16).padStart(2, '0');
+            return h;
+        };
+        const ansi256ToHex = (idx) => {
+            idx = Math.max(0, Math.min(255, idx|0));
+            if (idx < 16) {
+                // Map first 16 to a reasonable palette similar to xterm defaults
+                const base = [
+                    '#000000','#800000','#008000','#808000','#000080','#800080','#008080','#c0c0c0',
+                    '#808080','#ff0000','#00ff00','#ffff00','#0000ff','#ff00ff','#00ffff','#ffffff'
+                ];
+                return base[idx];
+            } else if (idx >= 16 && idx <= 231) {
+                const n = idx - 16;
+                const r = Math.floor(n / 36);
+                const g = Math.floor((n % 36) / 6);
+                const b = n % 6;
+                const conv = (v) => v === 0 ? 0 : 55 + v * 40; // 0,95,135,175,215,255 approx -> 0,95.. etc; using 55+v*40 yields 55..255 and 0 for 0
+                const rr = r === 0 ? 0 : 95 + (r - 1) * 40;
+                const gg = g === 0 ? 0 : 95 + (g - 1) * 40;
+                const bb = b === 0 ? 0 : 95 + (b - 1) * 40;
+                return `#${toHex(rr)}${toHex(gg)}${toHex(bb)}`;
+            } else {
+                const v = 8 + 10 * (idx - 232);
+                return `#${toHex(v)}${toHex(v)}${toHex(v)}`;
+            }
+        };
+
+        let html = '';
+        // First chunk is plain text
+        html += this.escapeHtml(parts[0]).replace(/\n/g, '<br>');
+        for (let i = 1; i < parts.length; i++) {
+            const seg = parts[i];
+            const mIndex = seg.indexOf('m');
+            if (mIndex === -1) {
+                // Not an SGR; keep literal '['
+                html += this.escapeHtml(`[${seg}`).replace(/\n/g, '<br>');
+                continue;
+            }
+            const seq = seg.slice(0, mIndex);
+            const rest = seg.slice(mIndex + 1);
+            // Parse codes like "0;31;47" and extended 38/48
+            const codes = seq.length ? seq.split(';').map(c => (c === '' ? 0 : parseInt(c, 10))) : [0];
+            // Close any open span before changing styles
+            if (spanOpen) { html += '</span>'; spanOpen = false; }
+            // Apply codes in order with lookahead for 38/48
+            for (let j = 0; j < codes.length; j++) {
+                const code = codes[j];
+                if (isNaN(code) || code === 0) { fg = null; bg = null; bold = false; underline = false; italic = false; inverse = false; }
+                else if (code === 1) { bold = true; }
+                else if (code === 3) { italic = true; }
+                else if (code === 4) { underline = true; }
+                else if (code === 7) { inverse = true; }
+                else if (code === 22) { bold = false; }
+                else if (code === 23) { italic = false; }
+                else if (code === 24) { underline = false; }
+                else if (code === 27) { inverse = false; }
+                else if ((code >= 30 && code <= 37) || (code >= 90 && code <= 97)) { fg = colorMap[code]; }
+                else if ((code >= 40 && code <= 47) || (code >= 100 && code <= 107)) { bg = bgMap[code]; }
+                else if (code === 39) { fg = null; }
+                else if (code === 49) { bg = null; }
+                else if (code === 38 || code === 48) {
+                    const isBg = (code === 48);
+                    const mode = codes[j + 1];
+                    if (mode === 5 && typeof codes[j + 2] !== 'undefined') {
+                        const idx256 = codes[j + 2];
+                        const hex = ansi256ToHex(idx256);
+                        if (isBg) bg = hex; else fg = hex;
+                        j += 2;
+                    } else if (mode === 2 && typeof codes[j + 2] !== 'undefined' && typeof codes[j + 3] !== 'undefined' && typeof codes[j + 4] !== 'undefined') {
+                        const r = Math.max(0, Math.min(255, codes[j + 2]|0));
+                        const g = Math.max(0, Math.min(255, codes[j + 3]|0));
+                        const b = Math.max(0, Math.min(255, codes[j + 4]|0));
+                        const hex = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+                        if (isBg) bg = hex; else fg = hex;
+                        j += 4;
+                    } else {
+                        // Unrecognized extended sequence, skip
+                    }
+                }
+            }
+            // Open current style and add the rest text
+            const styles = [];
+            if (inverse) {
+                const f = bg || '#1e1e2e';
+                const b = fg || '#cdd6f4';
+                styles.push(`color:${f}`);
+                styles.push(`background:${b}`);
+            } else {
+                if (fg) styles.push(`color:${fg}`);
+                if (bg) styles.push(`background:${bg}`);
+            }
+            if (bold) styles.push('font-weight:700');
+            if (underline) styles.push('text-decoration:underline');
+            if (italic) styles.push('font-style:italic');
+            if (styles.length) { html += `<span style="${styles.join(';')}">`; spanOpen = true; }
+            html += this.escapeHtml(rest).replace(/\n/g, '<br>');
+        }
+        // Close any open span at end
+        if (spanOpen) html += '</span>';
+        return html;
     }
 
     setScrollMode(mode) {
@@ -351,6 +505,12 @@ class WebTerminal {
                     this.updateSessionUI();
                     this.terminal.focus();
                     
+                    // Reset history tracking for new connection
+                    if (this.currentSession) {
+                        this.sessionHistory = '';
+                        this.lastSavedSignature = '';
+                    }
+                    
                     // Re-setup wheel handler now that we know the session type
                     this.setupWheelHandler();
                     
@@ -370,6 +530,42 @@ class WebTerminal {
                             this.listSessions();
                         }
                     }, 50);
+
+                    // Manage auto-save lifecycle
+                    if (this.tmuxAvailable && this.currentSession) {
+                        this.startAutoSave();
+                    } else {
+                        this.stopAutoSave();
+                    }
+
+                    // Apply any pending restore actions
+                    if (this.pendingRestore && this.pendingRestore.name === this.currentSession) {
+                        const { cwd, history, loadHistory } = this.pendingRestore;
+                        // Change directory if provided
+                        if (cwd) {
+                            try {
+                                this.ws.send(JSON.stringify({ type: 'Input', data: `cd '${cwd.replace(/'/g, "'\\''")}'\n` }));
+                            } catch (_) {}
+                        }
+                        // Optionally prefill history into terminal scrollback (client-side only)
+                        if (loadHistory && history) {
+                            try {
+                                this.terminal.writeln("\r\n\x1b[36m---- Restored history (client-side) ----\x1b[0m");
+                                const chunk = history.slice(-(500000)); // cap 500k chars to avoid UI jank
+                                const safeChunk = this.sanitizeAnsiForPreview(chunk);
+                                this.terminal.write(safeChunk);
+                                this.terminal.writeln("\r\n\x1b[36m---- End restored history ----\x1b[0m\r\n");
+                                // Seed our history buffer so auto-save contains it
+                                this.sessionHistory = safeChunk;
+                                const maxLen = 5 * 1024 * 1024;
+                                if (this.sessionHistory.length > maxLen) {
+                                    this.sessionHistory = this.sessionHistory.slice(this.sessionHistory.length - maxLen);
+                                }
+                                this.lastSavedSignature = '';
+                            } catch (_) {}
+                        }
+                        this.pendingRestore = null;
+                    }
                     break;
                 
                 case 'SessionCreated':
@@ -388,6 +584,8 @@ class WebTerminal {
                     // Buffer output for batch processing to prevent blocking
                     this.outputBuffer.push(msg.data);
                     this.processOutputBuffer();
+                    // Track full session history for DB persistence (bounded)
+                    this.appendHistory(msg.data);
                     break;
                     
                 case 'Error':
@@ -449,6 +647,7 @@ class WebTerminal {
         this.ws = null;
         this.isConnected = false;
         this.updateStatus('disconnected');
+        this.stopAutoSave();
         
         this.reconnectAttempts++;
         
@@ -486,6 +685,119 @@ class WebTerminal {
             this.ws.send(JSON.stringify({ type: 'Disconnect' }));
             this.ws.close();
         }
+    }
+
+    ensureDataClient() {
+        // Fast path synchronous check
+        if (this.dataClient) return this.dataClient;
+        try {
+            const base = window.DATA_API_BASE_URL;
+            if (typeof DataAPIClient !== 'undefined') {
+                this.dataClient = base ? new DataAPIClient(base) : new DataAPIClient();
+            } else if (typeof DataAPI !== 'undefined' && DataAPI.defaultClient) {
+                this.dataClient = DataAPI.defaultClient;
+            }
+        } catch (_) {
+            // ignore
+        }
+        return this.dataClient;
+    }
+
+    async ensureDataClientAsync() {
+        const existing = this.ensureDataClient();
+        if (existing) return existing;
+        if (this._dataApiPromise) return this._dataApiPromise;
+
+        // Poll for presence (in case the script is still loading)
+        this._dataApiPromise = new Promise((resolve) => {
+            const start = Date.now();
+            const check = () => {
+                const c = this.ensureDataClient();
+                if (c) { resolve(c); return; }
+                if (Date.now() - start > 3000) { resolve(null); return; }
+                setTimeout(check, 100);
+            };
+            check();
+        });
+        return this._dataApiPromise;
+    }
+
+    appendHistory(chunk) {
+        if (!this.currentSession) return;
+        try {
+            this.sessionHistory += chunk;
+            // Bound memory usage (~5MB)
+            const maxLen = 5 * 1024 * 1024;
+            if (this.sessionHistory.length > maxLen) {
+                this.sessionHistory = this.sessionHistory.slice(this.sessionHistory.length - maxLen);
+            }
+        } catch (_) {}
+    }
+
+    async startAutoSave() {
+        if (this.autoSaveInterval) return;
+        const client = await this.ensureDataClientAsync();
+        if (!client) return;
+        this.autoSaveInterval = setInterval(() => {
+            this.saveSessionToDB().catch(err => console.warn('[WebTerminal] auto-save failed:', err));
+        }, this.autoSavePeriodMs);
+        // Kick an initial save shortly after connect
+        setTimeout(() => this.saveSessionToDB().catch(() => {}), 1000);
+    }
+
+    stopAutoSave() {
+        if (this.autoSaveInterval) {
+            clearInterval(this.autoSaveInterval);
+            this.autoSaveInterval = null;
+        }
+    }
+
+    async fetchCwd(sessionName) {
+        try {
+            const res = await fetch(`/web-terminal/api/sessions/${encodeURIComponent(sessionName)}/cwd`, { method: 'GET' });
+            if (!res.ok) return '';
+            const data = await res.json();
+            return data.cwd || '';
+        } catch (e) {
+            return '';
+        }
+    }
+
+    async saveSessionToDB() {
+        if (!this.currentSession || !this.tmuxAvailable) return;
+        const client = await this.ensureDataClientAsync();
+        if (!client) return;
+
+        const name = this.currentSession;
+        const history = this.sessionHistory || '';
+        const signature = `${history.length}:${history.slice(-200)}`;
+        if (signature === this.lastSavedSignature) {
+            return; // no change
+        }
+
+        const cwd = await this.fetchCwd(name);
+        const nowIso = new Date().toISOString();
+        const payload = {
+            name,
+            cwd,
+            history,
+            history_bytes: history.length,
+            updated_at: nowIso,
+            host: window.location.host
+        };
+
+        // Upsert by name
+        const where = client.buildWhereClause ? client.buildWhereClause({ name }) : `name='${name.replace(/'/g, "''")}'`;
+        const results = await client.query('tmux_sessions', { where, limit: '0,1' });
+        const rec = Array.isArray(results) && results.length > 0 ? results[0] : null;
+        if (rec && (rec.id !== undefined || (rec.data && rec.data.id !== undefined))) {
+            const id = rec.id ?? rec.data.id;
+            await client.update('tmux_sessions', id, payload, { override_data: true });
+        } else {
+            await client.insert('tmux_sessions', payload);
+        }
+        this.lastSavedSignature = signature;
+        console.debug('[WebTerminal] Session saved to DB:', name, cwd, history.length);
     }
     
     sendResize() {
@@ -839,13 +1151,73 @@ class WebTerminal {
                     <div class="session-actions">
                         <button class="session-btn" id="refresh-sessions" title="Refresh">↻</button>
                         <button class="session-btn primary" id="new-session" title="New Session">+ New</button>
+                        <button class="session-btn" id="restore-from-db" title="Restore from DB">Restore</button>
                     </div>
                 </div>
                 <div id="session-list"></div>
             </div>
         `;
         document.body.appendChild(sessionControls);
-        
+
+        // Restore Modal (popup)
+        const restoreModal = document.createElement('div');
+        restoreModal.id = 'restore-modal';
+        restoreModal.style.display = 'none';
+        restoreModal.innerHTML = `
+            <style>
+                #restore-modal { position: fixed; inset: 0; z-index: 2000; }
+                #restore-modal .overlay { position: absolute; inset:0; background: rgba(0,0,0,0.6); }
+                #restore-modal .dialog { position: absolute; top: 10%; left: 50%; transform: translateX(-50%);
+                    width: 800px; max-width: 95vw; background: rgba(30,30,46,0.98); border: 1px solid rgba(255,255,255,0.1);
+                    border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); overflow: hidden; }
+                #restore-modal .header { display:flex; align-items:center; justify-content:space-between; padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+                #restore-modal .header .title { font-weight: 700; color: #cdd6f4; }
+                #restore-modal .body { padding: 12px 16px; }
+                #restore-modal .footer { padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.1); display:flex; justify-content: flex-end; gap: 8px; }
+                #saved-sessions { max-height: 50vh; overflow-y: auto; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; }
+                .saved-item { padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.06); display:flex; flex-direction: column; gap:8px; align-items: stretch; }
+                .saved-row { display:flex; align-items:center; gap:12px; }
+                .saved-name { font-weight: 600; color:#fff; }
+                .saved-meta { color: rgba(255,255,255,0.6); font-size: 12px; }
+                .saved-actions { margin-left: auto; display: flex; gap: 6px; }
+                .saved-preview { display:none; margin-top:6px; border:1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.25); border-radius:6px; padding:8px; font-family: Menlo, Monaco, "Courier New", monospace; white-space: pre-wrap; color:#cdd6f4; max-height:220px; overflow:auto; }
+                .btn { background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+                .btn.primary { background: rgba(137,180,250,0.8); border-color: rgba(137,180,250,1); color: #1e1e2e; font-weight: 700; }
+                .search-row { display:flex; gap:8px; margin-bottom: 10px; }
+                .search-row input { flex:1; padding:8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.2); color:#fff; }
+                .option-row { display:flex; align-items:center; gap:8px; margin: 8px 0 12px; color: rgba(255,255,255,0.8); }
+                
+            </style>
+            <div class="overlay"></div>
+            <div class="dialog">
+                <div class="header"><div class="title">Restore Sessions from DB</div><button class="btn" id="restore-close">✕</button></div>
+                <div class="body">
+                    <div class="search-row">
+                        <input id="restore-search" placeholder="Search by name (press Enter)" />
+                        <button class="btn" id="restore-reload">Reload</button>
+                    </div>
+                    <div class="option-row">
+                        <input type="checkbox" id="restore-load-history" checked />
+                        <label for="restore-load-history">Load saved history into terminal scrollback (client-side)</label>
+                    </div>
+                    <div id="saved-sessions"></div>
+                </div>
+                <div class="footer">
+                    <button class="btn" id="restore-cancel">Close</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(restoreModal);
+
+        const hideRestore = () => { restoreModal.style.display = 'none'; };
+        const showRestore = () => { restoreModal.style.display = 'block'; this.loadSavedSessions(); };
+        restoreModal.querySelector('.overlay').addEventListener('click', hideRestore);
+        document.getElementById('restore-close').addEventListener('click', hideRestore);
+        document.getElementById('restore-cancel').addEventListener('click', hideRestore);
+        document.getElementById('restore-reload').addEventListener('click', () => this.loadSavedSessions());
+        document.getElementById('restore-search').addEventListener('keydown', (e) => { if (e.key === 'Enter') this.loadSavedSessions(); });
+        // inline preview handled per item
+
         // Toggle button functionality
         const toggleBtn = document.getElementById('session-toggle');
         const panel = document.getElementById('session-panel');
@@ -882,6 +1254,10 @@ class WebTerminal {
             if (name !== null) {
                 this.createSession(name);
             }
+        });
+        document.getElementById('restore-from-db')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            showRestore();
         });
         
         // Use event delegation for dynamically created buttons
@@ -957,6 +1333,8 @@ class WebTerminal {
         if (this.currentSession) {
             const sessionName = this.currentSession;
             this.currentSession = null;
+            this.stopAutoSave();
+            this.sessionHistory = '';
             if (this.ws && this.ws.readyState === WebSocket.OPEN) {
                 // Connect to a regular terminal (no session)
                 this.ws.send(JSON.stringify({ type: 'Connect' }));
@@ -1010,11 +1388,132 @@ class WebTerminal {
         this.terminal.writeln(`\r\n\x1b[33mSession deleted: ${name}\x1b[0m`);
         if (this.currentSession === name) {
             this.currentSession = null;
+            this.stopAutoSave();
+            this.sessionHistory = '';
             // Reconnect to a regular terminal
             this.ws.send(JSON.stringify({ type: 'Connect' }));
             this.updateStatus('connected'); // Update button text
         }
         this.listSessions();
+    }
+
+    async loadSavedSessions() {
+        const listEl = document.getElementById('saved-sessions');
+        const client = await this.ensureDataClientAsync();
+        if (!client) {
+            listEl.innerHTML = '<div class="session-empty">Data API not available</div>';
+            return;
+        }
+        const search = (document.getElementById('restore-search')?.value || '').trim();
+        let where = '';
+        if (search) {
+            // Basic contains: name LIKE '%search%'
+            const esc = search.replace(/'/g, "''");
+            where = `name LIKE '%${esc}%'`;
+        }
+        let entries = [];
+        try {
+            entries = await client.query('tmux_sessions', { where, order_by: 'updated desc', limit: '0,50' });
+        } catch (e) {
+            listEl.innerHTML = `<div class="session-empty">Failed to load: ${e.message}</div>`;
+            return;
+        }
+        if (!Array.isArray(entries) || entries.length === 0) {
+            listEl.innerHTML = '<div class="session-empty">No saved sessions</div>';
+            return;
+        }
+        const rows = entries.map((rec) => {
+            const data = rec.data || rec;
+            const name = data.name || '(unknown)';
+            const cwd = data.cwd || '';
+            const updated = rec.updated || data.updated_at || '';
+            const bytes = data.history_bytes || (data.history ? data.history.length : 0);
+            const id = rec.id || data.id || '';
+            return { id, name, cwd, updated, bytes, history: data.history || '' };
+        });
+        listEl.innerHTML = rows.map((r, idx) => (
+            `<div class="saved-item" data-index="${idx}">
+                <div class="saved-row">
+                    <div>
+                        <div class="saved-name">${r.name}</div>
+                        <div class="saved-meta">cwd: ${r.cwd || 'n/a'} — updated: ${r.updated || ''} — history: ${r.bytes} bytes</div>
+                    </div>
+                    <div class="saved-actions">
+                        <button class="btn" data-action="preview" data-index="${idx}">Preview</button>
+                        <button class="btn primary" data-action="restore" data-index="${idx}">Restore</button>
+                    </div>
+                </div>
+                <div class="saved-preview" id="saved-preview-${idx}"></div>
+            </div>`
+        )).join('');
+
+        listEl.onclick = (e) => {
+            const btn = e.target.closest('button');
+            if (!btn) return;
+            const idx = parseInt(btn.getAttribute('data-index'), 10);
+            if (isNaN(idx)) return;
+            const items = listEl.querySelectorAll('.saved-item');
+            const chosen = rows[idx];
+            if (!chosen) return;
+            if (btn.getAttribute('data-action') === 'preview') {
+                const itemEl = btn.closest('.saved-item');
+                const prevEl = itemEl.querySelector('.saved-preview');
+                if (!prevEl) return;
+                if (prevEl.style.display === 'block') {
+                    prevEl.style.display = 'none';
+                    btn.textContent = 'Preview';
+                } else {
+                    const raw = (chosen.history || '').slice(-20000);
+                    const html = this.ansiToHtml(raw);
+                    prevEl.innerHTML = html;
+                    prevEl.style.display = 'block';
+                    btn.textContent = 'Hide';
+                }
+            } else if (btn.getAttribute('data-action') === 'restore') {
+                const loadHistory = !!document.getElementById('restore-load-history')?.checked;
+                this.restoreFromDB(chosen, { loadHistory });
+                // Close dialog
+                const modal = document.getElementById('restore-modal');
+                if (modal) modal.style.display = 'none';
+            }
+        };
+    }
+
+    async restoreFromDB(entry, options = {}) {
+        const { name, cwd, history } = entry;
+        const { loadHistory } = options;
+        if (!this.tmuxAvailable) {
+            this.terminal.writeln('\r\n\x1b[31mCannot restore: tmux not available\x1b[0m');
+            return;
+        }
+        // Try to connect if exists; otherwise create
+        const connectAfter = () => this.connectToSession(name);
+        // Use cached session list if available by requesting fresh list and checking after a tick
+        let exists = false;
+        const listCheck = new Promise((resolve) => {
+            const handler = (ev) => {
+                try {
+                    const msg = JSON.parse(ev.data);
+                    if (msg.type === 'SessionList') {
+                        exists = (msg.sessions || []).some(s => s.name === name);
+                        resolve(undefined);
+                        this.ws.removeEventListener('message', handler);
+                    }
+                } catch (_) {}
+            };
+            this.ws.addEventListener('message', handler);
+            this.listSessions();
+            setTimeout(() => { try { this.ws.removeEventListener('message', handler); } catch(_){} resolve(undefined); }, 300);
+        });
+        await listCheck;
+        if (exists) {
+            connectAfter();
+        } else {
+            this.createSession(name);
+            // connect will happen via SessionCreated handler
+        }
+        // Prepare post-connect actions
+        this.pendingRestore = { name, cwd, history, loadHistory };
     }
 }
 
