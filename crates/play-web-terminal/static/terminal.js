@@ -68,6 +68,7 @@ class WebTerminal {
         const parts = text.split(/\x1b\[/g); // split by ESC[
         // Active style state
         let fg = null, bg = null, bold = false, underline = false, italic = false, inverse = false, faint = false;
+        let fgIdx256 = null; // track 256-color index for suggestion detection
         let spanOpen = false;
 
         // 16/bright color maps
@@ -129,7 +130,7 @@ class WebTerminal {
             // Apply codes in order with lookahead for 38/48
             for (let j = 0; j < codes.length; j++) {
                 const code = codes[j];
-                if (isNaN(code) || code === 0) { fg = null; bg = null; bold = false; underline = false; italic = false; inverse = false; faint = false; }
+                if (isNaN(code) || code === 0) { fg = null; bg = null; bold = false; underline = false; italic = false; inverse = false; faint = false; fgIdx256 = null; }
                 else if (code === 1) { bold = true; }
                 else if (code === 2) { faint = true; }
                 else if (code === 3) { italic = true; }
@@ -139,7 +140,7 @@ class WebTerminal {
                 else if (code === 23) { italic = false; }
                 else if (code === 24) { underline = false; }
                 else if (code === 27) { inverse = false; }
-                else if ((code >= 30 && code <= 37) || (code >= 90 && code <= 97)) { fg = colorMap[code]; }
+                else if ((code >= 30 && code <= 37) || (code >= 90 && code <= 97)) { fg = colorMap[code]; if (code === 90) { fgIdx256 = 232; } }
                 else if ((code >= 40 && code <= 47) || (code >= 100 && code <= 107)) { bg = bgMap[code]; }
                 else if (code === 39) { fg = null; }
                 else if (code === 49) { bg = null; }
@@ -150,6 +151,7 @@ class WebTerminal {
                         const idx256 = codes[j + 2];
                         const hex = ansi256ToHex(idx256);
                         if (isBg) bg = hex; else fg = hex;
+                        if (!isBg) fgIdx256 = idx256; // track fg index
                         j += 2;
                     } else if (mode === 2 && typeof codes[j + 2] !== 'undefined' && typeof codes[j + 3] !== 'undefined' && typeof codes[j + 4] !== 'undefined') {
                         const r = Math.max(0, Math.min(255, codes[j + 2]|0));
@@ -157,6 +159,7 @@ class WebTerminal {
                         const b = Math.max(0, Math.min(255, codes[j + 4]|0));
                         const hex = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
                         if (isBg) bg = hex; else fg = hex;
+                        if (!isBg) fgIdx256 = null; // truecolor, not an index; keep as not-grey
                         j += 4;
                     } else {
                         // Unrecognized extended sequence, skip
@@ -177,8 +180,9 @@ class WebTerminal {
             if (bold) styles.push('font-weight:700');
             if (underline) styles.push('text-decoration:underline');
             if (italic) styles.push('font-style:italic');
-            // If faint (e.g., zsh-autosuggestions), skip rendering this chunk to avoid ghost text duplications
-            if (!faint) {
+            // Treat faint or grey 256-color (grayscale 232..251) or bright black (90) as autosuggestion -> skip
+            const isGreySuggest = faint || (typeof fgIdx256 === 'number' && fgIdx256 >= 232 && fgIdx256 <= 251);
+            if (!isGreySuggest) {
                 if (styles.length) { html += `<span style="${styles.join(';')}">`; spanOpen = true; }
                 html += this.escapeHtml(rest).replace(/\n/g, '<br>');
             }
@@ -357,10 +361,10 @@ class WebTerminal {
         }
         
         this.terminal.open(document.getElementById('terminal'));
-        
+
         // Store reference for wheel handler
         this.setupWheelHandler();
-        
+
         // Fit terminal to container
         if (this.fitAddon) {
             this.fitAddon.fit();
@@ -369,6 +373,12 @@ class WebTerminal {
                 this.fitAddon.fit();
             }, 100);
         }
+
+        // Expose terminal font size to CSS so preview can match
+        try {
+            const fs = (this.terminal && this.terminal.options && this.terminal.options.fontSize) ? this.terminal.options.fontSize : 14;
+            document.documentElement.style.setProperty('--terminal-font-size', `${fs}px`);
+        } catch (_) {}
     }
     
     setupEventListeners() {
@@ -1318,7 +1328,7 @@ class WebTerminal {
                 .saved-name { font-weight: 600; color:#fff; }
                 .saved-meta { color: rgba(255,255,255,0.6); font-size: 12px; }
                 .saved-actions { margin-left: auto; display: flex; gap: 6px; }
-                .saved-preview { display:none; margin-top:6px; border:1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.25); border-radius:6px; padding:8px; font-family: Menlo, Monaco, "Courier New", monospace; white-space: pre-wrap; color:#cdd6f4; max-height:220px; overflow:auto; }
+                .saved-preview { display:none; margin-top:6px; border:1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.25); border-radius:6px; padding:8px; font-family: Menlo, Monaco, "Courier New", monospace; font-size: var(--terminal-font-size, 14px); white-space: pre-wrap; color:#cdd6f4; max-height:220px; overflow:auto; }
                 .btn { background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); padding: 6px 12px; border-radius: 6px; cursor: pointer; }
                 .btn.primary { background: rgba(137,180,250,0.8); border-color: rgba(137,180,250,1); color: #1e1e2e; font-weight: 700; }
                 .search-row { display:flex; gap:8px; margin-bottom: 10px; }
@@ -1703,8 +1713,8 @@ class WebTerminal {
                         try { raw = await this.gunzipBase64ToText(chosen.history_gzip_b64); } catch (_) {}
                     }
                     raw = (raw || '').slice(-20000);
-                    const html = this.ansiToHtml(raw);
-                    prevEl.innerHTML = html;
+                    // Render with an offscreen xterm instance for exact fidelity
+                    this.renderPreviewTerminal(prevEl, raw);
                     prevEl.style.display = 'block';
                     btn.textContent = 'Hide';
                 }
