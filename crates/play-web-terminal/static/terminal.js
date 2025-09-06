@@ -27,6 +27,7 @@ class WebTerminal {
         this.lastSavedSignature = '';
         this.autoSaveInterval = null;
         this.autoSavePeriodMs = 15000; // 15s
+        this.MAX_HISTORY_BYTES = 100000; // cap for update payloads
 
         this.initializeTerminal();
         this.setupEventListeners();
@@ -62,7 +63,7 @@ class WebTerminal {
         text = this.sanitizeAnsiForPreview(text);
         const parts = text.split(/\x1b\[/g); // split by ESC[
         // Active style state
-        let fg = null, bg = null, bold = false, underline = false, italic = false, inverse = false;
+        let fg = null, bg = null, bold = false, underline = false, italic = false, inverse = false, faint = false;
         let spanOpen = false;
 
         // 16/bright color maps
@@ -124,12 +125,13 @@ class WebTerminal {
             // Apply codes in order with lookahead for 38/48
             for (let j = 0; j < codes.length; j++) {
                 const code = codes[j];
-                if (isNaN(code) || code === 0) { fg = null; bg = null; bold = false; underline = false; italic = false; inverse = false; }
+                if (isNaN(code) || code === 0) { fg = null; bg = null; bold = false; underline = false; italic = false; inverse = false; faint = false; }
                 else if (code === 1) { bold = true; }
+                else if (code === 2) { faint = true; }
                 else if (code === 3) { italic = true; }
                 else if (code === 4) { underline = true; }
                 else if (code === 7) { inverse = true; }
-                else if (code === 22) { bold = false; }
+                else if (code === 22) { bold = false; faint = false; }
                 else if (code === 23) { italic = false; }
                 else if (code === 24) { underline = false; }
                 else if (code === 27) { inverse = false; }
@@ -171,8 +173,11 @@ class WebTerminal {
             if (bold) styles.push('font-weight:700');
             if (underline) styles.push('text-decoration:underline');
             if (italic) styles.push('font-style:italic');
-            if (styles.length) { html += `<span style="${styles.join(';')}">`; spanOpen = true; }
-            html += this.escapeHtml(rest).replace(/\n/g, '<br>');
+            // If faint (e.g., zsh-autosuggestions), skip rendering this chunk to avoid ghost text duplications
+            if (!faint) {
+                if (styles.length) { html += `<span style="${styles.join(';')}">`; spanOpen = true; }
+                html += this.escapeHtml(rest).replace(/\n/g, '<br>');
+            }
         }
         // Close any open span at end
         if (spanOpen) html += '</span>';
@@ -703,6 +708,84 @@ class WebTerminal {
         return this.dataClient;
     }
 
+    // Return { text, bytes } keeping last maxBytes of UTF-8
+    trimUtf8Tail(str, maxBytes) {
+        try {
+            const enc = new TextEncoder();
+            const dec = new TextDecoder();
+            const buf = enc.encode(str || '');
+            if (buf.length <= maxBytes) {
+                return { text: str || '', bytes: buf.length };
+            }
+            const tail = buf.slice(buf.length - maxBytes);
+            const text = dec.decode(tail);
+            return { text, bytes: tail.length };
+        } catch (_) {
+            // Fallback using code unit length
+            const s = str || '';
+            const tail = s.slice(-maxBytes);
+            return { text: tail, bytes: tail.length };
+        }
+    }
+
+    // Strip all ANSI sequences for emptiness check only
+    stripAnsiAll(str) {
+        if (!str) return '';
+        return str
+            // OSC: ESC ] ... BEL or ST
+            .replace(/\x1b\][\s\S]*?(?:\x07|\x1b\\)/g, '')
+            // CSI: ESC [ ... final byte in @-~
+            .replace(/\x1b\[[0-?]*[ -\/]*[@-~]/g, '')
+            // Charset selection and single ESC sequences
+            .replace(/\x1b[\(\)][0-9A-Za-z]/g, '')
+            .replace(/\x1b[@-Z\\-_]/g, '');
+    }
+
+    // Remove empty lines (after stripping ANSI to detect visible text), keep original line (with SGR) when not empty
+    removeEmptyLinesKeepAnsi(str) {
+        if (!str) return '';
+        const lines = str.replace(/\r/g, '').split('\n');
+        const kept = [];
+        for (const line of lines) {
+            const visible = this.stripAnsiAll(line).trim();
+            if (visible !== '') kept.push(line);
+        }
+        return kept.join('\n');
+    }
+
+    // Base64 helpers
+    base64FromArrayBuffer(buf) {
+        let binary = '';
+        const bytes = new Uint8Array(buf);
+        const len = bytes.length;
+        for (let i = 0; i < len; i++) binary += String.fromCharCode(bytes[i]);
+        return btoa(binary);
+    }
+    arrayBufferFromBase64(b64) {
+        const binary = atob(b64);
+        const len = binary.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+        return bytes.buffer;
+    }
+
+    async gzipToBase64(text) {
+        if (typeof CompressionStream === 'undefined') return null;
+        const enc = new TextEncoder();
+        const cs = new CompressionStream('gzip');
+        const stream = new Blob([enc.encode(text)]).stream().pipeThrough(cs);
+        const ab = await new Response(stream).arrayBuffer();
+        return { b64: this.base64FromArrayBuffer(ab), bytes: ab.byteLength };
+    }
+    async gunzipBase64ToText(b64) {
+        if (typeof DecompressionStream === 'undefined') return null;
+        const ab = this.arrayBufferFromBase64(b64);
+        const ds = new DecompressionStream('gzip');
+        const stream = new Blob([ab]).stream().pipeThrough(ds);
+        const out = await new Response(stream).arrayBuffer();
+        return new TextDecoder().decode(out);
+    }
+
     async ensureDataClientAsync() {
         const existing = this.ensureDataClient();
         if (existing) return existing;
@@ -777,14 +860,7 @@ class WebTerminal {
 
         const cwd = await this.fetchCwd(name);
         const nowIso = new Date().toISOString();
-        const payload = {
-            name,
-            cwd,
-            history,
-            history_bytes: history.length,
-            updated_at: nowIso,
-            host: window.location.host
-        };
+        let payload;
 
         // Upsert by name
         const where = client.buildWhereClause ? client.buildWhereClause({ name }) : `name='${name.replace(/'/g, "''")}'`;
@@ -792,8 +868,30 @@ class WebTerminal {
         const rec = Array.isArray(results) && results.length > 0 ? results[0] : null;
         if (rec && (rec.id !== undefined || (rec.data && rec.data.id !== undefined))) {
             const id = rec.id ?? rec.data.id;
+            // Update path: remove empty lines, cap to 100k (UTF-8 tail), then compress and store
+            const noEmpty = this.removeEmptyLinesKeepAnsi(history);
+            const { text: tail, bytes: unBytes } = this.trimUtf8Tail(noEmpty, this.MAX_HISTORY_BYTES);
+            let encInfo = await this.gzipToBase64(tail);
+            if (!encInfo) {
+                // Fallback: store plain if gzip unsupported
+                encInfo = { b64: null, bytes: 0 };
+            }
+            payload = {
+                name,
+                cwd,
+                history_encoding: encInfo.b64 ? 'gzip+base64' : 'plain',
+                history_gzip_b64: encInfo.b64 || undefined,
+                history: encInfo.b64 ? undefined : tail,
+                history_uncompressed_bytes: unBytes,
+                history_compressed_bytes: encInfo.bytes || undefined,
+                updated_at: nowIso,
+                host: window.location.host
+            };
             await client.update('tmux_sessions', id, payload, { override_data: true });
         } else {
+            // For insert, keep as-is
+            const enc = new TextEncoder();
+            payload = { name, cwd, history, history_bytes: enc.encode(history).length, updated_at: nowIso, host: window.location.host };
             await client.insert('tmux_sessions', payload);
         }
         this.lastSavedSignature = signature;
@@ -1427,9 +1525,9 @@ class WebTerminal {
             const name = data.name || '(unknown)';
             const cwd = data.cwd || '';
             const updated = rec.updated || data.updated_at || '';
-            const bytes = data.history_bytes || (data.history ? data.history.length : 0);
+            const bytes = data.history_uncompressed_bytes || data.history_bytes || (data.history ? data.history.length : 0);
             const id = rec.id || data.id || '';
-            return { id, name, cwd, updated, bytes, history: data.history || '' };
+            return { id, name, cwd, updated, bytes, history: data.history || '', history_gzip_b64: data.history_gzip_b64, history_encoding: data.history_encoding };
         });
         listEl.innerHTML = rows.map((r, idx) => (
             `<div class="saved-item" data-index="${idx}">
@@ -1447,7 +1545,7 @@ class WebTerminal {
             </div>`
         )).join('');
 
-        listEl.onclick = (e) => {
+        listEl.onclick = async (e) => {
             const btn = e.target.closest('button');
             if (!btn) return;
             const idx = parseInt(btn.getAttribute('data-index'), 10);
@@ -1463,7 +1561,11 @@ class WebTerminal {
                     prevEl.style.display = 'none';
                     btn.textContent = 'Preview';
                 } else {
-                    const raw = (chosen.history || '').slice(-20000);
+                    let raw = (chosen.history || '');
+                    if ((!raw || raw.length === 0) && chosen.history_gzip_b64 && chosen.history_encoding === 'gzip+base64') {
+                        try { raw = await this.gunzipBase64ToText(chosen.history_gzip_b64); } catch (_) {}
+                    }
+                    raw = (raw || '').slice(-20000);
                     const html = this.ansiToHtml(raw);
                     prevEl.innerHTML = html;
                     prevEl.style.display = 'block';
@@ -1471,6 +1573,10 @@ class WebTerminal {
                 }
             } else if (btn.getAttribute('data-action') === 'restore') {
                 const loadHistory = !!document.getElementById('restore-load-history')?.checked;
+                // Ensure we have decompressed history if needed
+                if ((!chosen.history || chosen.history.length === 0) && chosen.history_gzip_b64 && chosen.history_encoding === 'gzip+base64') {
+                    try { chosen.history = await this.gunzipBase64ToText(chosen.history_gzip_b64); } catch (_) {}
+                }
                 this.restoreFromDB(chosen, { loadHistory });
                 // Close dialog
                 const modal = document.getElementById('restore-modal');

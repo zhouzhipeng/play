@@ -143,6 +143,8 @@ async fn handle_socket(socket: WebSocket, session_manager: Arc<SessionManager>) 
                                             let _ = session_manager.attach_to_session(&session_name);
                                             // Force disable mouse mode after attaching
                                             session_manager.disable_mouse_for_session(&session_name);
+                                            // Disable tmux status bar for connected session
+                                            session_manager.disable_status_bar_for_session(&session_name);
                                             // Ensure generous scrollback for this session
                                             session_manager.ensure_session_history_limit(&session_name);
                                         }

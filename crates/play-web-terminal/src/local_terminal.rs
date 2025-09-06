@@ -117,6 +117,10 @@ impl LocalTerminal {
                 
                 if session_exists {
                     debug!("Attaching to existing tmux session: {}", session);
+                    // Ensure status bar is hidden for existing session
+                    let _ = Command::new("tmux")
+                        .args(&["set-option", "-t", session, "status", "off"])
+                        .output();
                     // Use -d flag to detach other clients to avoid size conflicts
                     // This ensures the new client's size is used
                     tmux_cmd.args(&["attach-session", "-d", "-t", session]);
@@ -166,6 +170,11 @@ impl LocalTerminal {
                     // Disable terminal overrides that might enable mouse
                     let _ = Command::new("tmux")
                         .args(&["set-option", "-t", session, "terminal-overrides", "*:no-mouse:no-scroll"])
+                        .output();
+
+                    // Hide tmux status bar in this session for cleaner web UI
+                    let _ = Command::new("tmux")
+                        .args(&["set-option", "-t", session, "status", "off"])
                         .output();
 
                     // Optionally disable alternate screen for better scroll UX
