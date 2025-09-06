@@ -283,6 +283,11 @@ impl SessionManager {
         let _ = Command::new("tmux")
             .args(&["set-option", "-t", &session_name, "mouse", "off"])
             .output();
+
+        // Disable tmux status bar for cleaner web UI
+        let _ = Command::new("tmux")
+            .args(&["set-option", "-t", &session_name, "status", "off"])
+            .output();
         
         // Disable mouse in copy mode
         let _ = Command::new("tmux")
@@ -435,6 +440,33 @@ impl SessionManager {
 
         debug!("Sent command to tmux session {}: {}", session_name, command);
         Ok(())
+    }
+
+    pub fn disable_status_bar_for_session(&self, session_name: &str) {
+        if !self.tmux_available { return; }
+        let _ = Command::new("tmux")
+            .args(&["set-option", "-t", session_name, "status", "off"])
+            .output();
+        debug!("Disabled tmux status bar for session: {}", session_name);
+    }
+
+    pub fn get_session_cwd(&self, session_name: &str) -> Result<String, Error> {
+        if !self.tmux_available {
+            return Err(Error::Custom("tmux is not available".to_string()));
+        }
+
+        let output = Command::new("tmux")
+            .args(&["display-message", "-p", "-t", session_name, "#{pane_current_path}"])
+            .output()
+            .map_err(|e| Error::Custom(format!("Failed to query tmux session cwd: {}", e)))?;
+
+        if !output.status.success() {
+            let error_msg = String::from_utf8_lossy(&output.stderr);
+            return Err(Error::Custom(format!("Failed to get session cwd: {}", error_msg)));
+        }
+
+        let cwd = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        Ok(cwd)
     }
 
     pub fn disable_mouse_for_session(&self, session_name: &str) {

@@ -516,7 +516,12 @@ async fn handle_query(
     };
 
     let _where = if let Some(val) = &query_param._where {
-        &parse_and_convert_to_json_extract(val)
+        if val.is_empty(){
+            "1=1"
+        }else{
+            &parse_and_convert_to_json_extract(val)
+        }
+
     } else {
         "1=1"
     };
