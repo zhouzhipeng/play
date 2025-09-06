@@ -28,6 +28,10 @@ class WebTerminal {
         this.autoSaveInterval = null;
         this.autoSavePeriodMs = 15000; // 15s
         this.MAX_HISTORY_BYTES = 100000; // cap for update payloads
+        // Scrolling state to throttle autosave updates
+        this.isScrolling = false;
+        this.scrollIdleTimer = null;
+        this.scrollIdleMs = 1200;
 
         this.initializeTerminal();
         this.setupEventListeners();
@@ -208,6 +212,14 @@ class WebTerminal {
 
         let wheelAccum = 0;
         let wheelFlushTimer = null;
+        const markScrollingActive = () => {
+            this.isScrolling = true;
+            if (this.scrollIdleTimer) clearTimeout(this.scrollIdleTimer);
+            this.scrollIdleTimer = setTimeout(() => {
+                this.isScrolling = false;
+            }, this.scrollIdleMs);
+        };
+
         const flushWheel = () => {
             if (wheelAccum === 0) return;
             const direction = wheelAccum < 0 ? 'up' : 'down';
@@ -217,6 +229,7 @@ class WebTerminal {
             if (this.currentSession && this.tmuxAvailable && this.ws && this.ws.readyState === WebSocket.OPEN) {
                 this.ws.send(JSON.stringify({ type: 'TmuxScroll', direction, lines }));
                 this._tmuxScrollUsed = true;
+                markScrollingActive();
             }
         };
 
@@ -245,11 +258,13 @@ class WebTerminal {
                     } else {
                         viewport.scrollTop += e.deltaY;
                     }
+                    markScrollingActive();
                 } else {
                     // Accumulate and throttle scroll to tmux copy-mode
                     wheelAccum += e.deltaY;
                     if (wheelFlushTimer) clearTimeout(wheelFlushTimer);
                     wheelFlushTimer = setTimeout(flushWheel, 16);
+                    markScrollingActive();
                 }
                 return false;
             }
@@ -390,17 +405,18 @@ class WebTerminal {
                 return;
             }
             
-            if (this.isConnected && this.ws && this.ws.readyState === WebSocket.OPEN) {
-                // If we scrolled via tmux copy-mode, cancel it so typing goes to the app
-                if (this.currentSession && this.tmuxAvailable && this._tmuxScrollUsed) {
-                    try { this.ws.send(JSON.stringify({ type: 'TmuxCancelCopyMode' })); } catch (_) {}
-                    this._tmuxScrollUsed = false;
+                if (this.isConnected && this.ws && this.ws.readyState === WebSocket.OPEN) {
+                    // If we scrolled via tmux copy-mode, cancel it so typing goes to the app
+                    if (this.currentSession && this.tmuxAvailable && this._tmuxScrollUsed) {
+                        try { this.ws.send(JSON.stringify({ type: 'TmuxCancelCopyMode' })); } catch (_) {}
+                        this._tmuxScrollUsed = false;
+                        this.isScrolling = false;
+                    }
+                    this.ws.send(JSON.stringify({
+                        type: 'Input',
+                        data: data
+                    }));
                 }
-                this.ws.send(JSON.stringify({
-                    type: 'Input',
-                    data: data
-                }));
-            }
         });
         
         // Only set resize handler if terminal supports it
@@ -509,6 +525,7 @@ class WebTerminal {
                     this.updateStatus('connected');
                     this.updateSessionUI();
                     this.terminal.focus();
+                    this.isScrolling = false;
                     
                     // Reset history tracking for new connection
                     if (this.currentSession) {
@@ -653,6 +670,7 @@ class WebTerminal {
         this.isConnected = false;
         this.updateStatus('disconnected');
         this.stopAutoSave();
+        this.isScrolling = false;
         
         this.reconnectAttempts++;
         
@@ -807,6 +825,8 @@ class WebTerminal {
 
     appendHistory(chunk) {
         if (!this.currentSession) return;
+        // Ignore output generated while user is scrolling (copy-mode or viewport)
+        if (this.isScrolling) return;
         try {
             this.sessionHistory += chunk;
             // Bound memory usage (~5MB)
@@ -848,6 +868,7 @@ class WebTerminal {
 
     async saveSessionToDB() {
         if (!this.currentSession || !this.tmuxAvailable) return;
+        if (this.isScrolling) return; // Skip all DB activity during scrolling
         const client = await this.ensureDataClientAsync();
         if (!client) return;
 
@@ -867,6 +888,10 @@ class WebTerminal {
         const results = await client.query('tmux_sessions', { where, limit: '0,1' });
         const rec = Array.isArray(results) && results.length > 0 ? results[0] : null;
         if (rec && (rec.id !== undefined || (rec.data && rec.data.id !== undefined))) {
+            if (this.isScrolling) {
+                // Skip update during scrolling mode
+                return;
+            }
             const id = rec.id ?? rec.data.id;
             // Update path: remove empty lines, cap to 100k (UTF-8 tail), then compress and store
             const noEmpty = this.removeEmptyLinesKeepAnsi(history);
@@ -889,9 +914,24 @@ class WebTerminal {
             };
             await client.update('tmux_sessions', id, payload, { override_data: true });
         } else {
-            // For insert, keep as-is
-            const enc = new TextEncoder();
-            payload = { name, cwd, history, history_bytes: enc.encode(history).length, updated_at: nowIso, host: window.location.host };
+            // Insert path: same as update — trim empty lines, cap to 100k, gzip+base64 if supported
+            const noEmpty = this.removeEmptyLinesKeepAnsi(history);
+            const { text: tail, bytes: unBytes } = this.trimUtf8Tail(noEmpty, this.MAX_HISTORY_BYTES);
+            let encInfo = await this.gzipToBase64(tail);
+            if (!encInfo) {
+                encInfo = { b64: null, bytes: 0 };
+            }
+            payload = {
+                name,
+                cwd,
+                history_encoding: encInfo.b64 ? 'gzip+base64' : 'plain',
+                history_gzip_b64: encInfo.b64 || undefined,
+                history: encInfo.b64 ? undefined : tail,
+                history_uncompressed_bytes: unBytes,
+                history_compressed_bytes: encInfo.bytes || undefined,
+                updated_at: nowIso,
+                host: window.location.host
+            };
             await client.insert('tmux_sessions', payload);
         }
         this.lastSavedSignature = signature;
@@ -1245,10 +1285,10 @@ class WebTerminal {
             
             <div class="session-panel" id="session-panel">
                 <div class="session-header">
-                    <span class="session-title">tmux Sessions</span>
+                    <span class="session-title">Sessions</span>
                     <div class="session-actions">
                         <button class="session-btn" id="refresh-sessions" title="Refresh">↻</button>
-                        <button class="session-btn primary" id="new-session" title="New Session">+ New</button>
+                        <button class="session-btn primary" id="new-session" title="New Session">New</button>
                         <button class="session-btn" id="restore-from-db" title="Restore from DB">Restore</button>
                     </div>
                 </div>
@@ -1340,6 +1380,102 @@ class WebTerminal {
             }
         });
         
+        // New Session Modal (same style as restore)
+        const newModal = document.createElement('div');
+        newModal.id = 'new-session-modal';
+        newModal.style.display = 'none';
+        newModal.innerHTML = `
+            <style>
+                #new-session-modal { position: fixed; inset: 0; z-index: 2000; }
+                #new-session-modal .overlay { position: absolute; inset:0; background: rgba(0,0,0,0.6); }
+                #new-session-modal .dialog { position: absolute; top: 20%; left: 50%; transform: translateX(-50%);
+                    width: 520px; max-width: 92vw; background: rgba(30,30,46,0.98); border: 1px solid rgba(255,255,255,0.1);
+                    border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); overflow: hidden; }
+                #new-session-modal .header { display:flex; align-items:center; justify-content:space-between; padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.1); color:#cdd6f4; }
+                #new-session-modal .title { font-weight: 700; }
+                #new-session-modal .body { padding: 12px 16px; }
+                #new-session-modal .footer { padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.1); display:flex; justify-content: flex-end; gap: 8px; }
+                #new-session-name { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.2); color:#fff; font-family: Menlo, Monaco, "Courier New", monospace; }
+                .hint { color: rgba(255,255,255,0.6); font-size:12px; margin-top: 8px; }
+                .btn { background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+                .btn.primary { background: rgba(137,180,250,0.8); border-color: rgba(137,180,250,1); color: #1e1e2e; font-weight: 700; }
+            </style>
+            <div class="overlay"></div>
+            <div class="dialog">
+                <div class="header"><div class="title">Create New Session</div><button class="btn" id="new-close">✕</button></div>
+                <div class="body">
+                    <input id="new-session-name" placeholder="Enter session name (optional)" />
+                    <div class="hint">Leave empty to auto-generate a name.</div>
+                </div>
+                <div class="footer">
+                    <button class="btn" id="new-cancel">Cancel</button>
+                    <button class="btn primary" id="new-create">Create</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(newModal);
+
+        const hideNew = () => { newModal.style.display = 'none'; };
+        const showNew = () => { newModal.style.display = 'block'; setTimeout(() => { document.getElementById('new-session-name')?.focus(); }, 0); };
+        newModal.querySelector('.overlay').addEventListener('click', hideNew);
+        document.getElementById('new-close').addEventListener('click', hideNew);
+        document.getElementById('new-cancel').addEventListener('click', hideNew);
+        document.getElementById('new-create').addEventListener('click', () => {
+            const val = (document.getElementById('new-session-name').value || '').trim();
+            hideNew();
+            this.createSession(val);
+        });
+        document.getElementById('new-session-name').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('new-create').click();
+            }
+        });
+
+        // Delete Session Modal (same style as restore)
+        const delModal = document.createElement('div');
+        delModal.id = 'delete-modal';
+        delModal.style.display = 'none';
+        delModal.innerHTML = `
+            <style>
+                #delete-modal { position: fixed; inset: 0; z-index: 2000; }
+                #delete-modal .overlay { position: absolute; inset:0; background: rgba(0,0,0,0.6); }
+                #delete-modal .dialog { position: absolute; top: 25%; left: 50%; transform: translateX(-50%);
+                    width: 520px; max-width: 92vw; background: rgba(30,30,46,0.98); border: 1px solid rgba(255,255,255,0.1);
+                    border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); overflow: hidden; }
+                #delete-modal .header { display:flex; align-items:center; justify-content:space-between; padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.1); color:#cdd6f4; }
+                #delete-modal .title { font-weight: 700; }
+                #delete-modal .body { padding: 12px 16px; color: #cdd6f4; }
+                #delete-modal .footer { padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.1); display:flex; justify-content: flex-end; gap: 8px; }
+                .danger { background: rgba(244, 67, 54, 0.85); border: 1px solid rgba(244,67,54, 1); color: white; }
+                .btn { background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+                .code { background: rgba(0,0,0,0.3); padding:2px 6px; border-radius: 6px; font-family: Menlo, Monaco, "Courier New", monospace; }
+            </style>
+            <div class="overlay"></div>
+            <div class="dialog">
+                <div class="header"><div class="title">Delete Session</div><button class="btn" id="del-close">✕</button></div>
+                <div class="body">Are you sure you want to delete session <span class="code" id="del-name"></span>?</div>
+                <div class="footer">
+                    <button class="btn" id="del-cancel">Cancel</button>
+                    <button class="btn danger" id="del-confirm">Delete</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(delModal);
+        const hideDel = () => { delModal.style.display = 'none'; };
+        const showDel = (name) => {
+            delModal.style.display = 'block';
+            const el = document.getElementById('del-name'); if (el) el.textContent = name;
+            const btn = document.getElementById('del-confirm'); if (btn) btn.dataset.session = name;
+        };
+        delModal.querySelector('.overlay').addEventListener('click', hideDel);
+        document.getElementById('del-close').addEventListener('click', hideDel);
+        document.getElementById('del-cancel').addEventListener('click', hideDel);
+        document.getElementById('del-confirm').addEventListener('click', (e) => {
+            const name = e.target.dataset.session;
+            hideDel();
+            this.deleteSession(name, { skipConfirm: true });
+        });
+
         // Add event listeners for session controls
         document.getElementById('refresh-sessions')?.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -1348,10 +1484,7 @@ class WebTerminal {
         
         document.getElementById('new-session')?.addEventListener('click', (e) => {
             e.stopPropagation();
-            const name = prompt('Enter session name (leave empty for auto-generated):');
-            if (name !== null) {
-                this.createSession(name);
-            }
+            showNew();
         });
         document.getElementById('restore-from-db')?.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -1376,7 +1509,7 @@ class WebTerminal {
                     toggleBtn?.classList.remove('expanded');
                     panel?.classList.remove('show');
                 } else if (action === 'delete') {
-                    this.deleteSession(sessionName);
+                    showDel(sessionName);
                 } else if (action === 'open-new') {
                     // Open session in new tab/window
                     window.open(`/web-terminal/${sessionName}`, '_blank');
@@ -1416,14 +1549,18 @@ class WebTerminal {
         }
     }
     
-    deleteSession(sessionName) {
-        if (confirm(`Delete session '${sessionName}'?`)) {
-            if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-                this.ws.send(JSON.stringify({ 
-                    type: 'DeleteSession',
-                    name: sessionName
-                }));
-            }
+    deleteSession(sessionName, opts = {}) {
+        if (!sessionName) return;
+        const { skipConfirm = false } = opts;
+        if (!skipConfirm) {
+            // Fallback safety: if used directly, require confirm
+            if (!confirm(`Delete session '${sessionName}'?`)) return;
+        }
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify({ 
+                type: 'DeleteSession',
+                name: sessionName
+            }));
         }
     }
     
