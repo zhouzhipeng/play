@@ -445,8 +445,8 @@ class WebTerminal {
 
         const sendScroll = (direction) => {
             if (!this.currentSession || !this.tmuxAvailable || !this.ws || this.ws.readyState !== WebSocket.OPEN) return;
-            // Use a reasonable default lines per click
-            const lines = 20;
+            // Use a gentle default lines per click
+            const lines = 5;
             this.ws.send(JSON.stringify({ type: 'TmuxScroll', direction, lines }));
             this._tmuxScrollUsed = true;
             bumpViewOnly();
