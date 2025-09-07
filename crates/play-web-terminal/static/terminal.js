@@ -61,6 +61,12 @@ class WebTerminal {
         return s;
     }
 
+    // For injection into xterm: keep all cursor/SGR control; strip only OSC sequences (clipboard/title)
+    stripOscSequences(str) {
+        if (!str) return '';
+        return str.replace(/\x1b\][\s\S]*?(?:\x07|\x1b\\)/g, '');
+    }
+
     ansiToHtml(input) {
         if (!input) return '';
         // Normalize newlines
@@ -602,7 +608,7 @@ class WebTerminal {
                             try {
                                 this.terminal.writeln("\r\n\x1b[36m---- Restored history (client-side) ----\x1b[0m");
                                 const chunk = history.slice(-(500000)); // cap 500k chars to avoid UI jank
-                                const safeChunk = this.sanitizeAnsiForPreview(chunk);
+                                const safeChunk = this.stripOscSequences(chunk); // preserve cursor moves/SGR; strip only OSC
                                 this.terminal.write(safeChunk);
                                 this.terminal.writeln("\r\n\x1b[36m---- End restored history ----\x1b[0m\r\n");
                                 // Seed our history buffer so auto-save contains it
