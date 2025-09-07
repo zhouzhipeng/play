@@ -299,6 +299,15 @@ class WebTerminal {
             // Disable all mouse tracking modes to prevent mouse events from generating input
             mouseEvents: false, // Disable mouse event tracking
             logLevel: 'off',
+            // Ensure proper handling of wide characters and line wrapping
+            rendererType: 'canvas',
+            allowTransparency: false,
+            drawBoldTextInBrightColors: true,
+            letterSpacing: 0,
+            lineHeight: 1.0,
+            minimumContrastRatio: 1,
+            // Handle wrapped lines properly
+            wordWrap: true,
             theme: {
                 // Zellij-inspired Catppuccin Mocha theme
                 background: '#1e1e2e',
@@ -453,6 +462,16 @@ class WebTerminal {
             if (!this.currentSession || !this.tmuxAvailable || !this.ws || this.ws.readyState !== WebSocket.OPEN) return;
             // Use a gentle default lines per click
             const lines = 5;
+            
+            // Before scrolling, ensure tmux has the correct window size
+            if (this.terminal && this.terminal.cols && this.terminal.rows) {
+                this.ws.send(JSON.stringify({
+                    type: 'Resize',
+                    cols: this.terminal.cols,
+                    rows: this.terminal.rows
+                }));
+            }
+            
             this.ws.send(JSON.stringify({ type: 'TmuxScroll', direction, lines }));
             this._tmuxScrollUsed = true;
             bumpViewOnly();
@@ -1017,6 +1036,7 @@ class WebTerminal {
             if (this.fitAddon && this.fitAddon.proposeDimensions) {
                 const dims = this.fitAddon.proposeDimensions();
                 if (dims) {
+                    // Ensure tmux gets the correct terminal size for proper line wrapping
                     this.ws.send(JSON.stringify({
                         type: 'Resize',
                         cols: dims.cols,
@@ -1049,6 +1069,8 @@ class WebTerminal {
             if (chunk.length > 0) {
                 // Combine chunk data and write to terminal
                 const combinedData = chunk.join('');
+                
+                // Write data to terminal
                 this.terminal.write(combinedData);
                 
                 // Continue processing if there's more data
