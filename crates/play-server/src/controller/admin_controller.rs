@@ -401,10 +401,10 @@ async fn backup_encrypted_to_cloud(s: S) -> R<String> {
         match result {
             Ok(msg) => {
                 info!("Cloud backup success: {}", msg);
-                // Send success notification
-                let sender = urlencoding::encode("cloud backup success").into_owned();
-                let title = urlencoding::encode(&msg).into_owned();
-                let _ = reqwest::get(format!("{}/{}/{}", mail_notify_url, sender, title)).await;
+                // // Send success notification
+                // let sender = urlencoding::encode("cloud backup success").into_owned();
+                // let title = urlencoding::encode(&msg).into_owned();
+                // let _ = reqwest::get(format!("{}/{}/{}", mail_notify_url, sender, title)).await;
             }
             Err(e) => {
                 error!("Cloud backup failed: {}", e);
