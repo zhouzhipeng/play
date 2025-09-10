@@ -589,6 +589,11 @@
         const searchBox = document.getElementById('searchBox');
         const builtTimeSpan = document.getElementById('builtTimeSpan');
 
+        // Auto-focus the search box when page loads
+        if (searchBox) {
+            searchBox.focus();
+        }
+
         mobileMenu.addEventListener('click', () => {
             navigation.classList.toggle('active');
             mobileMenu.textContent = navigation.classList.contains('active') ? '✕' : '☰';
