@@ -230,6 +230,20 @@ pub async  fn read_config_file(render_lua: bool)->anyhow::Result<String>{
     let final_path = Path::new(env::var(DATA_DIR)?.as_str()).join(file_path.as_str());
 
     // info!("config path : {:?}", final_path);
+
+    // If config file doesn't exist, create it with default content
+    if !final_path.exists() {
+        let default_config = r#"server_port = 3000
+log_level = "DEBUG"
+
+[database]
+url=":memory:"
+
+"#;
+        fs::write(&final_path, default_config)?;
+        info!("Created default config file at {:?}", final_path);
+    }
+
     let mut content = fs::read_to_string(&final_path)?;
 
      if render_lua{
