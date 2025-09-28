@@ -1,8 +1,5 @@
 use crate::tables::general_data::GeneralData;
-use crate::{
-    get_last_insert_id, method_router, promise
-    , R, S,
-};
+use crate::{get_last_insert_id, method_router, promise, R, S};
 use anyhow::{ensure, Context, Result};
 use axum::extract::{Path, Query};
 use axum::Json;
@@ -26,7 +23,6 @@ method_router!(
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 struct GetParam {
-
     id: Option<u32>,
     select: Option<String>,
     #[serde(default)]
@@ -127,7 +123,7 @@ struct UpdateOptionParam {
 
     /// override full data , not just a field.
     #[serde(default)]
-    override_data : bool,
+    override_data: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -172,10 +168,12 @@ fn parse_and_convert_to_json_extract(condition_str: &str) -> String {
         }
 
         // 检查是否遇到 "AND" 或 "OR"（忽略大小写）
-        if (c == 'a' || c == 'A' || c == 'o' || c == 'O') &&
-            ((c == 'a' || c == 'A') && (chars.peek() == Some(&'n') || chars.peek() == Some(&'N')) ||
-                (c == 'o' || c == 'O') && (chars.peek() == Some(&'r') || chars.peek() == Some(&'R'))) {
-
+        if (c == 'a' || c == 'A' || c == 'o' || c == 'O')
+            && ((c == 'a' || c == 'A')
+                && (chars.peek() == Some(&'n') || chars.peek() == Some(&'N'))
+                || (c == 'o' || c == 'O')
+                    && (chars.peek() == Some(&'r') || chars.peek() == Some(&'R')))
+        {
             let mut lookahead = String::new();
             lookahead.push(c);
 
@@ -196,7 +194,8 @@ fn parse_and_convert_to_json_extract(condition_str: &str) -> String {
                 } else {
                     false
                 }
-            } else { // c == 'o' || c == 'O'
+            } else {
+                // c == 'o' || c == 'O'
                 // 尝试读取 "R" 部分
                 if let Some(r) = chars.next() {
                     lookahead.push(r);
@@ -213,7 +212,10 @@ fn parse_and_convert_to_json_extract(condition_str: &str) -> String {
             if is_operator {
                 // 找到一个操作符，处理当前部分并记录操作符
                 if !current_part.trim().is_empty() {
-                    result.push((convert_condition(&current_part.trim()), lookahead.to_lowercase()));
+                    result.push((
+                        convert_condition(&current_part.trim()),
+                        lookahead.to_lowercase(),
+                    ));
                     current_part = String::new();
                 }
 
@@ -249,7 +251,7 @@ fn parse_and_convert_to_json_extract(condition_str: &str) -> String {
     let mut final_result = result[0].0.clone();
     for i in 0..(result.len() - 1) {
         let operator = &result[i].1;
-        let next_condition = &result[i+1].0;
+        let next_condition = &result[i + 1].0;
 
         if operator == "and" {
             final_result = format!("{} AND {}", final_result, next_condition);
@@ -293,9 +295,7 @@ fn check_action_valid(action: &str) -> Result<()> {
     Ok(())
 }
 
-
 fn check_category_valid(category: &str) -> Result<()> {
-
     ensure!(
         Regex::new(r"^[a-zA-Z0-9-_]{2,20}$")?.is_match(&category),
         "invalid `category` path : {} , not match with : {}",
@@ -361,7 +361,7 @@ pub fn parse_query_with_types(str_params: HashMap<String, String>) -> Result<Val
 async fn handle_insert(
     s: S,
     Path((category)): Path<(String)>,
-    Query(option) : Query<InsertOptionParam>,
+    Query(option): Query<InsertOptionParam>,
     Json(val): Json<HashMap<String, Value>>,
 ) -> R<Json<Map<String, Value>>> {
     check_category_valid(&category)?;
@@ -375,45 +375,49 @@ async fn handle_insert(
         );
     }
 
-
-    if option.unique{
+    if option.unique {
         //should be only one record for this category.
         let count = GeneralData::query_count(&category, &s.db).await?;
-        promise!(count <=1, "`unique`  is true , but there is more than one ({}) row under category :{}.", count, category);
+        promise!(
+            count <= 1,
+            "`unique`  is true , but there is more than one ({}) row under category :{}.",
+            count,
+            category
+        );
 
-        if count==0{
+        if count == 0 {
             //insert record
             let obj = insert_data(s, Path(category), serde_json::to_string(&val)?).await?;
             Ok(Json(obj.to_flat_map()?))
-        }else{
+        } else {
             //update record
-            GeneralData::update_data_by_cat(&category, &serde_json::to_string(&val)? ,&s.db).await?;
-            let records = GeneralData::query_by_cat_simple(&category, 1,&s.db).await?;
-            promise!(records.len() ==1 , "{category} not found , expected one record under it!");
+            GeneralData::update_data_by_cat(&category, &serde_json::to_string(&val)?, &s.db)
+                .await?;
+            let records = GeneralData::query_by_cat_simple(&category, 1, &s.db).await?;
+            promise!(
+                records.len() == 1,
+                "{category} not found , expected one record under it!"
+            );
 
             Ok(Json(records[0].to_flat_map()?))
         }
-
-    }else{
+    } else {
         //just insert
         let obj = insert_data(s, Path(category), serde_json::to_string(&val)?).await?;
         Ok(Json(obj.to_flat_map()?))
     }
-
-
-
 }
 async fn handle_update(
     s: S,
     Path((category)): Path<(String)>,
-    Query(option) : Query<UpdateOptionParam>,
+    Query(option): Query<UpdateOptionParam>,
     Json(val): Json<HashMap<String, Value>>,
 ) -> R<Json<AffectedResp>> {
     check_category_valid(&category)?;
 
-    let r = if !option.override_data{
+    let r = if !option.override_data {
         GeneralData::update_with_json_patch(&s.db, option.id, serde_json::to_string(&val)?).await?
-    }else{
+    } else {
         GeneralData::update_data_by_id(option.id, &serde_json::to_string(&val)?, &s.db).await?
     };
 
@@ -468,16 +472,13 @@ async fn handle_get(
         "*"
     };
 
-
-    let r = if let Some(id) = query_param.id{
+    let r = if let Some(id) = query_param.id {
         let r =
-            GeneralData::query_by_id_with_cat_select(select_fields, id, &category, &s.db)
-                .await?;
+            GeneralData::query_by_id_with_cat_select(select_fields, id, &category, &s.db).await?;
         promise!(r.len() == 1, "data not found for id : {}", id);
         r
-
-    }else{
-        let records = GeneralData::query_by_cat_simple(&category, 2,&s.db).await?;
+    } else {
+        let records = GeneralData::query_by_cat_simple(&category, 2, &s.db).await?;
         promise!(records.len() ==1 , "when `get` without id , there must have only one record under `{category}` , but found more or less!");
         records
     };
@@ -516,12 +517,11 @@ async fn handle_query(
     };
 
     let _where = if let Some(val) = &query_param._where {
-        if val.is_empty(){
+        if val.is_empty() {
             "1=1"
-        }else{
+        } else {
             &parse_and_convert_to_json_extract(val)
         }
-
     } else {
         "1=1"
     };
@@ -576,7 +576,7 @@ async fn handle_count(
     let count =
         GeneralData::query_count_composite(&category, _where, query_param.include_deleted, &s.db)
             .await?;
-    return Ok(Json(CountResp{ rows: count }));
+    return Ok(Json(CountResp { rows: count }));
 }
 
 fn parse_set_string_to_hashmap(input: &str) -> HashMap<String, String> {
@@ -623,4 +623,3 @@ async fn insert_data(s: S, Path(cat): Path<String>, body: String) -> Result<Gene
 
     Ok(data)
 }
-

@@ -1,19 +1,19 @@
-use std::{env, fs};
-use std::path::Path;
 use anyhow::anyhow;
+use std::path::Path;
+use std::{env, fs};
 
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use tracing::{error, info};
 
-use play_shared::{ file_path};
-use play_shared::constants::DATA_DIR;
 use crate::render_template_new;
+use play_shared::constants::DATA_DIR;
+use play_shared::file_path;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Config {
-    #[serde(default="default_log_level")]
+    #[serde(default = "default_log_level")]
     pub log_level: String,
     pub server_port: u32,
     #[serde(default)]
@@ -43,10 +43,9 @@ pub struct Config {
     #[cfg(feature = "play-integration-xiaozhi")]
     #[serde(default)]
     pub mcp_config: play_integration_xiaozhi::McpConfig,
-
 }
 
-#[derive(Deserialize,Serialize, Debug, Clone, Default)]
+#[derive(Deserialize, Serialize, Debug, Clone, Default)]
 pub struct CacheConfig {
     #[serde(default)]
     pub cf_token: String,
@@ -54,7 +53,7 @@ pub struct CacheConfig {
     pub cf_purge_cache_url: String,
 }
 
-#[derive(Deserialize,Serialize, Debug, Clone, Default)]
+#[derive(Deserialize, Serialize, Debug, Clone, Default)]
 pub struct PluginConfig {
     #[serde(default)]
     pub proxy_domain: String,
@@ -73,9 +72,8 @@ pub struct PluginConfig {
     pub disable: bool,
     #[serde(default)]
     pub create_process: bool,
-
 }
-#[derive(Deserialize,Serialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct DomainProxy {
     #[serde(default)]
     pub proxy_domain: String,
@@ -112,7 +110,7 @@ impl Default for OriginStrategy {
     }
 }
 
-#[derive(Deserialize,Serialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct WebSocketConfig {
     /// WebSocket Origin处理策略
     #[serde(default)]
@@ -131,7 +129,7 @@ impl Default for WebSocketConfig {
     }
 }
 
-#[derive(Deserialize,Serialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(tag = "type")]
 pub enum ProxyTarget {
     #[serde(rename = "folder")]
@@ -169,7 +167,7 @@ fn default_proxy_port() -> u16 {
     80
 }
 
-#[derive(Deserialize,Serialize, Debug, Clone, Default)]
+#[derive(Deserialize, Serialize, Debug, Clone, Default)]
 pub struct ShortLink {
     pub from: String,
     pub to: String,
@@ -185,7 +183,6 @@ pub struct AuthConfig {
     pub fingerprints: Vec<String>,
     pub whitelist: Vec<String>,
     pub passcode: String,
-
 }
 #[derive(Deserialize, Debug, Clone, Default)]
 pub struct MiscConfig {
@@ -195,11 +192,7 @@ pub struct MiscConfig {
     pub github_token: String,
 }
 
-
-
-
-
-fn default_log_level()->String{
+fn default_log_level() -> String {
     "INFO".to_string()
 }
 
@@ -207,25 +200,20 @@ fn default_log_level()->String{
 pub struct HttpsCert {
     pub https_port: u16,
     #[serde(default)]
-    pub auto_redirect : bool,
+    pub auto_redirect: bool,
     /// first domain is main domain ,other domain will serve folder under $files/$domain_name
     pub domains: Vec<String>,
     pub emails: Vec<String>,
-
 }
-
-
-
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Database {
     pub url: String,
 }
 
-
 const CONFIG: &str = include_str!(file_path!("/config.toml"));
 
-pub async  fn read_config_file(render_lua: bool)->anyhow::Result<String>{
+pub async fn read_config_file(render_lua: bool) -> anyhow::Result<String> {
     let file_path = format!("config.toml");
     let final_path = Path::new(env::var(DATA_DIR)?.as_str()).join(file_path.as_str());
 
@@ -246,15 +234,14 @@ url=":memory:"
 
     let mut content = fs::read_to_string(&final_path)?;
 
-     if render_lua{
-         // run lua template
+    if render_lua {
+        // run lua template
         content = render_template_new(&content, json!({})).await?
     }
 
     Ok(content)
-
 }
-pub fn save_config_file(content: &str)->anyhow::Result<()>{
+pub fn save_config_file(content: &str) -> anyhow::Result<()> {
     let file_path = format!("config.toml");
     let final_path = Path::new(env::var(DATA_DIR)?.as_str()).join(file_path.as_str());
 
@@ -262,10 +249,9 @@ pub fn save_config_file(content: &str)->anyhow::Result<()>{
 
     fs::write(&final_path, content)?;
     Ok(())
-
 }
 
-pub fn get_config_path()->anyhow::Result<String>{
+pub fn get_config_path() -> anyhow::Result<String> {
     let file_path = format!("config.toml");
     let final_path = Path::new(env::var(DATA_DIR)?.as_str()).join(file_path.as_str());
 
@@ -274,9 +260,9 @@ pub fn get_config_path()->anyhow::Result<String>{
 }
 
 pub async fn init_config(render_lua: bool) -> anyhow::Result<Config> {
-    let config_content =  read_config_file(render_lua).await?;
+    let config_content = read_config_file(render_lua).await?;
 
-    let  config: Config = toml::from_str(&config_content)?;
+    let config: Config = toml::from_str(&config_content)?;
     //println!("using config file  content >>  {:?}",  config);
     Ok(config)
 }
@@ -285,13 +271,16 @@ pub async fn init_config(render_lua: bool) -> anyhow::Result<Config> {
 mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
 
+    use super::*;
     use play_shared::constants::HOST;
     use play_shared::get_workspace_root;
-    use super::*;
 
     #[tokio::test]
-    async  fn test_read_config_file() -> anyhow::Result<()> {
-        env::set_var(DATA_DIR, format!("{}{}", get_workspace_root(), "/server/output_dir"));
+    async fn test_read_config_file() -> anyhow::Result<()> {
+        env::set_var(
+            DATA_DIR,
+            format!("{}{}", get_workspace_root(), "/server/output_dir"),
+        );
         env::set_var("HOST", "http://localhost:3000");
         let content = read_config_file(true).await?;
         println!("{}", content);

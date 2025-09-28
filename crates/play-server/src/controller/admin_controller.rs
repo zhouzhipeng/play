@@ -1,34 +1,37 @@
-use std::{env, fs, io};
 use std::env::temp_dir;
 use std::fs::File;
-use std::io::{BufRead, BufReader, copy, Cursor, Write};
+use std::io::{copy, BufRead, BufReader, Cursor, Write};
 use std::path::Path;
 use std::time::Duration;
+use std::{env, fs, io};
 
 use anyhow::{anyhow, bail};
-use axum::{Form, Json};
 use axum::body::Bytes;
 use axum::extract::{Multipart, Query};
 use axum::response::{Html, IntoResponse, Response};
+use axum::{Form, Json};
 use chrono::Local;
-use std::process::Command;
 use fs_extra::dir::CopyOptions;
 use futures_util::TryStreamExt;
 use http::StatusCode;
 use reqwest::{ClientBuilder, Url};
 use serde::Deserialize;
 use serde_json::{json, Value};
+use std::process::Command;
 use std::sync::Arc;
 use tokio_util::codec::{BytesCodec, FramedRead};
-use tracing::{info, error};
-use zip::{ZipArchive, ZipWriter, CompressionMethod, write::{FileOptions, ExtendedFileOptions}};
+use tracing::{error, info};
+use zip::{
+    write::{ExtendedFileOptions, FileOptions},
+    CompressionMethod, ZipArchive, ZipWriter,
+};
 
-use play_shared::{current_timestamp, timestamp_to_date_str};
 use play_shared::constants::DATA_DIR;
+use play_shared::{current_timestamp, timestamp_to_date_str};
 
-use crate::{data_dir, promise, files_dir, HTML, method_router, R, return_error, S, template};
-use crate::config::{Config, get_config_path, read_config_file, save_config_file};
+use crate::config::{get_config_path, read_config_file, save_config_file, Config};
 use crate::tables::change_log::ChangeLog;
+use crate::{data_dir, files_dir, method_router, promise, return_error, template, HTML, R, S};
 
 // Create the init function manually to handle conditional compilation
 pub fn init() -> axum::Router<std::sync::Arc<crate::AppState>> {
@@ -38,21 +41,39 @@ pub fn init() -> axum::Router<std::sync::Arc<crate::AppState>> {
     router = router.route("/admin/save-config", axum::routing::post(save_config));
     router = router.route("/admin/reboot", axum::routing::get(reboot));
     router = router.route("/admin/backup", axum::routing::get(backup));
-    router = router.route("/admin/backup-encrypted", axum::routing::get(backup_encrypted));
-    router = router.route("/admin/backup-encrypted-to-cloud", axum::routing::get(backup_encrypted_to_cloud));
+    router = router.route(
+        "/admin/backup-encrypted",
+        axum::routing::get(backup_encrypted),
+    );
+    router = router.route(
+        "/admin/backup-encrypted-to-cloud",
+        axum::routing::get(backup_encrypted_to_cloud),
+    );
     router = router.route("/admin/restore", axum::routing::post(restore));
     router = router.route("/admin/logs", axum::routing::get(display_logs));
-    router = router.route("/admin/clean-change-logs", axum::routing::get(clean_change_logs));
+    router = router.route(
+        "/admin/clean-change-logs",
+        axum::routing::get(clean_change_logs),
+    );
     router = router.route("/admin/translator", axum::routing::get(translator_page));
     router = router.route("/admin/translate", axum::routing::post(translate_text));
-    
+
     #[cfg(feature = "play-dylib-loader")]
     {
-        router = router.route("/admin/get-request-info", axum::routing::get(get_request_info));
-        router = router.route("/admin/push-response-info", axum::routing::post(push_response_info));
-        router = router.route("/admin/store-request-info", axum::routing::post(store_request_info));
+        router = router.route(
+            "/admin/get-request-info",
+            axum::routing::get(get_request_info),
+        );
+        router = router.route(
+            "/admin/push-response-info",
+            axum::routing::post(push_response_info),
+        );
+        router = router.route(
+            "/admin/store-request-info",
+            axum::routing::post(store_request_info),
+        );
     }
-    
+
     router
 }
 
@@ -76,7 +97,7 @@ struct SaveConfigReq {
 }
 #[derive(Deserialize)]
 struct DeleteChangelogReq {
-    #[serde(default="default_days")]
+    #[serde(default = "default_days")]
     days: u32,
 }
 
@@ -87,26 +108,26 @@ struct TranslateRequest {
     complex_mode: bool,
 }
 
-fn default_days()->u32{
+fn default_days() -> u32 {
     3
 }
 
 #[cfg(feature = "play-dylib-loader")]
 async fn get_request_info(Query(RequestIdQuery { request_id }): Query<RequestIdQuery>) -> Response {
     match get_request(request_id) {
-        Some(request) => {
-            Json(request).into_response()
-        },
-        None => {
-            (StatusCode::NOT_FOUND, format!("Request with id {} not found", request_id)).into_response()
-        }
+        Some(request) => Json(request).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            format!("Request with id {} not found", request_id),
+        )
+            .into_response(),
     }
 }
 
 #[cfg(feature = "play-dylib-loader")]
 async fn push_response_info(
     Query(RequestIdQuery { request_id }): Query<RequestIdQuery>,
-    Json(response): Json<play_dylib_loader::HttpResponse>
+    Json(response): Json<play_dylib_loader::HttpResponse>,
 ) -> Response {
     store_response(request_id, response);
     (StatusCode::OK, "Response stored successfully").into_response()
@@ -115,19 +136,26 @@ async fn push_response_info(
 #[cfg(feature = "play-dylib-loader")]
 async fn store_request_info(
     Query(RequestIdQuery { request_id }): Query<RequestIdQuery>,
-    Json(request): Json<play_dylib_loader::HttpRequest>
+    Json(request): Json<play_dylib_loader::HttpRequest>,
 ) -> Response {
     play_dylib_loader::store_request(request_id, request);
     (StatusCode::OK, "Request stored successfully").into_response()
 }
-async fn clean_change_logs(s: S, Query(DeleteChangelogReq{days}): Query<DeleteChangelogReq>) -> R<String> {
+async fn clean_change_logs(
+    s: S,
+    Query(DeleteChangelogReq { days }): Query<DeleteChangelogReq>,
+) -> R<String> {
     let days_ago = days;
     let timestamp = current_timestamp!() - (days_ago * 24 * 60 * 60 * 1000) as i64;
     let date_str = timestamp_to_date_str!(timestamp);
 
     let result = ChangeLog::delete_days_ago(&date_str, &s.db).await?;
 
-    let msg = format!("Cleaned {} change log entries older than {} days", result.rows_affected(), days_ago);
+    let msg = format!(
+        "Cleaned {} change log entries older than {} days",
+        result.rows_affected(),
+        days_ago
+    );
     info!("{msg}");
 
     Ok(msg)
@@ -139,20 +167,14 @@ async fn display_logs(s: S) -> HTML {
 
     // Format the date as a string
     let date_string = now.format("%Y-%m-%d").to_string();
-    let file_path = Path::new(env::var(DATA_DIR)?.as_str()).join(format!("play.{}.log", date_string));
+    let file_path =
+        Path::new(env::var(DATA_DIR)?.as_str()).join(format!("play.{}.log", date_string));
     let file = File::open(file_path)?;
     let reader = BufReader::new(file);
 
-    let lines: Vec<String> = reader.lines()
-        .filter_map(Result::ok)
-        .collect();
+    let lines: Vec<String> = reader.lines().filter_map(Result::ok).collect();
 
-    let tail_lines: Vec<String> = lines.iter()
-        .rev()
-        .take(count)
-        .rev()
-        .cloned()
-        .collect();
+    let tail_lines: Vec<String> = lines.iter().rev().take(count).rev().cloned().collect();
 
     let coverted_str = tail_lines.join("\n");
     let converted = ansi_to_html::convert(&coverted_str).unwrap();
@@ -175,7 +197,6 @@ async fn reboot() -> R<String> {
     Ok("will reboot in a sec.".to_string())
 }
 
-
 async fn backup(s: S) -> R<impl IntoResponse> {
     let files_path = files_dir!();
 
@@ -193,7 +214,14 @@ async fn backup(s: S) -> R<impl IntoResponse> {
     //config file path
     let config_file_path = get_config_path()?;
 
-    fs_extra::copy_items(&vec![files_path, db_path, config_file_path.into()], &folder_path, &CopyOptions { copy_inside: true, ..Default::default() })?;
+    fs_extra::copy_items(
+        &vec![files_path, db_path, config_file_path.into()],
+        &folder_path,
+        &CopyOptions {
+            copy_inside: true,
+            ..Default::default()
+        },
+    )?;
 
     let target_file = data_dir!().join("play.zip");
     if target_file.exists() {
@@ -248,12 +276,20 @@ async fn backup_encrypted_to_cloud(s: S) -> R<String> {
             fs::create_dir(&folder_path)?;
 
             //db file path
-            let db_path = Path::new(&database_url["sqlite://".len()..database_url.len()]).to_path_buf();
+            let db_path =
+                Path::new(&database_url["sqlite://".len()..database_url.len()]).to_path_buf();
 
             //config file path
             let config_file_path = get_config_path()?;
 
-            fs_extra::copy_items(&vec![files_path, db_path, config_file_path.into()], &folder_path, &CopyOptions { copy_inside: true, ..Default::default() })?;
+            fs_extra::copy_items(
+                &vec![files_path, db_path, config_file_path.into()],
+                &folder_path,
+                &CopyOptions {
+                    copy_inside: true,
+                    ..Default::default()
+                },
+            )?;
 
             // Create unencrypted zip first
             let temp_file = data_dir!().join("play_temp.zip");
@@ -275,11 +311,11 @@ async fn backup_encrypted_to_cloud(s: S) -> R<String> {
             let temp_data = fs::read(&temp_file)?;
             let encrypted_file = File::create(&target_file)?;
             let mut zip = ZipWriter::new(encrypted_file);
-            
+
             let options = FileOptions::<ExtendedFileOptions>::default()
                 .compression_method(CompressionMethod::Deflated)
                 .with_aes_encryption(zip::AesMode::Aes256, passcode.as_str());
-            
+
             zip.start_file("play_backup.zip", options)?;
             std::io::Write::write_all(&mut zip, &temp_data)?;
             zip.finish()?;
@@ -289,7 +325,7 @@ async fn backup_encrypted_to_cloud(s: S) -> R<String> {
 
             // Read the encrypted file
             let file_data = fs::read(&target_file)?;
-            
+
             let client = ClientBuilder::new()
                 .timeout(Duration::from_secs(300))
                 .build()?;
@@ -311,11 +347,10 @@ async fn backup_encrypted_to_cloud(s: S) -> R<String> {
             let upload_url_template = release_info["upload_url"]
                 .as_str()
                 .ok_or_else(|| anyhow!("Upload URL not found in release info"))?;
-            
+
             // Remove the {?name,label} template part and add our filename
-            let actual_upload_url = upload_url_template
-                .replace("{?name,label}", "")
-                + "?name=" + &backup_filename;
+            let actual_upload_url =
+                upload_url_template.replace("{?name,label}", "") + "?name=" + &backup_filename;
 
             // Upload the file
             let upload_response = client
@@ -336,7 +371,8 @@ async fn backup_encrypted_to_cloud(s: S) -> R<String> {
 
             // Clean up old backup files - keep only latest 10
             // Get the assets from the release info we already have
-            let assets_url = format!("https://api.github.com/repos/zhouzhipeng/play/releases/tags/backup");
+            let assets_url =
+                format!("https://api.github.com/repos/zhouzhipeng/play/releases/tags/backup");
             let assets_response = client
                 .get(&assets_url)
                 .header("Authorization", format!("Bearer {}", github_token))
@@ -348,8 +384,11 @@ async fn backup_encrypted_to_cloud(s: S) -> R<String> {
 
             if assets_response.status().is_success() {
                 let release_data: Value = assets_response.json().await?;
-                let assets = release_data["assets"].as_array().unwrap_or(&Vec::new()).clone();
-                
+                let assets = release_data["assets"]
+                    .as_array()
+                    .unwrap_or(&Vec::new())
+                    .clone();
+
                 // Filter only backup files (matching pattern play_backup_*.zip)
                 let mut backup_files: Vec<(String, String, String)> = assets
                     .iter()
@@ -371,7 +410,10 @@ async fn backup_encrypted_to_cloud(s: S) -> R<String> {
                 // Delete files beyond the 10th position
                 if backup_files.len() > 10 {
                     for (name, id, _) in backup_files.iter().skip(10) {
-                        let delete_url = format!("https://api.github.com/repos/zhouzhipeng/play/releases/assets/{}", id);
+                        let delete_url = format!(
+                            "https://api.github.com/repos/zhouzhipeng/play/releases/assets/{}",
+                            id
+                        );
                         let delete_response = client
                             .delete(&delete_url)
                             .header("Authorization", format!("Bearer {}", github_token))
@@ -380,7 +422,7 @@ async fn backup_encrypted_to_cloud(s: S) -> R<String> {
                             .header("User-Agent", "play-server-backup")
                             .send()
                             .await?;
-                        
+
                         if delete_response.status().is_success() {
                             info!("Deleted old backup file: {}", name);
                         } else {
@@ -394,8 +436,12 @@ async fn backup_encrypted_to_cloud(s: S) -> R<String> {
             fs::remove_file(&target_file)?;
             fs::remove_dir_all(&folder_path)?;
 
-            Ok::<String, anyhow::Error>(format!("Backup {} successfully uploaded to GitHub releases", backup_filename))
-        }.await;
+            Ok::<String, anyhow::Error>(format!(
+                "Backup {} successfully uploaded to GitHub releases",
+                backup_filename
+            ))
+        }
+        .await;
 
         // Log the result and send notification
         match result {
@@ -416,7 +462,10 @@ async fn backup_encrypted_to_cloud(s: S) -> R<String> {
         }
     });
 
-    Ok("Backup to cloud started in background. You will receive a notification when complete.".to_string())
+    Ok(
+        "Backup to cloud started in background. You will receive a notification when complete."
+            .to_string(),
+    )
 }
 
 async fn backup_encrypted(s: S) -> R<impl IntoResponse> {
@@ -436,7 +485,14 @@ async fn backup_encrypted(s: S) -> R<impl IntoResponse> {
     //config file path
     let config_file_path = get_config_path()?;
 
-    fs_extra::copy_items(&vec![files_path, db_path, config_file_path.into()], &folder_path, &CopyOptions { copy_inside: true, ..Default::default() })?;
+    fs_extra::copy_items(
+        &vec![files_path, db_path, config_file_path.into()],
+        &folder_path,
+        &CopyOptions {
+            copy_inside: true,
+            ..Default::default()
+        },
+    )?;
 
     // Create unencrypted zip first
     let temp_file = data_dir!().join("play_temp.zip");
@@ -455,11 +511,11 @@ async fn backup_encrypted(s: S) -> R<impl IntoResponse> {
     let temp_data = fs::read(&temp_file)?;
     let encrypted_file = File::create(&target_file)?;
     let mut zip = ZipWriter::new(encrypted_file);
-    
+
     let options = FileOptions::<ExtendedFileOptions>::default()
         .compression_method(CompressionMethod::Deflated)
         .with_aes_encryption(zip::AesMode::Aes256, s.config.auth_config.passcode.as_str());
-    
+
     zip.start_file("play_backup.zip", options)?;
     std::io::Write::write_all(&mut zip, &temp_data)?;
     zip.finish()?;
@@ -497,7 +553,8 @@ async fn enter_admin_page(s: S) -> HTML {
     let config_path = get_config_path()?;
 
     let built_time = timestamp_to_date_str!(env!("BUILT_TIME").parse::<i64>()?);
-    let html = ADMIN_HTML.replace("{{title}}", "admin panel")
+    let html = ADMIN_HTML
+        .replace("{{title}}", "admin panel")
         .replace("{{config_content}}", &config_content)
         .replace("{{config_path}}", &config_path)
         .replace("{{built_time}}", &built_time)
@@ -518,7 +575,7 @@ fn copy_me() -> anyhow::Result<()> {
     // 复制文件
     fs::copy(&current_exe, &destination)?;
 
-    info!("copy_me >> destination : {:?}",destination);
+    info!("copy_me >> destination : {:?}", destination);
     Ok(())
 }
 
@@ -528,12 +585,17 @@ async fn upgrade_in_background(url: Url) -> anyhow::Result<()> {
     // download file
     let new_binary = temp_dir().join("new_play_bin");
     let mut file = File::create(&new_binary)?;
-    let client = ClientBuilder::new().timeout(Duration::from_secs(30)).build()?;
+    let client = ClientBuilder::new()
+        .timeout(Duration::from_secs(30))
+        .build()?;
     let response = client.get(url).send().await?;
     let content = Cursor::new(response.bytes().await?);
 
     let mut archive = ZipArchive::new(BufReader::new(content))?;
-    promise!( archive.len()==1, "upgrade_url for zip file is not valid, should have only one file inside!");
+    promise!(
+        archive.len() == 1,
+        "upgrade_url for zip file is not valid, should have only one file inside!"
+    );
     let mut inside_file = archive.by_index(0)?;
     std::io::copy(&mut inside_file, &mut file)?;
 
@@ -555,28 +617,34 @@ async fn upgrade(s: S, Query(upgrade): Query<UpgradeRequest>) -> HTML {
 
     let url = Url::parse(&upgrade.url.as_ref().unwrap_or(&s.config.upgrade_url))?;
 
-
     tokio::spawn(async move {
         let r = upgrade_in_background(url).await;
         info!("upgrade_in_background result >> {:?}", r);
 
-
-        if r.is_ok(){
+        if r.is_ok() {
             let sender = urlencoding::encode("upgrade done").into_owned();
             let title = urlencoding::encode(&format!("result : {:?}", r)).into_owned();
-            reqwest::get(format!("{}/{}/{}", &s.config.misc_config.mail_notify_url, sender, title)).await;
+            reqwest::get(format!(
+                "{}/{}/{}",
+                &s.config.misc_config.mail_notify_url, sender, title
+            ))
+            .await;
             shutdown();
-        }else{
+        } else {
             let sender = urlencoding::encode("upgrade error").into_owned();
             let title = urlencoding::encode(&format!("result : {:?}", r)).into_owned();
-            reqwest::get(format!("{}/{}/{}", &s.config.misc_config.mail_notify_url, sender, title)).await;
-
+            reqwest::get(format!(
+                "{}/{}/{}",
+                &s.config.misc_config.mail_notify_url, sender, title
+            ))
+            .await;
         }
-
     });
 
-
-    Ok(Html("upgrading in background, pls wait a minute and system will restart automatically later.".to_string()))
+    Ok(Html(
+        "upgrading in background, pls wait a minute and system will restart automatically later."
+            .to_string(),
+    ))
 }
 
 pub fn shutdown() {
@@ -584,20 +652,22 @@ pub fn shutdown() {
     std::process::exit(0);
 }
 
-
 // 处理文件上传和解压的路由处理函数
 async fn restore(mut multipart: Multipart) -> R<String> {
     if let Ok(Some(field)) = multipart.next_field().await {
         let temp_dir = tempfile::tempdir()?;
 
         let archive = Cursor::new(field.bytes().await?);
-        extract_and_copy(archive, temp_dir.path(),data_dir!() )?;
+        extract_and_copy(archive, temp_dir.path(), data_dir!())?;
     }
     Ok("ok".to_string())
 }
 
-
-fn extract_and_copy(cursor: Cursor<Bytes>, extract_dir: &Path, target_dir: &Path) -> anyhow::Result<()> {
+fn extract_and_copy(
+    cursor: Cursor<Bytes>,
+    extract_dir: &Path,
+    target_dir: &Path,
+) -> anyhow::Result<()> {
     // 创建临时解压目录
     fs::create_dir_all(extract_dir)?;
 
@@ -617,8 +687,6 @@ fn extract_and_copy(cursor: Cursor<Bytes>, extract_dir: &Path, target_dir: &Path
     } else {
         bail!("在目录A中没有找到子目录");
     }
-
-
 
     Ok(())
 }
@@ -793,35 +861,44 @@ Return only the JSON object without any markdown formatting or code blocks."#
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     info!("Claude stdout: {}", stdout);
-    
+
     // Parse the output to extract the result field
     let parsed: Value = serde_json::from_str(&stdout)
         .map_err(|e| anyhow!("Failed to parse claude output: {}", e))?;
-    
+
     // Extract the result field
-    let result = parsed.get("result")
+    let result = parsed
+        .get("result")
         .ok_or_else(|| anyhow!("No result field in claude output"))?;
-    
+
     // The result contains markdown-wrapped JSON, extract and parse it
-    let result_str = result.as_str()
+    let result_str = result
+        .as_str()
         .ok_or_else(|| anyhow!("Result field is not a string"))?;
-    
+
     // Remove markdown code block formatting
     let json_str = if result_str.starts_with("```json\n") {
-        result_str.strip_prefix("```json\n").unwrap().strip_suffix("\n```").unwrap()
+        result_str
+            .strip_prefix("```json\n")
+            .unwrap()
+            .strip_suffix("\n```")
+            .unwrap()
     } else if result_str.starts_with("```\n") {
-        result_str.strip_prefix("```\n").unwrap().strip_suffix("\n```").unwrap()
+        result_str
+            .strip_prefix("```\n")
+            .unwrap()
+            .strip_suffix("\n```")
+            .unwrap()
     } else {
         result_str
     };
-    
+
     // Parse the clean JSON
     let translation_result: Value = serde_json::from_str(json_str)
         .map_err(|e| anyhow!("Failed to parse translation JSON: {}", e))?;
-    
+
     Ok(Json(translation_result))
 }
-
 
 #[cfg(test)]
 mod tests {
