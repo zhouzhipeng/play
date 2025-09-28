@@ -184,28 +184,12 @@ pub struct AuthConfig {
     pub whitelist: Vec<String>,
     pub passcode: String,
 }
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, Default)]
 pub struct MiscConfig {
     #[serde(default)]
     pub mail_notify_url: String,
     #[serde(default)]
     pub github_token: String,
-    #[serde(default = "default_enable_wasm_compression")]
-    pub enable_wasm_compression: bool,
-}
-
-fn default_enable_wasm_compression() -> bool {
-    true
-}
-
-impl Default for MiscConfig {
-    fn default() -> Self {
-        Self {
-            mail_notify_url: String::default(),
-            github_token: String::default(),
-            enable_wasm_compression: default_enable_wasm_compression(),
-        }
-    }
 }
 
 fn default_log_level() -> String {
