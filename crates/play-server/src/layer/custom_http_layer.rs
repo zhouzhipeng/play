@@ -22,7 +22,7 @@ use crate::controller::cache_controller::get_cache_content;
 
 use crate::controller::static_controller::STATIC_DIR;
 
-use crate::{files_dir, wasm_compression_enabled, AppState, S};
+use crate::{files_dir, AppState, S};
 
 // 自定义证书验证器，用于忽略所有证书验证（仅开发环境使用）
 #[derive(Debug)]
@@ -306,27 +306,18 @@ pub async fn serve_domain_folder(
     let uri = request.uri().path().to_string();
     let mut resp = svc.call(request).await.unwrap();
 
-    if uri.ends_with(".wasm") {
-        let headers = resp.headers_mut();
-        if wasm_compression_enabled() {
-            headers.remove(axum::http::header::CONTENT_ENCODING);
-            headers.remove(axum::http::header::CACHE_CONTROL);
-            headers.insert(
-                HeaderName::from_static("x-compress"),
-                HeaderValue::from_static("1"),
-            );
-        } else {
-            headers.remove(HeaderName::from_static("x-compress"));
-            headers.insert(
-                axum::http::header::CONTENT_ENCODING,
-                HeaderValue::from_static("identity"),
-            );
-            headers.insert(
-                axum::http::header::CACHE_CONTROL,
-                HeaderValue::from_static("no-transform"),
-            );
-        }
-    }
+    // if uri.ends_with(".wasm") {
+    //     //let cloudflare dont compress wasm file (because ios safari has issue with it)
+    //     let headers = resp.headers_mut();
+    //     headers.insert(
+    //         axum::http::header::CONTENT_ENCODING,
+    //         axum::http::HeaderValue::from_static("identity"),
+    //     );
+    //     headers.insert(
+    //         axum::http::header::CACHE_CONTROL,
+    //         axum::http::HeaderValue::from_static("no-transform"),
+    //     );
+    // }
     Ok(resp)
 }
 
