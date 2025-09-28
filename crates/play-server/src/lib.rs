@@ -9,6 +9,7 @@ use std::fmt::format;
 use std::net::{Ipv6Addr, SocketAddr};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, UNIX_EPOCH};
 
@@ -60,6 +61,12 @@ pub mod extractor;
 pub mod layer;
 pub mod service;
 pub mod tables;
+
+static WASM_COMPRESSION_ENABLED: AtomicBool = AtomicBool::new(true);
+
+pub fn wasm_compression_enabled() -> bool {
+    WASM_COMPRESSION_ENABLED.load(Ordering::Relaxed)
+}
 
 ///
 /// a replacement of `ensure!` in anyhow
@@ -396,6 +403,10 @@ impl Predicate for CustomCompressPredict {
             return true;
         }
 
+        if !wasm_compression_enabled() {
+            return false;
+        }
+
         response
             .headers()
             .get(axum::http::header::CONTENT_TYPE)
@@ -406,6 +417,9 @@ impl Predicate for CustomCompressPredict {
 }
 
 pub async fn routers(app_state: Arc<AppState>) -> anyhow::Result<Router<Arc<AppState>>> {
+    let wasm_compression_enabled = app_state.config.misc_config.enable_wasm_compression;
+    WASM_COMPRESSION_ENABLED.store(wasm_compression_enabled, Ordering::Relaxed);
+
     let cors = CorsLayer::new()
         // allow `GET` and `POST` when accessing the resource
         .allow_methods(Any)

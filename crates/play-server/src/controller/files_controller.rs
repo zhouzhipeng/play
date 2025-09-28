@@ -26,7 +26,7 @@ use tracing::info;
 use play_shared::{current_timestamp, file_path};
 
 use crate::extractor::custom_file_upload::CustomFileExtractor;
-use crate::{data_dir, files_dir, method_router, return_error, JSON, R};
+use crate::{data_dir, files_dir, method_router, return_error, wasm_compression_enabled, JSON, R};
 
 method_router!(
     post : "/files/upload" -> upload_file,
@@ -323,7 +323,13 @@ pub async fn download_file(Path(file_path): Path<String>) -> impl IntoResponse {
                     .header("Cross-Origin-Opener-Policy", "same-origin")
                     .header("Cross-Origin-Embedder-Policy", "require-corp");
                 if mime_type.as_ref().contains("wasm") {
-                    res_builder = res_builder.header("x-compress", "1");
+                    if wasm_compression_enabled() {
+                        res_builder = res_builder.header("x-compress", "1");
+                    } else {
+                        res_builder = res_builder
+                            .header(header::CONTENT_ENCODING, "identity")
+                            .header(header::CACHE_CONTROL, "no-transform");
+                    }
                 }
                 let response = res_builder
                     .body(Body::from(contents))

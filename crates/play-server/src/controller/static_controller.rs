@@ -9,7 +9,7 @@ use include_dir::{include_dir, Dir};
 use std::sync::Arc;
 use tower_http::services::ServeDir;
 
-use crate::{AppError, AppState, R, S};
+use crate::{wasm_compression_enabled, AppError, AppState, R, S};
 
 pub static STATIC_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/static");
 
@@ -34,15 +34,27 @@ async fn static_path(s: S, Path(path): Path<String>) -> R<impl IntoResponse> {
         None => Ok(Response::builder()
             .status(StatusCode::NOT_FOUND)
             .body(Body::empty())?),
-        Some(file) => Ok(Response::builder()
-            .status(StatusCode::OK)
-            .header(
-                header::CONTENT_TYPE,
-                HeaderValue::from_str(mime_type.as_ref())?,
-            )
-            .header("Cross-Origin-Opener-Policy", "same-origin")
-            .header("Cross-Origin-Embedder-Policy", "require-corp")
-            .header("x-compress", "1")
-            .body(Body::from(file.contents()))?),
+        Some(file) => {
+            let mut builder = Response::builder()
+                .status(StatusCode::OK)
+                .header(
+                    header::CONTENT_TYPE,
+                    HeaderValue::from_str(mime_type.as_ref())?,
+                )
+                .header("Cross-Origin-Opener-Policy", "same-origin")
+                .header("Cross-Origin-Embedder-Policy", "require-corp");
+
+            if mime_type.essence_str().contains("wasm") {
+                if wasm_compression_enabled() {
+                    builder = builder.header("x-compress", "1");
+                } else {
+                    builder = builder
+                        .header(axum::http::header::CONTENT_ENCODING, "identity")
+                        .header(axum::http::header::CACHE_CONTROL, "no-transform");
+                }
+            }
+
+            Ok(builder.body(Body::from(file.contents()))?)
+        }
     }
 }
