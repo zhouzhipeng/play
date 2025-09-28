@@ -1,18 +1,21 @@
-use std::sync::Arc;
 use axum::body::Body;
+use std::sync::Arc;
 
 use axum::extract::OriginalUri;
 use axum::response::{Html, IntoResponse, Redirect, Response};
 use http::StatusCode;
 use serde::Deserialize;
 
-use crate::{app_error, AppError, AppState, S};
 use crate::R;
+use crate::{app_error, AppError, AppState, S};
 
 pub fn init(state: Arc<AppState>) -> axum::Router<Arc<AppState>> {
     let mut router = axum::Router::new();
     for link in &state.config.shortlinks {
-        router = router.route(&link.from, axum::routing::get(crate::controller::shortlink_controller::link));
+        router = router.route(
+            &link.from,
+            axum::routing::get(crate::controller::shortlink_controller::link),
+        );
     }
 
     router
@@ -39,9 +42,14 @@ impl IntoResponse for MyResponse {
 }
 
 // #[axum::debug_handler]
-async fn link( s: S,OriginalUri(uri): OriginalUri) -> R<MyResponse> {
+async fn link(s: S, OriginalUri(uri): OriginalUri) -> R<MyResponse> {
     let path = uri.path();
-    let shortlink = s.config.shortlinks.iter().find(|c| c.from == path).ok_or::<AppError>(app_error!("404 , link not found."))?;
+    let shortlink = s
+        .config
+        .shortlinks
+        .iter()
+        .find(|c| c.from == path)
+        .ok_or::<AppError>(app_error!("404 , link not found."))?;
     // s.config.finance
     if shortlink.download {
         let res = reqwest::get(&shortlink.to).await?.text().await?;
@@ -50,5 +58,3 @@ async fn link( s: S,OriginalUri(uri): OriginalUri) -> R<MyResponse> {
         Ok(MyResponse::Redirect(Redirect::temporary(&shortlink.to)))
     }
 }
-
-

@@ -1,5 +1,8 @@
 #![allow(non_camel_case_types)]
 
+use anyhow::__private::kind::TraitKind;
+use anyhow::{anyhow, bail};
+use async_channel::Receiver;
 use std::backtrace::Backtrace;
 use std::env;
 use std::fmt::format;
@@ -8,64 +11,55 @@ use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, UNIX_EPOCH};
-use anyhow::{anyhow, bail};
-use anyhow::__private::kind::TraitKind;
-use async_channel::Receiver;
 
-use axum::extract::{DefaultBodyLimit, State, ConnectInfo};
-use axum::http::{Method, StatusCode, Request};
-use axum::{middleware, Json};
+use axum::extract::{ConnectInfo, DefaultBodyLimit, State};
+use axum::http::{Method, Request, StatusCode};
 use axum::response::{Html, IntoResponse, Response};
-use tower::Service;
 use axum::Router;
+use axum::{middleware, Json};
 use axum_server::Handle;
 use http_body::Body;
 use hyper::HeaderMap;
 use include_dir::{include_dir, Dir};
+#[cfg(feature = "play-integration-xiaozhi")]
+use play_integration_xiaozhi::McpConfig;
+use play_shared::constants::{CAT_FINGERPRINT, CAT_MAIL, DATA_DIR};
 use serde::Serialize;
 use serde_json::{json, Value};
 use tokio::fs;
 use tokio::time::sleep;
-use tower_http::compression::{CompressionLayer, DefaultPredicate, Predicate};
+use tower::Service;
 use tower_http::compression::predicate::{NotForContentType, SizeAbove};
+use tower_http::compression::{CompressionLayer, DefaultPredicate, Predicate};
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::{error, info};
-#[cfg(feature = "play-integration-xiaozhi")]
-use play_integration_xiaozhi::McpConfig;
-use play_shared::constants::{CAT_FINGERPRINT, CAT_MAIL, DATA_DIR};
 
 use play_shared::{current_timestamp, timestamp_to_date_str};
 
-use play_shared::tpl_engine_api::{Template, TemplateData};
-use std::env::set_var;
-use tracing::level_filters::LevelFilter;
-use tracing_subscriber::filter;
-use tracing_appender::rolling::{RollingFileAppender, Rotation};
-use tracing_subscriber::util::SubscriberInitExt;
-use std::os::unix::fs::PermissionsExt;
-pub use crate::config::{Config, PluginConfig, ShortLink, OriginStrategy};
 pub use crate::config::init_config;
+pub use crate::config::{Config, OriginStrategy, PluginConfig, ShortLink};
 use crate::controller::{app_routers, plugin_controller, shortlink_controller};
 use crate::layer::custom_http_layer::http_middleware;
 use crate::service::template_service;
 use crate::service::template_service::TemplateService;
-use crate::tables::DBPool;
 use crate::tables::general_data::GeneralData;
+use crate::tables::DBPool;
+use play_shared::tpl_engine_api::{Template, TemplateData};
+use std::env::set_var;
+use std::os::unix::fs::PermissionsExt;
+use tracing::level_filters::LevelFilter;
+use tracing_appender::rolling::{RollingFileAppender, Rotation};
+use tracing_subscriber::filter;
+use tracing_subscriber::util::SubscriberInitExt;
 
-
-pub mod controller;
-pub mod tables;
-pub mod service;
 pub mod config;
-pub mod layer;
+pub mod controller;
 pub mod extractor;
-
-
-
-
-
+pub mod layer;
+pub mod service;
+pub mod tables;
 
 ///
 /// a replacement of `ensure!` in anyhow
@@ -80,7 +74,6 @@ macro_rules! promise {
         }
     };
 }
-
 
 ///
 /// a replacement for `bail!` in anyhow
@@ -98,28 +91,17 @@ macro_rules! return_error {
     };
 }
 
-
-
-
-
-
 #[macro_export]
 macro_rules! mock_state {
-    ()=>{
-        {
-
-
-           axum::extract::State(crate::init_app_state(&crate::config::init_config(true), true).await)
-
-        }
-    };
+    () => {{
+        axum::extract::State(crate::init_app_state(&crate::config::init_config(true), true).await)
+    }};
 }
 #[macro_export]
 macro_rules! init_log {
-    ()=>{
-        {
-             use tracing_subscriber::util::SubscriberInitExt;
-              tracing_subscriber::fmt()
+    () => {{
+        use tracing_subscriber::util::SubscriberInitExt;
+        tracing_subscriber::fmt()
             .with_file(true)
             .with_line_number(true)
             .with_thread_names(true)
@@ -127,30 +109,24 @@ macro_rules! init_log {
             .with_writer(std::io::stdout)
             .finish()
             .init();
-
-
-
-        }
-    };
+    }};
 }
 #[macro_export]
 macro_rules! mock_server {
-    ()=>{
-        axum_test::TestServer::new(play::routers(play::init_app_state(&play::config::init_config(true), true).await))?;
+    () => {
+        axum_test::TestServer::new(play::routers(
+            play::init_app_state(&play::config::init_config(true), true).await,
+        ))?;
     };
 }
 #[macro_export]
 macro_rules! mock_server_state {
-    ()=>{
-        {
-           let s = play::init_app_state(&play::config::init_config(true), true).await;
-            let server = axum_test::TestServer::new(play::routers(s.clone()))?;
-            (server, axum::extract::State(s))
-        }
-
-    };
+    () => {{
+        let s = play::init_app_state(&play::config::init_config(true), true).await;
+        let server = axum_test::TestServer::new(play::routers(s.clone()))?;
+        (server, axum::extract::State(s))
+    }};
 }
-
 
 #[macro_export]
 macro_rules! app_error {
@@ -176,7 +152,6 @@ pub struct AppState {
     pub redis_state: Option<Arc<RedisState>>,
 }
 
-
 pub async fn init_app_state(config: &Config, use_test_pool: bool) -> anyhow::Result<Arc<AppState>> {
     let final_test_pool = use_test_pool || config.use_test_pool;
 
@@ -184,7 +159,6 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> anyhow::Res
 
     //create a group of channels to handle python code running
     let (req_sender, req_receiver) = async_channel::unbounded::<TemplateData>();
-
 
     // Initialize Redis state if feature is enabled
     #[cfg(feature = "play-redis")]
@@ -199,22 +173,34 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> anyhow::Res
     #[cfg(not(feature = "play-redis"))]
     let mut inner_app_state = AppState {
         template_service: TemplateService::new(req_sender),
-        db: if final_test_pool { tables::init_test_pool().await } else { tables::init_pool(&config).await },
+        db: if final_test_pool {
+            tables::init_test_pool().await
+        } else {
+            tables::init_pool(&config).await
+        },
         config: config.clone(),
     };
 
     #[cfg(feature = "play-redis")]
     let mut inner_app_state = AppState {
         template_service: TemplateService::new(req_sender),
-        db: if final_test_pool { tables::init_test_pool().await } else { tables::init_pool(&config).await },
+        db: if final_test_pool {
+            tables::init_test_pool().await
+        } else {
+            tables::init_pool(&config).await
+        },
         config: config.clone(),
         redis_state,
     };
 
     let mut auth_config = &mut inner_app_state.config.auth_config;
 
-
-    let mut fingerprints = GeneralData::query_by_cat_simple(CAT_FINGERPRINT,1000,&inner_app_state.db).await?.iter().map(|f|f.data.to_string()).collect::<Vec<String>>();
+    let mut fingerprints =
+        GeneralData::query_by_cat_simple(CAT_FINGERPRINT, 1000, &inner_app_state.db)
+            .await?
+            .iter()
+            .map(|f| f.data.to_string())
+            .collect::<Vec<String>>();
     auth_config.fingerprints.append(&mut fingerprints);
 
     //query plugin data
@@ -230,29 +216,36 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> anyhow::Res
     plugin_config_list.clear();
     plugin_config_list.append(&mut new_plugin_config_list);
 
-    let plugin_list = GeneralData::query_by_cat_simple("plugins",1000,&inner_app_state.db).await?;;
+    let plugin_list =
+        GeneralData::query_by_cat_simple("plugins", 1000, &inner_app_state.db).await?;
     for data in &plugin_list {
-        let plugin_config = serde_json::from_value::<PluginConfig>(serde_json::from_str(&data.data)?)?;
-        if plugin_config.disable{continue}
+        let plugin_config =
+            serde_json::from_value::<PluginConfig>(serde_json::from_str(&data.data)?)?;
+        if plugin_config.disable {
+            continue;
+        }
 
         plugin_config_list.push(plugin_config);
-
     }
     info!("active plugin_config_list: {:?}", plugin_config_list);
 
-
     //query shortlinks data from db
     let mut shortlinks = &mut inner_app_state.config.shortlinks;
-    let db_shortlinks = GeneralData::query_by_cat_simple("shortlinks",1000,&inner_app_state.db).await?;;
+    let db_shortlinks =
+        GeneralData::query_by_cat_simple("shortlinks", 1000, &inner_app_state.db).await?;
     for data in &db_shortlinks {
         let shortlink = serde_json::from_value::<ShortLink>(serde_json::from_str(&data.data)?)?;
         shortlinks.push(shortlink);
-
     }
     info!("active shortlinks : {:?}", shortlinks);
-    let mut shortlinks:Vec<String> = inner_app_state.config.shortlinks.clone().iter()
-        .filter(|p|!p.auth)
-        .map(|p|p.from.to_string()).collect();
+    let mut shortlinks: Vec<String> = inner_app_state
+        .config
+        .shortlinks
+        .clone()
+        .iter()
+        .filter(|p| !p.auth)
+        .map(|p| p.from.to_string())
+        .collect();
     auth_config.whitelist.append(&mut shortlinks);
 
     info!("whitelist : {:?}", auth_config.whitelist);
@@ -260,26 +253,27 @@ pub async fn init_app_state(config: &Config, use_test_pool: bool) -> anyhow::Res
     // Create an instance of the shared state
     let app_state = Arc::new(inner_app_state);
 
-
     Ok(app_state)
 }
 
-pub async fn start_server(router: Router<Arc<AppState>>, app_state: Arc<AppState>) -> anyhow::Result<()> {
+pub async fn start_server(
+    router: Router<Arc<AppState>>,
+    app_state: Arc<AppState>,
+) -> anyhow::Result<()> {
     // 初始化 rustls 加密提供者
     let _ = rustls::crypto::ring::default_provider()
         .install_default()
         .map_err(|_| info!("rustls crypto provider already installed"));
-    
+
     #[cfg(feature = "play-integration-xiaozhi")]
     {
         let cfg = app_state.config.mcp_config.clone();
         //start xiaozhi mcp client
-        tokio::spawn(async move{
+        tokio::spawn(async move {
             info!("starting xiaozhi mcp client...");
             let r = play_integration_xiaozhi::start_xiaozhi_client(&cfg).await;
             error!("xiaozhi_mcp stop : {:?}", r);
         });
-
     }
 
     let server_port = app_state.config.server_port;
@@ -300,30 +294,34 @@ pub async fn start_server(router: Router<Arc<AppState>>, app_state: Arc<AppState
     let certs_path = Path::new(env::var(DATA_DIR)?.as_str()).join("certs");
 
     #[cfg(feature = "play-https")]
-    play_https::start_https_server(&play_https::HttpsConfig {
-        domains: app_state.config.https_cert.domains.clone(),
-        email: app_state.config.https_cert.emails.clone(),
-        cache_dir: certs_path.to_str().unwrap().to_string(),
-        prod: true,
-        http_port: server_port as u16,
-        https_port: app_state.config.https_cert.https_port,
-        auto_redirect:app_state.config.https_cert.auto_redirect,
-    }, router).await;
-
+    play_https::start_https_server(
+        &play_https::HttpsConfig {
+            domains: app_state.config.https_cert.domains.clone(),
+            email: app_state.config.https_cert.emails.clone(),
+            cache_dir: certs_path.to_str().unwrap().to_string(),
+            prod: true,
+            http_port: server_port as u16,
+            https_port: app_state.config.https_cert.https_port,
+            auto_redirect: app_state.config.https_cert.auto_redirect,
+        },
+        router,
+    )
+    .await;
 
     // dont put code here (will never run!!!!)
-
 
     Ok(())
 }
 
 pub async fn shutdown_another_instance(local_url: &String) {
-//check if port is already in using. if it is , call /shutdown firstly.
+    //check if port is already in using. if it is , call /shutdown firstly.
     let shutdown_result = reqwest::get(&format!("{}/admin/shutdown", local_url)).await;
-    info!("shutdown_result >> {} , can be ignored.", shutdown_result.is_ok());
+    info!(
+        "shutdown_result >> {} , can be ignored.",
+        shutdown_result.is_ok()
+    );
     sleep(Duration::from_micros(200)).await;
 }
-
 
 type R<T> = Result<T, AppError>;
 type S = State<Arc<AppState>>;
@@ -337,11 +335,8 @@ type JSON<T> = Result<Json<T>, AppError>;
 //     pub static ref CONFIG: Config = init_config(false);
 // }
 
-
-
 #[derive(Serialize)]
 pub struct Success {}
-
 
 #[macro_export]
 macro_rules! register_routers {
@@ -390,16 +385,25 @@ macro_rules! files_dir {
 }
 
 #[derive(Clone, Copy, Debug)]
-struct CustomCompressPredict{}
-
-
+struct CustomCompressPredict {}
 
 impl Predicate for CustomCompressPredict {
-    fn should_compress<B>(&self, response: &axum::response::Response<B>) -> bool where B: http_body::Body {
-        response.headers().contains_key("x-compress")
+    fn should_compress<B>(&self, response: &axum::response::Response<B>) -> bool
+    where
+        B: http_body::Body,
+    {
+        if response.headers().contains_key("x-compress") {
+            return true;
+        }
+
+        response
+            .headers()
+            .get(axum::http::header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok())
+            .map(|content_type| content_type.contains("wasm"))
+            .unwrap_or(false)
     }
 }
-
 
 pub async fn routers(app_state: Arc<AppState>) -> anyhow::Result<Router<Arc<AppState>>> {
     let cors = CorsLayer::new()
@@ -412,10 +416,7 @@ pub async fn routers(app_state: Arc<AppState>) -> anyhow::Result<Router<Arc<AppS
     // Define the maximum body size (in bytes).
     let max_body_size = 10 * 1024 * 1024; // For example, 10 MB
 
-
     // info!("fingerprints : {:?}", auth_config.fingerprints);
-
-
 
     let mut router = Router::new()
         .merge(shortlink_controller::init(app_state.clone()))
@@ -426,9 +427,9 @@ pub async fn routers(app_state: Arc<AppState>) -> anyhow::Result<Router<Arc<AppS
     // Add Redis routes if feature is enabled and client was initialized successfully
     #[cfg(feature = "play-redis")]
     if let Some(redis_state) = &app_state.redis_state {
-        router = router.merge(controller::redis_controller::routes().with_state(redis_state.clone()));
+        router =
+            router.merge(controller::redis_controller::routes().with_state(redis_state.clone()));
     }
-
 
     router = router.with_state(app_state.clone())
         // logging so we can see whats going on
@@ -446,9 +447,8 @@ pub async fn routers(app_state: Arc<AppState>) -> anyhow::Result<Router<Arc<AppS
     //
     // #[cfg(not(feature = "debug"))]
     // {
-        router = router;
+    router = router;
     // }
-
 
     Ok(router)
 }
@@ -457,47 +457,72 @@ pub async fn routers(app_state: Arc<AppState>) -> anyhow::Result<Router<Arc<AppS
 async fn handle_404(
     State(state): State<Arc<AppState>>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
-    request: Request<axum::body::Body>
+    request: Request<axum::body::Body>,
 ) -> impl IntoResponse {
     let uri = request.uri().clone();
-    
+
     // 检查是否需要域名代理（后备保障）
     if let Some(header) = request.headers().get(axum::http::header::HOST) {
         if let Ok(host) = header.to_str() {
-            if let Some(domain) = state.config.domain_proxy.iter().find(|p| p.proxy_domain == host) {
-                info!("Fallback handling domain proxy for host: {} -> {:?}", host, domain.proxy_target);
-                
+            if let Some(domain) = state
+                .config
+                .domain_proxy
+                .iter()
+                .find(|p| p.proxy_domain == host)
+            {
+                info!(
+                    "Fallback handling domain proxy for host: {} -> {:?}",
+                    host, domain.proxy_target
+                );
+
                 return match &domain.proxy_target {
                     crate::config::ProxyTarget::Folder { folder_path } => {
                         use crate::layer::custom_http_layer::serve_domain_folder;
-                        match serve_domain_folder(State(state.clone()), host.to_string(), request, folder_path).await {
+                        match serve_domain_folder(
+                            State(state.clone()),
+                            host.to_string(),
+                            request,
+                            folder_path,
+                        )
+                        .await
+                        {
                             Ok(response) => response,
-                            Err(e) => {
-                                (StatusCode::INTERNAL_SERVER_ERROR, format!("Proxy error: {}", e)).into_response()
-                            }
+                            Err(e) => (
+                                StatusCode::INTERNAL_SERVER_ERROR,
+                                format!("Proxy error: {}", e),
+                            )
+                                .into_response(),
                         }
                     }
                     crate::config::ProxyTarget::Upstream { ip, port } => {
                         use crate::layer::custom_http_layer::serve_upstream_proxy_with_config;
-                        match serve_upstream_proxy_with_config(State(state.clone()), host.to_string(), request, ip, *port, domain).await {
+                        match serve_upstream_proxy_with_config(
+                            State(state.clone()),
+                            host.to_string(),
+                            request,
+                            ip,
+                            *port,
+                            domain,
+                        )
+                        .await
+                        {
                             Ok(response) => response,
-                            Err(e) => {
-                                (StatusCode::BAD_GATEWAY, format!("Proxy error: {}", e)).into_response()
-                            }
+                            Err(e) => (StatusCode::BAD_GATEWAY, format!("Proxy error: {}", e))
+                                .into_response(),
                         }
                     }
                 };
             }
         }
     }
-    
+
     // 如果不是域名代理，返回标准404
     (
         StatusCode::NOT_FOUND,
-        format!("Server Error: url not found: {}", uri)
-    ).into_response()
+        format!("Server Error: url not found: {}", uri),
+    )
+        .into_response()
 }
-
 
 // Make our own error that wraps `anyhow::Error`.
 #[derive(Debug)]
@@ -517,11 +542,7 @@ impl IntoResponse for AppError {
         let error_msg = format!("Server Error: {:?}", error);
         error!("server error: {}", error_msg);
 
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            error_msg,
-        )
-            .into_response()
+        (StatusCode::INTERNAL_SERVER_ERROR, error_msg).into_response()
     }
 }
 use crate::config::read_config_file;
@@ -536,38 +557,32 @@ impl Deref for AppError {
 // This enables using `?` on functions that return `Result<_, anyhow::Error>` to turn them into
 // `Result<_, AppError>`. That way you don't need to do that manually.
 impl<E> From<E> for AppError
-    where
-        E: Into<anyhow::Error>,
+where
+    E: Into<anyhow::Error>,
 {
     fn from(err: E) -> Self {
         Self(err.into())
     }
 }
 
-
-
-
 #[macro_export]
 macro_rules! template {
-    ($s: ident, $fragment: expr, $json: expr) => {
-        {
-
-            let t = crate::Template::DynamicTemplate { name: "<string>".to_string(), content:$fragment.to_string() };
-            let content: axum::response::Html<String> = crate::render_fragment(&$s,t,  $json).await?;
-            Ok(content)
-        }
-
-    };
-
-
+    ($s: ident, $fragment: expr, $json: expr) => {{
+        let t = crate::Template::DynamicTemplate {
+            name: "<string>".to_string(),
+            content: $fragment.to_string(),
+        };
+        let content: axum::response::Html<String> = crate::render_fragment(&$s, t, $json).await?;
+        Ok(content)
+    }};
 }
 
-
-
-
-
 async fn render_page(s: &S, page: Template, fragment: Template, data: Value) -> R<Html<String>> {
-    let title = if let Some(title) = data["title"].as_str() { title } else { "<no title>" };
+    let title = if let Some(title) = data["title"].as_str() {
+        title
+    } else {
+        "<no title>"
+    };
     let title = title.to_string();
 
     let content = s.template_service.render_template(fragment, data).await?;
@@ -590,50 +605,43 @@ async fn render_fragment(s: &S, fragment: Template, data: Value) -> R<Html<Strin
     Ok(Html(content.trim().to_string()))
 }
 
-
-
 // Define a macro to convert a hex string literal to a Rust string
 #[macro_export]
 macro_rules! hex_to_string {
     ($hex_literal:expr) => {{
-         // Convert the hex string to a vector of bytes
+        // Convert the hex string to a vector of bytes
         let bytes = hex::decode($hex_literal).expect("Invalid hex string");
 
         // Convert the byte vector to a UTF-8 string
         String::from_utf8(bytes).unwrap()
-
     }};
 }
 #[macro_export]
 macro_rules! string_to_hex {
     ($raw:expr) => {{
         $raw.as_bytes()
-        .iter()
-        .map(|&b| format!("{:02x}", b))
-        .collect::<String>()
+            .iter()
+            .map(|&b| format!("{:02x}", b))
+            .collect::<String>()
     }};
 }
 
-
-
-
-pub async fn get_file_modify_time(path: &PathBuf)->i64{
+pub async fn get_file_modify_time(path: &PathBuf) -> i64 {
     if let Ok(metadata) = fs::metadata(&path).await {
         if let Ok(modify_time) = metadata.modified() {
             // 使用 chrono 来格式化时间
             let modify_time = modify_time
                 .duration_since(UNIX_EPOCH)
                 .expect("Time went backwards")
-                .as_millis() as i64;  // 转换为毫秒
-            return modify_time
+                .as_millis() as i64; // 转换为毫秒
+            return modify_time;
         }
     }
 
     0
 }
 
-
-pub async fn render_template_new(text: &str, data: Value)->anyhow::Result<String>{
+pub async fn render_template_new(text: &str, data: Value) -> anyhow::Result<String> {
     #[cfg(feature = "play-lua")]
     {
         Ok(play_lua::lua_render(text, data).await?)
@@ -648,7 +656,14 @@ pub async fn start_server_with_config(data_dir: String, config: &Config) -> anyh
     //inject env for py_runner
     set_var("HOST", format!("http://127.0.0.1:{}", config.server_port));
 
-    set_var("FP", &config.auth_config.fingerprints.get(0).unwrap_or(&"".to_string()));
+    set_var(
+        "FP",
+        &config
+            .auth_config
+            .fingerprints
+            .get(0)
+            .unwrap_or(&"".to_string()),
+    );
 
     let log_level = match config.log_level.as_str() {
         "TRACE" => LevelFilter::TRACE,
@@ -658,12 +673,8 @@ pub async fn start_server_with_config(data_dir: String, config: &Config) -> anyh
         _ => LevelFilter::INFO,
     };
 
-
     // initialize tracing
-    let filter = filter::Targets::new()
-        .with_default(log_level)
-        ;
-
+    let filter = filter::Targets::new().with_default(log_level);
 
     let file_appender = RollingFileAppender::builder()
         .rotation(Rotation::DAILY) // rotate log files once every hour
@@ -686,7 +697,6 @@ pub async fn start_server_with_config(data_dir: String, config: &Config) -> anyh
         .finish()
         .init();
 
-
     #[cfg(feature = "debug")]
     tracing_subscriber::fmt()
         .with_file(true)
@@ -696,7 +706,6 @@ pub async fn start_server_with_config(data_dir: String, config: &Config) -> anyh
         .with_writer(std::io::stdout)
         .finish()
         .init();
-
 
     info!("using log level : {}", log_level);
 
@@ -713,15 +722,18 @@ pub async fn start_server_with_config(data_dir: String, config: &Config) -> anyh
     #[allow(unused_mut)]
     let mut router = routers(app_state.clone()).await.unwrap();
 
-
-
     #[cfg(feature = "play-dylib-loader")]
     {
         use play_dylib_loader::{load_and_run_server, HostContext};
-        use tokio::task::JoinHandle;
         use tokio::process::Command;
+        use tokio::task::JoinHandle;
         let copy_appstate = app_state.clone();
-        let plugins: Vec<&PluginConfig> = copy_appstate.config.plugin_config.iter().filter(|plugin| !plugin.disable && plugin.is_server).collect();
+        let plugins: Vec<&PluginConfig> = copy_appstate
+            .config
+            .plugin_config
+            .iter()
+            .filter(|plugin| !plugin.disable && plugin.is_server)
+            .collect();
         for plugin in plugins {
             let path = plugin.file_path.to_string();
             let create_process = plugin.create_process;
@@ -732,9 +744,7 @@ pub async fn start_server_with_config(data_dir: String, config: &Config) -> anyh
                 if create_process {
                     info!("plugin.create_process is true");
                     make_executable_if_needed(&path)?;
-                    if let Err(e) = Command::new(&path)
-                        .output()
-                        .await {
+                    if let Err(e) = Command::new(&path).output().await {
                         error!(" plugin process load_and_run_server error: {:?}", e);
                     }
                 } else {
@@ -747,7 +757,6 @@ pub async fn start_server_with_config(data_dir: String, config: &Config) -> anyh
             });
         }
     }
-
 
     start_server(router, app_state).await?;
     Ok(())
@@ -764,10 +773,9 @@ fn make_executable_if_needed(file_path: &str) -> std::io::Result<bool> {
 
     // 检查是否已经有执行权限
     // 检查所有者、组和其他用户的执行权限
-    let has_execute_permission =
-        (mode & 0o100 != 0) || // 所有者执行权限
+    let has_execute_permission = (mode & 0o100 != 0) || // 所有者执行权限
             (mode & 0o010 != 0) || // 组执行权限
-            (mode & 0o001 != 0);   // 其他用户执行权限
+            (mode & 0o001 != 0); // 其他用户执行权限
 
     if !has_execute_permission {
         // 如果没有执行权限，则添加

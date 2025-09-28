@@ -1,14 +1,14 @@
+use anyhow::{anyhow, Context};
 use std::error::Error;
 use std::io;
 use std::io::{Cursor, Write};
 use std::path::{Component, PathBuf};
 use std::time::UNIX_EPOCH;
-use anyhow::{anyhow, Context};
 
 use axum::body::{Body, Bytes, HttpBody};
-use axum::{BoxError, Json};
 use axum::extract::{Path, Query};
 use axum::response::{IntoResponse, Response};
+use axum::{BoxError, Json};
 use chrono::{DateTime, Local};
 use futures::Stream;
 use futures_util::TryStreamExt;
@@ -25,8 +25,8 @@ use tracing::info;
 
 use play_shared::{current_timestamp, file_path};
 
-use crate::{data_dir, files_dir, JSON, method_router, R, return_error};
 use crate::extractor::custom_file_upload::CustomFileExtractor;
+use crate::{data_dir, files_dir, method_router, return_error, JSON, R};
 
 method_router!(
     post : "/files/upload" -> upload_file,
@@ -37,11 +37,10 @@ method_router!(
     get : "/files" -> list_files,
 );
 
-
 #[derive(Serialize, Debug)]
 struct FileInfo {
     filename: String,
-    modify_time: i64,  // 使用 i64 来存储时间戳（毫秒）
+    modify_time: i64, // 使用 i64 来存储时间戳（毫秒）
     size: u64,
 }
 
@@ -60,7 +59,7 @@ async fn list_files() -> JSON<Vec<FileInfo>> {
                             let modify_time = modify_time
                                 .duration_since(UNIX_EPOCH)
                                 .expect("Time went backwards")
-                                .as_millis() as i64;  // 转换为毫秒
+                                .as_millis() as i64; // 转换为毫秒
                             files_info.push(FileInfo {
                                 filename,
                                 modify_time,
@@ -82,7 +81,7 @@ async fn list_files() -> JSON<Vec<FileInfo>> {
 async fn pack_files() -> R<impl IntoResponse> {
     let folder_path = files_dir!();
     let target_file = data_dir!().join("packed_files.zip");
-    if target_file.exists(){
+    if target_file.exists() {
         fs::remove_file(&target_file).await?;
     }
 
@@ -93,10 +92,10 @@ async fn pack_files() -> R<impl IntoResponse> {
             let stream = FramedRead::new(file, BytesCodec::new())
                 .map_ok(|bytes| bytes.freeze())
                 .map_err(|e| {
-                info!("File streaming error: {}", e);
-                // 在流中发生错误时，将错误转换为 HTTP 500 状态码
-                anyhow!("file stream error")
-            });
+                    info!("File streaming error: {}", e);
+                    // 在流中发生错误时，将错误转换为 HTTP 500 状态码
+                    anyhow!("file stream error")
+                });
 
             // In axum 0.8 we use Body::from_stream instead of StreamBody
             let body = axum::body::Body::from_stream(stream);
@@ -123,7 +122,7 @@ pub(crate) fn zip_dir<T: AsRef<std::path::Path>>(src_dir: T, dst_file: T) -> any
 }
 
 #[derive(Deserialize, Debug, Default)]
-struct UploadOption{
+struct UploadOption {
     #[serde(default)]
     random_name: bool,
     #[serde(default)]
@@ -131,14 +130,11 @@ struct UploadOption{
     #[serde(default)]
     public: bool,
     #[serde(default)]
-    dir: Option<String>,  // 指定子目录，例如 "images" 或 "docs/2024"
+    dir: Option<String>, // 指定子目录，例如 "images" 或 "docs/2024"
 }
 
 // #[debug_handler]
-async fn upload_file(
-    Query(option): Query<UploadOption>,
-    body: CustomFileExtractor
-) -> R<String> {
+async fn upload_file(Query(option): Query<UploadOption>, body: CustomFileExtractor) -> R<String> {
     info!("upload option : {:?}", option);
     return match body {
         CustomFileExtractor::MULTIPART(mut multipart) => {
@@ -150,16 +146,16 @@ async fn upload_file(
                     continue;
                 };
 
-                if file_name.is_empty(){
+                if file_name.is_empty() {
                     //not valid upload.
                     continue;
                 }
 
-                if option.random_name{
-                    let mut extension = extract_extension(&file_name);;
-                    if extension.is_empty(){
+                if option.random_name {
+                    let mut extension = extract_extension(&file_name);
+                    if extension.is_empty() {
                         file_name = format!("{}", current_timestamp!());
-                    }else{
+                    } else {
                         file_name = format!("{}.{}", current_timestamp!(), extension);
                     }
 
@@ -169,7 +165,7 @@ async fn upload_file(
                 let (target_dir, url_prefix) = if option.public {
                     let mut dir = files_dir!().join("public");
                     let mut prefix = "/files/public/".to_string();
-                    
+
                     // 如果指定了子目录，添加到路径中
                     if let Some(ref subdir) = option.dir {
                         // 清理子目录路径，移除前导/后导斜杠，防止路径遍历攻击
@@ -183,7 +179,7 @@ async fn upload_file(
                 } else {
                     let mut dir = files_dir!();
                     let mut prefix = "/files/".to_string();
-                    
+
                     // 如果指定了子目录，添加到路径中
                     if let Some(ref subdir) = option.dir {
                         // 清理子目录路径，移除前导/后导斜杠，防止路径遍历攻击
@@ -196,36 +192,36 @@ async fn upload_file(
                     (dir, prefix)
                 };
 
-                if !target_dir.exists(){
+                if !target_dir.exists() {
                     fs::create_dir_all(&target_dir).await?;
                 }
 
-
-                if option.unzip && file_name.ends_with(".zip"){
+                if option.unzip && file_name.ends_with(".zip") {
                     let archive = Cursor::new(field.bytes().await?);
                     zip_extract::extract(archive, &target_dir, false).unwrap();
-                    target_path.push(format!("{}{}", url_prefix, &file_name.as_str()[0..(file_name.len()-".zip".len())]));
-                }else{
+                    target_path.push(format!(
+                        "{}{}",
+                        url_prefix,
+                        &file_name.as_str()[0..(file_name.len() - ".zip".len())]
+                    ));
+                } else {
                     stream_to_file(&target_dir.join(&file_name), field).await?;
                     target_path.push(format!("{}{}", url_prefix, file_name));
                 }
-
-
-
             }
             Ok(target_path.join(","))
         }
         CustomFileExtractor::BODYSTREAM(bodystream) => {
-            use http_body_util::BodyExt;
             use futures_util::StreamExt;
-            
+            use http_body_util::BodyExt;
+
             // Use http_body_util to collect the body first
             let body_bytes = bodystream.collect().await?.to_bytes();
-            
+
             // 确定目标目录
             let mut target_dir = files_dir!();
             let mut url_prefix = "/files/".to_string();
-            
+
             if let Some(ref subdir) = option.dir {
                 // 清理子目录路径
                 let clean_subdir = subdir.trim_matches('/').replace("..", "");
@@ -238,13 +234,13 @@ async fn upload_file(
                     }
                 }
             }
-            
+
             // Create temporary file path
             let path = target_dir.join(format!("{}", current_timestamp!()));
-            
+
             // Write bytes to file
             tokio::fs::write(&path, body_bytes).await?;
-            
+
             let new_path = rename_file_with_correct_extension(&path).await?;
             Ok(format!("{}{}", url_prefix, new_path))
         }
@@ -254,25 +250,31 @@ async fn upload_file(
 pub async fn download_file(Path(file_path): Path<String>) -> impl IntoResponse {
     // Sanitize file path and prevent directory traversal
     let safe_path = files_dir!().join(file_path.trim_start_matches('/'));
-    if safe_path.components().any(|component| component == Component::ParentDir) {
+    if safe_path
+        .components()
+        .any(|component| component == Component::ParentDir)
+    {
         return Err((StatusCode::FORBIDDEN, "Access denied"));
     }
 
-    if !safe_path.exists(){
+    if !safe_path.exists() {
         return Err((StatusCode::FORBIDDEN, "Access denied"));
     }
 
     let mime_type = mime_guess::from_path(&safe_path).first_or_octet_stream();
 
-    if safe_path.is_dir(){
+    if safe_path.is_dir() {
         // 要列举的目录路径
-        let directory_path =  &safe_path;
+        let directory_path = &safe_path;
 
         // 创建一个 Vector 来存储目录下所有文件的名称
         let mut files: Vec<String> = Vec::new();
 
         // 使用 WalkDir 遍历目录并收集文件名
-        for entry in WalkDir::new(directory_path).into_iter().filter_map(|e| e.ok()) {
+        for entry in WalkDir::new(directory_path)
+            .into_iter()
+            .filter_map(|e| e.ok())
+        {
             if entry.file_type().is_file() {
                 if let Some(file_name) = entry.file_name().to_str() {
                     files.push(file_name.to_owned());
@@ -287,23 +289,22 @@ pub async fn download_file(Path(file_path): Path<String>) -> impl IntoResponse {
         html_content.push_str("<ul>\n");
 
         for file in files {
-            html_content.push_str(&format!(r#"<li><a href="{}/{}" target="_blank">{}</a></li>"#, file_path,file,file));
+            html_content.push_str(&format!(
+                r#"<li><a href="{}/{}" target="_blank">{}</a></li>"#,
+                file_path, file, file
+            ));
         }
 
         html_content.push_str("</ul>\n");
         html_content.push_str("</body>\n</html>\n");
-        let  response = Response::builder()
+        let response = Response::builder()
             .status(StatusCode::OK)
-            .header(
-                header::CONTENT_TYPE,
-                "text/html;charset=UTF-8"
-            )
+            .header(header::CONTENT_TYPE, "text/html;charset=UTF-8")
             .header("x-compress", "1")
             .body(Body::from(html_content))
             .expect("Failed to build response"); // Convert Vec<u8> into Body
 
-
-        return Ok(response)
+        return Ok(response);
     }
 
     // Attempt to open the file
@@ -317,19 +318,16 @@ pub async fn download_file(Path(file_path): Path<String>) -> impl IntoResponse {
                     .status(StatusCode::OK)
                     .header(
                         header::CONTENT_TYPE,
-                        HeaderValue::from_str(mime_type.as_ref()).unwrap()
+                        HeaderValue::from_str(mime_type.as_ref()).unwrap(),
                     )
                     .header("Cross-Origin-Opener-Policy", "same-origin")
                     .header("Cross-Origin-Embedder-Policy", "require-corp");
-                if mime_type.as_ref().contains("wasm"){
-                    //dont compress wasm file , because ios safari has issue with it.
-                    res_builder = res_builder.header("Content-Encoding", "identity")
-                        .header("Cache-Control","no-transform");
+                if mime_type.as_ref().contains("wasm") {
+                    res_builder = res_builder.header("x-compress", "1");
                 }
-                let  response =
-                    res_builder.body(Body::from(contents))
+                let response = res_builder
+                    .body(Body::from(contents))
                     .expect("Failed to build response"); // Convert Vec<u8> into Body
-
 
                 // You can add or modify response headers here
                 // response.headers_mut().insert(
@@ -353,14 +351,20 @@ pub async fn download_file(Path(file_path): Path<String>) -> impl IntoResponse {
 async fn delete_file(Path(file_path): Path<String>) -> impl IntoResponse {
     // Sanitize file path and prevent directory traversal
     let safe_path = files_dir!().join(file_path.trim_start_matches('/'));
-    if safe_path.components().any(|component| component == Component::ParentDir) {
+    if safe_path
+        .components()
+        .any(|component| component == Component::ParentDir)
+    {
         return Err((StatusCode::FORBIDDEN, "Access denied".to_string()));
     }
 
     // 尝试删除文件
     match fs::remove_file(safe_path).await {
         Ok(_) => Ok(Response::new("文件删除成功".to_string())),
-        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, format!("文件删除失败: {}", e))),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("文件删除失败: {}", e),
+        )),
     }
 }
 fn extract_extension(filename: &str) -> &str {
@@ -371,11 +375,10 @@ fn extract_extension(filename: &str) -> &str {
 
 // Save a `Stream` to a file
 async fn stream_to_file<S, E>(path: &PathBuf, stream: S) -> anyhow::Result<PathBuf>
-    where
-        S: Stream<Item=Result<Bytes, E>>,
-        E: Into<BoxError>,
+where
+    S: Stream<Item = Result<Bytes, E>>,
+    E: Into<BoxError>,
 {
-
     // Convert the stream into an `AsyncRead`.
     let body_with_io_error = stream.map_err(|err| io::Error::new(io::ErrorKind::Other, err));
     let body_reader = StreamReader::new(body_with_io_error);
@@ -405,7 +408,6 @@ async fn rename_file_with_correct_extension(path: &std::path::Path) -> anyhow::R
     // 推断文件类型
     let new_file_name = if let Some(kind) = inferrer.get_from_path(path)? {
         println!("Detected type: {}", kind.mime_type());
-        ;
         // 构建新的文件名
         let new_filename = match path.file_stem() {
             Some(stem) => stem.to_string_lossy().into_owned() + "." + kind.extension(),
@@ -418,7 +420,6 @@ async fn rename_file_with_correct_extension(path: &std::path::Path) -> anyhow::R
         format!("{}.txt", path.file_name().unwrap().to_str().unwrap())
     };
 
-
     let new_path = path.with_file_name(&new_file_name);
 
     // 重命名文件
@@ -427,13 +428,18 @@ async fn rename_file_with_correct_extension(path: &std::path::Path) -> anyhow::R
 }
 #[cfg(test)]
 mod test {
-    use crate::{mock_server, mock_state};
     use super::*;
+    use crate::{mock_server, mock_state};
 
     #[tokio::test]
     async fn test_rename() -> anyhow::Result<()> {
-        let path = std::path::Path::new("/Users/zhouzhipeng/RustroverProjects/play/server/output_dir/files/test");
-        println!("new name : {}", rename_file_with_correct_extension(path).await?);
+        let path = std::path::Path::new(
+            "/Users/zhouzhipeng/RustroverProjects/play/server/output_dir/files/test",
+        );
+        println!(
+            "new name : {}",
+            rename_file_with_correct_extension(path).await?
+        );
 
         Ok(())
     }
@@ -451,5 +457,4 @@ mod test {
 
         println!("{}", extension);
     }
-
 }

@@ -12,12 +12,12 @@ use chrono::NaiveDateTime;
 use http::Uri;
 
 use regex::Regex;
+use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{Map, Value};
 use sqlx::Encode;
 use std::collections::HashMap;
 use std::num::NonZeroU32;
-use serde::de::Error;
 use tracing::info;
 
 method_router!(
@@ -42,7 +42,7 @@ enum ActionEnum {
 struct QueryParam {
     id: Option<u32>,
     select: Option<String>,
-    #[serde(default="default_limit", deserialize_with = "deserialize_limit")]
+    #[serde(default = "default_limit", deserialize_with = "deserialize_limit")]
     limit: LimitParam,
     #[serde(rename = "where")]
     _where: Option<String>,
@@ -55,11 +55,11 @@ struct QueryParam {
     include_deleted: bool,
 }
 #[derive(Serialize, Debug)]
-struct LimitParam((u32,NonZeroU32));
+struct LimitParam((u32, NonZeroU32));
 
 impl LimitParam {
-    pub fn to_string(&self)->String{
-        format!("{},{}", self.0.0, self.0.1)
+    pub fn to_string(&self) -> String {
+        format!("{},{}", self.0 .0, self.0 .1)
     }
 }
 
@@ -72,37 +72,46 @@ where
     match value {
         serde_json::Value::String(s) => {
             // return Err(D::Error::custom("invalid `limit` parameter,should have only two numbers. "))
-            let values:Vec<&str> =s.split(',').collect();
-            if values.len()!=2{
-                return Err(D::Error::custom("invalid `limit` parameter,should have only two numbers. "))
+            let values: Vec<&str> = s.split(',').collect();
+            if values.len() != 2 {
+                return Err(D::Error::custom(
+                    "invalid `limit` parameter,should have only two numbers. ",
+                ));
             }
 
-            let num1  = values[0].parse::<u32>().map_err(|e|D::Error::custom("invalid `limit` parameter, should be positive integers "))?;
-            let num2  = values[1].parse::<NonZeroU32>().map_err(|e|D::Error::custom("invalid `limit` parameter, should be positive integers "))?;
+            let num1 = values[0].parse::<u32>().map_err(|e| {
+                D::Error::custom("invalid `limit` parameter, should be positive integers ")
+            })?;
+            let num2 = values[1].parse::<NonZeroU32>().map_err(|e| {
+                D::Error::custom("invalid `limit` parameter, should be positive integers ")
+            })?;
 
             Ok(LimitParam((num1, num2)))
-        },
+        }
         serde_json::Value::Number(n) => {
             if let Some(num) = n.as_u64() {
-                if let Some(num) = NonZeroU32::new(num as u32){
+                if let Some(num) = NonZeroU32::new(num as u32) {
                     Ok(LimitParam((0, num)))
-                }else{
-                    return Err(D::Error::custom("invalid `limit` parameter,should be positive integers. "))
+                } else {
+                    return Err(D::Error::custom(
+                        "invalid `limit` parameter,should be positive integers. ",
+                    ));
                 }
-
             } else {
-                return Err(D::Error::custom("invalid `limit` parameter,should be positive integers. "))
+                return Err(D::Error::custom(
+                    "invalid `limit` parameter,should be positive integers. ",
+                ));
             }
-        },
-        _ =>  return Err(D::Error::custom("invalid `limit` parameter. "))
+        }
+        _ => return Err(D::Error::custom("invalid `limit` parameter. ")),
     }
 }
 
 fn default_limit() -> LimitParam {
-    LimitParam((0,NonZeroU32::new(10).unwrap()))
+    LimitParam((0, NonZeroU32::new(10).unwrap()))
 }
 
-const SYSTEM_FIELDS:[&str;6] = ["id", "cat", "data", "is_deleted", "created","updated"];
+const SYSTEM_FIELDS: [&str; 6] = ["id", "cat", "data", "is_deleted", "created", "updated"];
 
 #[derive(Serialize, Deserialize, Debug)]
 struct UpdateParam {
@@ -142,8 +151,7 @@ fn parse_and_convert_to_json_extract(condition_str: &str) -> String {
         }
 
         // 检查是否遇到 "AND"（忽略大小写）
-        if (c == 'a' || c == 'A') &&
-            chars.peek() == Some(&'n') || chars.peek() == Some(&'N') {
+        if (c == 'a' || c == 'A') && chars.peek() == Some(&'n') || chars.peek() == Some(&'N') {
             let mut lookahead = String::new();
             lookahead.push(c);
 
@@ -155,9 +163,9 @@ fn parse_and_convert_to_json_extract(condition_str: &str) -> String {
 
                     // 检查是否是独立的 "AND" 词
                     // 前后应该是空格或字符串的开始/结束
-                    let is_and = lookahead.to_lowercase() == "and" &&
-                        (current_part.is_empty() || current_part.ends_with(' ')) &&
-                        (chars.peek().is_none() || chars.peek() == Some(&' '));
+                    let is_and = lookahead.to_lowercase() == "and"
+                        && (current_part.is_empty() || current_part.ends_with(' '))
+                        && (chars.peek().is_none() || chars.peek() == Some(&' '));
 
                     if is_and {
                         // 找到一个 "AND"，处理当前部分并重置
@@ -210,10 +218,9 @@ fn convert_condition(condition: &str) -> String {
 
             if SYSTEM_FIELDS.contains(&key) {
                 return format!("{} {} {}", key, op, value);
-            }else{
+            } else {
                 return format!("json_extract(data, '$.{}') {} {}", key, op, value);
             }
-
         }
     }
 
@@ -377,10 +384,12 @@ async fn handle_request(s: S, category: String, action: String, params: Value) -
     match &action_enum {
         ActionEnum::INSERT(val) => {
             ensure!(val.len() != 0, "query params cant be empty!");
-            for field in SYSTEM_FIELDS{
-                ensure!(!val.contains_key(field), format!("cant use system field `{field}` when insert data."));
+            for field in SYSTEM_FIELDS {
+                ensure!(
+                    !val.contains_key(field),
+                    format!("cant use system field `{field}` when insert data.")
+                );
             }
-
 
             let obj = insert_data(s, Path(category), serde_json::to_string(val)?).await?;
             return Ok(serde_json::to_string(&obj.to_flat_map()?)?);
@@ -389,17 +398,24 @@ async fn handle_request(s: S, category: String, action: String, params: Value) -
             check_set_param_valid(&set)?;
 
             let kv = parse_set_string_to_hashmap(set);
-            let r = GeneralData::update_with_json_patch(&s.db, *id, parse_query_with_types(kv)?.to_string()).await?;
+            let r = GeneralData::update_with_json_patch(
+                &s.db,
+                *id,
+                parse_query_with_types(kv)?.to_string(),
+            )
+            .await?;
             return Ok(r.rows_affected().to_string().to_string());
         }
         ActionEnum::QUERY(query_param) => {
-            let select_fields =  if let Some(select)= &query_param.select{
+            let select_fields = if let Some(select) = &query_param.select {
                 select
-            }else {
+            } else {
                 "*"
             };
             if let Some(id) = query_param.id {
-                let r = GeneralData::query_by_id_with_cat_select(select_fields,id,&category, &s.db).await?;
+                let r =
+                    GeneralData::query_by_id_with_cat_select(select_fields, id, &category, &s.db)
+                        .await?;
                 ensure!(r.len() == 1, "data not found for id : {}", id);
 
                 if !query_param.slim {
@@ -411,52 +427,68 @@ async fn handle_request(s: S, category: String, action: String, params: Value) -
             } else {
                 //query list
 
-                let order_by =  if let Some(val)= &query_param.order_by{
+                let order_by = if let Some(val) = &query_param.order_by {
                     val
-                }else {
+                } else {
                     "id desc"
                 };
 
-                let _where =  if let Some(val)= &query_param._where{
+                let _where = if let Some(val) = &query_param._where {
                     &parse_and_convert_to_json_extract(val)
-                }else {
+                } else {
                     "1=1"
                 };
 
-                if query_param.count{
-                    let count = GeneralData::query_count_composite(&category,_where, query_param.include_deleted, &s.db).await?;
+                if query_param.count {
+                    let count = GeneralData::query_count_composite(
+                        &category,
+                        _where,
+                        query_param.include_deleted,
+                        &s.db,
+                    )
+                    .await?;
                     return Ok(count.to_string());
-
-                }else{
-                    let list = GeneralData::query_composite(select_fields,&category,&query_param.limit.to_string(),_where,query_param.include_deleted,order_by, &s.db).await?;
+                } else {
+                    let list = GeneralData::query_composite(
+                        select_fields,
+                        &category,
+                        &query_param.limit.to_string(),
+                        _where,
+                        query_param.include_deleted,
+                        order_by,
+                        &s.db,
+                    )
+                    .await?;
                     if !query_param.slim {
                         let mut new_arr = vec![];
-                        for data in &list{
+                        for data in &list {
                             new_arr.push(data.to_flat_map()?);
                         }
                         return Ok(serde_json::to_string(&new_arr)?);
                     } else {
                         let mut new_arr = vec![];
-                        for data in &list{
+                        for data in &list {
                             new_arr.push(data.extract_data()?);
                         }
                         return Ok(serde_json::to_string(&new_arr)?);
                     }
                 }
-
             }
         }
-        ActionEnum::DELETE(DeleteParam { id,delete_all, hard_delete }) => {
-            if *delete_all{
+        ActionEnum::DELETE(DeleteParam {
+            id,
+            delete_all,
+            hard_delete,
+        }) => {
+            if *delete_all {
                 return if *hard_delete {
                     let r = GeneralData::delete_by_cat(&category, &s.db).await?;
                     Ok(r.rows_affected().to_string().to_string())
                 } else {
-                    let r = GeneralData::soft_delete_by_cat(&category,&s.db).await?;
+                    let r = GeneralData::soft_delete_by_cat(&category, &s.db).await?;
                     Ok(r.rows_affected().to_string().to_string())
-                }
-
-            }else{
+                };
+            } else {
                 ensure!(id.is_some(), "id/delete_all cant be empty!");
                 let id = id.unwrap();
                 return if *hard_delete {
@@ -465,9 +497,8 @@ async fn handle_request(s: S, category: String, action: String, params: Value) -
                 } else {
                     let r = GeneralData::soft_delete(id, &s.db).await?;
                     Ok(r.rows_affected().to_string().to_string())
-                }
+                };
             }
-
         }
     }
 
@@ -490,4 +521,3 @@ async fn insert_data(s: S, Path(cat): Path<String>, body: String) -> Result<Gene
 
     Ok(data)
 }
-

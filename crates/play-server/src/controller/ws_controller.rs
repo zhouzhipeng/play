@@ -1,36 +1,31 @@
 use std::sync::Arc;
 
+use axum::routing::get;
 use axum::Router;
 use axum::{
     extract::ws::{Message, WebSocket, WebSocketUpgrade},
     response::IntoResponse,
 };
-use axum::routing::get;
 //allows to split the websocket stream into separate TX and RX branches
 use tracing::info;
 
 use crate::AppState;
 
 pub fn init() -> Router<Arc<AppState>> {
-    Router::new()
-        .route("/ws", get(ws_handler))
+    Router::new().route("/ws", get(ws_handler))
 }
 
-
-
-async fn ws_handler(
-    ws: WebSocketUpgrade,
-) -> impl IntoResponse {
+async fn ws_handler(ws: WebSocketUpgrade) -> impl IntoResponse {
     info!("WebSocket connected");
 
     ws.on_upgrade(handle_socket)
 }
 
 async fn handle_socket(mut socket: WebSocket) {
-    loop{
+    loop {
         if let Some(msg) = socket.recv().await {
             if let Ok(msg) = msg {
-                match msg{
+                match msg {
                     Message::Text(text) => {
                         let msg = text.to_string();
                         info!("Client says: {:?}", msg);
@@ -40,14 +35,12 @@ async fn handle_socket(mut socket: WebSocket) {
                         info!("client disconnected");
                         return;
                     }
-                    _=>{}
+                    _ => {}
                 }
-
             } else {
                 info!("client disconnected");
                 return;
             }
         }
     }
-
 }
