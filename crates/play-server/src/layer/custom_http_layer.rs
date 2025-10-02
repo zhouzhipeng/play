@@ -157,8 +157,7 @@ pub async fn http_middleware(
 
     //check fingerprint only for main domain.
     if auth_config.enabled {
-        let is_whitelist =
-            uri == "/" || { auth_config.whitelist.iter().any(|x| uri.starts_with(x)) };
+        let is_whitelist = auth_config.whitelist.iter().any(|x| uri.starts_with(x));
 
         if !is_whitelist {
             //begin to match fingerprint
