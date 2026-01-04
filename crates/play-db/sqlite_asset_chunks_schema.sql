@@ -3,7 +3,7 @@
 -- Execute the following separately on each asset shard DB
 -- =========================================================
 
-PRAGMA journal_mode = DELETE;
+PRAGMA journal_mode = OFF;
 
 CREATE TABLE IF NOT EXISTS asset_chunks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

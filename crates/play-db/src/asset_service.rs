@@ -272,6 +272,7 @@ pub async fn insert_asset_from_path(
         .map(|value| value.eq_ignore_ascii_case(&checksum))
         .unwrap_or(false);
     metadata.valid = inserted_total == expected && checksum_matches;
+    metadata.raw_file_path = Some(file_path.to_string_lossy().into_owned());
     Ok(metadata)
 }
 
@@ -420,6 +421,10 @@ mod tests {
         assert_eq!(metadata.checksum.as_deref(), Some(expected_checksum.as_str()));
         assert!(metadata.valid);
         assert_eq!(
+            metadata.raw_file_path.as_deref(),
+            Some(file_path.to_string_lossy().as_ref())
+        );
+        assert_eq!(
             metadata.chunks.len() as i64,
             expected_chunk_count(metadata.size, metadata.chunk_size)
         );
@@ -473,6 +478,10 @@ mod tests {
         assert_eq!(metadata.mime_type.as_deref(), Some(expected_mime.as_str()));
         assert_eq!(metadata.chunk_size, 1024 * 100);
         assert!(metadata.valid);
+        assert_eq!(
+            metadata.raw_file_path.as_deref(),
+            Some(file_path.to_string_lossy().as_ref())
+        );
 
         let combined = read_asset_bytes(&main_db, vec![chunk_db0.clone(), chunk_db1.clone()], &asset_id).await?;
         assert_eq!(combined, data);
