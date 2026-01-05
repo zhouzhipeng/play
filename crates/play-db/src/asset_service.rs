@@ -226,6 +226,9 @@ pub async fn insert_asset_from_path(
         }
     }
 
+    let expected = expected_chunk_count(size, chunk_size);
+    let valid = inserted_total == expected;
+    let raw_file_path = Some(file_path.to_string_lossy().into_owned());
     let asset_input = AssetMetadataInput {
         id: asset_id.clone(),
         name,
@@ -234,6 +237,8 @@ pub async fn insert_asset_from_path(
         chunk_size,
         chunks: chunk_refs,
         checksum: Some(checksum.clone()),
+        raw_file_path: raw_file_path.clone(),
+        valid,
     };
     let asset_input_for_db = asset_input.clone();
     let meta_db_path_for_db = meta_db_path.clone();
@@ -265,14 +270,130 @@ pub async fn insert_asset_from_path(
     .await
     .map_err(wrap_error)??;
     let mut metadata = metadata.ok_or_else(|| service_error("asset metadata missing"))?;
-    let expected = expected_chunk_count(metadata.size, metadata.chunk_size);
-    let checksum_matches = metadata
-        .checksum
-        .as_deref()
-        .map(|value| value.eq_ignore_ascii_case(&checksum))
-        .unwrap_or(false);
-    metadata.valid = inserted_total == expected && checksum_matches;
-    metadata.raw_file_path = Some(file_path.to_string_lossy().into_owned());
+    metadata.valid = valid;
+    metadata.raw_file_path = raw_file_path;
+    Ok(metadata)
+}
+
+pub async fn insert_asset_from_bytes(
+    meta_db_path: impl AsRef<Path>,
+    chunk_db_paths: Vec<PathBuf>,
+    asset_id: &str,
+    name: Option<String>,
+    mime_type: Option<String>,
+    chunk_size: i64,
+    data: Vec<u8>,
+) -> rusqlite::Result<AssetMetadata> {
+    if chunk_db_paths.is_empty() {
+        return Err(service_error("chunk_db_paths must not be empty"));
+    }
+    if chunk_size <= 0 {
+        return Err(service_error("chunk_size must be positive"));
+    }
+
+    let meta_db_path = meta_db_path.as_ref().to_path_buf();
+    let asset_id = asset_id.to_string();
+    let chunk_size_usize = usize::try_from(chunk_size).map_err(wrap_error)?;
+
+    let size = i64::try_from(data.len()).map_err(wrap_error)?;
+    let checksum = checksum_for_bytes(&data);
+    let resolved_mime = match mime_type {
+        Some(value) if !value.trim().is_empty() => Some(value),
+        _ => detect_mime_type(&data).or_else(|| Some("application/octet-stream".to_string())),
+    };
+
+    let mut chunk_refs = Vec::new();
+    let mut jobs_by_db: Vec<Vec<ChunkJob>> = vec![Vec::new(); chunk_db_paths.len()];
+    for (index, chunk) in data.chunks(chunk_size_usize).enumerate() {
+        let db_index = index % chunk_db_paths.len();
+        let chunk_index = index as i64;
+        jobs_by_db[db_index].push(ChunkJob {
+            chunk_index,
+            data: chunk.to_vec(),
+        });
+        chunk_refs.push(AssetChunkRef {
+            db_index: db_index as i64,
+            chunk_index,
+        });
+    }
+
+    let chunk_db_paths_for_cleanup = chunk_db_paths.clone();
+    let mut handles = Vec::with_capacity(chunk_db_paths.len());
+    for (db_path, jobs) in chunk_db_paths.into_iter().zip(jobs_by_db.into_iter()) {
+        let asset_id = asset_id.clone();
+        handles.push(task::spawn_blocking(move || -> rusqlite::Result<i64> {
+            let mut conn = rusqlite::Connection::open(db_path)?;
+            init_asset_chunk_db(&conn)?;
+            let tx = conn.transaction()?;
+            let count = jobs.len() as i64;
+            for job in jobs {
+                asset_chunk_create(&tx, &asset_id, job.chunk_index, &job.data)?;
+            }
+            tx.commit()?;
+            Ok(count)
+        }));
+    }
+
+    let mut inserted_total = 0;
+    for handle in handles {
+        match handle.await {
+            Ok(Ok(count)) => inserted_total += count,
+            Ok(Err(err)) => {
+                cleanup_chunks(&asset_id, &chunk_db_paths_for_cleanup).await;
+                return Err(err);
+            }
+            Err(err) => {
+                cleanup_chunks(&asset_id, &chunk_db_paths_for_cleanup).await;
+                return Err(wrap_error(err));
+            }
+        }
+    }
+
+    let expected = expected_chunk_count(size, chunk_size);
+    let valid = inserted_total == expected;
+    let asset_input = AssetMetadataInput {
+        id: asset_id.clone(),
+        name,
+        mime_type: resolved_mime,
+        size,
+        chunk_size,
+        chunks: chunk_refs,
+        checksum: Some(checksum.clone()),
+        raw_file_path: None,
+        valid,
+    };
+    let asset_input_for_db = asset_input.clone();
+    let meta_db_path_for_db = meta_db_path.clone();
+    let meta_insert = task::spawn_blocking(move || -> rusqlite::Result<()> {
+        let conn = rusqlite::Connection::open(meta_db_path_for_db)?;
+        init_main_db(&conn)?;
+        assets_create(&conn, &asset_input_for_db)?;
+        Ok(())
+    })
+    .await;
+    match meta_insert {
+        Ok(Ok(())) => {}
+        Ok(Err(err)) => {
+            cleanup_chunks(&asset_id, &chunk_db_paths_for_cleanup).await;
+            return Err(err);
+        }
+        Err(err) => {
+            cleanup_chunks(&asset_id, &chunk_db_paths_for_cleanup).await;
+            return Err(wrap_error(err));
+        }
+    }
+
+    let meta_db_path_for_get = meta_db_path.clone();
+    let asset_id_for_get = asset_id.clone();
+    let metadata = task::spawn_blocking(move || -> rusqlite::Result<Option<AssetMetadata>> {
+        let conn = rusqlite::Connection::open(meta_db_path_for_get)?;
+        assets_get(&conn, &asset_id_for_get)
+    })
+    .await
+    .map_err(wrap_error)??;
+    let mut metadata = metadata.ok_or_else(|| service_error("asset metadata missing"))?;
+    metadata.valid = valid;
+    metadata.raw_file_path = None;
     Ok(metadata)
 }
 
@@ -294,6 +415,28 @@ pub async fn insert_asset_from_path_with_size_str(
         mime_type,
         chunk_size,
         file_path,
+    )
+    .await
+}
+
+pub async fn insert_asset_from_bytes_with_size_str(
+    meta_db_path: impl AsRef<Path>,
+    chunk_db_paths: Vec<PathBuf>,
+    asset_id: &str,
+    name: Option<String>,
+    mime_type: Option<String>,
+    chunk_size: &str,
+    data: Vec<u8>,
+) -> rusqlite::Result<AssetMetadata> {
+    let chunk_size = parse_chunk_size(chunk_size)?;
+    insert_asset_from_bytes(
+        meta_db_path,
+        chunk_db_paths,
+        asset_id,
+        name,
+        mime_type,
+        chunk_size,
+        data,
     )
     .await
 }

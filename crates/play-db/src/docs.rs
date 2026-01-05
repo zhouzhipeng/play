@@ -133,7 +133,7 @@ pub fn docs_get(conn: &Connection, id: &str) -> rusqlite::Result<Option<HashMap<
 pub fn docs_update(conn: &Connection, id: &str, doc: &Value) -> rusqlite::Result<usize> {
     let doc_json = json_to_string(doc)?;
     conn.execute(
-        "UPDATE docs SET doc = ?2 WHERE id = ?1",
+        "UPDATE docs SET doc = ?2 WHERE id = ?1 AND doc <> ?2",
         params![id, doc_json],
     )
 }
@@ -294,7 +294,7 @@ mod tests {
     }
 
     #[test]
-    fn docs_crud_and_changelog() -> rusqlite::Result<()> {
+    fn docs_crud() -> rusqlite::Result<()> {
         let conn = Connection::open_in_memory()?;
         init_main_db(&conn)?;
 
@@ -312,6 +312,8 @@ mod tests {
         let doc_v2 = json!({"name": "doc", "count": 2});
         let updated = docs_update(&conn, &doc_id, &doc_v2)?;
         assert_eq!(updated, 1);
+        let unchanged = docs_update(&conn, &doc_id, &doc_v2)?;
+        assert_eq!(unchanged, 0);
 
         let fetched = docs_get(&conn, &doc_id)?.expect("missing doc row");
         assert_system_fields(&fetched, &doc_id);
@@ -326,19 +328,6 @@ mod tests {
         assert_eq!(deleted, 1);
         assert!(docs_get(&conn, &doc_id)?.is_none());
 
-        let mut stmt = conn.prepare("SELECT op FROM docs_changelog ORDER BY id ASC")?;
-        let ops = stmt
-            .query_map([], |row| row.get::<_, String>(0))?
-            .collect::<rusqlite::Result<Vec<_>>>()?;
-        assert_eq!(
-            ops,
-            vec![
-                "INSERT".to_string(),
-                "UPDATE".to_string(),
-                "UPDATE".to_string(),
-                "DELETE".to_string(),
-            ]
-        );
         Ok(())
     }
 

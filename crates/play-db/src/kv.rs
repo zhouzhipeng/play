@@ -34,7 +34,7 @@ pub fn kv_get(conn: &Connection, key: &str) -> rusqlite::Result<Option<KvEntry>>
 
 pub fn kv_update(conn: &Connection, key: &str, value: &str) -> rusqlite::Result<usize> {
     conn.execute(
-        "UPDATE kv SET value = ?2 WHERE key = ?1",
+        "UPDATE kv SET value = ?2 WHERE key = ?1 AND value <> ?2",
         params![key, value],
     )
 }
@@ -65,7 +65,7 @@ mod tests {
     use rusqlite::Connection;
 
     #[test]
-    fn kv_crud_and_changelog() -> rusqlite::Result<()> {
+    fn kv_crud() -> rusqlite::Result<()> {
         let conn = Connection::open_in_memory()?;
         init_main_db(&conn)?;
 
@@ -75,6 +75,8 @@ mod tests {
 
         let updated = kv_update(&conn, "alpha", "2")?;
         assert_eq!(updated, 1);
+        let unchanged = kv_update(&conn, "alpha", "2")?;
+        assert_eq!(unchanged, 0);
         let entry = kv_get(&conn, "alpha")?.expect("missing kv row");
         assert_eq!(entry.value, "2");
 
@@ -85,19 +87,6 @@ mod tests {
         assert_eq!(deleted, 1);
         assert!(kv_get(&conn, "alpha")?.is_none());
 
-        let mut stmt = conn.prepare("SELECT op FROM kv_changelog ORDER BY id ASC")?;
-        let ops = stmt
-            .query_map([], |row| row.get::<_, String>(0))?
-            .collect::<rusqlite::Result<Vec<_>>>()?;
-        assert_eq!(
-            ops,
-            vec![
-                "INSERT".to_string(),
-                "UPDATE".to_string(),
-                "UPDATE".to_string(),
-                "DELETE".to_string(),
-            ]
-        );
         Ok(())
     }
 }

@@ -1,15 +1,13 @@
 -- =========================================================
--- SQLite Schema: KV / Docs / Assets with Changelog & Chunked Storage
+-- SQLite Schema: KV / Docs / Assets with Chunked Storage
 -- Author: Optimized Version
 -- Description:
---   Enhanced schema with automatic timestamp management via triggers
---   and changelog tracking for kv, docs, and assets tables.
+--   Enhanced schema with automatic timestamp management via triggers.
 --
 --   Features:
 --     1. Automatic created_at/updated_at management
---     2. Automatic changelog recording via triggers
---     3. Optimized indexing strategy
---     4. Asset binary data stored in sharded databases
+--     2. Optimized indexing strategy
+--     3. Asset binary data stored in sharded databases
 -- =========================================================
 
 PRAGMA foreign_keys = ON;
@@ -30,28 +28,7 @@ CREATE TABLE IF NOT EXISTS kv
 );
 
 -- =========================================================
--- 2. KV CHANGELOG TABLE
--- Records every insert/update/delete on kv table
--- Timestamps are in milliseconds
--- =========================================================
-CREATE TABLE IF NOT EXISTS kv_changelog
-(
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    key        TEXT    NOT NULL,
-    old_value  TEXT,
-    new_value  TEXT,
-    op         TEXT    NOT NULL CHECK (op IN ('INSERT', 'UPDATE', 'DELETE')),
-    changed_at INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
-);
-
-CREATE INDEX IF NOT EXISTS idx_kv_changelog_key
-    ON kv_changelog (key);
-
-CREATE INDEX IF NOT EXISTS idx_kv_changelog_time
-    ON kv_changelog (changed_at DESC);
-
--- =========================================================
--- 3. DOCS TABLE
+-- 2. DOCS TABLE
 -- JSON document storage with dynamic schema
 -- Timestamps are in milliseconds
 -- =========================================================
@@ -64,28 +41,7 @@ CREATE TABLE IF NOT EXISTS docs
 );
 
 -- =========================================================
--- 4. DOCS CHANGELOG TABLE
--- Records every insert/update/delete on docs table
--- Timestamps are in milliseconds
--- =========================================================
-CREATE TABLE IF NOT EXISTS docs_changelog
-(
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    doc_id     TEXT    NOT NULL,
-    old_doc    JSON,
-    new_doc    JSON,
-    op         TEXT    NOT NULL CHECK (op IN ('INSERT', 'UPDATE', 'DELETE')),
-    changed_at INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
-);
-
-CREATE INDEX IF NOT EXISTS idx_docs_changelog_doc_id
-    ON docs_changelog (doc_id);
-
-CREATE INDEX IF NOT EXISTS idx_docs_changelog_time
-    ON docs_changelog (changed_at DESC);
-
--- =========================================================
--- 5. ASSETS TABLE (METADATA ONLY)
+-- 3. ASSETS TABLE (METADATA ONLY)
 -- Binary data is stored in asset shard databases
 -- Timestamps are in milliseconds
 -- =========================================================
@@ -98,6 +54,8 @@ CREATE TABLE IF NOT EXISTS assets
     chunk_size INTEGER NOT NULL CHECK (chunk_size > 0),
     chunks     JSON    NOT NULL,
     checksum   TEXT,
+    raw_file_path TEXT,
+    valid      INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
     updated_at INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
 );
@@ -125,36 +83,6 @@ BEGIN
     WHERE key = NEW.key;
 END;
 
--- Trigger: Log INSERT operations
-CREATE TRIGGER IF NOT EXISTS trg_kv_insert_log
-    AFTER INSERT
-    ON kv
-    FOR EACH ROW
-BEGIN
-    INSERT INTO kv_changelog (key, old_value, new_value, op, changed_at)
-    VALUES (NEW.key, NULL, NEW.value, 'INSERT', CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER));
-END;
-
--- Trigger: Log UPDATE operations
-CREATE TRIGGER IF NOT EXISTS trg_kv_update_log
-    AFTER UPDATE
-    ON kv
-    FOR EACH ROW
-BEGIN
-    INSERT INTO kv_changelog (key, old_value, new_value, op, changed_at)
-    VALUES (NEW.key, OLD.value, NEW.value, 'UPDATE', CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER));
-END;
-
--- Trigger: Log DELETE operations
-CREATE TRIGGER IF NOT EXISTS trg_kv_delete_log
-    AFTER DELETE
-    ON kv
-    FOR EACH ROW
-BEGIN
-    INSERT INTO kv_changelog (key, old_value, new_value, op, changed_at)
-    VALUES (OLD.key, OLD.value, NULL, 'DELETE', CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER));
-END;
-
 -- =========================================================
 -- TRIGGERS FOR DOCS TABLE
 -- =========================================================
@@ -168,36 +96,6 @@ BEGIN
     UPDATE docs
     SET updated_at = CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)
     WHERE id = NEW.id;
-END;
-
--- Trigger: Log INSERT operations
-CREATE TRIGGER IF NOT EXISTS trg_docs_insert_log
-    AFTER INSERT
-    ON docs
-    FOR EACH ROW
-BEGIN
-    INSERT INTO docs_changelog (doc_id, old_doc, new_doc, op, changed_at)
-    VALUES (NEW.id, NULL, NEW.doc, 'INSERT', CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER));
-END;
-
--- Trigger: Log UPDATE operations
-CREATE TRIGGER IF NOT EXISTS trg_docs_update_log
-    AFTER UPDATE
-    ON docs
-    FOR EACH ROW
-BEGIN
-    INSERT INTO docs_changelog (doc_id, old_doc, new_doc, op, changed_at)
-    VALUES (NEW.id, OLD.doc, NEW.doc, 'UPDATE', CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER));
-END;
-
--- Trigger: Log DELETE operations
-CREATE TRIGGER IF NOT EXISTS trg_docs_delete_log
-    AFTER DELETE
-    ON docs
-    FOR EACH ROW
-BEGIN
-    INSERT INTO docs_changelog (doc_id, old_doc, new_doc, op, changed_at)
-    VALUES (OLD.id, OLD.doc, NULL, 'DELETE', CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER));
 END;
 
 -- =========================================================
@@ -220,28 +118,6 @@ END;
 -- =========================================================
 -- UTILITY VIEWS (OPTIONAL)
 -- =========================================================
-
--- View: Recent KV changes
-CREATE VIEW IF NOT EXISTS v_kv_recent_changes AS
-SELECT key,
-       op,
-       old_value,
-       new_value,
-       datetime(changed_at / 1000, 'unixepoch', 'localtime') as changed_at_readable,
-       changed_at
-FROM kv_changelog
-ORDER BY changed_at DESC
-LIMIT 100;
-
--- View: Recent docs changes
-CREATE VIEW IF NOT EXISTS v_docs_recent_changes AS
-SELECT doc_id,
-       op,
-       datetime(changed_at / 1000, 'unixepoch', 'localtime') as changed_at_readable,
-       changed_at
-FROM docs_changelog
-ORDER BY changed_at DESC
-LIMIT 100;
 
 -- View: Asset summary
 CREATE VIEW IF NOT EXISTS v_assets_summary AS
