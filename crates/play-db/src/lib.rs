@@ -1,4 +1,4 @@
-use rusqlite::Connection;
+pub use rusqlite::{Connection, Error, Result};
 use serde_json::Value;
 
 const MAIN_SCHEMA: &str = include_str!("../sqlite_kv_docs_assets_schema.sql");
