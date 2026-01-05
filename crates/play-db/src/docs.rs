@@ -13,11 +13,11 @@ fn json_object_from_string(value: String) -> rusqlite::Result<HashMap<String, Va
     })
 }
 
-const DOC_ID_SUFFIX_LEN: usize = 12;
+const DOC_ID_LEN: usize = 12;
 
 fn simple_uuid() -> String {
     let raw = Uuid::new_v4().as_simple().to_string();
-    raw[..DOC_ID_SUFFIX_LEN].to_string()
+    raw[..DOC_ID_LEN].to_string()
 }
 
 fn json_to_sql_value(value: &Value) -> rusqlite::Result<SqlValue> {
@@ -47,6 +47,7 @@ fn json_to_sql_value(value: &Value) -> rusqlite::Result<SqlValue> {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DocEntry {
     pub id: String,
+    pub tag: String,
     #[serde(flatten)]
     pub doc: HashMap<String, Value>,
     pub created_at: i64,
@@ -57,6 +58,9 @@ fn flatten_doc_entry(mut entry: DocEntry) -> HashMap<String, Value> {
     entry
         .doc
         .insert("id".to_string(), Value::String(entry.id));
+    entry
+        .doc
+        .insert("tag".to_string(), Value::String(entry.tag));
     entry.doc.insert(
         "created_at".to_string(),
         Value::Number(Number::from(entry.created_at)),
@@ -101,28 +105,33 @@ pub struct DocsOrder {
     pub dir: DocsOrderDir,
 }
 
-pub fn docs_create(conn: &Connection, doc_type: &str, doc: &Value) -> rusqlite::Result<String> {
+pub fn docs_create(conn: &Connection, tag: &str, doc: &Value) -> rusqlite::Result<String> {
     let doc_json = json_to_string(doc)?;
-    let doc_id = format!("{}_{}", doc_type, simple_uuid());
+    let doc_id = simple_uuid();
     conn.execute(
-        "INSERT INTO docs (id, doc) VALUES (?1, ?2)",
-        params![doc_id, doc_json],
+        "INSERT INTO docs (id, tag, doc) VALUES (?1, ?2, ?3)",
+        params![doc_id, tag, doc_json],
     )?;
     Ok(doc_id)
 }
 
-pub fn docs_get(conn: &Connection, id: &str) -> rusqlite::Result<Option<HashMap<String, Value>>> {
+pub fn docs_get(
+    conn: &Connection,
+    tag: &str,
+    id: &str,
+) -> rusqlite::Result<Option<HashMap<String, Value>>> {
     let entry = conn
         .query_row(
-        "SELECT id, doc, created_at, updated_at FROM docs WHERE id = ?1",
-        params![id],
+        "SELECT id, tag, doc, created_at, updated_at FROM docs WHERE id = ?1 AND tag = ?2",
+        params![id, tag],
         |row| {
-            let doc_json: String = row.get(1)?;
+            let doc_json: String = row.get(2)?;
             Ok(DocEntry {
                 id: row.get(0)?,
+                tag: row.get(1)?,
                 doc: json_object_from_string(doc_json)?,
-                created_at: row.get(2)?,
-                updated_at: row.get(3)?,
+                created_at: row.get(3)?,
+                updated_at: row.get(4)?,
             })
         },
         )
@@ -130,54 +139,87 @@ pub fn docs_get(conn: &Connection, id: &str) -> rusqlite::Result<Option<HashMap<
     Ok(entry.map(flatten_doc_entry))
 }
 
-pub fn docs_update(conn: &Connection, id: &str, doc: &Value) -> rusqlite::Result<usize> {
+pub fn docs_update(
+    conn: &Connection,
+    tag: &str,
+    id: &str,
+    doc: &Value,
+) -> rusqlite::Result<usize> {
     let doc_json = json_to_string(doc)?;
     conn.execute(
-        "UPDATE docs SET doc = ?2 WHERE id = ?1 AND doc <> ?2",
-        params![id, doc_json],
+        "UPDATE docs SET doc = ?3 WHERE id = ?1 AND tag = ?2",
+        params![id, tag, doc_json],
     )
 }
 
-pub fn docs_patch(conn: &Connection, id: &str, patch: &Value) -> rusqlite::Result<usize> {
+pub fn docs_patch(
+    conn: &Connection,
+    tag: &str,
+    id: &str,
+    patch: &Value,
+) -> rusqlite::Result<usize> {
     let patch_json = json_to_string(patch)?;
     conn.execute(
-        "UPDATE docs SET doc = json_patch(doc, ?2) WHERE id = ?1",
-        params![id, patch_json],
+        "UPDATE docs SET doc = json_patch(doc, ?3) WHERE id = ?1 AND tag = ?2",
+        params![id, tag, patch_json],
     )
 }
 
-pub fn docs_delete(conn: &Connection, id: &str) -> rusqlite::Result<usize> {
-    conn.execute("DELETE FROM docs WHERE id = ?1", params![id])
+pub fn docs_delete(conn: &Connection, tag: &str, id: &str) -> rusqlite::Result<usize> {
+    conn.execute(
+        "DELETE FROM docs WHERE id = ?1 AND tag = ?2",
+        params![id, tag],
+    )
 }
 
-pub fn docs_list(conn: &Connection) -> rusqlite::Result<Vec<HashMap<String, Value>>> {
+pub fn docs_list(
+    conn: &Connection,
+    tag: &str,
+) -> rusqlite::Result<Vec<HashMap<String, Value>>> {
     let mut stmt = conn.prepare(
-        "SELECT id, doc, created_at, updated_at FROM docs ORDER BY id ASC",
+        "SELECT id, tag, doc, created_at, updated_at FROM docs WHERE tag = ?1 ORDER BY id ASC",
     )?;
-    let rows = stmt.query_map([], |row| {
-        let doc_json: String = row.get(1)?;
+    let rows = stmt.query_map(params![tag], |row| {
+        let doc_json: String = row.get(2)?;
         Ok(DocEntry {
             id: row.get(0)?,
+            tag: row.get(1)?,
             doc: json_object_from_string(doc_json)?,
-            created_at: row.get(2)?,
-            updated_at: row.get(3)?,
+            created_at: row.get(3)?,
+            updated_at: row.get(4)?,
         })
     })?;
     rows.map(|row| row.map(flatten_doc_entry)).collect()
 }
 
-pub fn docs_query(
+pub fn docs_query(conn: &Connection, sql: &str) -> rusqlite::Result<Vec<HashMap<String, Value>>> {
+    let mut stmt = conn.prepare(sql)?;
+    let rows = stmt.query_map([], |row| {
+        let doc_json: String = row.get("doc")?;
+        Ok(DocEntry {
+            id: row.get("id")?,
+            tag: row.get("tag")?,
+            doc: json_object_from_string(doc_json)?,
+            created_at: row.get("created_at")?,
+            updated_at: row.get("updated_at")?,
+        })
+    })?;
+    rows.map(|row| row.map(flatten_doc_entry)).collect()
+}
+
+pub fn docs_query_filters(
     conn: &Connection,
+    tag: &str,
     filters: &[DocsJsonFilter],
     order: Option<DocsOrder>,
     limit: Option<i64>,
     offset: Option<i64>,
 ) -> rusqlite::Result<Vec<HashMap<String, Value>>> {
-    let mut sql = String::from("SELECT id, doc, created_at, updated_at FROM docs");
-    let mut params: Vec<SqlValue> = Vec::new();
+    let mut sql = String::from("SELECT id, tag, doc, created_at, updated_at FROM docs WHERE tag = ?");
+    let mut params: Vec<SqlValue> = vec![SqlValue::Text(tag.to_string())];
 
     if !filters.is_empty() {
-        sql.push_str(" WHERE ");
+        sql.push_str(" AND ");
         for (index, filter) in filters.iter().enumerate() {
             if index > 0 {
                 sql.push_str(" AND ");
@@ -268,12 +310,13 @@ pub fn docs_query(
 
     let mut stmt = conn.prepare(&sql)?;
     let rows = stmt.query_map(params_from_iter(params), |row| {
-        let doc_json: String = row.get(1)?;
+        let doc_json: String = row.get(2)?;
         Ok(DocEntry {
             id: row.get(0)?,
+            tag: row.get(1)?,
             doc: json_object_from_string(doc_json)?,
-            created_at: row.get(2)?,
-            updated_at: row.get(3)?,
+            created_at: row.get(3)?,
+            updated_at: row.get(4)?,
         })
     })?;
     rows.map(|row| row.map(flatten_doc_entry)).collect()
@@ -287,8 +330,9 @@ mod tests {
     use serde_json::json;
     use std::collections::HashMap;
 
-    fn assert_system_fields(doc: &HashMap<String, Value>, id: &str) {
+    fn assert_system_fields(doc: &HashMap<String, Value>, tag: &str, id: &str) {
         assert_eq!(doc.get("id").and_then(Value::as_str), Some(id));
+        assert_eq!(doc.get("tag").and_then(Value::as_str), Some(tag));
         assert!(matches!(doc.get("created_at"), Some(Value::Number(_))));
         assert!(matches!(doc.get("updated_at"), Some(Value::Number(_))));
     }
@@ -300,33 +344,31 @@ mod tests {
 
         let doc_v1 = json!({"name": "doc", "count": 1});
         let doc_id = docs_create(&conn, "doc", &doc_v1)?;
-        assert!(doc_id.starts_with("doc_"));
-        let suffix = doc_id.split('_').nth(1).expect("missing suffix");
-        assert_eq!(suffix.len(), DOC_ID_SUFFIX_LEN);
+        assert_eq!(doc_id.len(), DOC_ID_LEN);
 
-        let fetched = docs_get(&conn, &doc_id)?.expect("missing doc row");
-        assert_system_fields(&fetched, &doc_id);
+        let fetched = docs_get(&conn, "doc", &doc_id)?.expect("missing doc row");
+        assert_system_fields(&fetched, "doc", &doc_id);
         assert_eq!(fetched.get("name").and_then(Value::as_str), Some("doc"));
         assert_eq!(fetched.get("count").and_then(Value::as_i64), Some(1));
 
         let doc_v2 = json!({"name": "doc", "count": 2});
-        let updated = docs_update(&conn, &doc_id, &doc_v2)?;
+        let updated = docs_update(&conn, "doc", &doc_id, &doc_v2)?;
         assert_eq!(updated, 1);
-        let unchanged = docs_update(&conn, &doc_id, &doc_v2)?;
+        let unchanged = docs_update(&conn, "doc", &doc_id, &doc_v2)?;
         assert_eq!(unchanged, 0);
 
-        let fetched = docs_get(&conn, &doc_id)?.expect("missing doc row");
-        assert_system_fields(&fetched, &doc_id);
+        let fetched = docs_get(&conn, "doc", &doc_id)?.expect("missing doc row");
+        assert_system_fields(&fetched, "doc", &doc_id);
         assert_eq!(fetched.get("name").and_then(Value::as_str), Some("doc"));
         assert_eq!(fetched.get("count").and_then(Value::as_i64), Some(2));
 
-        let list = docs_list(&conn)?;
+        let list = docs_list(&conn, "doc")?;
         assert_eq!(list.len(), 1);
-        assert_system_fields(&list[0], &doc_id);
+        assert_system_fields(&list[0], "doc", &doc_id);
 
-        let deleted = docs_delete(&conn, &doc_id)?;
+        let deleted = docs_delete(&conn, "doc", &doc_id)?;
         assert_eq!(deleted, 1);
-        assert!(docs_get(&conn, &doc_id)?.is_none());
+        assert!(docs_get(&conn, "doc", &doc_id)?.is_none());
 
         Ok(())
     }
@@ -350,11 +392,11 @@ mod tests {
             "remove_me": null,
             "extra": {"flag": true}
         });
-        let updated = docs_patch(&conn, &doc_id, &patch)?;
+        let updated = docs_patch(&conn, "doc", &doc_id, &patch)?;
         assert_eq!(updated, 1);
 
-        let fetched = docs_get(&conn, &doc_id)?.expect("missing doc row");
-        assert_system_fields(&fetched, &doc_id);
+        let fetched = docs_get(&conn, "doc", &doc_id)?.expect("missing doc row");
+        assert_system_fields(&fetched, "doc", &doc_id);
         let expected = json!({
             "name": "doc",
             "count": 2,
@@ -368,7 +410,7 @@ mod tests {
         assert_eq!(fetched.get("extra"), expected.get("extra"));
         assert!(!fetched.contains_key("remove_me"));
 
-        let missing = docs_patch(&conn, "missing", &patch)?;
+        let missing = docs_patch(&conn, "doc", "missing", &patch)?;
         assert_eq!(missing, 0);
         Ok(())
     }
@@ -381,28 +423,24 @@ mod tests {
         let id_a = docs_create(
             &conn,
             "doc",
-            &json!({"type": "a", "score": 10, "active": true, "tag": "alpha"}),
+            &json!({"type": "a", "score": 10, "active": true, "label": "alpha"}),
         )?;
         let id_b = docs_create(
             &conn,
             "doc",
-            &json!({"type": "b", "score": 15, "active": false, "tag": "beta"}),
+            &json!({"type": "b", "score": 15, "active": false, "label": "beta"}),
         )?;
         let id_c = docs_create(
             &conn,
             "doc",
-            &json!({"type": "a", "score": 5, "tag": "gamma"}),
+            &json!({"type": "a", "score": 5, "label": "gamma"}),
         )?;
 
         let results = docs_query(
             &conn,
-            &[DocsJsonFilter::Eq {
-                path: "$.type".to_string(),
-                value: json!("a"),
-            }],
-            None,
-            None,
-            None,
+            "SELECT id, tag, doc, created_at, updated_at \
+             FROM docs \
+             WHERE tag = 'doc' AND json_extract(doc, '$.type') = 'a'",
         )?;
         let mut ids = results
             .iter()
@@ -416,58 +454,42 @@ mod tests {
 
         let results = docs_query(
             &conn,
-            &[
-                DocsJsonFilter::Gt {
-                    path: "$.score".to_string(),
-                    value: json!(9),
-                },
-                DocsJsonFilter::Exists {
-                    path: "$.active".to_string(),
-                },
-            ],
-            None,
-            None,
-            None,
+            "SELECT id, tag, doc, created_at, updated_at \
+             FROM docs \
+             WHERE tag = 'doc' \
+               AND json_extract(doc, '$.score') > 9 \
+               AND json_type(doc, '$.active') IS NOT NULL",
         )?;
         assert_eq!(results.len(), 2);
 
         let results = docs_query(
             &conn,
-            &[DocsJsonFilter::NotExists {
-                path: "$.active".to_string(),
-            }],
-            None,
-            None,
-            None,
+            "SELECT id, tag, doc, created_at, updated_at \
+             FROM docs \
+             WHERE tag = 'doc' AND json_type(doc, '$.active') IS NULL",
         )?;
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].get("id").and_then(Value::as_str), Some(id_c.as_str()));
 
         let results = docs_query(
             &conn,
-            &[DocsJsonFilter::Like {
-                path: "$.tag".to_string(),
-                pattern: "be%".to_string(),
-            }],
-            None,
-            None,
-            None,
+            "SELECT id, tag, doc, created_at, updated_at \
+             FROM docs \
+             WHERE tag = 'doc' AND json_extract(doc, '$.label') LIKE 'be%'",
         )?;
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].get("id").and_then(Value::as_str), Some(id_b.as_str()));
 
         let results = docs_query(
             &conn,
-            &[],
-            Some(DocsOrder {
-                by: DocsOrderBy::JsonPath("$.score".to_string()),
-                dir: DocsOrderDir::Desc,
-            }),
-            Some(2),
-            Some(0),
+            "SELECT id, tag, doc, created_at, updated_at \
+             FROM docs \
+             WHERE tag = 'doc' \
+             ORDER BY json_extract(doc, '$.score') DESC \
+             LIMIT 2",
         )?;
         assert_eq!(results.len(), 2);
-        assert_system_fields(&results[0], &id_b);
+        assert_system_fields(&results[0], "doc", &id_b);
         assert_eq!(results[0].get("id").and_then(Value::as_str), Some(id_b.as_str()));
         assert_eq!(results[1].get("id").and_then(Value::as_str), Some(id_a.as_str()));
         Ok(())

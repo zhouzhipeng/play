@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS asset_chunks (
     data BLOB NOT NULL,
     size INTEGER NOT NULL CHECK (size > 0),
     created_at INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
-);
+)STRICT;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_asset_chunk_unique
 ON asset_chunks(asset_id, chunk_index);

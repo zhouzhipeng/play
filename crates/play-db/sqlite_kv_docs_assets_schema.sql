@@ -11,8 +11,7 @@
 -- =========================================================
 
 PRAGMA foreign_keys = ON;
-PRAGMA journal_mode = WAL;
--- Better concurrency
+PRAGMA journal_mode = OFF;
 
 -- =========================================================
 -- 1. KV TABLE
@@ -25,7 +24,7 @@ CREATE TABLE IF NOT EXISTS kv
     value      TEXT    NOT NULL,
     created_at INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
     updated_at INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
-);
+)STRICT;
 
 -- =========================================================
 -- 2. DOCS TABLE
@@ -35,10 +34,14 @@ CREATE TABLE IF NOT EXISTS kv
 CREATE TABLE IF NOT EXISTS docs
 (
     id         TEXT PRIMARY KEY,
-    doc        JSON    NOT NULL,
+    tag        TEXT    NOT NULL,
+    doc        TEXT    NOT NULL CHECK (json_valid(doc)),
     created_at INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
     updated_at INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
-);
+)STRICT;
+
+CREATE INDEX IF NOT EXISTS idx_docs_tag
+    ON docs (tag);
 
 -- =========================================================
 -- 3. ASSETS TABLE (METADATA ONLY)
@@ -52,13 +55,13 @@ CREATE TABLE IF NOT EXISTS assets
     mime_type  TEXT,
     size       INTEGER NOT NULL CHECK (size >= 0),
     chunk_size INTEGER NOT NULL CHECK (chunk_size > 0),
-    chunks     JSON    NOT NULL,
+    chunks     TEXT    NOT NULL CHECK (json_valid(chunks)),
     checksum   TEXT,
     raw_file_path TEXT,
     valid      INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
     updated_at INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
-);
+)STRICT;
 
 CREATE INDEX IF NOT EXISTS idx_assets_mime_type
     ON assets (mime_type);

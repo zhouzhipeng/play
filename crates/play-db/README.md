@@ -29,31 +29,25 @@ let rows = kv_list(&conn)?;
 
 ## Docs API
 
-Docs are stored as JSON. `docs_create` generates an id in the form
-`{doc_type}_{short_uuid}` and returns it. `docs_get` / `docs_list` return a
-flattened map that includes system fields (`id`, `created_at`, `updated_at`)
-merged into the JSON document.
+Docs are stored as JSON. `docs_create` generates a 12-character id and returns
+it. `docs_get` / `docs_list` return a flattened map that includes system fields
+(`id`, `tag`, `created_at`, `updated_at`) merged into the JSON document.
 
 ```rust
 use serde_json::json;
-use play_db::{docs_create, docs_get, docs_patch, docs_query, DocsJsonFilter};
+use play_db::{docs_create, docs_get, docs_patch, docs_query};
 
 let doc_id = docs_create(&conn, "note", &json!({"title": "Hi", "count": 1}))?;
 
-let doc = docs_get(&conn, &doc_id)?.unwrap();
+let doc = docs_get(&conn, "note", &doc_id)?.unwrap();
 assert_eq!(doc.get("title").and_then(|v| v.as_str()), Some("Hi"));
 
-docs_patch(&conn, &doc_id, &json!({"count": 2, "old": null}))?;
+docs_patch(&conn, "note", &doc_id, &json!({"count": 2, "old": null}))?;
 
 let results = docs_query(
     &conn,
-    &[DocsJsonFilter::Eq {
-        path: "$.count".to_string(),
-        value: json!(2),
-    }],
-    None,
-    None,
-    None,
+    "SELECT id, tag, doc, created_at, updated_at FROM docs \
+     WHERE tag = 'note' AND json_extract(doc, '$.count') = 2",
 )?;
 ```
 
