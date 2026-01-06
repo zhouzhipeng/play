@@ -39,7 +39,7 @@ use play_db::{docs_create, docs_get, docs_patch, docs_query};
 
 let doc_id = docs_create(&conn, "note", &json!({"title": "Hi", "count": 1}))?;
 
-let doc = docs_get(&conn, "note", &doc_id)?.unwrap();
+let doc = docs_get(&conn, &doc_id)?.unwrap();
 assert_eq!(doc.get("title").and_then(|v| v.as_str()), Some("Hi"));
 
 docs_patch(&conn, "note", &doc_id, &json!({"count": 2, "old": null}))?;
@@ -65,7 +65,6 @@ use play_db::{
 use serde_json::json;
 
 let meta = AssetMetadataInput {
-    id: "asset-1".to_string(),
     name: Some("file.bin".to_string()),
     mime_type: Some("application/octet-stream".to_string()),
     size: 6,
@@ -75,11 +74,13 @@ let meta = AssetMetadataInput {
         AssetChunkRef { db_index: 0, chunk_index: 1 },
     ],
     checksum: None,
+    raw_file_path: None,
+    valid: false,
 };
-assets_create(&conn, &meta)?;
-let stored = assets_get(&conn, "asset-1")?.unwrap();
+let asset_id = assets_create(&conn, &meta)?;
+let stored = assets_get(&conn, &asset_id)?.unwrap();
 
-let chunk_id = asset_chunk_create(&chunk_conn, "asset-1", 0, &[1, 2, 3])?;
+let chunk_id = asset_chunk_create(&chunk_conn, &asset_id, 0, &[1, 2, 3])?;
 let chunk = asset_chunk_get(&chunk_conn, chunk_id)?.unwrap();
 ```
 
@@ -96,7 +97,6 @@ use play_db::{insert_asset_from_path_with_size_str, read_asset_bytes, read_asset
 let metadata = insert_asset_from_path_with_size_str(
     "/tmp/main.db",
     vec![PathBuf::from("/tmp/chunk0.db"), PathBuf::from("/tmp/chunk1.db")],
-    "asset-42",
     Some("video.mp4".to_string()),
     None,          // auto-detect mime type
     "100KB",
@@ -106,13 +106,13 @@ let metadata = insert_asset_from_path_with_size_str(
 let bytes = read_asset_bytes(
     "/tmp/main.db",
     vec![PathBuf::from("/tmp/chunk0.db"), PathBuf::from("/tmp/chunk1.db")],
-    "asset-42",
+    &metadata.id,
 ).await?;
 
 let output = read_asset_to_file(
     "/tmp/main.db",
     vec![PathBuf::from("/tmp/chunk0.db"), PathBuf::from("/tmp/chunk1.db")],
-    "asset-42",
+    &metadata.id,
     "/tmp/video_out.mp4",
 ).await?;
 ```

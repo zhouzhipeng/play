@@ -10,8 +10,7 @@
 --     3. Asset binary data stored in sharded databases
 -- =========================================================
 
-PRAGMA foreign_keys = ON;
-PRAGMA journal_mode = OFF;
+PRAGMA journal_mode = WAL;
 
 -- =========================================================
 -- 1. KV TABLE

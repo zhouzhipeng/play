@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::path::Path;
 
-use crate::blob_size;
+use crate::{blob_size, random_id};
 
 fn chunks_to_string(chunks: &[AssetChunkRef]) -> rusqlite::Result<String> {
     let compact: Vec<[i64; 2]> = chunks
@@ -48,7 +48,6 @@ pub struct AssetChunkRef {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct AssetMetadataInput {
-    pub id: String,
     pub name: Option<String>,
     pub mime_type: Option<String>,
     pub size: i64,
@@ -153,14 +152,18 @@ fn asset_is_valid(metadata: &AssetMetadata, chunks: &[AssetChunk]) -> bool {
     asset_chunks_match_metadata(metadata, chunks) && asset_checksum_matches(metadata, chunks)
 }
 
-pub fn assets_create(conn: &Connection, asset: &AssetMetadataInput) -> rusqlite::Result<()> {
+pub(crate) fn assets_create_with_id(
+    conn: &Connection,
+    id: &str,
+    asset: &AssetMetadataInput,
+) -> rusqlite::Result<()> {
     let chunks_json = chunks_to_string(&asset.chunks)?;
     let name = normalize_asset_name(asset.name.as_deref());
     conn.execute(
         "INSERT INTO assets (id, name, mime_type, size, chunk_size, chunks, checksum, raw_file_path, valid)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
         params![
-            asset.id.as_str(),
+            id,
             name.as_deref(),
             asset.mime_type.as_deref(),
             asset.size,
@@ -172,6 +175,12 @@ pub fn assets_create(conn: &Connection, asset: &AssetMetadataInput) -> rusqlite:
         ],
     )?;
     Ok(())
+}
+
+pub fn assets_create(conn: &Connection, asset: &AssetMetadataInput) -> rusqlite::Result<String> {
+    let asset_id = random_id();
+    assets_create_with_id(conn, &asset_id, asset)?;
+    Ok(asset_id)
 }
 
 pub fn assets_get(conn: &Connection, id: &str) -> rusqlite::Result<Option<AssetMetadata>> {
@@ -199,7 +208,11 @@ pub fn assets_get(conn: &Connection, id: &str) -> rusqlite::Result<Option<AssetM
     .optional()
 }
 
-pub fn assets_update(conn: &Connection, asset: &AssetMetadataInput) -> rusqlite::Result<usize> {
+pub fn assets_update(
+    conn: &Connection,
+    id: &str,
+    asset: &AssetMetadataInput,
+) -> rusqlite::Result<usize> {
     let chunks_json = chunks_to_string(&asset.chunks)?;
     let name = normalize_asset_name(asset.name.as_deref());
     let valid = if asset.valid { 1 } else { 0 };
@@ -207,19 +220,9 @@ pub fn assets_update(conn: &Connection, asset: &AssetMetadataInput) -> rusqlite:
         "UPDATE assets
          SET name = ?2, mime_type = ?3, size = ?4, chunk_size = ?5, chunks = ?6, checksum = ?7,
              raw_file_path = ?8, valid = ?9
-         WHERE id = ?1
-           AND (
-                name IS NOT ?2
-                OR mime_type IS NOT ?3
-                OR size <> ?4
-                OR chunk_size <> ?5
-                OR chunks IS NOT ?6
-                OR checksum IS NOT ?7
-                OR raw_file_path IS NOT ?8
-                OR valid <> ?9
-           )",
+         WHERE id = ?1",
         params![
-            asset.id.as_str(),
+            id,
             name.as_deref(),
             asset.mime_type.as_deref(),
             asset.size,
@@ -369,29 +372,24 @@ pub fn assets_create_with_chunks(
     chunks_conn: &mut Connection,
     asset: &AssetMetadataInput,
     chunks: &[AssetChunkInput],
-) -> rusqlite::Result<Vec<i64>> {
+) -> rusqlite::Result<(String, Vec<i64>)> {
     let tx_meta = meta_conn.transaction()?;
     let tx_chunks = chunks_conn.transaction()?;
 
-    assets_create(&tx_meta, asset)?;
+    let asset_id = assets_create(&tx_meta, asset)?;
     let mut ids = Vec::with_capacity(chunks.len());
     for chunk in chunks {
-        let id = asset_chunk_create(
-            &tx_chunks,
-            asset.id.as_str(),
-            chunk.chunk_index,
-            &chunk.data,
-        )?;
+        let id = asset_chunk_create(&tx_chunks, &asset_id, chunk.chunk_index, &chunk.data)?;
         ids.push(id);
     }
 
     tx_chunks.commit()?;
     if let Err(err) = tx_meta.commit() {
-        let _ = asset_chunks_delete_for_asset(chunks_conn, asset.id.as_str());
+        let _ = asset_chunks_delete_for_asset(chunks_conn, &asset_id);
         return Err(err);
     }
 
-    Ok(ids)
+    Ok((asset_id, ids))
 }
 
 pub fn assets_get_with_chunks(
@@ -410,30 +408,26 @@ pub fn assets_get_with_chunks(
 pub fn assets_update_with_chunks(
     meta_conn: &mut Connection,
     chunks_conn: &mut Connection,
+    id: &str,
     asset: &AssetMetadataInput,
     chunks: &[AssetChunkInput],
 ) -> rusqlite::Result<usize> {
     let tx_meta = meta_conn.transaction()?;
     let tx_chunks = chunks_conn.transaction()?;
 
-    let updated = assets_update(&tx_meta, asset)?;
+    let updated = assets_update(&tx_meta, id, asset)?;
     if updated == 0 {
         return Ok(0);
     }
 
-    asset_chunks_delete_for_asset(&tx_chunks, asset.id.as_str())?;
+    asset_chunks_delete_for_asset(&tx_chunks, id)?;
     for chunk in chunks {
-        asset_chunk_create(
-            &tx_chunks,
-            asset.id.as_str(),
-            chunk.chunk_index,
-            &chunk.data,
-        )?;
+        asset_chunk_create(&tx_chunks, id, chunk.chunk_index, &chunk.data)?;
     }
 
     tx_chunks.commit()?;
     if let Err(err) = tx_meta.commit() {
-        let _ = asset_chunks_delete_for_asset(chunks_conn, asset.id.as_str());
+        let _ = asset_chunks_delete_for_asset(chunks_conn, id);
         return Err(err);
     }
 
@@ -477,7 +471,6 @@ mod tests {
         init_main_db(&conn)?;
 
         let asset_v1 = AssetMetadataInput {
-            id: "asset-1".to_string(),
             name: Some("/tmp/file.txt".to_string()),
             mime_type: Some("text/plain".to_string()),
             size: 12,
@@ -490,9 +483,9 @@ mod tests {
             raw_file_path: Some("/tmp/file.txt".to_string()),
             valid: true,
         };
-        assets_create(&conn, &asset_v1)?;
+        let asset_id = assets_create(&conn, &asset_v1)?;
 
-        let fetched = assets_get(&conn, "asset-1")?.expect("missing asset row");
+        let fetched = assets_get(&conn, &asset_id)?.expect("missing asset row");
         assert_eq!(fetched.name, Some(file_name("/tmp/file.txt")));
         assert_eq!(fetched.mime_type, asset_v1.mime_type);
         assert_eq!(fetched.size, asset_v1.size);
@@ -506,7 +499,6 @@ mod tests {
         assert_eq!(list.len(), 1);
 
         let asset_v2 = AssetMetadataInput {
-            id: "asset-1".to_string(),
             name: Some("/var/tmp/file.bin".to_string()),
             mime_type: Some("application/octet-stream".to_string()),
             size: 99,
@@ -525,12 +517,12 @@ mod tests {
             raw_file_path: None,
             valid: false,
         };
-        let updated = assets_update(&conn, &asset_v2)?;
+        let updated = assets_update(&conn, &asset_id, &asset_v2)?;
         assert_eq!(updated, 1);
-        let unchanged = assets_update(&conn, &asset_v2)?;
+        let unchanged = assets_update(&conn, &asset_id, &asset_v2)?;
         assert_eq!(unchanged, 0);
 
-        let fetched = assets_get(&conn, "asset-1")?.expect("missing asset row");
+        let fetched = assets_get(&conn, &asset_id)?.expect("missing asset row");
         assert_eq!(fetched.name, Some(file_name("/var/tmp/file.bin")));
         assert_eq!(fetched.mime_type, asset_v2.mime_type);
         assert_eq!(fetched.size, asset_v2.size);
@@ -540,9 +532,9 @@ mod tests {
         assert_eq!(fetched.raw_file_path, asset_v2.raw_file_path);
         assert_eq!(fetched.valid, asset_v2.valid);
 
-        let deleted = assets_delete(&conn, "asset-1")?;
+        let deleted = assets_delete(&conn, &asset_id)?;
         assert_eq!(deleted, 1);
-        assert!(assets_get(&conn, "asset-1")?.is_none());
+        assert!(assets_get(&conn, &asset_id)?.is_none());
         Ok(())
     }
 
@@ -554,7 +546,6 @@ mod tests {
         init_asset_chunk_db(&chunks_conn)?;
 
         let asset = AssetMetadataInput {
-            id: "asset-2".to_string(),
             name: Some("blob".to_string()),
             mime_type: Some("application/octet-stream".to_string()),
             size: 6,
@@ -583,11 +574,12 @@ mod tests {
                 data: vec![4, 5, 6],
             },
         ];
-        let ids = assets_create_with_chunks(&mut meta_conn, &mut chunks_conn, &asset, &chunks)?;
+        let (asset_id, ids) =
+            assets_create_with_chunks(&mut meta_conn, &mut chunks_conn, &asset, &chunks)?;
         assert_eq!(ids.len(), 2);
 
         let fetched =
-            assets_get_with_chunks(&meta_conn, &chunks_conn, "asset-2")?.expect("missing asset");
+            assets_get_with_chunks(&meta_conn, &chunks_conn, &asset_id)?.expect("missing asset");
         assert_eq!(fetched.metadata.name, asset.name);
         assert_eq!(fetched.metadata.size, asset.size);
         assert_eq!(fetched.chunks.len(), 2);
@@ -595,7 +587,6 @@ mod tests {
         assert_eq!(fetched.chunks[0].data, vec![1, 2, 3]);
 
         let asset_v2 = AssetMetadataInput {
-            id: "asset-2".to_string(),
             name: Some("blob-v2".to_string()),
             mime_type: Some("application/data".to_string()),
             size: 4,
@@ -625,11 +616,11 @@ mod tests {
             },
         ];
         let updated =
-            assets_update_with_chunks(&mut meta_conn, &mut chunks_conn, &asset_v2, &chunks_v2)?;
+            assets_update_with_chunks(&mut meta_conn, &mut chunks_conn, &asset_id, &asset_v2, &chunks_v2)?;
         assert_eq!(updated, 1);
 
         let fetched =
-            assets_get_with_chunks(&meta_conn, &chunks_conn, "asset-2")?.expect("missing asset");
+            assets_get_with_chunks(&meta_conn, &chunks_conn, &asset_id)?.expect("missing asset");
         assert_eq!(fetched.metadata.name, asset_v2.name);
         assert_eq!(fetched.metadata.size, asset_v2.size);
         assert_eq!(fetched.metadata.checksum, asset_v2.checksum);
@@ -637,10 +628,10 @@ mod tests {
         assert_eq!(fetched.chunks[0].data, vec![9, 9]);
         assert_eq!(fetched.chunks[1].data, vec![8, 8]);
 
-        let deleted = assets_delete_with_chunks(&mut meta_conn, &mut chunks_conn, "asset-2")?;
+        let deleted = assets_delete_with_chunks(&mut meta_conn, &mut chunks_conn, &asset_id)?;
         assert_eq!(deleted, 1);
-        assert!(assets_get(&meta_conn, "asset-2")?.is_none());
-        let remaining = asset_chunks_for_asset(&chunks_conn, "asset-2")?;
+        assert!(assets_get(&meta_conn, &asset_id)?.is_none());
+        let remaining = asset_chunks_for_asset(&chunks_conn, &asset_id)?;
         assert!(remaining.is_empty());
         Ok(())
     }

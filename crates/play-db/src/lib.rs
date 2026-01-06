@@ -28,12 +28,21 @@ fn blob_size(data: &[u8]) -> rusqlite::Result<i64> {
         .map_err(|err| rusqlite::Error::ToSqlConversionFailure(Box::new(err)))
 }
 
+pub fn random_id() -> String {
+    let uuid = uuid::Uuid::new_v4();
+    let uuid_hex = uuid.simple().to_string();
+    let random_hex = &uuid_hex[..12];
+    random_hex.to_string()
+}
+
 mod assets;
 mod asset_service;
 mod docs;
+mod docs_view;
 mod kv;
 
 pub use assets::*;
 pub use asset_service::*;
 pub use docs::*;
+pub use docs_view::*;
 pub use kv::*;

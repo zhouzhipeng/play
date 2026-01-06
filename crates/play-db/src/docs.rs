@@ -5,19 +5,12 @@ use serde_json::{Number, Value};
 use std::collections::HashMap;
 use uuid::Uuid;
 
-use crate::json_to_string;
+use crate::{json_to_string, random_id};
 
 fn json_object_from_string(value: String) -> rusqlite::Result<HashMap<String, Value>> {
     serde_json::from_str(&value).map_err(|err| {
         rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(err))
     })
-}
-
-const DOC_ID_LEN: usize = 12;
-
-fn simple_uuid() -> String {
-    let raw = Uuid::new_v4().as_simple().to_string();
-    raw[..DOC_ID_LEN].to_string()
 }
 
 fn json_to_sql_value(value: &Value) -> rusqlite::Result<SqlValue> {
@@ -107,7 +100,7 @@ pub struct DocsOrder {
 
 pub fn docs_create(conn: &Connection, tag: &str, doc: &Value) -> rusqlite::Result<String> {
     let doc_json = json_to_string(doc)?;
-    let doc_id = simple_uuid();
+    let doc_id = random_id();
     conn.execute(
         "INSERT INTO docs (id, tag, doc) VALUES (?1, ?2, ?3)",
         params![doc_id, tag, doc_json],
@@ -115,15 +108,11 @@ pub fn docs_create(conn: &Connection, tag: &str, doc: &Value) -> rusqlite::Resul
     Ok(doc_id)
 }
 
-pub fn docs_get(
-    conn: &Connection,
-    tag: &str,
-    id: &str,
-) -> rusqlite::Result<Option<HashMap<String, Value>>> {
+pub fn docs_get(conn: &Connection, id: &str) -> rusqlite::Result<Option<HashMap<String, Value>>> {
     let entry = conn
         .query_row(
-        "SELECT id, tag, doc, created_at, updated_at FROM docs WHERE id = ?1 AND tag = ?2",
-        params![id, tag],
+        "SELECT id, tag, doc, created_at, updated_at FROM docs WHERE id = ?1",
+        params![id],
         |row| {
             let doc_json: String = row.get(2)?;
             Ok(DocEntry {
@@ -139,16 +128,11 @@ pub fn docs_get(
     Ok(entry.map(flatten_doc_entry))
 }
 
-pub fn docs_update(
-    conn: &Connection,
-    tag: &str,
-    id: &str,
-    doc: &Value,
-) -> rusqlite::Result<usize> {
+pub fn docs_update(conn: &Connection, id: &str, doc: &Value) -> rusqlite::Result<usize> {
     let doc_json = json_to_string(doc)?;
     conn.execute(
-        "UPDATE docs SET doc = ?3 WHERE id = ?1 AND tag = ?2",
-        params![id, tag, doc_json],
+        "UPDATE docs SET doc = ?2 WHERE id = ?1",
+        params![id, doc_json],
     )
 }
 
@@ -344,20 +328,20 @@ mod tests {
 
         let doc_v1 = json!({"name": "doc", "count": 1});
         let doc_id = docs_create(&conn, "doc", &doc_v1)?;
-        assert_eq!(doc_id.len(), DOC_ID_LEN);
+        assert_eq!(doc_id.len(), 12);
 
-        let fetched = docs_get(&conn, "doc", &doc_id)?.expect("missing doc row");
+        let fetched = docs_get(&conn, &doc_id)?.expect("missing doc row");
         assert_system_fields(&fetched, "doc", &doc_id);
         assert_eq!(fetched.get("name").and_then(Value::as_str), Some("doc"));
         assert_eq!(fetched.get("count").and_then(Value::as_i64), Some(1));
 
         let doc_v2 = json!({"name": "doc", "count": 2});
-        let updated = docs_update(&conn, "doc", &doc_id, &doc_v2)?;
+        let updated = docs_update(&conn, &doc_id, &doc_v2)?;
         assert_eq!(updated, 1);
-        let unchanged = docs_update(&conn, "doc", &doc_id, &doc_v2)?;
+        let unchanged = docs_update(&conn, &doc_id, &doc_v2)?;
         assert_eq!(unchanged, 0);
 
-        let fetched = docs_get(&conn, "doc", &doc_id)?.expect("missing doc row");
+        let fetched = docs_get(&conn, &doc_id)?.expect("missing doc row");
         assert_system_fields(&fetched, "doc", &doc_id);
         assert_eq!(fetched.get("name").and_then(Value::as_str), Some("doc"));
         assert_eq!(fetched.get("count").and_then(Value::as_i64), Some(2));
@@ -368,7 +352,7 @@ mod tests {
 
         let deleted = docs_delete(&conn, "doc", &doc_id)?;
         assert_eq!(deleted, 1);
-        assert!(docs_get(&conn, "doc", &doc_id)?.is_none());
+        assert!(docs_get(&conn, &doc_id)?.is_none());
 
         Ok(())
     }
@@ -395,7 +379,7 @@ mod tests {
         let updated = docs_patch(&conn, "doc", &doc_id, &patch)?;
         assert_eq!(updated, 1);
 
-        let fetched = docs_get(&conn, "doc", &doc_id)?.expect("missing doc row");
+        let fetched = docs_get(&conn, &doc_id)?.expect("missing doc row");
         assert_system_fields(&fetched, "doc", &doc_id);
         let expected = json!({
             "name": "doc",

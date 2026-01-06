@@ -4,9 +4,10 @@ use sha2::{Digest, Sha256};
 use tokio::task;
 
 use crate::{
-    asset_chunk_create, asset_chunks_delete_for_asset, assets_create, assets_get, init_asset_chunk_db,
-    init_main_db, AssetChunkRef, AssetMetadata, AssetMetadataInput,
+    asset_chunk_create, asset_chunks_delete_for_asset, assets_get, init_asset_chunk_db,
+    init_main_db, random_id, AssetChunkRef, AssetMetadata, AssetMetadataInput,
 };
+use crate::assets::assets_create_with_id;
 use rusqlite::types::Value as SqlValue;
 
 #[derive(Debug, Clone)]
@@ -153,7 +154,6 @@ fn read_chunks_for_db(
 pub async fn insert_asset_from_path(
     meta_db_path: impl AsRef<Path>,
     chunk_db_paths: Vec<PathBuf>,
-    asset_id: &str,
     name: Option<String>,
     mime_type: Option<String>,
     chunk_size: i64,
@@ -168,7 +168,7 @@ pub async fn insert_asset_from_path(
 
     let meta_db_path = meta_db_path.as_ref().to_path_buf();
     let file_path = file_path.as_ref().to_path_buf();
-    let asset_id = asset_id.to_string();
+    let asset_id = random_id();
     let chunk_size_usize = usize::try_from(chunk_size).map_err(wrap_error)?;
 
     let data = tokio::fs::read(&file_path).await.map_err(wrap_error)?;
@@ -230,7 +230,6 @@ pub async fn insert_asset_from_path(
     let valid = inserted_total == expected;
     let raw_file_path = Some(file_path.to_string_lossy().into_owned());
     let asset_input = AssetMetadataInput {
-        id: asset_id.clone(),
         name,
         mime_type: resolved_mime,
         size,
@@ -241,11 +240,12 @@ pub async fn insert_asset_from_path(
         valid,
     };
     let asset_input_for_db = asset_input.clone();
+    let asset_id_for_db = asset_id.clone();
     let meta_db_path_for_db = meta_db_path.clone();
     let meta_insert = task::spawn_blocking(move || -> rusqlite::Result<()> {
         let conn = rusqlite::Connection::open(meta_db_path_for_db)?;
         init_main_db(&conn)?;
-        assets_create(&conn, &asset_input_for_db)?;
+        assets_create_with_id(&conn, &asset_id_for_db, &asset_input_for_db)?;
         Ok(())
     })
     .await;
@@ -278,7 +278,6 @@ pub async fn insert_asset_from_path(
 pub async fn insert_asset_from_bytes(
     meta_db_path: impl AsRef<Path>,
     chunk_db_paths: Vec<PathBuf>,
-    asset_id: &str,
     name: Option<String>,
     mime_type: Option<String>,
     chunk_size: i64,
@@ -292,7 +291,7 @@ pub async fn insert_asset_from_bytes(
     }
 
     let meta_db_path = meta_db_path.as_ref().to_path_buf();
-    let asset_id = asset_id.to_string();
+    let asset_id = random_id();
     let chunk_size_usize = usize::try_from(chunk_size).map_err(wrap_error)?;
 
     let size = i64::try_from(data.len()).map_err(wrap_error)?;
@@ -352,7 +351,6 @@ pub async fn insert_asset_from_bytes(
     let expected = expected_chunk_count(size, chunk_size);
     let valid = inserted_total == expected;
     let asset_input = AssetMetadataInput {
-        id: asset_id.clone(),
         name,
         mime_type: resolved_mime,
         size,
@@ -363,11 +361,12 @@ pub async fn insert_asset_from_bytes(
         valid,
     };
     let asset_input_for_db = asset_input.clone();
+    let asset_id_for_db = asset_id.clone();
     let meta_db_path_for_db = meta_db_path.clone();
     let meta_insert = task::spawn_blocking(move || -> rusqlite::Result<()> {
         let conn = rusqlite::Connection::open(meta_db_path_for_db)?;
         init_main_db(&conn)?;
-        assets_create(&conn, &asset_input_for_db)?;
+        assets_create_with_id(&conn, &asset_id_for_db, &asset_input_for_db)?;
         Ok(())
     })
     .await;
@@ -400,7 +399,6 @@ pub async fn insert_asset_from_bytes(
 pub async fn insert_asset_from_path_with_size_str(
     meta_db_path: impl AsRef<Path>,
     chunk_db_paths: Vec<PathBuf>,
-    asset_id: &str,
     name: Option<String>,
     mime_type: Option<String>,
     chunk_size: &str,
@@ -410,7 +408,6 @@ pub async fn insert_asset_from_path_with_size_str(
     insert_asset_from_path(
         meta_db_path,
         chunk_db_paths,
-        asset_id,
         name,
         mime_type,
         chunk_size,
@@ -422,7 +419,6 @@ pub async fn insert_asset_from_path_with_size_str(
 pub async fn insert_asset_from_bytes_with_size_str(
     meta_db_path: impl AsRef<Path>,
     chunk_db_paths: Vec<PathBuf>,
-    asset_id: &str,
     name: Option<String>,
     mime_type: Option<String>,
     chunk_size: &str,
@@ -432,7 +428,6 @@ pub async fn insert_asset_from_bytes_with_size_str(
     insert_asset_from_bytes(
         meta_db_path,
         chunk_db_paths,
-        asset_id,
         name,
         mime_type,
         chunk_size,
@@ -551,13 +546,13 @@ mod tests {
         let metadata = insert_asset_from_path(
             &main_db,
             vec![chunk_db0.clone(), chunk_db1.clone()],
-            "asset-3",
             Some("asset.bin".to_string()),
             None,
             4,
             &file_path,
         )
         .await?;
+        let asset_id = metadata.id.clone();
 
         let expected_checksum = checksum_for_bytes(data);
         assert_eq!(metadata.size, data.len() as i64);
@@ -573,13 +568,13 @@ mod tests {
         );
 
         let combined =
-            read_asset_bytes(&main_db, vec![chunk_db0.clone(), chunk_db1.clone()], "asset-3")
+            read_asset_bytes(&main_db, vec![chunk_db0.clone(), chunk_db1.clone()], &asset_id)
                 .await?;
         assert_eq!(combined, data);
 
         let output_path = dir.join("asset_out.bin");
         let written_path =
-            read_asset_to_file(&main_db, vec![chunk_db0, chunk_db1], "asset-3", &output_path)
+            read_asset_to_file(&main_db, vec![chunk_db0, chunk_db1], &asset_id, &output_path)
                 .await?;
         assert_eq!(written_path, output_path);
         let written = fs::read(&written_path).await.map_err(wrap_error)?;
@@ -605,18 +600,16 @@ mod tests {
         let main_db = dir.join("main.db");
         let chunk_db0 = dir.join("chunk0.db");
         let chunk_db1 = dir.join("chunk1.db");
-        let asset_id = format!("asset_{}", Uuid::new_v4().as_simple());
-
         let metadata = insert_asset_from_path_with_size_str(
             &main_db,
             vec![chunk_db0.clone(), chunk_db1.clone()],
-            &asset_id,
             Some("kling.mp4".to_string()),
             None,
             "100KB",
             &file_path,
         )
         .await?;
+        let asset_id = metadata.id.clone();
 
         assert_eq!(metadata.mime_type.as_deref(), Some(expected_mime.as_str()));
         assert_eq!(metadata.chunk_size, 1024 * 100);
@@ -626,7 +619,9 @@ mod tests {
             Some(file_path.to_string_lossy().as_ref())
         );
 
-        let combined = read_asset_bytes(&main_db, vec![chunk_db0.clone(), chunk_db1.clone()], &asset_id).await?;
+        let combined =
+            read_asset_bytes(&main_db, vec![chunk_db0.clone(), chunk_db1.clone()], &asset_id)
+                .await?;
         assert_eq!(combined, data);
 
         let output_path = dir.join("kling_out.mp4");
