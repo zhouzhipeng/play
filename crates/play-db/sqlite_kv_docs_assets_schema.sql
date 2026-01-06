@@ -68,6 +68,9 @@ CREATE INDEX IF NOT EXISTS idx_assets_mime_type
 CREATE INDEX IF NOT EXISTS idx_assets_created_at
     ON assets (created_at DESC);
 
+CREATE INDEX IF NOT EXISTS idx_assets_raw_file_path
+    ON assets (raw_file_path);
+
 
 
 -- =========================================================
