@@ -149,11 +149,8 @@ pub fn docs_patch(
     )
 }
 
-pub fn docs_delete(conn: &Connection, tag: &str, id: &str) -> rusqlite::Result<usize> {
-    conn.execute(
-        "DELETE FROM docs WHERE id = ?1 AND tag = ?2",
-        params![id, tag],
-    )
+pub fn docs_delete(conn: &Connection, id: &str) -> rusqlite::Result<usize> {
+    conn.execute("DELETE FROM docs WHERE id = ?1", params![id])
 }
 
 pub fn docs_list(
@@ -350,7 +347,7 @@ mod tests {
         assert_eq!(list.len(), 1);
         assert_system_fields(&list[0], "doc", &doc_id);
 
-        let deleted = docs_delete(&conn, "doc", &doc_id)?;
+        let deleted = docs_delete(&conn, &doc_id)?;
         assert_eq!(deleted, 1);
         assert!(docs_get(&conn, &doc_id)?.is_none());
 
