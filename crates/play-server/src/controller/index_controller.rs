@@ -20,6 +20,7 @@ use crate::{HTML, R, S};
 
 method_router!(
     get : "/"-> root,
+    get : "/dashboard"-> dashboard,
     get : "/robots.txt"-> robots,
     get : "/ping"-> ping,
     get : "/save-fingerprint"-> save_fingerprint,
@@ -27,7 +28,8 @@ method_router!(
     get : "/download-config"-> serve_config_file,
 );
 
-static INDEX_NEW_HTML: &str = include_str!("templates/index-new.html");
+static INDEX_HTML: &str = include_str!("templates/index.html");
+static DASHBOARD_HTML: &str = include_str!("templates/dashboard.html");
 
 static ROBOTS_TXT: &str = include_str!("templates/robots.txt");
 
@@ -56,7 +58,13 @@ fn escape_html(input: &str) -> String {
     out
 }
 
-async fn root(s: S) -> HTML {
+async fn root(_s: S) -> HTML {
+    let built_time = env!("BUILT_TIME").parse::<i64>()?;
+    let html = INDEX_HTML.replace("{{built_time}}", built_time.to_string().as_str());
+    Ok(Html(html))
+}
+
+async fn dashboard(s: S) -> HTML {
     let built_time = env!("BUILT_TIME").parse::<i64>()?;
     // return_error!("test");
     let data = GeneralData::query_by_cat("title,url", "pages", 1000, &s.db).await?;
@@ -128,6 +136,13 @@ async fn root(s: S) -> HTML {
                     <div class="card-content">
                         <div class="card-title">Shortlinks</div>
                         <div class="card-description">Manage URLs</div>
+                    </div>
+                </a>
+                <a class="card" href="/static/data-manager.html">
+                    <div class="card-icon">🗃️</div>
+                    <div class="card-content">
+                        <div class="card-title">Data Manager</div>
+                        <div class="card-description">Query and edit data</div>
                     </div>
                 </a>
             </div>
@@ -215,7 +230,7 @@ async fn root(s: S) -> HTML {
         content.push_str("</div></section>");
     }
 
-    let html = INDEX_NEW_HTML
+    let html = DASHBOARD_HTML
         .replace("{{content}}", &content)
         .replace("{{built_time}}", built_time.to_string().as_str());
 
