@@ -188,6 +188,18 @@ impl GeneralData {
         let result: (i64,) = sqlx::query_as(sql).bind(cat).fetch_one(pool).await?;
         Ok(result.0)
     }
+    pub async fn query_distinct_categories(
+        include_deleted: bool,
+        pool: &DBPool,
+    ) -> Result<Vec<String>, Error> {
+        let sql = if include_deleted {
+            "SELECT DISTINCT cat FROM general_data ORDER BY cat ASC"
+        } else {
+            "SELECT DISTINCT cat FROM general_data WHERE is_deleted = 0 ORDER BY cat ASC"
+        };
+        let rows: Vec<(String,)> = sqlx::query_as(sql).fetch_all(pool).await?;
+        Ok(rows.into_iter().map(|row| row.0).collect())
+    }
     pub async fn query_by_cat_simple(
         cat: &str,
         limit: i32,

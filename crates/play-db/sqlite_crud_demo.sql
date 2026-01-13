@@ -1,0 +1,4 @@
+-- insert into docs(id,tag,doc) values (5,'test', json('{"name":"xiao" , is_male:true, age: 20}'));
+-- select *  from docs where tag = 'test' and doc->>'$.is_male' = true order by doc->>'$.age' desc;
+-- update docs set doc = json_patch(doc , json('{name: "zhouzhipeng", is_male: true, age: 22}')) where id=5;
+-- delete from docs where id = 5;

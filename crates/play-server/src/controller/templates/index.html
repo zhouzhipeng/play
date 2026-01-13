@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Play Studio</title>
+    <link rel="icon" href="/static/icon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg: #f6f2ec;
+            --bg-strong: #ffffff;
+            --ink: #1b1a17;
+            --ink-muted: #4c4741;
+            --ink-soft: #6b645b;
+            --accent: #d35130;
+            --accent-2: #1f6d73;
+            --accent-3: #f2c14e;
+            --stroke: rgba(27, 26, 23, 0.12);
+            --shadow-soft: 0 16px 40px rgba(27, 26, 23, 0.12);
+            --shadow-strong: 0 30px 70px rgba(27, 26, 23, 0.18);
+            --radius-lg: 28px;
+            --radius-md: 18px;
+            --radius-sm: 12px;
+            --container: 1160px;
+        }
+
+        html {
+            font-size: 16px;
+            scroll-behavior: smooth;
+        }
+
+        body {
+            min-height: 100vh;
+            font-family: "Sora", "Helvetica Neue", sans-serif;
+            color: var(--ink);
+            background: var(--bg);
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: -30vmax;
+            background:
+                radial-gradient(35vmax 35vmax at 12% 12%, rgba(31, 109, 115, 0.2), transparent 60%),
+                radial-gradient(40vmax 40vmax at 90% 8%, rgba(211, 81, 48, 0.22), transparent 60%),
+                radial-gradient(32vmax 32vmax at 75% 85%, rgba(242, 193, 78, 0.28), transparent 65%);
+            z-index: -2;
+        }
+
+        body::after {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background-image: repeating-linear-gradient(
+                120deg,
+                rgba(27, 26, 23, 0.04) 0,
+                rgba(27, 26, 23, 0.04) 1px,
+                transparent 1px,
+                transparent 12px
+            );
+            z-index: -1;
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .container {
+            width: min(calc(100% - 48px), var(--container));
+            margin: 0 auto;
+        }
+
+        .skip-link {
+            position: absolute;
+            top: -40px;
+            left: 16px;
+            padding: 8px 14px;
+            background: var(--accent-2);
+            color: white;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            z-index: 100;
+            transition: top 0.2s ease;
+        }
+
+        .skip-link:focus {
+            top: 16px;
+        }
+
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: rgba(246, 242, 236, 0.92);
+            backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--stroke);
+        }
+
+        .header-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 18px 0;
+            gap: 24px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            font-family: "Fraunces", "Times New Roman", serif;
+        }
+
+        .brand-mark {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .brand-sub {
+            font-size: 0.75rem;
+            letter-spacing: 0.3rem;
+            text-transform: uppercase;
+            color: var(--ink-soft);
+        }
+
+        nav {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--ink-muted);
+        }
+
+        nav a {
+            position: relative;
+            padding-bottom: 4px;
+        }
+
+        nav a::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            width: 0;
+            height: 2px;
+            background: var(--accent);
+            transition: width 0.2s ease;
+        }
+
+        nav a:hover::after {
+            width: 100%;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 22px;
+            border-radius: 999px;
+            border: 1px solid var(--stroke);
+            font-weight: 600;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-soft);
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+            border-color: transparent;
+            box-shadow: 0 16px 30px rgba(211, 81, 48, 0.25);
+        }
+
+        .btn-ghost {
+            background: rgba(255, 255, 255, 0.7);
+        }
+
+        .hero {
+            padding: 84px 0 64px;
+        }
+
+        .hero-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 48px;
+            align-items: center;
+        }
+
+        .eyebrow {
+            text-transform: uppercase;
+            letter-spacing: 0.35rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--accent-2);
+        }
+
+        h1 {
+            font-family: "Fraunces", "Times New Roman", serif;
+            font-size: clamp(2.6rem, 4.5vw, 3.9rem);
+            line-height: 1.05;
+            margin: 16px 0 18px;
+        }
+
+        .lead {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            color: var(--ink-muted);
+            max-width: 32rem;
+        }
+
+        .hero-actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin: 28px 0 22px;
+        }
+
+        .services {
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+            font-size: 0.9rem;
+            color: var(--ink-soft);
+        }
+
+        .services span {
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid var(--stroke);
+        }
+
+        .hero-stats {
+            margin-top: 28px;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 14px;
+        }
+
+        .stat {
+            padding: 14px 16px;
+            border-radius: var(--radius-sm);
+            background: var(--bg-strong);
+            border: 1px solid var(--stroke);
+            box-shadow: var(--shadow-soft);
+        }
+
+        .stat-value {
+            display: block;
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--ink-soft);
+        }
+
+        .hero-panel {
+            display: grid;
+            gap: 16px;
+        }
+
+        .hero-card {
+            padding: 18px 20px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--stroke);
+            background: var(--bg-strong);
+            box-shadow: var(--shadow-soft);
+            animation: rise 0.9s ease both;
+            animation-delay: var(--delay, 0s);
+        }
+
+        .hero-card.primary {
+            border: 1px solid rgba(31, 109, 115, 0.4);
+            box-shadow: var(--shadow-strong);
+        }
+
+        .hero-card .label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.2rem;
+            color: var(--accent-2);
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .hero-card h3 {
+            font-size: 1.2rem;
+            margin-bottom: 8px;
+        }
+
+        .hero-card p {
+            color: var(--ink-muted);
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        .hero-card .meta {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 12px;
+            font-size: 0.85rem;
+            color: var(--ink-soft);
+        }
+
+        .section {
+            padding: 70px 0;
+            border-top: 1px solid var(--stroke);
+        }
+
+        .section-heading {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+
+        .section-heading h2 {
+            font-family: "Fraunces", "Times New Roman", serif;
+            font-size: clamp(1.8rem, 3vw, 2.6rem);
+            margin-top: 12px;
+        }
+
+        .section-note {
+            color: var(--ink-soft);
+            max-width: 18rem;
+            font-size: 0.95rem;
+        }
+
+        .portfolio-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 24px;
+        }
+
+        .portfolio-card {
+            padding: 20px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--stroke);
+            background: rgba(255, 255, 255, 0.88);
+            box-shadow: var(--shadow-soft);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            animation: reveal 0.9s ease both;
+            animation-delay: var(--delay, 0s);
+        }
+
+        .portfolio-card:hover {
+            transform: translateY(-6px);
+            box-shadow: var(--shadow-strong);
+        }
+
+        .card-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .tag {
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: rgba(31, 109, 115, 0.14);
+            color: var(--accent-2);
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .year {
+            font-size: 0.8rem;
+            color: var(--ink-soft);
+        }
+
+        .portfolio-card h3 {
+            margin-bottom: 8px;
+            font-size: 1.2rem;
+        }
+
+        .portfolio-card p {
+            color: var(--ink-muted);
+            font-size: 0.95rem;
+            line-height: 1.5;
+            margin-bottom: 12px;
+        }
+
+        .card-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.8rem;
+            color: var(--ink-soft);
+        }
+
+        .studio-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 30px;
+            align-items: center;
+        }
+
+        .studio-card {
+            padding: 22px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--stroke);
+            background: rgba(255, 255, 255, 0.9);
+            box-shadow: var(--shadow-soft);
+        }
+
+        .studio-card h3 {
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+        }
+
+        .studio-card p {
+            color: var(--ink-muted);
+            line-height: 1.6;
+        }
+
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 16px;
+            margin-top: 24px;
+        }
+
+        .process-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 20px;
+        }
+
+        .process-step {
+            padding: 20px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--stroke);
+            background: rgba(255, 255, 255, 0.85);
+        }
+
+        .process-step span {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--accent-3);
+            color: var(--ink);
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .process-step h4 {
+            font-size: 1.05rem;
+            margin-bottom: 8px;
+        }
+
+        .process-step p {
+            font-size: 0.9rem;
+            color: var(--ink-muted);
+            line-height: 1.5;
+        }
+
+        .cta {
+            margin: 70px auto 0;
+            border-radius: var(--radius-lg);
+            padding: 40px;
+            background: linear-gradient(120deg, rgba(31, 109, 115, 0.9), rgba(211, 81, 48, 0.9));
+            color: white;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 20px;
+            align-items: center;
+        }
+
+        .cta h3 {
+            font-size: 2rem;
+            font-family: "Fraunces", "Times New Roman", serif;
+        }
+
+        .cta p {
+            opacity: 0.9;
+            line-height: 1.6;
+        }
+
+        .cta .btn {
+            background: white;
+            color: var(--ink);
+            border-color: transparent;
+            justify-self: start;
+        }
+
+        footer {
+            padding: 40px 0 60px;
+            color: var(--ink-soft);
+            font-size: 0.9rem;
+        }
+
+        .footer-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            font-weight: 600;
+        }
+
+        @keyframes rise {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes reveal {
+            from {
+                opacity: 0;
+                transform: translateY(18px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 980px) {
+            .header-inner {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .hero-grid,
+            .studio-grid,
+            .cta {
+                grid-template-columns: 1fr;
+            }
+
+            .section-heading {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .hero-stats,
+            .stats-row,
+            .process-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 640px) {
+            .container {
+                width: min(calc(100% - 32px), var(--container));
+            }
+
+            .hero {
+                padding: 64px 0 48px;
+            }
+
+            .hero-stats,
+            .stats-row,
+            .process-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .cta {
+                padding: 28px;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <a href="#main" class="skip-link">Skip to content</a>
+
+    <header>
+        <div class="container header-inner">
+            <div class="brand">
+                <span class="brand-mark">Play</span>
+                <span class="brand-sub">Studio</span>
+            </div>
+            <nav>
+                <a href="#portfolio">Work</a>
+                <a href="#studio">Studio</a>
+                <a href="#process">Process</a>
+                <a href="#contact">Contact</a>
+            </nav>
+            <div>
+                <a class="btn btn-ghost" href="/dashboard">Dashboard</a>
+            </div>
+        </div>
+    </header>
+
+    <main id="main">
+        <section class="hero">
+            <div class="container hero-grid">
+                <div>
+                    <p class="eyebrow">Portfolio</p>
+                    <h1>Modern product experiences for teams who ship.</h1>
+                    <p class="lead">
+                        We craft brand systems, product design, and web experiences that feel calm,
+                        fast, and unmistakably yours. Explore a curated set of projects built for
+                        clarity, growth, and momentum.
+                    </p>
+                    <div class="hero-actions">
+                        <a class="btn btn-primary" href="#portfolio">View portfolio</a>
+                        <a class="btn btn-ghost" href="#contact">Start a project</a>
+                    </div>
+                    <div class="services">
+                        <span>Brand systems</span>
+                        <span>Product UX</span>
+                        <span>Design engineering</span>
+                    </div>
+                    <div class="hero-stats">
+                        <div class="stat">
+                            <span class="stat-value">26</span>
+                            <span class="stat-label">launches in the last 18 months</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-value">12</span>
+                            <span class="stat-label">industries covered</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-value">7</span>
+                            <span class="stat-label">day average sprint cycle</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="hero-panel">
+                    <div class="hero-card primary" style="--delay: 0.1s;">
+                        <div class="label">Featured</div>
+                        <h3>Atlas Commerce</h3>
+                        <p>Unified catalog, checkout, and loyalty for a multi-market retailer.</p>
+                        <div class="meta">
+                            <span>Ecommerce</span>
+                            <span>2024</span>
+                        </div>
+                    </div>
+                    <div class="hero-card" style="--delay: 0.25s;">
+                        <div class="label">New Site</div>
+                        <h3>Shoreline Studio</h3>
+                        <p>Architecture portfolio refreshed with case studies and project films.</p>
+                        <div class="meta">
+                            <span>Brand + Web</span>
+                            <span>2024</span>
+                        </div>
+                    </div>
+                    <div class="hero-card" style="--delay: 0.4s;">
+                        <div class="label">UX Sprint</div>
+                        <h3>Lumen Health</h3>
+                        <p>Patient onboarding with smarter triage and a gentler flow.</p>
+                        <div class="meta">
+                            <span>Healthcare</span>
+                            <span>2023</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="portfolio" class="section">
+            <div class="container">
+                <div class="section-heading">
+                    <div>
+                        <p class="eyebrow">Selected work</p>
+                        <h2>Portfolios built to feel confident, clear, and modern.</h2>
+                    </div>
+                    <p class="section-note">
+                        Strategy, brand, product, and web delivery for ambitious founders.
+                    </p>
+                </div>
+                <div class="portfolio-grid">
+                    <article class="portfolio-card" style="--delay: 0.1s;">
+                        <div class="card-top">
+                            <span class="tag">Ecommerce</span>
+                            <span class="year">2024</span>
+                        </div>
+                        <h3>Atlas Commerce</h3>
+                        <p>Modular retail platform with a quick checkout and loyalty dashboard.</p>
+                        <div class="card-tags">
+                            <span>Product design</span>
+                            <span>Design system</span>
+                            <span>Web UI</span>
+                        </div>
+                    </article>
+                    <article class="portfolio-card" style="--delay: 0.2s;">
+                        <div class="card-top">
+                            <span class="tag">Civic</span>
+                            <span class="year">2024</span>
+                        </div>
+                        <h3>Drift Maps</h3>
+                        <p>Interactive mapping suite for city planning and public engagement.</p>
+                        <div class="card-tags">
+                            <span>Data UX</span>
+                            <span>Visualization</span>
+                            <span>Web app</span>
+                        </div>
+                    </article>
+                    <article class="portfolio-card" style="--delay: 0.3s;">
+                        <div class="card-top">
+                            <span class="tag">Healthcare</span>
+                            <span class="year">2023</span>
+                        </div>
+                        <h3>Lumen Health</h3>
+                        <p>Patient portal rebuilt with calmer flows and clear clinical pathways.</p>
+                        <div class="card-tags">
+                            <span>UX research</span>
+                            <span>Service design</span>
+                            <span>Accessibility</span>
+                        </div>
+                    </article>
+                    <article class="portfolio-card" style="--delay: 0.4s;">
+                        <div class="card-top">
+                            <span class="tag">B2B</span>
+                            <span class="year">2023</span>
+                        </div>
+                        <h3>Northwind Labs</h3>
+                        <p>Research hub with tiered access and fast technical documentation.</p>
+                        <div class="card-tags">
+                            <span>Brand</span>
+                            <span>Content</span>
+                            <span>Web</span>
+                        </div>
+                    </article>
+                    <article class="portfolio-card" style="--delay: 0.5s;">
+                        <div class="card-top">
+                            <span class="tag">Architecture</span>
+                            <span class="year">2024</span>
+                        </div>
+                        <h3>Shoreline Studio</h3>
+                        <p>Portfolio refresh for a design studio with immersive case studies.</p>
+                        <div class="card-tags">
+                            <span>Storytelling</span>
+                            <span>Photography</span>
+                            <span>Site build</span>
+                        </div>
+                    </article>
+                    <article class="portfolio-card" style="--delay: 0.6s;">
+                        <div class="card-top">
+                            <span class="tag">Fintech</span>
+                            <span class="year">2022</span>
+                        </div>
+                        <h3>Signal Finance</h3>
+                        <p>Onboarding and compliance flows redesigned for speed and trust.</p>
+                        <div class="card-tags">
+                            <span>Product strategy</span>
+                            <span>UX writing</span>
+                            <span>UI design</span>
+                        </div>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section id="studio" class="section">
+            <div class="container studio-grid">
+                <div>
+                    <p class="eyebrow">Studio</p>
+                    <h2>Small team. Big lift. Clear communication from kickoff to launch.</h2>
+                    <p class="lead">
+                        We embed with founders and teams who need product clarity fast. Each engagement
+                        is senior-led with tight feedback loops, low overhead, and direct access to
+                        the people building your work.
+                    </p>
+                </div>
+                <div class="studio-card">
+                    <h3>What you get</h3>
+                    <p>
+                        A focused design partner who can translate strategy into interfaces, launch-ready
+                        brand systems, and clean handoffs for engineering.
+                    </p>
+                    <div class="stats-row">
+                        <div class="stat">
+                            <span class="stat-value">4.9</span>
+                            <span class="stat-label">client rating average</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-value">48h</span>
+                            <span class="stat-label">feedback turnaround</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-value">6+</span>
+                            <span class="stat-label">long-term partners</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="process" class="section">
+            <div class="container">
+                <div class="section-heading">
+                    <div>
+                        <p class="eyebrow">Process</p>
+                        <h2>Three focused phases. Zero wasted motion.</h2>
+                    </div>
+                    <p class="section-note">
+                        Each phase is built to keep the team aligned and moving quickly.
+                    </p>
+                </div>
+                <div class="process-grid">
+                    <div class="process-step">
+                        <span>1</span>
+                        <h4>Discover</h4>
+                        <p>Rapid research, content audits, and competitive scans to sharpen scope.</p>
+                    </div>
+                    <div class="process-step">
+                        <span>2</span>
+                        <h4>Design</h4>
+                        <p>High-fidelity systems, prototypes, and motion that guide each decision.</p>
+                    </div>
+                    <div class="process-step">
+                        <span>3</span>
+                        <h4>Deliver</h4>
+                        <p>Launch-ready assets, QA checks, and collaborative handoff support.</p>
+                    </div>
+                </div>
+                <div id="contact" class="cta">
+                    <div>
+                        <h3>Ready to build your next portfolio?</h3>
+                        <p>
+                            Tell us about your timeline and goals. We respond with a tailored plan and
+                            a clear proposal in under two days.
+                        </p>
+                    </div>
+                    <div>
+                        <a class="btn" href="mailto:hello@play.studio">Book a call</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container footer-row">
+            <div>Built for calm launches and modern portfolios.</div>
+            <div class="footer-links">
+                <span>Updated <strong id="builtTime">--</strong></span>
+                <a href="/dashboard">Dashboard</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/static/js/common.js"></script>
+    <script>
+        const builtTimeElement = document.getElementById("builtTime");
+        if (builtTimeElement && typeof formatTimestamp === "function") {
+            builtTimeElement.textContent = formatTimestamp({{built_time}});
+        }
+    </script>
+</body>
+</html>

@@ -19,6 +19,7 @@ members = [
     "crates/play-utils/play-utils-blockchain",
     "crates/play-utils/play-utils-data-api",
     "crates/play-utils/play-utils-strings",
+    "crates/play-db",
 ]
 default-members=["crates/play-server"]
 
@@ -26,6 +27,8 @@ default-members=["crates/play-server"]
 # don't use native tls / openssl !!!  use rustls instead.
 reqwest = { version = "0.12.9",default-features = false, features = ["json",  "rustls-tls"] }
 sqlx = {version = "0.8.2",features = ["runtime-tokio-rustls"]}
+rusqlite = { version = "0.32.1", features = ["bundled"] }
+
 
 ## common libs:-
 anyhow = { version = "1"}

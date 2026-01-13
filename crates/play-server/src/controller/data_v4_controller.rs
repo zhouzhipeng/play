@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use std::num::NonZeroU32;
 
 method_router!(
+    get : "/api/v4/data/categories"-> handle_categories,
     get : "/api/v4/data/{category}/get"-> handle_get,
     get : "/api/v4/data/{category}/query"-> handle_query,
     get : "/api/v4/data/{category}/count"-> handle_count,
@@ -53,6 +54,12 @@ struct InsertOptionParam {
 struct CountParam {
     #[serde(rename = "where")]
     _where: Option<String>,
+    #[serde(default)]
+    include_deleted: bool,
+}
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+struct CategoryListParam {
     #[serde(default)]
     include_deleted: bool,
 }
@@ -577,6 +584,12 @@ async fn handle_count(
         GeneralData::query_count_composite(&category, _where, query_param.include_deleted, &s.db)
             .await?;
     return Ok(Json(CountResp { rows: count }));
+}
+
+async fn handle_categories(s: S, Query(query_param): Query<CategoryListParam>) -> R<Json<Vec<String>>> {
+    let categories =
+        GeneralData::query_distinct_categories(query_param.include_deleted, &s.db).await?;
+    Ok(Json(categories))
 }
 
 fn parse_set_string_to_hashmap(input: &str) -> HashMap<String, String> {
