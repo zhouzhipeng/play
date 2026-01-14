@@ -409,6 +409,21 @@
             margin-bottom: 12px;
         }
 
+        .portfolio-preview {
+            margin-bottom: 12px;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid var(--stroke);
+            background: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 10px 24px rgba(27, 26, 23, 0.1);
+        }
+
+        .portfolio-preview img {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+
         .tools-jump {
             display: flex;
             flex-wrap: wrap;
@@ -568,29 +583,27 @@
             color: var(--ink-soft);
         }
 
-        .studio-grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 30px;
-            align-items: center;
+        .card-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
         }
 
-        .studio-card {
-            padding: 22px;
-            border-radius: var(--radius-md);
-            border: 1px solid var(--stroke);
-            background: rgba(255, 255, 255, 0.9);
+        .card-links a {
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: rgba(31, 109, 115, 0.12);
+            border: 1px solid rgba(31, 109, 115, 0.28);
+            color: var(--accent-2);
+            font-size: 0.8rem;
+            font-weight: 600;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .card-links a:hover {
+            transform: translateY(-2px);
             box-shadow: var(--shadow-soft);
-        }
-
-        .studio-card h3 {
-            margin-bottom: 10px;
-            font-size: 1.2rem;
-        }
-
-        .studio-card p {
-            color: var(--ink-muted);
-            line-height: 1.6;
         }
 
         .stats-row {
@@ -598,43 +611,6 @@
             grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 16px;
             margin-top: 24px;
-        }
-
-        .process-grid {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 20px;
-        }
-
-        .process-step {
-            padding: 20px;
-            border-radius: var(--radius-md);
-            border: 1px solid var(--stroke);
-            background: rgba(255, 255, 255, 0.85);
-        }
-
-        .process-step span {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: var(--accent-3);
-            color: var(--ink);
-            font-weight: 700;
-            margin-bottom: 12px;
-        }
-
-        .process-step h4 {
-            font-size: 1.05rem;
-            margin-bottom: 8px;
-        }
-
-        .process-step p {
-            font-size: 0.9rem;
-            color: var(--ink-muted);
-            line-height: 1.5;
         }
 
         .cta {
@@ -716,7 +692,6 @@
             }
 
             .hero-grid,
-            .studio-grid,
             .cta {
                 grid-template-columns: 1fr;
             }
@@ -727,8 +702,7 @@
             }
 
             .hero-stats,
-            .stats-row,
-            .process-grid {
+            .stats-row {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
             }
 
@@ -747,8 +721,7 @@
             }
 
             .hero-stats,
-            .stats-row,
-            .process-grid {
+            .stats-row {
                 grid-template-columns: 1fr;
             }
 
@@ -790,8 +763,6 @@
             <nav>
                 <a href="#bitcoin-tools">Bitcoin Tools</a>
                 <a href="#portfolio">Work</a>
-                <a href="#studio">Studio</a>
-                <a href="#process">Process</a>
                 <a href="#contact">Contact</a>
             </nav>
             <div>
@@ -813,25 +784,6 @@
                     <div class="hero-actions">
                         <a class="btn btn-primary" href="#bitcoin-tools">Explore tools</a>
                         <a class="btn btn-ghost" href="https://zhouzhipeng.com/btc-transfer" target="_blank" rel="noopener">Open BTC Transfer</a>
-                    </div>
-                    <div class="services">
-                        <span>PSBT builder</span>
-                        <span>Offline signing</span>
-                        <span>Taproot keys</span>
-                    </div>
-                    <div class="hero-stats">
-                        <div class="stat">
-                            <span class="stat-value">3</span>
-                            <span class="stat-label">tools in the suite</span>
-                        </div>
-                        <div class="stat">
-                            <span class="stat-value">3</span>
-                            <span class="stat-label">step PSBT flow</span>
-                        </div>
-                        <div class="stat">
-                            <span class="stat-value">2</span>
-                            <span class="stat-label">networks (mainnet/testnet)</span>
-                        </div>
                     </div>
                 </div>
                 <div class="hero-panel">
@@ -947,6 +899,7 @@
                 <div class="tool-note">
                     <strong>Security posture:</strong> Keep private keys offline, prefer encrypted QR when sharing or printing,
                     and verify recipient address, fee rate, and network before broadcasting.
+                    <strong>Offline-ready:</strong> Each tool is a single all-in-one HTML page, so you can download it and run locally.
                 </div>
             </div>
         </section>
@@ -963,6 +916,45 @@
                     </p>
                 </div>
                 <div class="portfolio-grid">
+                    <article class="portfolio-card" style="--delay: 0.05s;">
+                        <div class="card-top">
+                            <span class="tag">Open source</span>
+                            <span class="year">Active</span>
+                        </div>
+                        <h3>Chrome Tab Gallery</h3>
+                        <p>Visual tab manager in a compact popup with live previews, fast search across URL/title/body text, and batch actions.</p>
+                        <figure class="portfolio-preview">
+                            <img src="/static/previews/chrome-tab-gallery-preview.png" alt="Chrome Tab Gallery preview image">
+                        </figure>
+                        <div class="card-tags">
+                            <span>Chrome extension</span>
+                            <span>Live previews</span>
+                            <span>Search + batch actions</span>
+                        </div>
+                        <div class="card-links">
+                            <a href="https://github.com/zhouzhipeng/chrome-tab-gallery" target="_blank" rel="noopener">GitHub</a>
+                            <a href="https://chromewebstore.google.com/detail/jkgmjinjafpdojlgddfpjjkecloaiamp" target="_blank" rel="noopener">Chrome Web Store</a>
+                        </div>
+                    </article>
+                    <article class="portfolio-card" style="--delay: 0.08s;">
+                        <div class="card-top">
+                            <span class="tag">HTML5</span>
+                            <span class="year">Puzzle</span>
+                        </div>
+                        <h3>Beauty Jigsaw Puzzle</h3>
+                        <p>Portrait-themed jigsaw with blurred previews that reveal as you complete each mobile-friendly level.</p>
+                        <figure class="portfolio-preview">
+                            <img src="/static/previews/beauty-jigsaw.png" alt="Beauty Jigsaw Puzzle preview image">
+                        </figure>
+                        <div class="card-tags">
+                            <span>Mobile web</span>
+                            <span>Godot</span>
+                            <span>Short sessions</span>
+                        </div>
+                        <div class="card-links">
+                            <a href="https://zhouzhipeng.itch.io/beauty-jigsaw-puzzle" target="_blank" rel="noopener">Play on itch.io</a>
+                        </div>
+                    </article>
                     <article class="portfolio-card" style="--delay: 0.1s;">
                         <div class="card-top">
                             <span class="tag">Ecommerce</span>
@@ -1045,79 +1037,18 @@
             </div>
         </section>
 
-        <section id="studio" class="section">
-            <div class="container studio-grid">
-                <div>
-                    <p class="eyebrow">Studio</p>
-                    <h2>Small team. Big lift. Clear communication from kickoff to launch.</h2>
-                    <p class="lead">
-                        We embed with founders and teams who need product clarity fast. Each engagement
-                        is senior-led with tight feedback loops, low overhead, and direct access to
-                        the people building your work.
-                    </p>
-                </div>
-                <div class="studio-card">
-                    <h3>What you get</h3>
-                    <p>
-                        A focused design partner who can translate strategy into interfaces, launch-ready
-                        brand systems, and clean handoffs for engineering.
-                    </p>
-                    <div class="stats-row">
-                        <div class="stat">
-                            <span class="stat-value">4.9</span>
-                            <span class="stat-label">client rating average</span>
-                        </div>
-                        <div class="stat">
-                            <span class="stat-value">48h</span>
-                            <span class="stat-label">feedback turnaround</span>
-                        </div>
-                        <div class="stat">
-                            <span class="stat-value">6+</span>
-                            <span class="stat-label">long-term partners</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section id="process" class="section">
+        <section id="contact" class="section">
             <div class="container">
-                <div class="section-heading">
+                <div class="cta">
                     <div>
-                        <p class="eyebrow">Process</p>
-                        <h2>Three focused phases. Zero wasted motion.</h2>
-                    </div>
-                    <p class="section-note">
-                        Each phase is built to keep the team aligned and moving quickly.
-                    </p>
-                </div>
-                <div class="process-grid">
-                    <div class="process-step">
-                        <span>1</span>
-                        <h4>Discover</h4>
-                        <p>Rapid research, content audits, and competitive scans to sharpen scope.</p>
-                    </div>
-                    <div class="process-step">
-                        <span>2</span>
-                        <h4>Design</h4>
-                        <p>High-fidelity systems, prototypes, and motion that guide each decision.</p>
-                    </div>
-                    <div class="process-step">
-                        <span>3</span>
-                        <h4>Deliver</h4>
-                        <p>Launch-ready assets, QA checks, and collaborative handoff support.</p>
-                    </div>
-                </div>
-                <div id="contact" class="cta">
-                    <div>
-                        <h3>Ready to build your next portfolio?</h3>
+                        <h3>Looking to collaborate on software or technical consulting?</h3>
                         <p>
-                            Tell us about your timeline and goals. We respond with a tailored plan and
-                            a clear proposal in under two days.
+                            Share your goals, scope, and timeline. I can help with product builds, architecture,
+                            and technical strategy.
                         </p>
                     </div>
                     <div>
-                        <a class="btn" href="mailto:hello@play.studio">Book a call</a>
+                        <a class="btn" href="mailto:ronnieinus@gmail.com">Email me</a>
                     </div>
                 </div>
             </div>
