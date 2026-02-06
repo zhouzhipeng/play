@@ -54,6 +54,7 @@ docker run -p 8080:8080 play
 ### Plugin Development
 For details on creating plugins, see the [plugin development guide](docs/plugin-dev.md).
 
+
 ### Quick Development Guide
 See the [quick development guide](docs/quick_dev.md) for getting started.
 
