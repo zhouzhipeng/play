@@ -94,7 +94,7 @@ pub async fn http_middleware(
 
     let remote_ip = addr.ip().to_string();
     let is_local_request = remote_ip == "::ffff:127.0.0.1";
-    info!("is_local_request >> {}", is_local_request);
+    // info!("is_local_request >> {}", is_local_request);
 
     if is_local_request {
         return next.run(request).await;
@@ -113,9 +113,51 @@ pub async fn http_middleware(
     let fingerprint = request.headers().get("X-Browser-Fingerprint");
     // info!("fingerprint is : {:?}", fingerprint);
 
-    //check fingerprint auth before domain proxy and normal requests
+    //serve other domains (support both static files and upstream proxy)
+    if !domain_proxy.is_empty() {
+        if let Some(header) = request.headers().get(axum::http::header::HOST) {
+            if let Ok(host) = header.to_str() {
+                let host = host.to_string();
+                if let Some(domain) = domain_proxy.iter().find(|p| p.proxy_domain.eq(&host)) {
+                    info!(
+                        "Domain proxy matched for host: {} -> {:?}",
+                        host, domain.proxy_target
+                    );
+                    return match &domain.proxy_target {
+                        ProxyTarget::Folder { folder_path } => {
+                            serve_domain_folder(state.clone(), host, request, folder_path)
+                                .await
+                                .unwrap_or_else(|e| {
+                                    axum::response::Response::builder()
+                                        .status(axum::http::StatusCode::INTERNAL_SERVER_ERROR)
+                                        .body(format!("Unhandled internal error: {}", e).into())
+                                        .unwrap()
+                                })
+                        }
+                        ProxyTarget::Upstream { ip, port } => serve_upstream_proxy_with_config(
+                            state.clone(),
+                            host,
+                            request,
+                            ip,
+                            *port,
+                            domain,
+                        )
+                        .await
+                        .unwrap_or_else(|e| {
+                            axum::response::Response::builder()
+                                .status(axum::http::StatusCode::INTERNAL_SERVER_ERROR)
+                                .body(format!("Proxy error: {}", e).into())
+                                .unwrap()
+                        }),
+                    };
+                }
+            }
+        }
+    }
+
+    //check fingerprint only for main domain.
     if auth_config.enabled {
-        let is_whitelist = auth_config.whitelist.iter().any(|x| uri.starts_with(x));
+        let is_whitelist = auth_config.whitelist.iter().any(|x| x!="/" &&  uri.starts_with(x));
 
         if !is_whitelist {
             //begin to match fingerprint
@@ -155,48 +197,6 @@ pub async fn http_middleware(
                     );
                     //refuse
                     return refuse_response();
-                }
-            }
-        }
-    }
-
-    //serve other domains (support both static files and upstream proxy)
-    if !domain_proxy.is_empty() {
-        if let Some(header) = request.headers().get(axum::http::header::HOST) {
-            if let Ok(host) = header.to_str() {
-                let host = host.to_string();
-                if let Some(domain) = domain_proxy.iter().find(|p| p.proxy_domain.eq(&host)) {
-                    info!(
-                        "Domain proxy matched for host: {} -> {:?}",
-                        host, domain.proxy_target
-                    );
-                    return match &domain.proxy_target {
-                        ProxyTarget::Folder { folder_path } => {
-                            serve_domain_folder(state.clone(), host, request, folder_path)
-                                .await
-                                .unwrap_or_else(|e| {
-                                    axum::response::Response::builder()
-                                        .status(axum::http::StatusCode::INTERNAL_SERVER_ERROR)
-                                        .body(format!("Unhandled internal error: {}", e).into())
-                                        .unwrap()
-                                })
-                        }
-                        ProxyTarget::Upstream { ip, port } => serve_upstream_proxy_with_config(
-                            state.clone(),
-                            host,
-                            request,
-                            ip,
-                            *port,
-                            domain,
-                        )
-                        .await
-                        .unwrap_or_else(|e| {
-                            axum::response::Response::builder()
-                                .status(axum::http::StatusCode::INTERNAL_SERVER_ERROR)
-                                .body(format!("Proxy error: {}", e).into())
-                                .unwrap()
-                        }),
-                    };
                 }
             }
         }
