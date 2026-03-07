@@ -94,11 +94,11 @@ pub async fn http_middleware(
 
     let remote_ip = addr.ip().to_string();
     let is_local_request = remote_ip == "::ffff:127.0.0.1";
-    // info!("is_local_request >> {}", is_local_request);
+    info!("is_local_request >> {}", is_local_request);
 
-    // if is_local_request {
-    //     return next.run(request).await;
-    // }
+    if is_local_request {
+        return next.run(request).await;
+    }
 
     let auth_config = &state.config.auth_config;
     let domain_proxy = &state.config.domain_proxy;
