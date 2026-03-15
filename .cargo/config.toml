@@ -6,6 +6,10 @@ rustflags = ["-Awarnings"]  #keep it uncomment to make wasm build success
 [future-incompat-report]
 frequency = "never"
 
+[env]
+CMAKE = "C:\\Program Files\\CMake\\bin\\cmake.exe"
+AWS_LC_SYS_PREBUILT_NASM = "1"
+
 
 
 [alias]
