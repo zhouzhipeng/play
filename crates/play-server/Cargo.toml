@@ -4,16 +4,12 @@ version = "0.1.0"
 edition = "2021"
 description = "a play tool using rust"
 
-[package.metadata.packager]
-before-packaging-command = "cargo dev_ui"
-
 
 [features]
 default = []
 debug = ["play-lua"]
 use_mysql = ["sqlx/mysql", "play-shared/sqlparser"]
 server = ["play-dylib-loader","play-lua","play-redis"]
-ui = ["play-dylib-loader","play-lua"]
 
 
 [build-dependencies]

@@ -1,6 +1,8 @@
 [workspace]
 resolver="2"
 members = [
+    "crates/play-gui",
+    "crates/play-gui/curl-helper",
     "crates/play-https",
     "crates/play-integration/play-integration-xiaozhi",
     "crates/play-lua",
@@ -9,7 +11,6 @@ members = [
     "crates/play-redis",
     "crates/play-server",
     "crates/play-shared",
-    "crates/play-ui",
     "crates/play-web-terminal",
     "crates/play-dylib/play-dylib-abi",
     "crates/play-dylib/play-dylib-example",
@@ -42,7 +43,6 @@ log = "0.4"
 play-dylib-abi={path= "crates/play-dylib/play-dylib-abi" }
 play-shared={path= "crates/play-shared" }
 play-macros={path= "crates/play-macros"}
-play-ui = { path = "crates/play-ui"}
 play-https = { path = "crates/play-https"}
 play-dylib-loader = { path = "crates/play-dylib/play-dylib-loader"}
 play-lua = { path = "crates/play-lua"}
