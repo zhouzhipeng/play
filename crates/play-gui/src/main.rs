@@ -150,32 +150,6 @@ impl PlayGuiApp {
                     return;
                 }
 
-                let title = window.runtime.display_name();
-                let package_name = window.runtime.package_name();
-                let mut request_close = false;
-
-                egui::TopBottomPanel::top(format!("play_gui_tool_toolbar_{}", window.id))
-                    .frame(
-                        egui::Frame::side_top_panel(&tool_ctx.style())
-                            .inner_margin(egui::Margin::symmetric(12.0, 10.0)),
-                    )
-                    .show(tool_ctx, |ui| {
-                        ui.horizontal(|ui| {
-                            if ui.button("Close").clicked() {
-                                request_close = true;
-                            }
-                            ui.separator();
-                            ui.heading(title);
-                            ui.label(format!("package: {package_name}"));
-                        });
-                    });
-
-                if request_close {
-                    window.open = false;
-                    tool_ctx.send_viewport_cmd(ViewportCommand::Close);
-                    return;
-                }
-
                 window.runtime.show(tool_ctx);
             });
         }
