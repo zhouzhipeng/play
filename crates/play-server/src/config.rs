@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use std::collections::BTreeMap;
 use std::path::Path;
 use std::{env, fs};
 
@@ -39,6 +40,8 @@ pub struct Config {
     pub cache_config: CacheConfig,
     #[serde(default)]
     pub plugin_config: Vec<PluginConfig>,
+    #[serde(default)]
+    pub frp_server: FrpServerConfig,
 
     #[cfg(feature = "play-integration-xiaozhi")]
     #[serde(default)]
@@ -192,8 +195,180 @@ pub struct MiscConfig {
     pub github_token: String,
 }
 
+#[derive(Deserialize, Serialize, Debug, Clone, Copy, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum FrpServiceType {
+    #[default]
+    Tcp,
+    Udp,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, Copy, Default)]
+pub enum FrpTransportType {
+    #[default]
+    #[serde(rename = "tcp")]
+    Tcp,
+    #[serde(rename = "tls")]
+    Tls,
+    #[serde(rename = "noise")]
+    Noise,
+    #[serde(rename = "websocket")]
+    Websocket,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, Default)]
+pub struct FrpServerServiceConfig {
+    #[serde(rename = "type", default)]
+    pub service_type: FrpServiceType,
+    #[serde(default)]
+    pub bind_addr: String,
+    #[serde(default)]
+    pub token: Option<String>,
+    #[serde(default)]
+    pub nodelay: Option<bool>,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, Default)]
+pub struct FrpTlsConfig {
+    #[serde(default)]
+    pub hostname: Option<String>,
+    #[serde(default)]
+    pub trusted_root: Option<String>,
+    #[serde(default)]
+    pub pkcs12: Option<String>,
+    #[serde(default)]
+    pub pkcs12_password: Option<String>,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct FrpNoiseConfig {
+    #[serde(default = "default_frp_noise_pattern")]
+    pub pattern: String,
+    #[serde(default)]
+    pub local_private_key: Option<String>,
+    #[serde(default)]
+    pub remote_public_key: Option<String>,
+}
+
+impl Default for FrpNoiseConfig {
+    fn default() -> Self {
+        Self {
+            pattern: default_frp_noise_pattern(),
+            local_private_key: None,
+            remote_public_key: None,
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, Default)]
+pub struct FrpWebsocketConfig {
+    #[serde(default)]
+    pub tls: bool,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct FrpTcpConfig {
+    #[serde(default = "default_frp_nodelay")]
+    pub nodelay: bool,
+    #[serde(default = "default_frp_keepalive_secs")]
+    pub keepalive_secs: u64,
+    #[serde(default = "default_frp_keepalive_interval")]
+    pub keepalive_interval: u64,
+    #[serde(default)]
+    pub proxy: Option<String>,
+}
+
+impl Default for FrpTcpConfig {
+    fn default() -> Self {
+        Self {
+            nodelay: default_frp_nodelay(),
+            keepalive_secs: default_frp_keepalive_secs(),
+            keepalive_interval: default_frp_keepalive_interval(),
+            proxy: None,
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, Default)]
+pub struct FrpTransportConfig {
+    #[serde(rename = "type", default)]
+    pub transport_type: FrpTransportType,
+    #[serde(default)]
+    pub tcp: FrpTcpConfig,
+    #[serde(default)]
+    pub tls: Option<FrpTlsConfig>,
+    #[serde(default)]
+    pub noise: Option<FrpNoiseConfig>,
+    #[serde(default)]
+    pub websocket: Option<FrpWebsocketConfig>,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct FrpServerConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_frp_server_bind_addr")]
+    pub bind_addr: String,
+    #[serde(default)]
+    pub default_token: Option<String>,
+    #[serde(default)]
+    pub services: BTreeMap<String, FrpServerServiceConfig>,
+    #[serde(default)]
+    pub transport: FrpTransportConfig,
+    #[serde(default = "default_frp_heartbeat_interval")]
+    pub heartbeat_interval: u64,
+}
+
+impl Default for FrpServerConfig {
+    fn default() -> Self {
+        let mut services = BTreeMap::new();
+        services.insert(
+            "demo_http".to_string(),
+            FrpServerServiceConfig {
+                service_type: FrpServiceType::Tcp,
+                bind_addr: "0.0.0.0:8081".to_string(),
+                token: None,
+                nodelay: None,
+            },
+        );
+
+        Self {
+            enabled: false,
+            bind_addr: default_frp_server_bind_addr(),
+            default_token: Some("change_this_token".to_string()),
+            services,
+            transport: FrpTransportConfig::default(),
+            heartbeat_interval: default_frp_heartbeat_interval(),
+        }
+    }
+}
+
 fn default_log_level() -> String {
     "INFO".to_string()
+}
+
+fn default_frp_server_bind_addr() -> String {
+    "0.0.0.0:2333".to_string()
+}
+
+fn default_frp_heartbeat_interval() -> u64 {
+    30
+}
+
+fn default_frp_noise_pattern() -> String {
+    "Noise_NK_25519_ChaChaPoly_BLAKE2s".to_string()
+}
+
+fn default_frp_nodelay() -> bool {
+    true
+}
+
+fn default_frp_keepalive_secs() -> u64 {
+    20
+}
+
+fn default_frp_keepalive_interval() -> u64 {
+    8
 }
 
 #[derive(Deserialize, Debug, Clone, Default)]
@@ -226,6 +401,15 @@ log_level = "DEBUG"
 
 [database]
 url=":memory:"
+
+[frp_server]
+enabled = false
+bind_addr = "0.0.0.0:2333"
+default_token = "change_this_token"
+heartbeat_interval = 30
+
+[frp_server.services.demo_http]
+bind_addr = "0.0.0.0:8081"
 
 "#;
         fs::write(&final_path, default_config)?;

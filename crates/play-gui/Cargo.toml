@@ -1,0 +1,14 @@
+[package]
+name = "play-gui"
+version = "0.1.0"
+edition = "2021"
+description = "Unified desktop entry for Play tools"
+
+[[bin]]
+name = "play-gui"
+path = "src/main.rs"
+
+[dependencies]
+curl-helper = { path = "curl-helper" }
+frp-client = { path = "frp-client" }
+eframe = "0.29"
