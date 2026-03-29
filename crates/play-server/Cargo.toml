@@ -7,9 +7,10 @@ description = "a play tool using rust"
 
 [features]
 default = []
-debug = ["play-lua"]
+debug = ["play-lua","frp-server"]
 use_mysql = ["sqlx/mysql", "play-shared/sqlparser"]
-server = ["play-dylib-loader","play-lua","play-redis"]
+server = ["play-dylib-loader","play-lua","play-redis","frp-server"]
+frp-server = ["dep:rathole"]
 
 
 [build-dependencies]
@@ -32,7 +33,8 @@ play-lua = { workspace = true , optional = true}
 play-redis = { workspace = true, optional = true }
 play-mcp = { workspace = true }
 play-integration-xiaozhi = { workspace = true, optional = true }
-play-web-terminal = { workspace = true }
+play-terminal = { workspace = true }
+rathole = { workspace = true, optional = true, features = ["server", "client", "noise", "hot-reload", "rustls", "websocket-rustls"] }
 
 
 # utils

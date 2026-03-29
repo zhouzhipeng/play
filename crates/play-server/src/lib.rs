@@ -58,6 +58,7 @@ use tracing_subscriber::util::SubscriberInitExt;
 pub mod config;
 pub mod controller;
 pub mod extractor;
+mod frp;
 pub mod layer;
 pub mod service;
 pub mod tables;
@@ -414,7 +415,7 @@ pub async fn routers(app_state: Arc<AppState>) -> anyhow::Result<Router<Arc<AppS
         .merge(shortlink_controller::init(app_state.clone()))
         .merge(plugin_controller::init(app_state.clone()))
         .merge(app_routers())
-        .merge(play_web_terminal::create_router::<Arc<AppState>>());
+        .merge(play_terminal::create_router::<Arc<AppState>>());
 
     // Add Redis routes if feature is enabled and client was initialized successfully
     #[cfg(feature = "play-redis")]
@@ -750,7 +751,14 @@ pub async fn start_server_with_config(data_dir: String, config: &Config) -> anyh
         }
     }
 
+    let frp_handle = frp::maybe_start_frp_server(&config.frp_server).await?;
+
     start_server(router, app_state).await?;
+
+    if let Some(handle) = frp_handle {
+        handle.shutdown().await;
+    }
+
     Ok(())
 }
 

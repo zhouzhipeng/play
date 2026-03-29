@@ -14,4 +14,4 @@ AWS_LC_SYS_PREBUILT_NASM = "1"
 
 [alias]
 dev_server = "build --locked --package play-server --release --features=server"
-dev_gui = "build --locked --package play-gui --package curl-helper --release"
+dev_gui = "build --locked --package play-gui --release"

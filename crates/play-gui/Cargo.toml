@@ -9,9 +9,6 @@ name = "play-gui"
 path = "src/main.rs"
 
 [dependencies]
-anyhow = { workspace = true }
-
+curl-helper = { path = "curl-helper" }
+frp-client = { path = "frp-client" }
 eframe = "0.29"
-
-[build-dependencies]
-toml = { workspace = true }

@@ -3,6 +3,7 @@ resolver="2"
 members = [
     "crates/play-gui",
     "crates/play-gui/curl-helper",
+    "crates/play-gui/frp-client",
     "crates/play-https",
     "crates/play-integration/play-integration-xiaozhi",
     "crates/play-lua",
@@ -11,7 +12,7 @@ members = [
     "crates/play-redis",
     "crates/play-server",
     "crates/play-shared",
-    "crates/play-web-terminal",
+    "crates/play-terminal",
     "crates/play-dylib/play-dylib-abi",
     "crates/play-dylib/play-dylib-example",
     "crates/play-dylib/play-dylib-loader",
@@ -55,7 +56,8 @@ play-utils-blockchain = { path = "crates/play-utils/play-utils-blockchain"}
 play-utils-data-api = { path = "crates/play-utils/play-utils-data-api"}
 play-utils-strings = { path = "crates/play-utils/play-utils-strings"}
 play-integration-xiaozhi = { path = "crates/play-integration/play-integration-xiaozhi"}
-play-web-terminal = { path = "crates/play-web-terminal"}
+play-terminal = { path = "crates/play-terminal"}
+rathole = { path = "third_party/rathole", default-features = false }
 
 # Additional common dependencies
 async-trait = "0.1"

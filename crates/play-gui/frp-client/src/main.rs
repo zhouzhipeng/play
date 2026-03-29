@@ -1,3 +1,3 @@
 fn main() -> eframe::Result {
-    curl_helper::run()
+    frp_client::run()
 }

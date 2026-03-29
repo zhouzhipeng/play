@@ -7,6 +7,9 @@ edition = "2021"
 display-name = "Curl Helper"
 description = "Manage, organize, and run curl commands in a desktop client"
 
+[lib]
+path = "src/lib.rs"
+
 [[bin]]
 name = "curl-helper"
 path = "src/main.rs"

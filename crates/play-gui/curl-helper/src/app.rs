@@ -200,8 +200,8 @@ fn status_color(code: Option<i32>) -> egui::Color32 {
 // ── App impl ────────────────────────────────────────────────────────
 
 impl CurlHelperApp {
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        Self::setup_fonts(&cc.egui_ctx);
+    pub fn new(ctx: &egui::Context) -> Self {
+        Self::setup_fonts(ctx);
 
         let storage = Storage::new();
         let mut data = storage.load();
@@ -239,6 +239,85 @@ impl CurlHelperApp {
             dirty: false,
             theme_initialized: false,
         }
+    }
+
+    pub fn show(&mut self, ctx: &egui::Context) {
+        // Set dark theme once on first frame
+        if !self.theme_initialized {
+            ctx.set_visuals(egui::Visuals::dark());
+            ctx.send_viewport_cmd(egui::ViewportCommand::SetTheme(egui::SystemTheme::Dark));
+            self.theme_initialized = true;
+        }
+
+        self.check_results();
+
+        // Only repaint periodically while tasks are running (not every frame)
+        if !self.running.is_empty() {
+            ctx.request_repaint_after(std::time::Duration::from_millis(200));
+        }
+
+        // Toolbar
+        egui::TopBottomPanel::top("toolbar")
+            .frame(egui::Frame::side_top_panel(&ctx.style()).inner_margin(egui::Margin::symmetric(12.0, 8.0)))
+            .show(ctx, |ui| {
+                self.render_toolbar(ui);
+            });
+
+        // Groups
+        egui::SidePanel::left("groups_panel")
+            .resizable(true)
+            .default_width(130.0)
+            .min_width(100.0)
+            .max_width(220.0)
+            .frame(egui::Frame::side_top_panel(&ctx.style()).inner_margin(egui::Margin::same(8.0)))
+            .show(ctx, |ui| {
+                self.render_groups_panel(ui);
+            });
+
+        // Commands
+        egui::SidePanel::left("commands_panel")
+            .resizable(true)
+            .default_width(620.0)
+            .min_width(350.0)
+            .frame(egui::Frame::side_top_panel(&ctx.style()).inner_margin(egui::Margin::same(8.0)))
+            .show(ctx, |ui| {
+                self.render_left_panel(ui);
+            });
+
+        // Right: results
+        egui::CentralPanel::default()
+            .frame(egui::Frame::central_panel(&ctx.style()).inner_margin(egui::Margin::same(8.0)))
+            .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new("Results").size(15.0).strong());
+                    if !self.current_batch.is_empty() {
+                        let done = self.current_batch.iter().filter(|e| e.result.is_some()).count();
+                        let total = self.current_batch.len();
+                        ui.label(
+                            egui::RichText::new(format!("({}/{})", done, total))
+                                .size(13.0)
+                                .color(egui::Color32::from_rgb(130, 130, 130)),
+                        );
+                    }
+                });
+                ui.add_space(4.0);
+                self.render_results_panel(ui);
+            });
+
+        // Drag & drop overlay
+        self.handle_drag_drop(ctx);
+
+        // Find & Replace
+        if self.show_find_replace {
+            self.render_find_replace(ctx);
+        }
+
+        // Diff dialog
+        if self.show_diff {
+            self.render_diff_dialog(ctx);
+        }
+
+        self.auto_save();
     }
 
     fn setup_fonts(ctx: &egui::Context) {
@@ -1326,67 +1405,8 @@ impl CurlHelperApp {
 // ── eframe::App ─────────────────────────────────────────────────────
 
 impl eframe::App for CurlHelperApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Set dark theme once on first frame
-        if !self.theme_initialized {
-            ctx.set_visuals(egui::Visuals::dark());
-            ctx.send_viewport_cmd(egui::ViewportCommand::SetTheme(egui::SystemTheme::Dark));
-            self.theme_initialized = true;
-        }
-
-        self.check_results();
-
-        // Only repaint periodically while tasks are running (not every frame)
-        if !self.running.is_empty() {
-            ctx.request_repaint_after(std::time::Duration::from_millis(200));
-        }
-
-        // Toolbar
-        egui::TopBottomPanel::top("toolbar")
-            .frame(egui::Frame::side_top_panel(&ctx.style()).inner_margin(egui::Margin::symmetric(12.0, 8.0)))
-            .show(ctx, |ui| { self.render_toolbar(ui); });
-
-        // Groups
-        egui::SidePanel::left("groups_panel")
-            .resizable(true).default_width(130.0).min_width(100.0).max_width(220.0)
-            .frame(egui::Frame::side_top_panel(&ctx.style()).inner_margin(egui::Margin::same(8.0)))
-            .show(ctx, |ui| { self.render_groups_panel(ui); });
-
-        // Commands
-        egui::SidePanel::left("commands_panel")
-            .resizable(true).default_width(620.0).min_width(350.0)
-            .frame(egui::Frame::side_top_panel(&ctx.style()).inner_margin(egui::Margin::same(8.0)))
-            .show(ctx, |ui| { self.render_left_panel(ui); });
-
-        // Right: results
-        egui::CentralPanel::default()
-            .frame(egui::Frame::central_panel(&ctx.style()).inner_margin(egui::Margin::same(8.0)))
-            .show(ctx, |ui| {
-                ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new("Results").size(15.0).strong());
-                    if !self.current_batch.is_empty() {
-                        let done = self.current_batch.iter().filter(|e| e.result.is_some()).count();
-                        let total = self.current_batch.len();
-                        ui.label(
-                            egui::RichText::new(format!("({}/{})", done, total))
-                                .size(13.0)
-                                .color(egui::Color32::from_rgb(130, 130, 130)),
-                        );
-                    }
-                });
-                ui.add_space(4.0);
-                self.render_results_panel(ui);
-            });
-
-        // Drag & drop overlay
-        self.handle_drag_drop(ctx);
-
-        // Find & Replace
-        if self.show_find_replace { self.render_find_replace(ctx); }
-
-        // Diff dialog
-        if self.show_diff { self.render_diff_dialog(ctx); }
-
-        self.auto_save();
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        let _ = frame;
+        self.show(ctx);
     }
 }
