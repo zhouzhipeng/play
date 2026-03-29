@@ -1,7 +1,7 @@
-use std::path::PathBuf;
 use axum::body::Body;
 use axum::extract::Query;
 use axum::response::{Html, IntoResponse, Response};
+use std::path::PathBuf;
 // removed dioxus usage; render pure HTML
 use serde::Deserialize;
 // serde_json available elsewhere if needed; not used here
@@ -11,15 +11,16 @@ use tracing::{info, warn};
 
 use play_shared::constants::CAT_FINGERPRINT;
 
-use crate::{method_router, return_error};
-use crate::{HTML, R, S};
 use crate::config::get_config_path;
 use crate::controller::admin_controller::shutdown;
 use crate::controller::pages_controller::PageDto;
 use crate::tables::general_data::GeneralData;
+use crate::{method_router, return_error};
+use crate::{HTML, R, S};
 
 method_router!(
     get : "/"-> root,
+    get : "/dashboard"-> dashboard,
     get : "/robots.txt"-> robots,
     get : "/ping"-> ping,
     get : "/save-fingerprint"-> save_fingerprint,
@@ -27,21 +28,18 @@ method_router!(
     get : "/download-config"-> serve_config_file,
 );
 
+static INDEX_HTML: &str = include_str!("templates/index.html");
+static DASHBOARD_HTML: &str = include_str!("templates/dashboard.html");
 
-static INDEX_NEW_HTML : &str = include_str!("templates/index-new.html");
-
-static ROBOTS_TXT : &str = include_str!("templates/robots.txt");
+static ROBOTS_TXT: &str = include_str!("templates/robots.txt");
 
 async fn robots() -> R<String> {
     Ok(ROBOTS_TXT.to_string())
 }
 
-
-fn has_extension(url: &str)->bool{
+fn has_extension(url: &str) -> bool {
     let p = PathBuf::from(&url);
-    let extension =p
-        .extension()
-        .and_then(|ext| ext.to_str());
+    let extension = p.extension().and_then(|ext| ext.to_str());
     extension.is_some()
 }
 
@@ -60,22 +58,28 @@ fn escape_html(input: &str) -> String {
     out
 }
 
-async fn root(s: S) -> HTML {
+async fn root(_s: S) -> HTML {
+    let built_time = env!("BUILT_TIME").parse::<i64>()?;
+    let html = INDEX_HTML.replace("{{built_time}}", built_time.to_string().as_str());
+    Ok(Html(html))
+}
+
+async fn dashboard(s: S) -> HTML {
     let built_time = env!("BUILT_TIME").parse::<i64>()?;
     // return_error!("test");
-    let data = GeneralData::query_by_cat("title,url", "pages",1000, &s.db).await?;
-    let pages = data.iter()
-        .map(|p|serde_json::from_str::<PageDto>(&p.data).unwrap())
-        .filter(|p|
-            p.url.ends_with(".html")  || !has_extension(p.url.as_str())
-        )
+    let data = GeneralData::query_by_cat("title,url", "pages", 1000, &s.db).await?;
+    let pages = data
+        .iter()
+        .map(|p| serde_json::from_str::<PageDto>(&p.data).unwrap())
+        .filter(|p| p.url.ends_with(".html") || !has_extension(p.url.as_str()))
         .collect::<Vec<PageDto>>();
 
     // Build the inner content HTML (modern layout)
     let mut content = String::new();
 
     // Quick Actions Section with compact card grid
-    content.push_str(r#"
+    content.push_str(
+        r#"
         <section class="section">
             <div class="section-header">
                 <h2>
@@ -126,13 +130,7 @@ async fn root(s: S) -> HTML {
                         <div class="card-description">Schedule tasks</div>
                     </div>
                 </a>
-                <a class="card" href="/admin/translator">
-                    <div class="card-icon">🌐</div>
-                    <div class="card-content">
-                        <div class="card-title">Translator</div>
-                        <div class="card-description">Translate text</div>
-                    </div>
-                </a>
+
                 <a class="card" href="/static/shortlink-manager.html">
                     <div class="card-icon">🔗</div>
                     <div class="card-content">
@@ -140,13 +138,22 @@ async fn root(s: S) -> HTML {
                         <div class="card-description">Manage URLs</div>
                     </div>
                 </a>
+                <a class="card" href="/static/data-manager.html">
+                    <div class="card-icon">🗃️</div>
+                    <div class="card-content">
+                        <div class="card-title">Data Manager</div>
+                        <div class="card-description">Query and edit data</div>
+                    </div>
+                </a>
             </div>
         </section>
-    "#);
+    "#,
+    );
 
     // Short links section with modern chips
     if !s.config.shortlinks.is_empty() {
-        content.push_str(r#"
+        content.push_str(
+            r#"
             <section class="section">
                 <div class="section-header">
                     <h2>
@@ -155,18 +162,23 @@ async fn root(s: S) -> HTML {
                     </h2>
                 </div>
                 <div class="chips-container">
-        "#);
+        "#,
+        );
         for item in &s.config.shortlinks {
             let href = escape_html(&item.from);
             let text = escape_html(item.from.trim_start_matches('/'));
-            content.push_str(&format!(r#"<a class="chip" target="_blank" href="{}">🔗 {}</a>"#, href, text));
+            content.push_str(&format!(
+                r#"<a class="chip" target="_blank" href="{}">🔗 {}</a>"#,
+                href, text
+            ));
         }
         content.push_str("</div></section>");
     }
 
-    // Business pages with modern list design
+    // Business pages - compact pill style
     if !pages.is_empty() {
-        content.push_str(r#"
+        content.push_str(
+            r#"
             <section class="section">
                 <div class="section-header">
                     <h2>
@@ -175,29 +187,55 @@ async fn root(s: S) -> HTML {
                     </h2>
                 </div>
                 <div class="pages-list">
-        "#);
-        for item in pages {
+        "#,
+        );
+        for (index, item) in pages.iter().enumerate() {
             let href = escape_html(&format!("/pages{}", item.url));
             let title = escape_html(&item.title);
-            content.push_str(&format!(r#"
-                <a class="page-item" href="{}">
-                    <div class="page-icon">📄</div>
-                    <div class="page-title">{}</div>
+
+            // Use different icons based on content
+            let icon = if item.url.contains("api") {
+                "⚡"
+            } else if item.url.contains("doc") {
+                "📖"
+            } else if item.url.contains("report") {
+                "📊"
+            } else if item.url.contains("admin") {
+                "⚙️"
+            } else {
+                "📄"
+            };
+
+            // Add badge for special pages
+            let has_badge = item.url.contains("new") || item.url.contains("beta") || index < 2;
+
+            content.push_str(&format!(
+                r#"
+                <a class="page-link" href="{}">
+                    <span class="page-link-icon">{}</span>
+                    <span class="page-link-text">{}</span>
+                    {}
                 </a>
-            "#, href, title));
+            "#,
+                href,
+                icon,
+                title,
+                if has_badge {
+                    r#"<span class="page-badge"></span>"#
+                } else {
+                    ""
+                }
+            ));
         }
         content.push_str("</div></section>");
     }
 
-    let html = INDEX_NEW_HTML.replace("{{content}}", &content)
+    let html = DASHBOARD_HTML
+        .replace("{{content}}", &content)
         .replace("{{built_time}}", built_time.to_string().as_str());
 
-
     Ok(Html(html))
-
 }
-
-
 
 async fn ping() -> R<String> {
     info!("ping");
@@ -205,29 +243,27 @@ async fn ping() -> R<String> {
 }
 
 #[derive(Deserialize, Debug)]
-struct SaveFingerPrintReq{
+struct SaveFingerPrintReq {
     fingerprint: String,
-    passcode: String
+    passcode: String,
 }
 
 async fn save_fingerprint(s: S, Query(req): Query<SaveFingerPrintReq>) -> R<String> {
     //check passcode
-    if &s.config.auth_config.passcode == &req.passcode{
+    if &s.config.auth_config.passcode == &req.passcode {
         //save fingerprint
         let r = GeneralData::insert(CAT_FINGERPRINT, &req.fingerprint, &s.db).await?;
         info!("save fingerprint result  : {:?}", r);
-    }else{
+    } else {
         warn!("passcode not matched. req : {:?}", req);
         return_error!("passcode not matched.")
     }
 
     tokio::spawn(async {
-       shutdown();
+        shutdown();
     });
     Ok("save ok,will reboot in a sec.".to_string())
 }
-
-
 
 async fn serve_db_file(s: S) -> impl IntoResponse {
     let raw = s.config.database.url.to_string();

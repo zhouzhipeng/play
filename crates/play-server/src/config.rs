@@ -1,19 +1,20 @@
-use std::{env, fs};
-use std::path::Path;
 use anyhow::anyhow;
+use std::collections::BTreeMap;
+use std::path::Path;
+use std::{env, fs};
 
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use tracing::{error, info};
 
-use play_shared::{ file_path};
-use play_shared::constants::DATA_DIR;
 use crate::render_template_new;
+use play_shared::constants::DATA_DIR;
+use play_shared::file_path;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Config {
-    #[serde(default="default_log_level")]
+    #[serde(default = "default_log_level")]
     pub log_level: String,
     pub server_port: u32,
     #[serde(default)]
@@ -39,14 +40,15 @@ pub struct Config {
     pub cache_config: CacheConfig,
     #[serde(default)]
     pub plugin_config: Vec<PluginConfig>,
+    #[serde(default)]
+    pub frp_server: FrpServerConfig,
 
     #[cfg(feature = "play-integration-xiaozhi")]
     #[serde(default)]
     pub mcp_config: play_integration_xiaozhi::McpConfig,
-
 }
 
-#[derive(Deserialize,Serialize, Debug, Clone, Default)]
+#[derive(Deserialize, Serialize, Debug, Clone, Default)]
 pub struct CacheConfig {
     #[serde(default)]
     pub cf_token: String,
@@ -54,7 +56,7 @@ pub struct CacheConfig {
     pub cf_purge_cache_url: String,
 }
 
-#[derive(Deserialize,Serialize, Debug, Clone, Default)]
+#[derive(Deserialize, Serialize, Debug, Clone, Default)]
 pub struct PluginConfig {
     #[serde(default)]
     pub proxy_domain: String,
@@ -73,9 +75,8 @@ pub struct PluginConfig {
     pub disable: bool,
     #[serde(default)]
     pub create_process: bool,
-
 }
-#[derive(Deserialize,Serialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct DomainProxy {
     #[serde(default)]
     pub proxy_domain: String,
@@ -112,7 +113,7 @@ impl Default for OriginStrategy {
     }
 }
 
-#[derive(Deserialize,Serialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct WebSocketConfig {
     /// WebSocket Origin处理策略
     #[serde(default)]
@@ -131,7 +132,7 @@ impl Default for WebSocketConfig {
     }
 }
 
-#[derive(Deserialize,Serialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(tag = "type")]
 pub enum ProxyTarget {
     #[serde(rename = "folder")]
@@ -169,7 +170,7 @@ fn default_proxy_port() -> u16 {
     80
 }
 
-#[derive(Deserialize,Serialize, Debug, Clone, Default)]
+#[derive(Deserialize, Serialize, Debug, Clone, Default)]
 pub struct ShortLink {
     pub from: String,
     pub to: String,
@@ -185,7 +186,6 @@ pub struct AuthConfig {
     pub fingerprints: Vec<String>,
     pub whitelist: Vec<String>,
     pub passcode: String,
-
 }
 #[derive(Deserialize, Debug, Clone, Default)]
 pub struct MiscConfig {
@@ -195,52 +195,237 @@ pub struct MiscConfig {
     pub github_token: String,
 }
 
+#[derive(Deserialize, Serialize, Debug, Clone, Copy, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum FrpServiceType {
+    #[default]
+    Tcp,
+    Udp,
+}
 
+#[derive(Deserialize, Serialize, Debug, Clone, Copy, Default)]
+pub enum FrpTransportType {
+    #[default]
+    #[serde(rename = "tcp")]
+    Tcp,
+    #[serde(rename = "tls")]
+    Tls,
+    #[serde(rename = "noise")]
+    Noise,
+    #[serde(rename = "websocket")]
+    Websocket,
+}
 
+#[derive(Deserialize, Serialize, Debug, Clone, Default)]
+pub struct FrpServerServiceConfig {
+    #[serde(rename = "type", default)]
+    pub service_type: FrpServiceType,
+    #[serde(default)]
+    pub bind_addr: String,
+    #[serde(default)]
+    pub token: Option<String>,
+    #[serde(default)]
+    pub nodelay: Option<bool>,
+}
 
+#[derive(Deserialize, Serialize, Debug, Clone, Default)]
+pub struct FrpTlsConfig {
+    #[serde(default)]
+    pub hostname: Option<String>,
+    #[serde(default)]
+    pub trusted_root: Option<String>,
+    #[serde(default)]
+    pub pkcs12: Option<String>,
+    #[serde(default)]
+    pub pkcs12_password: Option<String>,
+}
 
-fn default_log_level()->String{
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct FrpNoiseConfig {
+    #[serde(default = "default_frp_noise_pattern")]
+    pub pattern: String,
+    #[serde(default)]
+    pub local_private_key: Option<String>,
+    #[serde(default)]
+    pub remote_public_key: Option<String>,
+}
+
+impl Default for FrpNoiseConfig {
+    fn default() -> Self {
+        Self {
+            pattern: default_frp_noise_pattern(),
+            local_private_key: None,
+            remote_public_key: None,
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, Default)]
+pub struct FrpWebsocketConfig {
+    #[serde(default)]
+    pub tls: bool,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct FrpTcpConfig {
+    #[serde(default = "default_frp_nodelay")]
+    pub nodelay: bool,
+    #[serde(default = "default_frp_keepalive_secs")]
+    pub keepalive_secs: u64,
+    #[serde(default = "default_frp_keepalive_interval")]
+    pub keepalive_interval: u64,
+    #[serde(default)]
+    pub proxy: Option<String>,
+}
+
+impl Default for FrpTcpConfig {
+    fn default() -> Self {
+        Self {
+            nodelay: default_frp_nodelay(),
+            keepalive_secs: default_frp_keepalive_secs(),
+            keepalive_interval: default_frp_keepalive_interval(),
+            proxy: None,
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, Default)]
+pub struct FrpTransportConfig {
+    #[serde(rename = "type", default)]
+    pub transport_type: FrpTransportType,
+    #[serde(default)]
+    pub tcp: FrpTcpConfig,
+    #[serde(default)]
+    pub tls: Option<FrpTlsConfig>,
+    #[serde(default)]
+    pub noise: Option<FrpNoiseConfig>,
+    #[serde(default)]
+    pub websocket: Option<FrpWebsocketConfig>,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct FrpServerConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_frp_server_bind_addr")]
+    pub bind_addr: String,
+    #[serde(default)]
+    pub default_token: Option<String>,
+    #[serde(default)]
+    pub services: BTreeMap<String, FrpServerServiceConfig>,
+    #[serde(default)]
+    pub transport: FrpTransportConfig,
+    #[serde(default = "default_frp_heartbeat_interval")]
+    pub heartbeat_interval: u64,
+}
+
+impl Default for FrpServerConfig {
+    fn default() -> Self {
+        let mut services = BTreeMap::new();
+        services.insert(
+            "demo_http".to_string(),
+            FrpServerServiceConfig {
+                service_type: FrpServiceType::Tcp,
+                bind_addr: "0.0.0.0:8081".to_string(),
+                token: None,
+                nodelay: None,
+            },
+        );
+
+        Self {
+            enabled: false,
+            bind_addr: default_frp_server_bind_addr(),
+            default_token: Some("change_this_token".to_string()),
+            services,
+            transport: FrpTransportConfig::default(),
+            heartbeat_interval: default_frp_heartbeat_interval(),
+        }
+    }
+}
+
+fn default_log_level() -> String {
     "INFO".to_string()
+}
+
+fn default_frp_server_bind_addr() -> String {
+    "0.0.0.0:2333".to_string()
+}
+
+fn default_frp_heartbeat_interval() -> u64 {
+    30
+}
+
+fn default_frp_noise_pattern() -> String {
+    "Noise_NK_25519_ChaChaPoly_BLAKE2s".to_string()
+}
+
+fn default_frp_nodelay() -> bool {
+    true
+}
+
+fn default_frp_keepalive_secs() -> u64 {
+    20
+}
+
+fn default_frp_keepalive_interval() -> u64 {
+    8
 }
 
 #[derive(Deserialize, Debug, Clone, Default)]
 pub struct HttpsCert {
     pub https_port: u16,
     #[serde(default)]
-    pub auto_redirect : bool,
+    pub auto_redirect: bool,
     /// first domain is main domain ,other domain will serve folder under $files/$domain_name
     pub domains: Vec<String>,
     pub emails: Vec<String>,
-
 }
-
-
-
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Database {
     pub url: String,
 }
 
-
 const CONFIG: &str = include_str!(file_path!("/config.toml"));
 
-pub async  fn read_config_file(render_lua: bool)->anyhow::Result<String>{
+pub async fn read_config_file(render_lua: bool) -> anyhow::Result<String> {
     let file_path = format!("config.toml");
     let final_path = Path::new(env::var(DATA_DIR)?.as_str()).join(file_path.as_str());
 
     // info!("config path : {:?}", final_path);
+
+    // If config file doesn't exist, create it with default content
+    if !final_path.exists() {
+        let default_config = r#"server_port = 3000
+log_level = "DEBUG"
+
+[database]
+url=":memory:"
+
+[frp_server]
+enabled = false
+bind_addr = "0.0.0.0:2333"
+default_token = "change_this_token"
+heartbeat_interval = 30
+
+[frp_server.services.demo_http]
+bind_addr = "0.0.0.0:8081"
+
+"#;
+        fs::write(&final_path, default_config)?;
+        info!("Created default config file at {:?}", final_path);
+    }
+
     let mut content = fs::read_to_string(&final_path)?;
 
-     if render_lua{
-         // run lua template
+    if render_lua {
+        // run lua template
         content = render_template_new(&content, json!({})).await?
     }
 
     Ok(content)
-
 }
-pub fn save_config_file(content: &str)->anyhow::Result<()>{
+pub fn save_config_file(content: &str) -> anyhow::Result<()> {
     let file_path = format!("config.toml");
     let final_path = Path::new(env::var(DATA_DIR)?.as_str()).join(file_path.as_str());
 
@@ -248,10 +433,9 @@ pub fn save_config_file(content: &str)->anyhow::Result<()>{
 
     fs::write(&final_path, content)?;
     Ok(())
-
 }
 
-pub fn get_config_path()->anyhow::Result<String>{
+pub fn get_config_path() -> anyhow::Result<String> {
     let file_path = format!("config.toml");
     let final_path = Path::new(env::var(DATA_DIR)?.as_str()).join(file_path.as_str());
 
@@ -260,9 +444,9 @@ pub fn get_config_path()->anyhow::Result<String>{
 }
 
 pub async fn init_config(render_lua: bool) -> anyhow::Result<Config> {
-    let config_content =  read_config_file(render_lua).await?;
+    let config_content = read_config_file(render_lua).await?;
 
-    let  config: Config = toml::from_str(&config_content)?;
+    let config: Config = toml::from_str(&config_content)?;
     //println!("using config file  content >>  {:?}",  config);
     Ok(config)
 }
@@ -271,13 +455,16 @@ pub async fn init_config(render_lua: bool) -> anyhow::Result<Config> {
 mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
 
+    use super::*;
     use play_shared::constants::HOST;
     use play_shared::get_workspace_root;
-    use super::*;
 
     #[tokio::test]
-    async  fn test_read_config_file() -> anyhow::Result<()> {
-        env::set_var(DATA_DIR, format!("{}{}", get_workspace_root(), "/server/output_dir"));
+    async fn test_read_config_file() -> anyhow::Result<()> {
+        env::set_var(
+            DATA_DIR,
+            format!("{}{}", get_workspace_root(), "/server/output_dir"),
+        );
         env::set_var("HOST", "http://localhost:3000");
         let content = read_config_file(true).await?;
         println!("{}", content);

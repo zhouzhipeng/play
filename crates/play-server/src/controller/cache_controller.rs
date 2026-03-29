@@ -1,13 +1,13 @@
-use std::time::Duration;
-use anyhow::{bail, ensure};
 use crate::{files_dir, get_file_modify_time, method_router, HTML, S};
+use anyhow::{bail, ensure};
 use axum::body::HttpBody;
 use axum::extract::Query;
-use axum::Form;
 use axum::response::Html;
+use axum::Form;
 use http::Uri;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::time::Duration;
 use tokio::fs;
 use tokio::task::JoinHandle;
 use tracing::{error, info};
@@ -36,7 +36,12 @@ struct DeleteCacheParam {
 }
 
 pub fn generate_cache_key(uri: &Uri) -> String {
-    let mut s = format!("{}://{}{}", uri.scheme_str().unwrap_or_default(), uri.host().unwrap_or_default(), uri.path());
+    let mut s = format!(
+        "{}://{}{}",
+        uri.scheme_str().unwrap_or_default(),
+        uri.host().unwrap_or_default(),
+        uri.path()
+    );
     if s.ends_with("/") {
         s = s[0..s.len() - 1].to_string();
     }
@@ -47,9 +52,9 @@ pub fn generate_cache_key(uri: &Uri) -> String {
 
 pub(crate) const CACHE_FOLDER: &'static str = "__cache__";
 
-pub struct CacheContent{
-    pub cache_key : String,
-    pub cache_content : String,
+pub struct CacheContent {
+    pub cache_key: String,
+    pub cache_content: String,
     pub cache_time: i64,
 }
 
@@ -60,7 +65,7 @@ pub async fn get_cache_content(uri: &Uri) -> anyhow::Result<CacheContent> {
         let content = fs::read_to_string(&cache_path).await?;
 
         let cache_time = get_file_modify_time(&cache_path).await;
-        Ok(CacheContent{
+        Ok(CacheContent {
             cache_key: cache_file_name,
             cache_content: content,
             cache_time,
@@ -95,28 +100,40 @@ async fn delete_cache(Form(param): Form<DeleteCacheParam>) -> HTML {
     Ok(Html("Ok.".to_string()))
 }
 #[cfg(feature = "play-cache")]
-async fn update_cache_in_remote(s: S,param: &CacheRequestParam) -> anyhow::Result<()> {
+async fn update_cache_in_remote(s: S, param: &CacheRequestParam) -> anyhow::Result<()> {
     //upload to remote server
     let headers: Vec<&str> = param.header.split("=").collect();
-    ensure!(headers.len()==2, "header is configured wrong!");
+    ensure!(headers.len() == 2, "header is configured wrong!");
 
-    let client = reqwest::Client::builder().timeout(Duration::from_secs(10)).build()?;
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()?;
 
     //delete server cache
-    let resp = client.post(&param.delete_cache_url)
+    let resp = client
+        .post(&param.delete_cache_url)
         .header(headers[0], headers[1])
-        .form(&DeleteCacheParam { url: param.url.to_string()})
-        .send().await?;
+        .form(&DeleteCacheParam {
+            url: param.url.to_string(),
+        })
+        .send()
+        .await?;
 
-    info!("delete cache : {} , resp: {}", param.delete_cache_url, resp.status());
+    info!(
+        "delete cache : {} , resp: {}",
+        param.delete_cache_url,
+        resp.status()
+    );
 
     //delete cf cache
-    let resp = client.post(&s.config.cache_config.cf_purge_cache_url)
+    let resp = client
+        .post(&s.config.cache_config.cf_purge_cache_url)
         .header("Authorization", &s.config.cache_config.cf_token)
         // .json(&json!({"files": [&param.url]}))
         .json(&json!({"purge_everything": true}))
-        .send().await?;
-    info!("delete cf cache : resp: {}",  resp.status());
+        .send()
+        .await?;
+    info!("delete cf cache : resp: {}", resp.status());
 
     tokio::time::sleep(Duration::from_secs(5)).await;
 
@@ -124,20 +141,30 @@ async fn update_cache_in_remote(s: S,param: &CacheRequestParam) -> anyhow::Resul
     let html = play_cache::render_html_in_browser(&param.url).await?;
 
     //save cache
-    let resp = client.post(&param.save_cache_url)
+    let resp = client
+        .post(&param.save_cache_url)
         .header(headers[0], headers[1])
-        .form(&SaveCacheParam { url: param.url.to_string(), cache_content: html.to_string() })
-        .send().await?;
-    info!("cache result upload to : {} , resp: {}", param.save_cache_url, resp.status());
-
+        .form(&SaveCacheParam {
+            url: param.url.to_string(),
+            cache_content: html.to_string(),
+        })
+        .send()
+        .await?;
+    info!(
+        "cache result upload to : {} , resp: {}",
+        param.save_cache_url,
+        resp.status()
+    );
 
     //delete cf cache (again to make sure cache is latest)
-    let resp = client.post(&s.config.cache_config.cf_purge_cache_url)
+    let resp = client
+        .post(&s.config.cache_config.cf_purge_cache_url)
         .header("Authorization", &s.config.cache_config.cf_token)
         // .json(&json!({"files": [&param.url]}))
         .json(&json!({"purge_everything": true}))
-        .send().await?;
-    info!("delete cf cache again : resp: {}",  resp.status());
+        .send()
+        .await?;
+    info!("delete cf cache again : resp: {}", resp.status());
 
     tokio::time::sleep(Duration::from_secs(5)).await;
 
@@ -151,7 +178,7 @@ async fn update_cache_in_remote(s: S,param: &CacheRequestParam) -> anyhow::Resul
 async fn cache_html(s: S, Query(param): Query<CacheRequestParam>) -> HTML {
     let s_copy = s.clone();
     tokio::spawn(async move {
-        if let Err(e) = update_cache_in_remote(s_copy,&param).await {
+        if let Err(e) = update_cache_in_remote(s_copy, &param).await {
             error!("cache_html error: {:?}", e);
         }
     });
@@ -159,24 +186,21 @@ async fn cache_html(s: S, Query(param): Query<CacheRequestParam>) -> HTML {
     Ok(Html("ok".to_string()))
 }
 
-
 #[cfg(not(feature = "play-cache"))]
 async fn cache_html(Query(param): Query<CacheRequestParam>) -> HTML {
     Ok(Html("play-cache feature is disabled.".to_owned()))
 }
 
-
-
 #[cfg(test)]
 mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
 
-    use std::env;
-    use std::path::Path;
+    use super::*;
+    use crate::{init_log, mock_state};
     use anyhow::Context;
     use play_shared::constants::DATA_DIR;
-    use crate::{init_log, mock_state};
-    use super::*;
+    use std::env;
+    use std::path::Path;
 
     #[tokio::test]
     async fn test_get_cache() -> anyhow::Result<()> {
@@ -206,35 +230,53 @@ mod tests {
     }
     #[tokio::test]
     async fn test_get_cache_content() -> anyhow::Result<()> {
-        env::set_var(DATA_DIR, Path::new(env!("CARGO_MANIFEST_DIR")).join("output_dir"));
+        env::set_var(
+            DATA_DIR,
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("output_dir"),
+        );
         let r = get_cache_content(&"https://crab.rs".parse().unwrap()).await?;
         // println!("{r}");
         Ok(())
     }
     #[tokio::test]
     async fn test_save_cache() -> anyhow::Result<()> {
-        env::set_var(DATA_DIR, Path::new(env!("CARGO_MANIFEST_DIR")).join("output_dir"));
+        env::set_var(
+            DATA_DIR,
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("output_dir"),
+        );
 
         let resp = save_cache(Form(SaveCacheParam {
-            url: "https://crab.rs".to_string(), cache_content: "9999".to_string() })).await.unwrap();
+            url: "https://crab.rs".to_string(),
+            cache_content: "9999".to_string(),
+        }))
+        .await
+        .unwrap();
 
         assert_eq!(resp.0, "Ok.");
         Ok(())
     }
     #[tokio::test]
     async fn test_delete_cache() -> anyhow::Result<()> {
-        env::set_var(DATA_DIR, Path::new(env!("CARGO_MANIFEST_DIR")).join("output_dir"));
+        env::set_var(
+            DATA_DIR,
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("output_dir"),
+        );
 
         let resp = delete_cache(Form(DeleteCacheParam {
-            url: "https://crab.rs".to_string()
-        })).await.unwrap();
+            url: "https://crab.rs".to_string(),
+        }))
+        .await
+        .unwrap();
 
         assert_eq!(resp.0, "Ok.");
         Ok(())
     }
     #[tokio::test]
     async fn test_update_cache_in_remote() -> anyhow::Result<()> {
-        env::set_var(DATA_DIR, Path::new(env!("CARGO_MANIFEST_DIR")).join("output_dir"));
+        env::set_var(
+            DATA_DIR,
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("output_dir"),
+        );
 
         // init_log!();
         // let s = mock_state!();

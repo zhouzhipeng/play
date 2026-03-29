@@ -65,6 +65,37 @@
             margin-top: 15px;
             display: none;
         }
+
+        .progress-section {
+            margin-top: 15px;
+            display: none;
+        }
+
+        .progress-track {
+            width: 100%;
+            height: 12px;
+            border-radius: 999px;
+            background-color: #e5eef6;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            width: 0;
+            height: 100%;
+            background: linear-gradient(90deg, #1890ff, #36cfc9);
+            transition: width 0.2s ease;
+        }
+
+        .progress-text {
+            margin-top: 8px;
+            text-align: center;
+            font-size: 14px;
+            color: #595959;
+        }
+
+        .progress-text.error {
+            color: #cf1322;
+        }
     </style>
 </head>
 <body>
@@ -90,13 +121,60 @@
 
     </form>
 
+    <div id="progress-section" class="progress-section">
+        <div class="progress-track">
+            <div id="progress-bar" class="progress-bar"></div>
+        </div>
+        <div id="progress-text" class="progress-text">准备上传...</div>
+    </div>
     <div id="result-link"></div>
 </div>
 
 <script>
+    const progressSection = document.getElementById('progress-section');
+    const progressBar = document.getElementById('progress-bar');
+    const progressText = document.getElementById('progress-text');
+    const resultLink = document.getElementById('result-link');
+    const fileInput = document.querySelector('input[type="file"]');
+
     function dragOverHandler(event) {
         event.preventDefault();
         event.stopPropagation();
+    }
+
+    function formatBytes(bytes) {
+        if (!bytes) {
+            return '0 B';
+        }
+
+        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        let size = bytes;
+        let unitIndex = 0;
+
+        while (size >= 1024 && unitIndex < units.length - 1) {
+            size /= 1024;
+            unitIndex += 1;
+        }
+
+        const fixed = size >= 10 || unitIndex === 0 ? 0 : 1;
+        return size.toFixed(fixed) + ' ' + units[unitIndex];
+    }
+
+    function showProgress() {
+        progressSection.style.display = 'block';
+        progressText.classList.remove('error');
+    }
+
+    function updateProgress(percent, message) {
+        showProgress();
+        progressBar.style.width = percent + '%';
+        progressText.textContent = message;
+    }
+
+    function showError(message) {
+        showProgress();
+        progressText.classList.add('error');
+        progressText.textContent = message;
     }
 
     function dropHandler(event) {
@@ -126,22 +204,44 @@
         }
         xhr.open('POST', '/files/upload?' + params, true);
 
+        resultLink.style.display = 'none';
+        resultLink.innerHTML = '';
+        updateProgress(0, '开始上传...');
+
+        xhr.upload.onprogress = function(event) {
+            if (event.lengthComputable) {
+                var percent = Math.min(100, Math.round((event.loaded / event.total) * 100));
+                updateProgress(percent, '上传中 ' + percent + '% (' + formatBytes(event.loaded) + ' / ' + formatBytes(event.total) + ')');
+            } else {
+                updateProgress(0, '上传中...');
+            }
+        };
+
         xhr.onload = function() {
             if (xhr.status === 200) {
                 var response = xhr.responseText;
-                var link = document.getElementById('result-link');
                 let html_str="";
                 for(let uri of response.split(",")){
                     html_str+=`<a href="${uri}" target="_blank">${uri}</a><br/>`;
                 }
-                link.innerHTML = html_str;
-                link.style.display = 'block';
+                resultLink.innerHTML = html_str;
+                resultLink.style.display = 'block';
+                updateProgress(100, '上传完成');
             } else {
+                showError('文件上传失败!');
                 alert('文件上传失败!');
             }
         };
 
+        xhr.onerror = function() {
+            showError('上传失败，请检查网络或稍后重试。');
+        };
 
+        xhr.onloadend = function() {
+            if (fileInput) {
+                fileInput.value = '';
+            }
+        };
 
         xhr.send(formData);
     }

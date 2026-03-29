@@ -6,7 +6,12 @@ rustflags = ["-Awarnings"]  #keep it uncomment to make wasm build success
 [future-incompat-report]
 frequency = "never"
 
+[env]
+CMAKE = "C:\\Program Files\\CMake\\bin\\cmake.exe"
+AWS_LC_SYS_PREBUILT_NASM = "1"
+
 
 
 [alias]
 dev_server = "build --locked --package play-server --release --features=server"
+dev_gui = "build --locked --package play-gui --release"

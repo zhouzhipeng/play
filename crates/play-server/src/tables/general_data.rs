@@ -1,10 +1,10 @@
 use crate::promise;
+use anyhow::Context;
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json::{Map, Value};
 use sqlx::{Error, FromRow};
 use std::collections::HashMap;
-use anyhow::Context;
 use tracing::info;
 
 use crate::tables::{DBPool, DBQueryResult};
@@ -31,20 +31,20 @@ where
 }
 
 impl GeneralData {
-    pub fn to_flat_map(&self)->anyhow::Result<Map<String, Value>>{
-        let data_val:Value = serde_json::from_str(&self.data)?;
+    pub fn to_flat_map(&self) -> anyhow::Result<Map<String, Value>> {
+        let data_val: Value = serde_json::from_str(&self.data)?;
         let mut json_val = serde_json::to_value(&self)?;
         let mut json_val = json_val.as_object_mut().context("Invalid JSON object")?;
 
         json_val.remove("data");
-        for (k,v) in data_val.as_object().context("Invalid JSON object")? {
+        for (k, v) in data_val.as_object().context("Invalid JSON object")? {
             json_val.insert(k.to_string(), v.clone());
         }
 
         Ok(json_val.clone())
     }
-    pub fn extract_data(&self)->anyhow::Result<Map<String, Value>>{
-        let data_val:Value = serde_json::from_str(&self.data)?;
+    pub fn extract_data(&self) -> anyhow::Result<Map<String, Value>> {
+        let data_val: Value = serde_json::from_str(&self.data)?;
         Ok(data_val.as_object().context("Invalid JSON object")?.clone())
     }
     pub fn new(cat: String, data: String) -> Self {
@@ -90,10 +90,12 @@ impl GeneralData {
         r
     }
     pub async fn soft_delete_by_cat(cat: &str, pool: &DBPool) -> Result<DBQueryResult, Error> {
-        let r = sqlx::query("update  general_data set is_deleted=1, updated=CURRENT_TIMESTAMP WHERE cat =?")
-            .bind(cat)
-            .execute(pool)
-            .await;
+        let r = sqlx::query(
+            "update  general_data set is_deleted=1, updated=CURRENT_TIMESTAMP WHERE cat =?",
+        )
+        .bind(cat)
+        .execute(pool)
+        .await;
         r
     }
 
@@ -144,7 +146,11 @@ impl GeneralData {
         let sql = &format!(
             "SELECT {} FROM general_data where cat = ? {} and ({}) order by {} limit {}",
             Self::convert_fields(fields),
-            if include_deleted{""}else{" and is_deleted = 0"},
+            if include_deleted {
+                ""
+            } else {
+                " and is_deleted = 0"
+            },
             _where,
             order_by,
             limit
@@ -165,7 +171,11 @@ impl GeneralData {
     ) -> Result<u32, Error> {
         let sql = &format!(
             "SELECT count(1) FROM general_data where cat = ?  {} and ({}) ",
-            if include_deleted{""}else{" and is_deleted = 0"},
+            if include_deleted {
+                ""
+            } else {
+                " and is_deleted = 0"
+            },
             _where,
         );
         info!("sql : {}", sql);
@@ -177,6 +187,18 @@ impl GeneralData {
         let sql = "SELECT count(*) FROM general_data where cat = ?";
         let result: (i64,) = sqlx::query_as(sql).bind(cat).fetch_one(pool).await?;
         Ok(result.0)
+    }
+    pub async fn query_distinct_categories(
+        include_deleted: bool,
+        pool: &DBPool,
+    ) -> Result<Vec<String>, Error> {
+        let sql = if include_deleted {
+            "SELECT DISTINCT cat FROM general_data ORDER BY cat ASC"
+        } else {
+            "SELECT DISTINCT cat FROM general_data WHERE is_deleted = 0 ORDER BY cat ASC"
+        };
+        let rows: Vec<(String,)> = sqlx::query_as(sql).fetch_all(pool).await?;
+        Ok(rows.into_iter().map(|row| row.0).collect())
     }
     pub async fn query_by_cat_simple(
         cat: &str,
@@ -257,7 +279,6 @@ impl GeneralData {
         query_val: &str,
         pool: &DBPool,
     ) -> Result<DBQueryResult, Error> {
-
         let r = sqlx::query(format!("update  general_data set data = json_set(data, '$.{}', ?), updated=CURRENT_TIMESTAMP where id = ?", query_field).as_str())
             .bind(query_val)
             .bind(data_id)
@@ -285,7 +306,6 @@ impl GeneralData {
         data: &str,
         pool: &DBPool,
     ) -> Result<DBQueryResult, Error> {
-
         sqlx::query("update  general_data set data = ?, updated=CURRENT_TIMESTAMP where id = ?")
             .bind(data)
             .bind(data_id)

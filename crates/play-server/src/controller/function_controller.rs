@@ -10,8 +10,8 @@ use either::Either;
 use futures_core::Stream;
 use futures_util::{StreamExt, TryStreamExt};
 use hex::ToHex;
-use reqwest::ClientBuilder;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
+use reqwest::ClientBuilder;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
@@ -20,7 +20,7 @@ use sqlx::mysql::{MySqlPoolOptions, MySqlQueryResult, MySqlRow};
 use sqlx::Executor;
 use sqlx::{Column, Row};
 
-use crate::{promise, method_router, template};
+use crate::{method_router, promise, template};
 use crate::{render_fragment, Template, HTML, JSON, S};
 
 method_router!(
@@ -43,27 +43,41 @@ struct RenderTemplateReq {
 }
 
 async fn str_joiner(s: S, Form(data): Form<Data>) -> HTML {
-    render_fragment(&s, Template::DynamicTemplate {
-        name: "<string>".to_string(),
-        content: data.s,
-    }, json!({
-        "params":{}
-    })).await
+    render_fragment(
+        &s,
+        Template::DynamicTemplate {
+            name: "<string>".to_string(),
+            content: data.s,
+        },
+        json!({
+            "params":{}
+        }),
+    )
+    .await
 }
 
-
 async fn render_template(s: S, Form(data): Form<RenderTemplateReq>) -> HTML {
-    render_fragment(&s, Template::DynamicTemplate {
-        name: "<string>".to_string(),
-        content: data.raw_content ,
-    }, serde_json::from_str(&data.data)?).await
+    render_fragment(
+        &s,
+        Template::DynamicTemplate {
+            name: "<string>".to_string(),
+            content: data.raw_content,
+        },
+        serde_json::from_str(&data.data)?,
+    )
+    .await
 }
 
 async fn py_runner(s: S, Form(data): Form<Data>) -> HTML {
-    render_fragment(&s, Template::PythonCode {
-        name: "<tmp_code>".to_string(),
-        content: data.s,
-    }, json!({})).await
+    render_fragment(
+        &s,
+        Template::PythonCode {
+            name: "<tmp_code>".to_string(),
+            content: data.s,
+        },
+        json!({}),
+    )
+    .await
 }
 
 #[derive(Deserialize)]
@@ -84,14 +98,16 @@ struct HttpResponseData {
 }
 
 async fn run_http_request(s: S, Form(data): Form<HttpRequestData>) -> JSON<HttpResponseData> {
-    let client = ClientBuilder::new().timeout(Duration::from_secs(3)).build()?;
+    let client = ClientBuilder::new()
+        .timeout(Duration::from_secs(3))
+        .build()?;
 
     let mut headers = HeaderMap::new();
     let json_data: Value = serde_json::from_str(&data.headers)?;
     if let Value::Object(map) = json_data {
         for (k, v) in map {
             if let Value::String(v) = v {
-                let k =k.to_string();
+                let k = k.to_string();
                 let header_value = HeaderValue::from_str(&v)?;
                 headers.insert(HeaderName::from_str(&k)?, header_value);
             } else {
@@ -101,22 +117,33 @@ async fn run_http_request(s: S, Form(data): Form<HttpRequestData>) -> JSON<HttpR
     }
 
     let response = match data.method.as_str() {
-        "GET" => {
-            client.get(&data.url).headers(headers).send().await?
-        }
-        "DELETE" => {
-            client.delete(&data.url).headers(headers).send().await?
-        }
+        "GET" => client.get(&data.url).headers(headers).send().await?,
+        "DELETE" => client.delete(&data.url).headers(headers).send().await?,
         "POST" => {
-            client.post(&data.url).headers(headers).body(data.body).send().await?
+            client
+                .post(&data.url)
+                .headers(headers)
+                .body(data.body)
+                .send()
+                .await?
         }
         "PUT" => {
-            client.put(&data.url).headers(headers).body(data.body).send().await?
+            client
+                .put(&data.url)
+                .headers(headers)
+                .body(data.body)
+                .send()
+                .await?
         }
         "PATCH" => {
-            client.patch(&data.url).headers(headers).body(data.body).send().await?
+            client
+                .patch(&data.url)
+                .headers(headers)
+                .body(data.body)
+                .send()
+                .await?
         }
-        _ => return Err(anyhow!("Err >> method : {} not supported", data.method).into())
+        _ => return Err(anyhow!("Err >> method : {} not supported", data.method).into()),
     };
 
     let mut headers = HashMap::new();
@@ -133,7 +160,6 @@ async fn run_http_request(s: S, Form(data): Form<HttpRequestData>) -> JSON<HttpR
     }))
 }
 
-
 #[derive(Deserialize)]
 struct RunSqlRequest {
     url: String,
@@ -144,20 +170,23 @@ async fn run_sql(s: S, Form(data): Form<RunSqlRequest>) -> HTML {
     Ok(Html("use_mysql feature is disabled.".to_string()))
 }
 
-static DATA_TABLE_HTML : &str = include_str!("templates/data-table.html");
+static DATA_TABLE_HTML: &str = include_str!("templates/data-table.html");
 
 #[cfg(feature = "use_mysql")]
 async fn run_sql(s: S, Form(data): Form<RunSqlRequest>) -> HTML {
-
     let sql = &data.sql;
-    let is_query =  play_utils_sql_util::is_query_sql(sql);
+    let is_query = play_utils_sql_util::is_query_sql(sql);
     let data = query_mysql(&data.url.trim(), sql, is_query).await?;
     // println!("results >> {:?}", data);
 
-    template!(s, DATA_TABLE_HTML, json!({
-        "sql": sql,
-        "items" : data
-    }))
+    template!(
+        s,
+        DATA_TABLE_HTML,
+        json!({
+            "sql": sql,
+            "items" : data
+        })
+    )
 }
 
 #[derive(Deserialize, Serialize)]
@@ -184,16 +213,30 @@ fn default_with_ajax() -> i32 {
 }
 
 pub async fn text_compare(s: S, Form(mut data): Form<TextCompareReq>) -> HTML {
-    let client = ClientBuilder::new().timeout(Duration::from_secs(3)).build()?;
+    let client = ClientBuilder::new()
+        .timeout(Duration::from_secs(3))
+        .build()?;
 
-    if data.use_str_joiner{
-        data.text1 = str_joiner(s.clone(), Form(Data { s: data.text1.to_string() })).await?.0;
-        data.text2 = str_joiner(s, Form(Data { s: data.text2.to_string() })).await?.0;
-
+    if data.use_str_joiner {
+        data.text1 = str_joiner(
+            s.clone(),
+            Form(Data {
+                s: data.text1.to_string(),
+            }),
+        )
+        .await?
+        .0;
+        data.text2 = str_joiner(
+            s,
+            Form(Data {
+                s: data.text2.to_string(),
+            }),
+        )
+        .await?
+        .0;
     }
 
-
-    if data.format_json{
+    if data.format_json {
         //format json
         if let Ok(val) = serde_json::from_str::<Value>(&data.text1) {
             if let Ok(val) = serde_json::to_string_pretty(&val) {
@@ -207,33 +250,42 @@ pub async fn text_compare(s: S, Form(mut data): Form<TextCompareReq>) -> HTML {
         }
     }
 
-
-    let resp = client.post("https://text-compare.com/").form(&data).send().await?;
-    promise!(resp.status().is_success(), "call https://text-compare.com/ failed.");
+    let resp = client
+        .post("https://text-compare.com/")
+        .form(&data)
+        .send()
+        .await?;
+    promise!(
+        resp.status().is_success(),
+        "call https://text-compare.com/ failed."
+    );
     // info!("resp >> {}", resp.text().await?);
     let res_body = resp.json::<TextCompareRes>().await?;
-    Ok(Html(res_body.comparison.unwrap_or("<h2>No Diff!</h2>".to_string())))
+    Ok(Html(
+        res_body
+            .comparison
+            .unwrap_or("<h2>No Diff!</h2>".to_string()),
+    ))
     // Ok(Html("sfd".to_string()))
 }
 
-const CAT_OPENAI_THREAD: &str="openai_thread";
-
-
-
+const CAT_OPENAI_THREAD: &str = "openai_thread";
 
 #[cfg(feature = "use_mysql")]
 async fn query_mysql(url: &str, sql: &str, is_query: bool) -> anyhow::Result<Vec<Vec<String>>> {
     let db = MySqlPoolOptions::new()
         .max_connections(1)
         .acquire_timeout(Duration::from_secs(5))
-        .connect(url).await?;
+        .connect(url)
+        .await?;
 
     let mut conn = db.acquire().await?;
     let mut data = vec![];
     let mut column_handled = false;
     // conn.fetch_all()
     use futures_util::FutureExt;
-    let results: Vec<Either<MySqlQueryResult, MySqlRow>> = conn.fetch_many(sql).try_collect().boxed().await?;
+    let results: Vec<Either<MySqlQueryResult, MySqlRow>> =
+        conn.fetch_many(sql).try_collect().boxed().await?;
     for v in results {
         match v {
             Either::Left(r) => {
@@ -245,7 +297,10 @@ async fn query_mysql(url: &str, sql: &str, is_query: bool) -> anyhow::Result<Vec
             Either::Right(row) => {
                 if !column_handled {
                     column_handled = true;
-                    let column_data = (&row.columns()).iter().map(|column| column.name().to_string()).collect::<Vec<String>>();
+                    let column_data = (&row.columns())
+                        .iter()
+                        .map(|column| column.name().to_string())
+                        .collect::<Vec<String>>();
                     data.push(column_data);
                 }
                 let mut row_data = vec![];
@@ -263,16 +318,11 @@ async fn query_mysql(url: &str, sql: &str, is_query: bool) -> anyhow::Result<Vec
         }
     }
 
-
     Ok(data)
 }
-
 
 #[cfg(test)]
 mod test {
     use super::*;
     use crate::mock_state;
-
-
-
 }

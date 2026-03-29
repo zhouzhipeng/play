@@ -1,6 +1,9 @@
 [workspace]
 resolver="2"
 members = [
+    "crates/play-gui",
+    "crates/play-gui/curl-helper",
+    "crates/play-gui/frp-client",
     "crates/play-https",
     "crates/play-integration/play-integration-xiaozhi",
     "crates/play-lua",
@@ -9,8 +12,7 @@ members = [
     "crates/play-redis",
     "crates/play-server",
     "crates/play-shared",
-    "crates/play-ui",
-    "crates/play-web-terminal",
+    "crates/play-terminal",
     "crates/play-dylib/play-dylib-abi",
     "crates/play-dylib/play-dylib-example",
     "crates/play-dylib/play-dylib-loader",
@@ -19,6 +21,7 @@ members = [
     "crates/play-utils/play-utils-blockchain",
     "crates/play-utils/play-utils-data-api",
     "crates/play-utils/play-utils-strings",
+    "crates/play-db",
 ]
 default-members=["crates/play-server"]
 
@@ -26,6 +29,8 @@ default-members=["crates/play-server"]
 # don't use native tls / openssl !!!  use rustls instead.
 reqwest = { version = "0.12.9",default-features = false, features = ["json",  "rustls-tls"] }
 sqlx = {version = "0.8.2",features = ["runtime-tokio-rustls"]}
+rusqlite = { version = "0.32.1", features = ["bundled"] }
+
 
 ## common libs:-
 anyhow = { version = "1"}
@@ -39,7 +44,6 @@ log = "0.4"
 play-dylib-abi={path= "crates/play-dylib/play-dylib-abi" }
 play-shared={path= "crates/play-shared" }
 play-macros={path= "crates/play-macros"}
-play-ui = { path = "crates/play-ui"}
 play-https = { path = "crates/play-https"}
 play-dylib-loader = { path = "crates/play-dylib/play-dylib-loader"}
 play-lua = { path = "crates/play-lua"}
@@ -52,7 +56,8 @@ play-utils-blockchain = { path = "crates/play-utils/play-utils-blockchain"}
 play-utils-data-api = { path = "crates/play-utils/play-utils-data-api"}
 play-utils-strings = { path = "crates/play-utils/play-utils-strings"}
 play-integration-xiaozhi = { path = "crates/play-integration/play-integration-xiaozhi"}
-play-web-terminal = { path = "crates/play-web-terminal"}
+play-terminal = { path = "crates/play-terminal"}
+rathole = { path = "third_party/rathole", default-features = false }
 
 # Additional common dependencies
 async-trait = "0.1"

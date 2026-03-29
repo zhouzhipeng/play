@@ -1,0 +1,1430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Data Manager</title>
+    <link rel="icon" href="/static/icon.svg">
+    <script src="/static/js/data_api.js"></script>
+    <script src="/static/js/common.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+        :root {
+            --bg: #f3ede4;
+            --bg-alt: #f9f4ec;
+            --panel: #fffdf7;
+            --ink: #1f2933;
+            --muted: #5f6c76;
+            --accent: #0f766e;
+            --accent-strong: #ea580c;
+            --accent-soft: rgba(15, 118, 110, 0.12);
+            --warning: #b45309;
+            --danger: #b91c1c;
+            --border: #e3d7c7;
+            --shadow: 0 18px 40px rgba(35, 27, 18, 0.12);
+            --radius: 18px;
+            --radius-sm: 12px;
+            --transition: 200ms ease;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: 'Space Grotesk', 'Avenir Next', 'Segoe UI', sans-serif;
+            color: var(--ink);
+            background-image:
+                radial-gradient(circle at 10% 10%, rgba(14, 116, 144, 0.12), transparent 50%),
+                radial-gradient(circle at 85% 0%, rgba(234, 88, 12, 0.16), transparent 45%),
+                linear-gradient(180deg, #f8f1e7 0%, #f3ede4 45%, #efe6db 100%);
+            background-attachment: fixed;
+        }
+
+        .page {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 24px 80px;
+        }
+
+        .hero {
+            position: relative;
+            padding: 28px;
+            border-radius: var(--radius);
+            background: var(--panel);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+            align-items: flex-end;
+            justify-content: space-between;
+            overflow: hidden;
+            animation: fade-rise 600ms ease both;
+        }
+
+        .hero::after {
+            content: '';
+            position: absolute;
+            inset: auto 0 0 0;
+            height: 6px;
+            background: linear-gradient(90deg, var(--accent), var(--accent-strong));
+            opacity: 0.6;
+        }
+
+        .eyebrow {
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            font-size: 0.7rem;
+            color: var(--muted);
+            margin-bottom: 8px;
+        }
+
+        .hero h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            letter-spacing: -0.02em;
+        }
+
+        .hero p {
+            margin: 8px 0 0;
+            font-size: 1rem;
+            color: var(--muted);
+            max-width: 520px;
+        }
+
+        .hero-meta {
+            display: grid;
+            gap: 12px;
+        }
+
+        .meta-card {
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.7);
+        }
+
+        .meta-card span {
+            display: block;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--muted);
+        }
+
+        .meta-card code {
+            display: inline-block;
+            margin-top: 6px;
+            font-family: 'JetBrains Mono', 'SFMono-Regular', monospace;
+            font-size: 0.9rem;
+            background: var(--bg-alt);
+            padding: 4px 8px;
+            border-radius: 8px;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            gap: 24px;
+            margin-top: 28px;
+        }
+
+        .panel {
+            background: var(--panel);
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+            padding: 24px;
+            display: grid;
+            gap: 20px;
+            animation: fade-rise 700ms ease both;
+            animation-delay: var(--delay, 0ms);
+        }
+
+        .record-editor-panel {
+            padding: 0;
+            overflow: hidden;
+            background: transparent;
+        }
+
+        .editor-shell {
+            display: grid;
+            gap: 0;
+            background: #fffaf2;
+        }
+
+        .editor-top {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 24px;
+            background: #f6eddc;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .editor-top h2 {
+            margin: 0;
+            font-size: 1.6rem;
+        }
+
+        .editor-top p {
+            margin: 8px 0 0;
+            color: var(--muted);
+            max-width: 440px;
+        }
+
+        .editor-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .editor-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: #fff;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--muted);
+        }
+
+        .editor-chip strong {
+            font-size: 0.85rem;
+            text-transform: none;
+            letter-spacing: 0;
+            color: var(--ink);
+            font-weight: 600;
+        }
+
+        .tabs {
+            display: grid;
+            gap: 0;
+        }
+
+        .editor-tabs {
+            border: none;
+            border-radius: 0;
+            background: transparent;
+        }
+
+        .tab-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 12px 24px 0;
+            background: #f3e7d8;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .tab-button {
+            border: 1px solid transparent;
+            border-bottom: none;
+            border-radius: 12px 12px 0 0;
+            padding: 10px 18px;
+            background: transparent;
+            color: var(--muted);
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.18em;
+            cursor: pointer;
+            transition: background var(--transition), color var(--transition), border-color var(--transition);
+            position: relative;
+            top: 1px;
+        }
+
+        .tab-button[aria-selected="true"] {
+            background: #fffaf2;
+            color: var(--ink);
+            border-color: var(--border);
+        }
+
+        .tab-button:hover {
+            color: var(--ink);
+        }
+
+        .tab-button:focus-visible {
+            outline: 2px solid rgba(15, 118, 110, 0.3);
+            outline-offset: 2px;
+        }
+
+        .tab-panel {
+            display: none;
+            gap: 16px;
+            padding: 20px 24px 24px;
+            background: #fffaf2;
+        }
+
+        .tab-panel.active {
+            display: grid;
+            animation: fade-rise 400ms ease both;
+        }
+
+        .editor-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+            gap: 16px;
+            align-items: start;
+        }
+
+        .editor-grid-delete {
+            grid-template-columns: minmax(0, 1fr) minmax(0, 0.85fr);
+        }
+
+        .editor-card {
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            background: #fff;
+            padding: 16px;
+            display: grid;
+            gap: 12px;
+            box-shadow: 0 10px 18px rgba(31, 41, 51, 0.08);
+        }
+
+        .editor-card-title {
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.18em;
+            color: var(--muted);
+        }
+
+        .editor-card.danger {
+            background: rgba(185, 28, 28, 0.06);
+            border-color: rgba(185, 28, 28, 0.25);
+        }
+
+        .editor-card.danger .editor-card-title {
+            color: var(--danger);
+        }
+
+        .editor-card.danger p {
+            margin: 0;
+            color: #7f1d1d;
+        }
+
+        .editor-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .record-editor-panel .editor-note {
+            margin: 0 24px 24px;
+        }
+
+        .panel-header h2 {
+            margin: 0;
+            font-size: 1.4rem;
+        }
+
+        .panel-header p {
+            margin: 6px 0 0;
+            color: var(--muted);
+        }
+
+        .field-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+            align-items: start;
+        }
+
+        .field {
+            display: grid;
+            gap: 6px;
+        }
+
+        label {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--muted);
+        }
+
+        input,
+        textarea {
+            width: 100%;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 10px 12px;
+            font-size: 0.95rem;
+            font-family: inherit;
+            background: #fff;
+            transition: border-color var(--transition), box-shadow var(--transition);
+        }
+
+        input:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.15);
+        }
+
+        textarea {
+            min-height: 180px;
+            font-family: 'JetBrains Mono', 'SFMono-Regular', monospace;
+            background: #fffaf1;
+        }
+
+        .hint {
+            font-size: 0.8rem;
+            color: var(--muted);
+        }
+
+        .toggle-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 8px 14px;
+            background: rgba(255, 255, 255, 0.78);
+            font-size: 0.85rem;
+            box-shadow: 0 8px 18px rgba(31, 41, 51, 0.08);
+            transition: background var(--transition), box-shadow var(--transition), border-color var(--transition);
+        }
+
+        .toggle input {
+            appearance: none;
+            width: 42px;
+            height: 24px;
+            border-radius: 999px;
+            border: 1px solid #d7c9b6;
+            background: #efe5d7;
+            position: relative;
+            cursor: pointer;
+            transition: background var(--transition), border-color var(--transition), box-shadow var(--transition);
+        }
+
+        .toggle input::after {
+            content: '';
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #fff;
+            top: 2px;
+            left: 2px;
+            box-shadow: 0 6px 12px rgba(31, 41, 51, 0.18);
+            transition: transform var(--transition);
+        }
+
+        .toggle input:checked {
+            background: linear-gradient(135deg, #0f766e, #0d9488);
+            border-color: #0f766e;
+        }
+
+        .toggle input:checked::after {
+            transform: translateX(18px);
+        }
+
+        .toggle input:focus-visible {
+            outline: 2px solid rgba(15, 118, 110, 0.35);
+            outline-offset: 2px;
+        }
+
+        .toggle:hover {
+            background: #fffaf1;
+            border-color: #dccab2;
+            box-shadow: 0 10px 20px rgba(31, 41, 51, 0.12);
+        }
+
+        .toggle span {
+            font-size: 0.78rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .action-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .btn {
+            border: none;
+            border-radius: 999px;
+            padding: 10px 16px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform var(--transition), box-shadow var(--transition), background-color var(--transition);
+        }
+
+        .btn.primary {
+            background: var(--accent);
+            color: white;
+            box-shadow: 0 10px 25px rgba(15, 118, 110, 0.2);
+        }
+
+        .btn.ghost {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--ink);
+        }
+
+        .btn.danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn.small {
+            padding: 6px 12px;
+            font-size: 0.75rem;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 20px rgba(31, 41, 51, 0.12);
+        }
+
+        .results {
+            display: grid;
+            gap: 12px;
+        }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .results-header h3 {
+            margin: 0;
+            font-size: 1.1rem;
+        }
+
+        .results-header p {
+            margin: 4px 0 0;
+            color: var(--muted);
+        }
+
+        .table-wrap {
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            overflow: hidden;
+            background: white;
+            max-height: 360px;
+            overflow: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        th,
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        th {
+            position: sticky;
+            top: 0;
+            background: #f1e7d9;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 0.08em;
+            color: #4b5563;
+            z-index: 1;
+        }
+
+        td {
+            max-width: 240px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        tbody tr:hover {
+            background: #f6efe4;
+            cursor: pointer;
+        }
+
+        tbody tr.selected {
+            background: var(--accent-soft);
+        }
+
+        .response {
+            display: grid;
+            gap: 10px;
+        }
+
+        .response-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .response-header h3 {
+            margin: 0;
+        }
+
+        pre {
+            margin: 0;
+            padding: 16px;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            background: #1f2933;
+            color: #f9f4ed;
+            font-size: 0.85rem;
+            overflow: auto;
+            min-height: 160px;
+        }
+
+        .status {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            padding: 6px 10px;
+            border-radius: 999px;
+            border: 1px solid transparent;
+        }
+
+        .status.neutral {
+            color: var(--muted);
+            background: #f1e7d9;
+            border-color: var(--border);
+        }
+
+        .status.loading {
+            color: #0f766e;
+            background: rgba(15, 118, 110, 0.12);
+            border-color: rgba(15, 118, 110, 0.3);
+        }
+
+        .status.success {
+            color: #166534;
+            background: rgba(22, 101, 52, 0.12);
+            border-color: rgba(22, 101, 52, 0.3);
+        }
+
+        .status.error {
+            color: #b91c1c;
+            background: rgba(185, 28, 28, 0.12);
+            border-color: rgba(185, 28, 28, 0.3);
+        }
+
+        .editor-note {
+            padding: 12px 14px;
+            border-radius: 12px;
+            border: 1px dashed var(--border);
+            background: rgba(255, 255, 255, 0.6);
+            color: var(--muted);
+        }
+
+        .footer {
+            margin-top: 32px;
+            display: flex;
+            justify-content: space-between;
+            color: var(--muted);
+            font-size: 0.85rem;
+        }
+
+        @keyframes fade-rise {
+            from {
+                opacity: 0;
+                transform: translateY(16px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 980px) {
+            .layout {
+                grid-template-columns: 1fr;
+            }
+
+            .hero {
+                align-items: flex-start;
+            }
+        }
+
+        @media (max-width: 720px) {
+            .field-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .hero h1 {
+                font-size: 2rem;
+            }
+
+            .page {
+                padding: 24px 16px 60px;
+            }
+
+            pre {
+                font-size: 0.8rem;
+            }
+        }
+
+        @media (max-width: 900px) {
+            .editor-top {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .tab-list {
+                padding: 12px 16px 0;
+            }
+
+            .tab-panel {
+                padding: 18px 16px 20px;
+            }
+
+            .editor-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .record-editor-panel .editor-note {
+                margin: 0 16px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <header class="hero">
+            <div>
+                <div class="eyebrow">General Data API v4</div>
+                <h1>Data Manager</h1>
+                <p>Query, edit, and maintain JSON data across categories without leaving the dashboard.</p>
+            </div>
+            <div class="hero-meta">
+                <div class="meta-card">
+                    <span>Base URL</span>
+                    <code>/api/v4/data</code>
+                </div>
+                <div class="meta-card">
+                    <span>System Fields</span>
+                    <code>id, cat, created, updated, is_deleted</code>
+                </div>
+            </div>
+        </header>
+
+        <main class="layout">
+            <section class="panel" style="--delay: 80ms;">
+                <div class="panel-header">
+                    <h2>Explorer</h2>
+                    <p>Filter, slice, and preview data with the v4 query endpoints.</p>
+                </div>
+                <div class="field-grid">
+                    <div class="field">
+                        <label for="categoryInput">Category</label>
+                        <input id="categoryInput" type="text" list="categoryOptions" placeholder="products">
+                        <datalist id="categoryOptions"></datalist>
+                        <div class="hint" id="categoryHint">2-20 chars, letters, numbers, dash, underscore.</div>
+                    </div>
+                    <div class="field">
+                        <label for="getIdInput">Get by ID</label>
+                        <input id="getIdInput" type="number" min="1" placeholder="42">
+                    </div>
+                    <div class="field">
+                        <label for="selectInput">Select</label>
+                        <input id="selectInput" type="text" placeholder="name,price,active">
+                    </div>
+                    <div class="field">
+                        <label for="whereInput">Where</label>
+                        <input id="whereInput" type="text" placeholder="price>50 AND active=true">
+                    </div>
+                    <div class="field">
+                        <label for="orderByInput">Order By</label>
+                        <input id="orderByInput" type="text" placeholder="updated desc">
+                    </div>
+                    <div class="field">
+                        <label for="limitInput">Limit</label>
+                        <input id="limitInput" type="text" placeholder="0,10">
+                    </div>
+                </div>
+                <div class="toggle-row">
+                    <label class="toggle">
+                        <input type="checkbox" id="includeDeletedInput">
+                        <span>Include deleted</span>
+                    </label>
+                    <label class="toggle">
+                        <input type="checkbox" id="slimInput">
+                        <span>Slim data only</span>
+                    </label>
+                </div>
+                <div class="action-row">
+                    <button class="btn primary" id="queryBtn">Run Query</button>
+                    <button class="btn ghost" id="countBtn">Count</button>
+                    <button class="btn ghost" id="getBtn">Get</button>
+                </div>
+
+                <div class="results">
+                    <div class="results-header">
+                        <div>
+                            <h3>Results</h3>
+                            <p id="resultsMeta">No data loaded yet.</p>
+                        </div>
+                        <div class="action-row">
+                            <button class="btn ghost small" id="clearBtn">Clear</button>
+                            <button class="btn ghost small" id="copyBtn">Copy response</button>
+                        </div>
+                    </div>
+                    <div class="table-wrap">
+                        <table id="resultsTable">
+                            <thead>
+                                <tr>
+                                    <th>Waiting</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Run a query to load data.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="response">
+                    <div class="response-header">
+                        <h3>Response JSON</h3>
+                        <span id="statusBadge" class="status neutral">Idle</span>
+                    </div>
+                    <pre id="responseOutput">{}</pre>
+                </div>
+            </section>
+
+            <section class="panel record-editor-panel" style="--delay: 140ms;">
+                <div class="editor-shell">
+                    <div class="editor-top">
+                        <div>
+                            <h2>Record Editor</h2>
+                            <p>Create, update, or delete records. Click a result row to prefill the editor.</p>
+                        </div>
+                        <div class="editor-meta">
+                            <div class="editor-chip">Category <strong id="editorCategory">--</strong></div>
+                            <div class="editor-chip">Selected ID <strong id="editorSelectedId">--</strong></div>
+                        </div>
+                    </div>
+                    <div class="tabs editor-tabs" id="recordTabs">
+                        <div class="tab-list" role="tablist" aria-label="Record editor tabs">
+                            <button class="tab-button" role="tab" aria-selected="true" aria-controls="insertPanel" id="insertTab" data-tab="insert">Insert</button>
+                            <button class="tab-button" role="tab" aria-selected="false" aria-controls="updatePanel" id="updateTab" data-tab="update">Update</button>
+                            <button class="tab-button" role="tab" aria-selected="false" aria-controls="deletePanel" id="deleteTab" data-tab="delete">Delete</button>
+                        </div>
+                        <div class="tab-panel active" role="tabpanel" id="insertPanel" aria-labelledby="insertTab" data-tab="insert">
+                            <div class="editor-grid">
+                                <div class="editor-card">
+                                    <div class="editor-card-title">Insert options</div>
+                                    <div class="toggle-row">
+                                        <label class="toggle">
+                                            <input type="checkbox" id="uniqueInsertInput">
+                                            <span>Insert unique</span>
+                                        </label>
+                                    </div>
+                                    <div class="editor-actions">
+                                        <button class="btn primary" id="insertBtn">Insert</button>
+                                    </div>
+                                </div>
+                                <div class="editor-card">
+                                    <div class="field">
+                                        <label for="jsonInsertInput">JSON Payload</label>
+                                        <textarea id="jsonInsertInput" spellcheck="false">{
+  "name": "Example",
+  "status": "active"
+}</textarea>
+                                        <div class="hint">Avoid system field names in payload.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tab-panel" role="tabpanel" id="updatePanel" aria-labelledby="updateTab" data-tab="update">
+                            <div class="editor-grid">
+                                <div class="editor-card">
+                                    <div class="editor-card-title">Target record</div>
+                                    <div class="field">
+                                        <label for="recordIdUpdateInput">Record ID</label>
+                                        <input id="recordIdUpdateInput" type="number" min="1" placeholder="Use selection or type an ID">
+                                    </div>
+                                    <div class="toggle-row">
+                                        <label class="toggle">
+                                            <input type="checkbox" id="overrideUpdateInput">
+                                            <span>Override data on update</span>
+                                        </label>
+                                    </div>
+                                    <div class="editor-actions">
+                                        <button class="btn ghost" id="updateBtn">Update</button>
+                                    </div>
+                                </div>
+                                <div class="editor-card">
+                                    <div class="field">
+                                        <label for="jsonUpdateInput">JSON Payload</label>
+                                        <textarea id="jsonUpdateInput" spellcheck="false">{
+  "name": "Example",
+  "status": "active"
+}</textarea>
+                                        <div class="hint">Avoid system field names in payload.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tab-panel" role="tabpanel" id="deletePanel" aria-labelledby="deleteTab" data-tab="delete">
+                            <div class="editor-grid editor-grid-delete">
+                                <div class="editor-card">
+                                    <div class="editor-card-title">Delete target</div>
+                                    <div class="field">
+                                        <label for="recordIdDeleteInput">Record ID</label>
+                                        <input id="recordIdDeleteInput" type="number" min="1" placeholder="Use selection or type an ID">
+                                    </div>
+                                    <div class="toggle-row">
+                                        <label class="toggle">
+                                            <input type="checkbox" id="hardDeleteInput">
+                                            <span>Hard delete</span>
+                                        </label>
+                                        <label class="toggle">
+                                            <input type="checkbox" id="deleteAllInput">
+                                            <span>Delete all in category</span>
+                                        </label>
+                                    </div>
+                                    <div class="editor-actions">
+                                        <button class="btn danger" id="deleteBtn">Delete</button>
+                                    </div>
+                                </div>
+                                <div class="editor-card danger">
+                                    <div class="editor-card-title">Danger zone</div>
+                                    <p>Hard delete permanently removes records. Delete all wipes every record in the category.</p>
+                                    <p>Run a query first if you need to confirm the target set.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="editor-note" id="editorHint">Tip: click any result row to populate the editor with data.</div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="footer">
+            <div>Data Manager</div>
+            <div>Powered by General Data API v4</div>
+        </footer>
+    </div>
+
+    <script>
+        const client = DataAPI.defaultClient;
+
+        const categoryInput = document.getElementById('categoryInput');
+        const categoryOptions = document.getElementById('categoryOptions');
+        const categoryHint = document.getElementById('categoryHint');
+        const editorCategory = document.getElementById('editorCategory');
+        const editorSelectedId = document.getElementById('editorSelectedId');
+        const getIdInput = document.getElementById('getIdInput');
+        const selectInput = document.getElementById('selectInput');
+        const whereInput = document.getElementById('whereInput');
+        const orderByInput = document.getElementById('orderByInput');
+        const limitInput = document.getElementById('limitInput');
+        const includeDeletedInput = document.getElementById('includeDeletedInput');
+        const slimInput = document.getElementById('slimInput');
+        const resultsMeta = document.getElementById('resultsMeta');
+        const resultsTable = document.getElementById('resultsTable');
+        const responseOutput = document.getElementById('responseOutput');
+        const statusBadge = document.getElementById('statusBadge');
+        const recordIdUpdateInput = document.getElementById('recordIdUpdateInput');
+        const recordIdDeleteInput = document.getElementById('recordIdDeleteInput');
+        const jsonInsertInput = document.getElementById('jsonInsertInput');
+        const jsonUpdateInput = document.getElementById('jsonUpdateInput');
+        const uniqueInsertInput = document.getElementById('uniqueInsertInput');
+        const overrideUpdateInput = document.getElementById('overrideUpdateInput');
+        const hardDeleteInput = document.getElementById('hardDeleteInput');
+        const deleteAllInput = document.getElementById('deleteAllInput');
+        const editorHint = document.getElementById('editorHint');
+        const copyBtn = document.getElementById('copyBtn');
+        const tabButtons = Array.from(document.querySelectorAll('[data-tab][role="tab"]'));
+        const tabPanels = Array.from(document.querySelectorAll('.tab-panel'));
+
+        const state = {
+            selectedRow: null,
+            lastResponse: null,
+        };
+
+        function setStatus(type, message) {
+            statusBadge.className = `status ${type}`;
+            statusBadge.textContent = message;
+        }
+
+        function setResponse(data) {
+            state.lastResponse = data;
+            responseOutput.textContent = JSON.stringify(data, null, 2);
+        }
+
+        function normalizeCategory() {
+            const category = categoryInput.value.trim();
+            if (!category) {
+                setStatus('error', 'Category required');
+                return null;
+            }
+            if (!DataAPI.validation.isValidCategory(category)) {
+                setStatus('error', 'Category must be 2-20 chars and use letters, numbers, dash, underscore');
+                return null;
+            }
+            return category;
+        }
+
+        function updateEditorCategory(value) {
+            editorCategory.textContent = value ? value : '--';
+        }
+
+        function updateEditorSelectedId(value) {
+            editorSelectedId.textContent = value ? String(value) : '--';
+        }
+
+        function buildQueryOptions() {
+            const options = {};
+            if (selectInput.value.trim()) {
+                options.select = selectInput.value.trim();
+            }
+            if (whereInput.value.trim()) {
+                options.where = whereInput.value.trim();
+            }
+            if (orderByInput.value.trim()) {
+                options.order_by = orderByInput.value.trim();
+            }
+            if (limitInput.value.trim()) {
+                options.limit = limitInput.value.trim();
+            }
+            if (includeDeletedInput.checked) {
+                options.include_deleted = true;
+            }
+            if (slimInput.checked) {
+                options.slim = true;
+            }
+            return options;
+        }
+
+        function parsePayload(sourceInput) {
+            const raw = sourceInput.value.trim();
+            if (!raw) {
+                return {};
+            }
+            try {
+                const payload = JSON.parse(raw);
+                if (payload === null || Array.isArray(payload) || typeof payload !== 'object') {
+                    throw new Error('Payload must be a JSON object');
+                }
+                const invalidFields = DataAPI.validation.getInvalidFields(payload);
+                if (invalidFields.length) {
+                    throw new Error(`Invalid fields: ${invalidFields.join(', ')}`);
+                }
+                return payload;
+            } catch (error) {
+                setStatus('error', error.message);
+                return null;
+            }
+        }
+
+        function truncateText(text, maxLength = 120) {
+            if (text.length <= maxLength) {
+                return text;
+            }
+            return `${text.slice(0, maxLength - 1)}...`;
+        }
+
+        function formatCell(column, value) {
+            if (value === null || value === undefined) {
+                return { display: '', full: '' };
+            }
+            if ((column === 'created' || column === 'updated') && typeof value === 'number') {
+                const formatted = formatTimestamp(value);
+                return { display: formatted, full: `${formatted} (${value})` };
+            }
+            if (typeof value === 'object') {
+                const full = JSON.stringify(value);
+                return { display: truncateText(full), full };
+            }
+            const text = String(value);
+            return { display: truncateText(text), full: text };
+        }
+
+        function extractPayload(row) {
+            const systemFields = ['id', 'cat', 'data', 'is_deleted', 'created', 'updated'];
+            if (row && row.data && typeof row.data === 'object' && !Array.isArray(row.data)) {
+                return row.data;
+            }
+            const payload = {};
+            Object.keys(row || {}).forEach((key) => {
+                if (!systemFields.includes(key)) {
+                    payload[key] = row[key];
+                }
+            });
+            return payload;
+        }
+
+        function clearTable() {
+            const head = resultsTable.querySelector('thead');
+            const body = resultsTable.querySelector('tbody');
+            head.innerHTML = '<tr><th>Waiting</th></tr>';
+            body.innerHTML = '<tr><td>Run a query to load data.</td></tr>';
+            resultsMeta.textContent = 'No data loaded yet.';
+        }
+
+        function renderTable(rows) {
+            const head = resultsTable.querySelector('thead');
+            const body = resultsTable.querySelector('tbody');
+            head.innerHTML = '';
+            body.innerHTML = '';
+
+            if (!rows || rows.length === 0) {
+                const headerRow = document.createElement('tr');
+                const headerCell = document.createElement('th');
+                headerCell.textContent = 'No results';
+                headerRow.appendChild(headerCell);
+                head.appendChild(headerRow);
+
+                const emptyRow = document.createElement('tr');
+                const emptyCell = document.createElement('td');
+                emptyCell.textContent = 'No data returned.';
+                emptyRow.appendChild(emptyCell);
+                body.appendChild(emptyRow);
+                return;
+            }
+
+            const columns = [];
+            const columnSet = new Set();
+            rows.forEach((row) => {
+                Object.keys(row).forEach((key) => {
+                    if (!columnSet.has(key)) {
+                        columnSet.add(key);
+                        columns.push(key);
+                    }
+                });
+            });
+
+            const headerRow = document.createElement('tr');
+            columns.forEach((column) => {
+                const th = document.createElement('th');
+                th.textContent = column;
+                headerRow.appendChild(th);
+            });
+            head.appendChild(headerRow);
+
+            rows.forEach((row) => {
+                const tr = document.createElement('tr');
+                columns.forEach((column) => {
+                    const td = document.createElement('td');
+                    const formatted = formatCell(column, row[column]);
+                    td.textContent = formatted.display;
+                    if (formatted.full && formatted.full !== formatted.display) {
+                        td.title = formatted.full;
+                    }
+                    tr.appendChild(td);
+                });
+                tr.addEventListener('click', () => selectRow(row, tr));
+                body.appendChild(tr);
+            });
+        }
+
+        function selectRow(row, rowElement) {
+            if (state.selectedRow) {
+                state.selectedRow.classList.remove('selected');
+            }
+            state.selectedRow = rowElement;
+            rowElement.classList.add('selected');
+
+            const payload = extractPayload(row);
+            jsonInsertInput.value = JSON.stringify(payload, null, 2);
+            jsonUpdateInput.value = JSON.stringify(payload, null, 2);
+
+            if (row && row.id) {
+                recordIdUpdateInput.value = row.id;
+                recordIdDeleteInput.value = row.id;
+                getIdInput.value = row.id;
+                updateEditorSelectedId(row.id);
+                editorHint.textContent = `Selected id ${row.id} loaded into editor tabs.`;
+            } else {
+                editorHint.textContent = 'Row loaded into editor tabs.';
+            }
+
+            if (!categoryInput.value && row && row.cat) {
+                categoryInput.value = row.cat;
+                updateEditorCategory(row.cat);
+            }
+        }
+
+        function loadEditorFromResult(result) {
+            const payload = extractPayload(result);
+            jsonInsertInput.value = JSON.stringify(payload, null, 2);
+            jsonUpdateInput.value = JSON.stringify(payload, null, 2);
+            if (result && result.id) {
+                recordIdUpdateInput.value = result.id;
+                recordIdDeleteInput.value = result.id;
+                updateEditorSelectedId(result.id);
+                editorHint.textContent = `Loaded id ${result.id} into editor tabs.`;
+            } else {
+                editorHint.textContent = 'Result loaded into editor tabs.';
+            }
+        }
+
+        async function runQuery() {
+            const category = normalizeCategory();
+            if (!category) {
+                return;
+            }
+            setStatus('loading', 'Querying');
+            try {
+                const results = await client.query(category, buildQueryOptions());
+                setResponse(results);
+                renderTable(Array.isArray(results) ? results : []);
+                resultsMeta.textContent = `Loaded ${results.length || 0} rows.`;
+                setStatus('success', 'Query complete');
+            } catch (error) {
+                setStatus('error', error.message);
+            }
+        }
+
+        async function runCount() {
+            const category = normalizeCategory();
+            if (!category) {
+                return;
+            }
+            setStatus('loading', 'Counting');
+            try {
+                const options = {};
+                if (whereInput.value.trim()) {
+                    options.where = whereInput.value.trim();
+                }
+                if (includeDeletedInput.checked) {
+                    options.include_deleted = true;
+                }
+                const result = await client.count(category, options);
+                setResponse(result);
+                resultsMeta.textContent = `Count: ${result.rows}`;
+                setStatus('success', 'Count complete');
+            } catch (error) {
+                setStatus('error', error.message);
+            }
+        }
+
+        async function runGet() {
+            const category = normalizeCategory();
+            if (!category) {
+                return;
+            }
+            setStatus('loading', 'Fetching');
+            try {
+                const options = {};
+                if (selectInput.value.trim()) {
+                    options.select = selectInput.value.trim();
+                }
+                if (slimInput.checked) {
+                    options.slim = true;
+                }
+                if (getIdInput.value) {
+                    options.id = Number(getIdInput.value);
+                }
+                const result = await client.get(category, options);
+                setResponse(result);
+                renderTable([result]);
+                loadEditorFromResult(result);
+                resultsMeta.textContent = 'Loaded 1 row.';
+                setStatus('success', 'Record loaded');
+            } catch (error) {
+                setStatus('error', error.message);
+            }
+        }
+
+        async function runInsert() {
+            const category = normalizeCategory();
+            if (!category) {
+                return;
+            }
+            const payload = parsePayload(jsonInsertInput);
+            if (!payload) {
+                return;
+            }
+            setStatus('loading', 'Inserting');
+            try {
+                const options = {};
+                if (uniqueInsertInput.checked) {
+                    options.unique = true;
+                }
+                const result = await client.insert(category, payload, options);
+                setResponse(result);
+                setStatus('success', 'Insert complete');
+            } catch (error) {
+                setStatus('error', error.message);
+            }
+        }
+
+        async function runUpdate() {
+            const category = normalizeCategory();
+            if (!category) {
+                return;
+            }
+            const id = Number(recordIdUpdateInput.value);
+            if (!id) {
+                setStatus('error', 'Record ID required for update');
+                return;
+            }
+            const payload = parsePayload(jsonUpdateInput);
+            if (!payload) {
+                return;
+            }
+            setStatus('loading', 'Updating');
+            try {
+                const options = {};
+                if (overrideUpdateInput.checked) {
+                    options.override_data = true;
+                }
+                const result = await client.update(category, id, payload, options);
+                setResponse(result);
+                setStatus('success', 'Update complete');
+            } catch (error) {
+                setStatus('error', error.message);
+            }
+        }
+
+        async function runDelete() {
+            const category = normalizeCategory();
+            if (!category) {
+                return;
+            }
+            const deleteAll = deleteAllInput.checked;
+            const hardDelete = hardDeleteInput.checked;
+            const options = { hard_delete: hardDelete };
+
+            if (deleteAll) {
+                const ok = window.confirm('Delete all records in this category?');
+                if (!ok) {
+                    return;
+                }
+                options.delete_all = true;
+            } else {
+                const id = Number(recordIdDeleteInput.value);
+                if (!id) {
+                    setStatus('error', 'Record ID required for delete');
+                    return;
+                }
+                options.id = id;
+            }
+
+            setStatus('loading', 'Deleting');
+            try {
+                const result = await client.delete(category, options);
+                setResponse(result);
+                setStatus('success', 'Delete complete');
+            } catch (error) {
+                setStatus('error', error.message);
+            }
+        }
+
+        function clearAll() {
+            clearTable();
+            responseOutput.textContent = '{}';
+            statusBadge.textContent = 'Idle';
+            statusBadge.className = 'status neutral';
+            editorHint.textContent = 'Tip: click any result row to populate the editor with data.';
+            if (state.selectedRow) {
+                state.selectedRow.classList.remove('selected');
+            }
+            state.selectedRow = null;
+            state.lastResponse = null;
+            updateEditorSelectedId('');
+        }
+
+        function setActiveTab(tabName) {
+            tabButtons.forEach((button) => {
+                const isActive = button.dataset.tab === tabName;
+                button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            });
+            tabPanels.forEach((panel) => {
+                const isActive = panel.dataset.tab === tabName;
+                panel.classList.toggle('active', isActive);
+                panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+            });
+        }
+
+        tabButtons.forEach((button) => {
+            button.addEventListener('click', () => setActiveTab(button.dataset.tab));
+        });
+
+        setActiveTab('insert');
+
+        updateEditorCategory(categoryInput.value.trim());
+        updateEditorSelectedId('');
+
+        categoryInput.addEventListener('input', () => {
+            updateEditorCategory(categoryInput.value.trim());
+        });
+
+        const syncSelectedId = () => {
+            const idValue = recordIdUpdateInput.value || recordIdDeleteInput.value;
+            updateEditorSelectedId(idValue);
+        };
+
+        recordIdUpdateInput.addEventListener('input', syncSelectedId);
+        recordIdDeleteInput.addEventListener('input', syncSelectedId);
+
+        async function loadCategories() {
+            try {
+                const response = await fetch('/api/v4/data/categories?include_deleted=true');
+                if (!response.ok) {
+                    throw new Error(`Failed to load categories (${response.status})`);
+                }
+                const categories = await response.json();
+                categoryOptions.innerHTML = '';
+                categories.forEach((cat) => {
+                    const option = document.createElement('option');
+                    option.value = cat;
+                    categoryOptions.appendChild(option);
+                });
+                if (categories.length) {
+                    categoryHint.textContent = `Loaded ${categories.length} categories. You can still type a new one.`;
+                }
+            } catch (error) {
+                console.warn('Category load failed:', error);
+            }
+        }
+
+        loadCategories();
+
+        copyBtn.addEventListener('click', async () => {
+            if (!state.lastResponse) {
+                setStatus('error', 'Nothing to copy');
+                return;
+            }
+            try {
+                await navigator.clipboard.writeText(JSON.stringify(state.lastResponse, null, 2));
+                setStatus('success', 'Response copied');
+            } catch (error) {
+                setStatus('error', 'Copy failed');
+            }
+        });
+
+        document.getElementById('queryBtn').addEventListener('click', runQuery);
+        document.getElementById('countBtn').addEventListener('click', runCount);
+        document.getElementById('getBtn').addEventListener('click', runGet);
+        document.getElementById('clearBtn').addEventListener('click', clearAll);
+        document.getElementById('insertBtn').addEventListener('click', runInsert);
+        document.getElementById('updateBtn').addEventListener('click', runUpdate);
+        document.getElementById('deleteBtn').addEventListener('click', runDelete);
+    </script>
+</body>
+</html>

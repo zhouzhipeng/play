@@ -2,7 +2,10 @@
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
-    response::{sse::{Event, Sse}, Html, IntoResponse},
+    response::{
+        sse::{Event, Sse},
+        Html, IntoResponse,
+    },
     routing::{get, post},
     Json, Router,
 };
@@ -18,11 +21,11 @@ use std::sync::Arc;
 use std::time::Duration;
 // Removed Mutex import
 #[cfg(feature = "play-redis")]
-use tracing::error;
+use futures_util::stream;
 #[cfg(feature = "play-redis")]
 use futures_util::StreamExt;
 #[cfg(feature = "play-redis")]
-use futures_util::stream;
+use tracing::error;
 
 #[cfg(feature = "play-redis")]
 #[derive(Clone)]
@@ -67,27 +70,29 @@ pub struct RedisSubQuery {
 }
 
 #[cfg(feature = "play-redis")]
-pub async fn init_redis_client(config: Option<&crate::config::Config>) -> Result<RedisState, anyhow::Error> {
+pub async fn init_redis_client(
+    config: Option<&crate::config::Config>,
+) -> Result<RedisState, anyhow::Error> {
     // Use configured Redis URL or default to localhost
     let redis_url = match config {
         Some(cfg) if cfg.redis_url.is_some() => cfg.redis_url.as_ref().unwrap().as_str(),
-        _ => "redis://127.0.0.1:6379"
+        _ => "redis://127.0.0.1:6379",
     };
-    
+
     tracing::info!("Connecting to Redis at: {}", redis_url);
-    
+
     let connection = RedisConnection::new(redis_url)?;
     let client = connection.create_client().await?;
-    
+
     // Verify connection with ping
     let ping_result = client.ping().await;
     if let Err(ref e) = ping_result {
         tracing::error!("Redis ping failed: {}", e);
         return Err(anyhow::anyhow!("Redis connection test failed: {}", e));
     }
-    
+
     tracing::info!("Redis connection established successfully");
-    
+
     Ok(RedisState {
         client,
         connection: Arc::new(connection),
@@ -121,9 +126,9 @@ async fn get_value(
     Query(query): Query<RedisGetQuery>,
 ) -> Result<Json<RedisGetResponse>, StatusCode> {
     match state.client.get::<String>(&query.key).await {
-        Ok(value) => Ok(Json(RedisGetResponse { 
-            key: query.key, 
-            value 
+        Ok(value) => Ok(Json(RedisGetResponse {
+            key: query.key,
+            value,
         })),
         Err(err) => {
             error!("Redis get error: {}", err);
@@ -138,7 +143,7 @@ async fn set_value(
     Json(request): Json<RedisSetRequest>,
 ) -> StatusCode {
     let expiry = request.ttl_seconds.map(|secs| Duration::from_secs(secs));
-    
+
     match state.client.set(&request.key, &request.value, expiry).await {
         Ok(_) => StatusCode::OK,
         Err(err) => {
@@ -155,8 +160,11 @@ async fn publish_message(
 ) -> StatusCode {
     let client = state.connection.client().clone();
     let pubsub_client = PubSubClient::new(client);
-    
-    match pubsub_client.publish(&request.channel, &request.message).await {
+
+    match pubsub_client
+        .publish(&request.channel, &request.message)
+        .await
+    {
         Ok(_) => StatusCode::OK,
         Err(err) => {
             error!("Redis publish error: {}", err);
@@ -172,11 +180,11 @@ async fn subscribe_sse(
 ) -> Sse<impl Stream<Item = Result<Event, std::convert::Infallible>>> {
     let client = state.connection.client().clone();
     let pubsub_client = PubSubClient::new(client);
-    
+
     let channels: Vec<String> = query.channels.split(',').map(String::from).collect();
-    
+
     tracing::info!("Subscribing to Redis channels: {:?}", channels);
-    
+
     // Use stream adapter pattern
     let stream = stream::unfold(
         (pubsub_client, channels, true, None),
@@ -186,13 +194,10 @@ async fn subscribe_sse(
                 let connect_event = Event::default()
                     .data("Connected to Redis PubSub")
                     .event("connect");
-                
-                return Some((
-                    Ok(connect_event),
-                    (client, channels, false, None),
-                ));
+
+                return Some((Ok(connect_event), (client, channels, false, None)));
             }
-            
+
             // Try to get or create subscriber
             if subscriber.is_none() {
                 match client.subscribe(&channels).await {
@@ -201,56 +206,43 @@ async fn subscribe_sse(
                     }
                     Err(err) => {
                         error!("Redis subscribe error: {}", err);
-                        
+
                         let error_event = Event::default()
                             .data(format!("Error: {}", err))
                             .event("error");
-                        
+
                         // Return error event and end the stream
-                        return Some((
-                            Ok(error_event),
-                            (client, channels, false, None),
-                        ));
+                        return Some((Ok(error_event), (client, channels, false, None)));
                     }
                 }
             }
-            
+
             if let Some(ref mut sub) = subscriber {
                 // Try to get next message
                 if let Some(msg) = sub.next_message().await {
                     // Special handling for error channel
                     let event = if msg.channel == "error" {
-                        Event::default()
-                            .data(msg.payload)
-                            .event("error")
+                        Event::default().data(msg.payload).event("error")
                     } else {
-                        Event::default()
-                            .data(msg.payload)
-                            .event(msg.channel)
+                        Event::default().data(msg.payload).event(msg.channel)
                     };
-                    
-                    return Some((
-                        Ok(event),
-                        (client, channels, false, subscriber),
-                    ));
+
+                    return Some((Ok(event), (client, channels, false, subscriber)));
                 } else {
                     // Subscriber closed, send disconnect event and end stream
                     let disconnect_event = Event::default()
                         .data("Disconnected from Redis PubSub")
                         .event("disconnect");
-                    
-                    return Some((
-                        Ok(disconnect_event),
-                        (client, channels, false, None),
-                    ));
+
+                    return Some((Ok(disconnect_event), (client, channels, false, None)));
                 }
             }
-            
+
             // Shouldn't reach here, but just in case
             None
         },
     );
-    
+
     Sse::new(stream)
 }
 

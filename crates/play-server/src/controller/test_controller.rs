@@ -1,23 +1,22 @@
+use crate::{method_router, return_error, template};
+use crate::{HTML, S};
 use axum::body::Body;
 use axum::extract::Query;
 use axum::response::Html;
 use http::Request;
 use serde::Deserialize;
 use serde_json::json;
-use crate::{method_router, return_error, template};
-use crate::{HTML, S};
 
 method_router!(
     get : "/test2"-> test,
 );
 
 #[derive(Deserialize)]
-struct Param{
+struct Param {
     path: String,
 }
 
 async fn test(s: S, Query(param): Query<Param>) -> HTML {
-
     // #[cfg(feature = "play-dylib-loader")]
     // {
     //     use play_dylib_loader::*;
@@ -37,5 +36,3 @@ async fn test(s: S, Query(param): Query<Param>) -> HTML {
     return_error!("fuck33 ");
     // template!(s, "test.html", json!({"name":"zzp"}))
 }
-
-

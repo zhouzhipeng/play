@@ -1,6 +1,14 @@
-server_port = 80
+server_port = 3000
 log_level = "DEBUG"
 
 [database]
 url=":memory:"
 
+[frp_server]
+enabled = false
+bind_addr = "0.0.0.0:2333"
+default_token = "change_this_token"
+heartbeat_interval = 30
+
+[frp_server.services.demo_http]
+bind_addr = "0.0.0.0:8081"
