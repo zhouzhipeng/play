@@ -48,6 +48,7 @@ use crate::tables::general_data::GeneralData;
 use crate::tables::DBPool;
 use play_shared::tpl_engine_api::{Template, TemplateData};
 use std::env::set_var;
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use tracing::level_filters::LevelFilter;
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
@@ -754,6 +755,15 @@ pub async fn start_server_with_config(data_dir: String, config: &Config) -> anyh
 }
 
 fn make_executable_if_needed(file_path: &str) -> std::io::Result<bool> {
+    #[cfg(windows)]
+    {
+        let _ = file_path;
+        info!("Skipping executable permission update on Windows");
+        return Ok(false);
+    }
+
+    #[cfg(unix)]
+    {
     let path = Path::new(file_path);
 
     // 获取当前文件权限
@@ -781,5 +791,6 @@ fn make_executable_if_needed(file_path: &str) -> std::io::Result<bool> {
     } else {
         info!("File already has execute permissions");
         Ok(false)
+    }
     }
 }

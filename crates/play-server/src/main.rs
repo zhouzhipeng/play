@@ -1,6 +1,5 @@
 use std::env::set_var;
 use std::net::{SocketAddr, TcpListener};
-use std::os::unix::prelude::PermissionsExt;
 use std::path::Path;
 use std::time::Duration;
 use std::{env, fs, io, panic};
