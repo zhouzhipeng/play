@@ -7,7 +7,7 @@ description = "A reverse proxy for NAT traversal"
 license = "Apache-2.0"
 repository = "https://github.com/rapiz1/rathole"
 readme = "README.md"
-build = "build.rs"
+build = false
 include = ["src/**/*", "LICENSE", "README.md", "build.rs"]
 
 [features]
@@ -110,10 +110,3 @@ p12 = { version = "0.6.3", optional = true }
 [target.'cfg(target_env = "musl")'.dependencies]
 openssl = { version = "0.10", features = ["vendored"], optional = true }
 
-[build-dependencies]
-vergen = { version = "7.4.2", default-features = false, features = [
-    "build",
-    "git",
-    "cargo",
-] }
-anyhow = "1.0"

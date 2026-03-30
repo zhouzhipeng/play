@@ -10,3 +10,9 @@
 - toolbox 主窗口会一直保留
 - 每个工具会在独立原生窗口中打开
 - 当前内嵌工具包括 `curl-helper` 和 `frp-client`
+
+打包 macOS DMG：
+
+```bash
+bash crates/play-gui/scripts/build_dmg.sh
+```

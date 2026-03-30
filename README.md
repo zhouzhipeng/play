@@ -35,8 +35,6 @@ play/
 │       ├── play-utils-blockchain/
 │       ├── play-utils-data-api/
 │       └── play-utils-strings/
-├── third_party/
-│   └── rathole/                             # Vendored upstream rathole library
 ├── docs/
 ├── scripts/
 ├── Cargo.toml
@@ -68,9 +66,6 @@ play/
 
 - `play-shared`
   Shared constants, helpers, and cross-crate common code.
-
-- `third_party/rathole`
-  Vendored upstream `rathole` library used by the optional FRP server integration and the desktop FRP client.
 
 ## Development Commands
 
