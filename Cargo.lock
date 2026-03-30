@@ -5417,9 +5417,13 @@ dependencies = [
 name = "play-gui"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "curl-helper",
+ "directories",
  "eframe",
  "frp-client",
+ "serde",
+ "toml 0.8.2",
 ]
 
 [[package]]
