@@ -19,6 +19,6 @@ path = "src/main.rs"
 anyhow = { workspace = true }
 directories = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
-rathole = { workspace = true, features = ["client", "noise", "hot-reload"] }
+rathole = { workspace = true, features = ["client", "noise", "hot-reload", "rustls", "websocket-rustls"] }
 
 eframe = "0.29"

@@ -57,7 +57,7 @@ play-utils-data-api = { path = "crates/play-utils/play-utils-data-api"}
 play-utils-strings = { path = "crates/play-utils/play-utils-strings"}
 play-integration-xiaozhi = { path = "crates/play-integration/play-integration-xiaozhi"}
 play-terminal = { path = "crates/play-terminal"}
-rathole = { version = "0.5.0", default-features = false }
+rathole = { path = "third_party/rathole", default-features = false }
 
 # Additional common dependencies
 async-trait = "0.1"
