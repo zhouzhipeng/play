@@ -32,6 +32,11 @@ enum ClientState {
     Running,
 }
 
+#[derive(Clone, Copy, Default)]
+pub struct FrpClientOptions {
+    pub auto_start: bool,
+}
+
 pub struct FrpClientApp {
     config_path: PathBuf,
     config_text: String,
@@ -44,6 +49,10 @@ pub struct FrpClientApp {
 
 impl FrpClientApp {
     pub fn new() -> Self {
+        Self::new_with_options(FrpClientOptions::default())
+    }
+
+    pub fn new_with_options(options: FrpClientOptions) -> Self {
         let (event_tx, event_rx) = mpsc::channel();
         let config_path = default_config_path();
 
@@ -60,7 +69,7 @@ impl FrpClientApp {
             ),
         };
 
-        Self {
+        let mut app = Self {
             config_path,
             config_text,
             state: ClientState::Stopped,
@@ -68,7 +77,13 @@ impl FrpClientApp {
             event_rx,
             event_tx,
             shutdown_tx: None,
+        };
+
+        if options.auto_start {
+            app.start_client();
         }
+
+        app
     }
 
     pub fn show(&mut self, ctx: &egui::Context) {
@@ -267,10 +282,14 @@ impl eframe::App for FrpClientApp {
 }
 
 pub fn run() -> eframe::Result {
+    run_with_options(FrpClientOptions::default())
+}
+
+pub fn run_with_options(launch_options: FrpClientOptions) -> eframe::Result {
     let icon = eframe::icon_data::from_png_bytes(include_bytes!("../../assets/icon.png"))
         .expect("invalid icon data");
 
-    let options = eframe::NativeOptions {
+    let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([860.0, 760.0])
             .with_min_inner_size([760.0, 640.0])
@@ -281,8 +300,8 @@ pub fn run() -> eframe::Result {
 
     eframe::run_native(
         WINDOW_TITLE,
-        options,
-        Box::new(|_cc| Ok(Box::new(FrpClientApp::new()))),
+        native_options,
+        Box::new(move |_cc| Ok(Box::new(FrpClientApp::new_with_options(launch_options)))),
     )
 }
 

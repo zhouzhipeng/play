@@ -61,10 +61,14 @@ enum ToolRuntime {
 }
 
 impl ToolRuntime {
-    fn open(kind: ToolKind, ctx: &egui::Context) -> Self {
+    fn open(kind: ToolKind, ctx: &egui::Context, options: ToolOpenOptions) -> Self {
         match kind {
             ToolKind::CurlHelper => Self::CurlHelper(curl_helper::CurlHelperApp::new(ctx)),
-            ToolKind::FrpClient => Self::FrpClient(frp_client::FrpClientApp::new()),
+            ToolKind::FrpClient => Self::FrpClient(
+                frp_client::FrpClientApp::new_with_options(frp_client::FrpClientOptions {
+                    auto_start: options.auto_start,
+                }),
+            ),
         }
     }
 
@@ -142,7 +146,10 @@ impl PlayGuiApp {
 
         if let Some(package_name) = app.settings.default_tool_package.clone() {
             if let Some(kind) = ToolKind::from_package_name(&package_name) {
-                app.open_tool(kind, ctx);
+                let options = ToolOpenOptions {
+                    auto_start: app.startup.enabled && kind == ToolKind::FrpClient,
+                };
+                app.open_tool(kind, ctx, options);
             } else {
                 app.settings.default_tool_package = None;
                 let message = format!("Ignored unknown default tool `{package_name}`.");
@@ -168,8 +175,8 @@ impl PlayGuiApp {
             .any(|value| value.to_ascii_lowercase().contains(&query))
     }
 
-    fn open_tool(&mut self, kind: ToolKind, ctx: &egui::Context) {
-        let window = ToolWindow::new(self.next_tool_id, ToolRuntime::open(kind, ctx));
+    fn open_tool(&mut self, kind: ToolKind, ctx: &egui::Context, options: ToolOpenOptions) {
+        let window = ToolWindow::new(self.next_tool_id, ToolRuntime::open(kind, ctx, options));
         self.next_tool_id += 1;
         self.open_tools.push(Arc::new(Mutex::new(window)));
     }
@@ -383,9 +390,14 @@ fn render_tool_section(
         ui.add_space(8.0);
 
         if ui.button(format!("Open {}", tool.display_name)).clicked() {
-            app.open_tool(tool.kind, ctx);
+            app.open_tool(tool.kind, ctx, ToolOpenOptions::default());
         }
     });
+}
+
+#[derive(Clone, Copy, Default)]
+struct ToolOpenOptions {
+    auto_start: bool,
 }
 
 fn tool_definition(kind: ToolKind) -> &'static ToolDefinition {
