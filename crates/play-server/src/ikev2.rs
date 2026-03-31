@@ -271,23 +271,18 @@ async fn load_runtime_config(
     vici_uri: &str,
     binaries: &ResolvedRuntimeBinaries,
 ) -> Result<()> {
-    let output = Command::new(&binaries.swanctl_bin)
-        .arg("--load-all")
-        .arg("--file")
-        .arg(&runtime.swanctl_conf_path)
-        .arg("--uri")
-        .arg(vici_uri)
-        .env("SWANCTL_DIR", &runtime.swanctl_dir)
-        .output()
-        .await
-        .with_context(|| {
-            format!(
-                "run `{}` to load IKEv2 config",
-                binaries.swanctl_bin.display()
-            )
-        })?;
+    let output = run_swanctl_command(
+        binaries,
+        runtime,
+        vici_uri,
+        &["--load-all", "--file"],
+        &[runtime.swanctl_conf_path.as_os_str()],
+        "load IKEv2 config",
+    )
+    .await?;
 
     if output.status.success() {
+        ensure_runtime_connection_loaded(config, runtime, vici_uri, binaries).await?;
         return Ok(());
     }
 
@@ -297,6 +292,76 @@ async fn load_runtime_config(
         String::from_utf8_lossy(&output.stdout).trim(),
         String::from_utf8_lossy(&output.stderr).trim()
     );
+}
+
+#[cfg(all(feature = "ikev2-server", target_os = "linux"))]
+async fn ensure_runtime_connection_loaded(
+    config: &Ikev2ServerConfig,
+    runtime: &RuntimeFiles,
+    vici_uri: &str,
+    binaries: &ResolvedRuntimeBinaries,
+) -> Result<()> {
+    let output = run_swanctl_command(
+        binaries,
+        runtime,
+        vici_uri,
+        &["--list-conns"],
+        &[],
+        "list loaded IKEv2 connections",
+    )
+    .await?;
+
+    if !output.status.success() {
+        bail!(
+            "{} --list-conns failed: stdout=`{}` stderr=`{}`",
+            binaries.swanctl_bin.display(),
+            String::from_utf8_lossy(&output.stdout).trim(),
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    if stdout.contains(&config.connection_name) {
+        return Ok(());
+    }
+
+    bail!(
+        "IKEv2 connection `{}` was not loaded into charon. `{} --list-conns` output: stdout=`{}` stderr=`{}`",
+        config.connection_name,
+        binaries.swanctl_bin.display(),
+        stdout.trim(),
+        String::from_utf8_lossy(&output.stderr).trim()
+    );
+}
+
+#[cfg(all(feature = "ikev2-server", target_os = "linux"))]
+async fn run_swanctl_command(
+    binaries: &ResolvedRuntimeBinaries,
+    runtime: &RuntimeFiles,
+    vici_uri: &str,
+    args: &[&str],
+    path_args: &[&OsStr],
+    action: &str,
+) -> Result<std::process::Output> {
+    let mut command = Command::new(&binaries.swanctl_bin);
+    for arg in args {
+        command.arg(arg);
+    }
+    for path_arg in path_args {
+        command.arg(path_arg);
+    }
+    command
+        .arg("--uri")
+        .arg(vici_uri)
+        .env("SWANCTL_DIR", &runtime.swanctl_dir);
+
+    command.output().await.with_context(|| {
+        format!(
+            "run `{}` to {}",
+            binaries.swanctl_bin.display(),
+            action
+        )
+    })
 }
 
 #[derive(Debug)]
@@ -320,6 +385,15 @@ struct OsReleaseInfo {
     version_id: Option<String>,
     version_codename: Option<String>,
 }
+
+const REQUIRED_DEBIAN_IKEV2_PACKAGES: &[&str] = &[
+    "charon-systemd",
+    "strongswan-swanctl",
+    "libcharon-extauth-plugins",
+    "libstrongswan-standard-plugins",
+    "libstrongswan-extra-plugins",
+    "libcharon-extra-plugins",
+];
 
 fn resolve_runtime_binaries(config: &Ikev2ServerConfig) -> Result<ResolvedRuntimeBinaries> {
     let daemon_bin = if config.daemon_bin == "charon-systemd" {
@@ -345,29 +419,45 @@ fn resolve_runtime_binaries(config: &Ikev2ServerConfig) -> Result<ResolvedRuntim
 
 #[cfg(all(feature = "ikev2-server", target_os = "linux"))]
 async fn ensure_runtime_binaries(config: &Ikev2ServerConfig) -> Result<ResolvedRuntimeBinaries> {
-    match resolve_runtime_binaries(config) {
-        Ok(binaries) => Ok(binaries),
-        Err(initial_error) => {
-            if !config.auto_install_dependencies {
-                return Err(initial_error.context(
-                    "IKEv2 runtime binaries are missing and automatic installation is disabled",
-                ));
-            }
+    let initial_binaries = resolve_runtime_binaries(config);
 
-            info!(
-                "IKEv2 runtime binaries are missing; attempting automatic install on Debian Bookworm: {initial_error:#}"
-            );
-
-            ensure_supported_auto_install_host().await?;
-            install_ikev2_runtime_dependencies().await?;
-
-            resolve_runtime_binaries(config).with_context(|| {
-                format!(
-                    "IKEv2 runtime binaries are still unavailable after automatic installation. Initial detection failed with: {initial_error:#}"
-                )
-            })
-        }
+    if !config.auto_install_dependencies {
+        return initial_binaries.context(
+            "IKEv2 runtime binaries are missing and automatic installation is disabled",
+        );
     }
+
+    let missing_packages = find_missing_ikev2_runtime_packages().await?;
+    if initial_binaries.is_ok() && missing_packages.is_empty() {
+        return initial_binaries;
+    }
+
+    ensure_supported_auto_install_host().await?;
+
+    if let Err(error) = &initial_binaries {
+        info!(
+            "IKEv2 runtime binaries are missing; attempting automatic install on Debian Bookworm: {error:#}"
+        );
+    }
+    if !missing_packages.is_empty() {
+        info!(
+            "IKEv2 runtime plugin packages are missing; attempting automatic install on Debian Bookworm: {}",
+            missing_packages.join(", ")
+        );
+    }
+
+    install_ikev2_runtime_dependencies().await?;
+
+    resolve_runtime_binaries(config).with_context(|| {
+        if let Err(initial_error) = &initial_binaries {
+            format!(
+                "IKEv2 runtime binaries are still unavailable after automatic installation. Initial detection failed with: {initial_error:#}"
+            )
+        } else {
+            "IKEv2 runtime binaries are still unavailable after automatic installation"
+                .to_string()
+        }
+    })
 }
 
 #[cfg(all(feature = "ikev2-server", target_os = "linux"))]
@@ -419,12 +509,41 @@ async fn install_ikev2_runtime_dependencies() -> Result<()> {
             .arg("install")
             .arg("-y")
             .arg("--no-install-recommends")
-            .arg("charon-systemd")
-            .arg("strongswan-swanctl")
-            .arg("libcharon-extauth-plugins"),
+            .args(REQUIRED_DEBIAN_IKEV2_PACKAGES),
         "install IKEv2 runtime dependencies",
     )
     .await
+}
+
+#[cfg(all(feature = "ikev2-server", target_os = "linux"))]
+async fn find_missing_ikev2_runtime_packages() -> Result<Vec<&'static str>> {
+    let dpkg_query = resolve_dpkg_query_binary()?;
+    let mut missing = Vec::new();
+
+    for package in REQUIRED_DEBIAN_IKEV2_PACKAGES {
+        if !is_debian_package_installed(&dpkg_query, package).await? {
+            missing.push(*package);
+        }
+    }
+
+    Ok(missing)
+}
+
+#[cfg(all(feature = "ikev2-server", target_os = "linux"))]
+async fn is_debian_package_installed(dpkg_query: &Path, package: &str) -> Result<bool> {
+    let output = Command::new(dpkg_query)
+        .arg("-W")
+        .arg("-f=${Status}")
+        .arg(package)
+        .output()
+        .await
+        .with_context(|| format!("query Debian package status for `{package}`"))?;
+
+    if !output.status.success() {
+        return Ok(false);
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).contains("install ok installed"))
 }
 
 #[cfg(all(feature = "ikev2-server", target_os = "linux"))]
@@ -449,6 +568,11 @@ async fn run_command_checked(command: &mut Command, description: &str) -> Result
 #[cfg(all(feature = "ikev2-server", target_os = "linux"))]
 fn resolve_apt_get_binary() -> Result<PathBuf> {
     resolve_executable("/usr/bin/apt-get").or_else(|_| resolve_executable("apt-get"))
+}
+
+#[cfg(all(feature = "ikev2-server", target_os = "linux"))]
+fn resolve_dpkg_query_binary() -> Result<PathBuf> {
+    resolve_executable("/usr/bin/dpkg-query").or_else(|_| resolve_executable("dpkg-query"))
 }
 
 #[cfg(all(feature = "ikev2-server", target_os = "linux"))]
@@ -1160,6 +1284,13 @@ mod tests {
     fn render_connection_local_addrs_uses_wildcard_for_unspecified_listen_addr() {
         let config = Ikev2ServerConfig::default();
         assert_eq!(render_connection_local_addrs(&config), "%any");
+    }
+
+    #[test]
+    fn required_debian_ikev2_packages_include_standard_and_extra_plugins() {
+        assert!(REQUIRED_DEBIAN_IKEV2_PACKAGES.contains(&"libstrongswan-standard-plugins"));
+        assert!(REQUIRED_DEBIAN_IKEV2_PACKAGES.contains(&"libstrongswan-extra-plugins"));
+        assert!(REQUIRED_DEBIAN_IKEV2_PACKAGES.contains(&"libcharon-extauth-plugins"));
     }
 
     #[tokio::test]
