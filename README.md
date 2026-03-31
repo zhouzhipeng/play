@@ -213,6 +213,7 @@ On first start, if the configured IKEv2 certificate files are missing, `play-ser
 - `server-key.pem`
 
 You do not need to create the default cert files by hand. The generated CA certificate is the one you distribute to clients so they can trust the VPN server certificate.
+For compatibility with manually configured iPhone IKEv2 clients, the auto-generated IKEv2 CA/server certificates use RSA.
 
 On Debian Bookworm, `play-server` can also install the required strongSwan runtime packages automatically when IKEv2 is enabled and the binaries are missing. With the default `auto_install_dependencies = true`, you do not need to preinstall `charon-systemd` or `swanctl` yourself.
 
