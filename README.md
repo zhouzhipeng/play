@@ -190,6 +190,7 @@ Put the IKEv2 settings in `DATA_DIR/config.toml`:
 ```toml
 [ikev2_server]
 enabled = true
+auto_install_dependencies = true
 local_id = "vpn.example.com"
 pool = "10.10.10.0/24"
 dns_servers = ["1.1.1.1", "8.8.8.8"]
@@ -213,16 +214,21 @@ On first start, if the configured IKEv2 certificate files are missing, `play-ser
 
 You do not need to create the default cert files by hand. The generated CA certificate is the one you distribute to clients so they can trust the VPN server certificate.
 
+On Debian Bookworm, `play-server` can also install the required strongSwan runtime packages automatically when IKEv2 is enabled and the binaries are missing. With the default `auto_install_dependencies = true`, you do not need to preinstall `charon-systemd` or `swanctl` yourself.
+
 ### 2. Runtime requirements
 
 - The embedded IKEv2 runtime is currently Linux-only.
 - `play-server` must be built with the `ikev2-server` feature.
-- The host needs strongSwan binaries available in `PATH`, by default `charon-systemd` and `swanctl`.
-- The process needs permission to bind UDP `500` and `4500`, which generally means running as root or with the needed capabilities.
+- On Debian Bookworm, `play-server` will automatically run `apt-get update` and install the required strongSwan packages if they are missing.
+- The host still needs outbound network access for the first automatic install, and the `play-server` process needs enough privilege to run `apt-get` and bind UDP `500` and `4500`.
+- After the packages are present, `play-server` tries `charon-systemd` first, then falls back to `charon`, and uses `swanctl` to load the generated config.
+- If your distro installs the binaries in a non-standard location or under a different name, set `ikev2_server.daemon_bin` and `ikev2_server.swanctl_bin` explicitly in `config.toml`.
+- During startup, `play-server` also best-effort disables system strongSwan services so they do not compete for the same UDP ports.
 
 ### 3. What gets started
 
-When enabled, `play-server` generates a temporary strongSwan runtime directory, writes `strongswan.conf` and `swanctl.conf`, starts `charon-systemd`, then loads the generated connection through `swanctl`.
+When enabled, `play-server` generates a temporary strongSwan runtime directory, writes `strongswan.conf` and `swanctl.conf`, starts the strongSwan IKE daemon (`charon-systemd` or `charon`), then loads the generated connection through `swanctl`.
 
 The default connection name is `play-ikev2`, the default UDP ports are `500` and `4500`, and the default address pool is `10.10.10.0/24`.
 
