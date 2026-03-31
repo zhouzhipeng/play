@@ -12,3 +12,18 @@ heartbeat_interval = 30
 
 [frp_server.services.demo_http]
 bind_addr = "0.0.0.0:8081"
+
+[ikev2_server]
+enabled = false
+listen_addr = "0.0.0.0"
+port = 500
+port_nat_t = 4500
+local_id = "vpn.example.com"
+server_cert = "certs/ikev2/server-cert.pem"
+server_key = "certs/ikev2/server-key.pem"
+ca_cert = "certs/ikev2/ca-cert.pem"
+pool = "10.10.10.0/24"
+dns_servers = ["1.1.1.1", "8.8.8.8"]
+
+[ikev2_server.eap_users]
+demo = "change_this_password"

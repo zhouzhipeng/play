@@ -10,6 +10,9 @@
 - toolbox 主窗口会一直保留
 - 每个工具会在独立原生窗口中打开
 - 当前内嵌工具包括 `curl-helper` 和 `frp-client`
+- 支持为 toolbox 设置默认自动打开工具
+- 支持在 macOS / Windows 上注册随系统登录启动
+- 当启用了随系统启动且默认工具是 `frp-client` 时，会自动启动 FRP client
 
 打包 macOS DMG：
 

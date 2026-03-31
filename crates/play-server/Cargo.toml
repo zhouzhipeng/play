@@ -9,8 +9,9 @@ description = "a play tool using rust"
 default = []
 debug = ["play-lua","frp-server"]
 use_mysql = ["sqlx/mysql", "play-shared/sqlparser"]
-server = ["play-dylib-loader","play-lua","play-redis","frp-server"]
+server = ["play-dylib-loader","play-lua","play-redis","frp-server","ikev2-server"]
 frp-server = ["dep:rathole"]
+ikev2-server = []
 
 
 [build-dependencies]
@@ -96,3 +97,4 @@ rustls-pki-types = { workspace = true }
 base64 = { workspace = true }
 sha2 = { workspace = true }
 tokio-tungstenite = { workspace = true }
+rcgen = { workspace = true }
