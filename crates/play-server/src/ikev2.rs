@@ -996,7 +996,10 @@ fn render_swanctl_conf(
     text.push_str("connections {\n");
     text.push_str(&format!("  {} {{\n", config.connection_name));
     text.push_str("    version = 2\n");
-    text.push_str(&format!("    local_addrs = {}\n", config.listen_addr));
+    text.push_str(&format!(
+        "    local_addrs = {}\n",
+        render_connection_local_addrs(config)
+    ));
     text.push_str("    send_cert = always\n");
     text.push_str(&format!("    mobike = {}\n", yes_no(config.mobike)));
     text.push_str(&format!(
@@ -1109,6 +1112,19 @@ fn sanitize_section_name(value: &str) -> String {
         .collect()
 }
 
+fn render_connection_local_addrs(config: &Ikev2ServerConfig) -> String {
+    let listen_addr = config.listen_addr.trim();
+    if listen_addr.is_empty()
+        || listen_addr == "0.0.0.0"
+        || listen_addr == "::"
+        || listen_addr == "[::]"
+    {
+        "%any".to_string()
+    } else {
+        listen_addr.to_string()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1135,6 +1151,13 @@ mod tests {
         assert!(conf.contains("secret = \"change_this_password\""));
         assert!(conf.contains("certs = \"server-cert.pem\""));
         assert!(conf.contains("file = \"private/server-key.pem\""));
+        assert!(conf.contains("local_addrs = %any"));
+    }
+
+    #[test]
+    fn render_connection_local_addrs_uses_wildcard_for_unspecified_listen_addr() {
+        let config = Ikev2ServerConfig::default();
+        assert_eq!(render_connection_local_addrs(&config), "%any");
     }
 
     #[tokio::test]
