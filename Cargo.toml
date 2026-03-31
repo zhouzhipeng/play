@@ -170,3 +170,4 @@ difference = "2.0.0"
 tower-livereload = "0.8.2"
 notify = "6.1.1"
 rustls-acme = { version = "0.8.1", features = ["axum"] }
+rcgen = { version = "0.14", features = ["x509-parser"] }

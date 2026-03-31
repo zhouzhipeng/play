@@ -44,7 +44,7 @@ play/
 ## Key Crates
 
 - `play-server`
-  Main backend service. Provides the data APIs, file APIs, admin/static pages, plugin loading hooks, MCP HTTP endpoint support, and optional embedded FRP server support behind the `frp-server` feature.
+  Main backend service. Provides the data APIs, file APIs, admin/static pages, plugin loading hooks, MCP HTTP endpoint support, and optional embedded FRP server and IKEv2 server support behind feature flags.
 
 - `play-gui`
   Pure `egui` desktop toolbox shell. It hosts local tools in-process from library crates instead of spawning child processes.
@@ -85,6 +85,12 @@ cargo run -p play-server
 
 ```bash
 cargo run -p play-server --features frp-server
+```
+
+### Run the main server with embedded IKEv2 support compiled in
+
+```bash
+cargo run -p play-server --features ikev2-server
 ```
 
 ### Run the desktop toolbox
@@ -175,6 +181,51 @@ With the example configs above:
 
 Once the client is connected, requests to `http://127.0.0.1:8081` should reach the local service behind the FRP client.
 
+## IKEv2 Usage
+
+### 1. Enable the embedded IKEv2 server
+
+Put the IKEv2 settings in `DATA_DIR/config.toml`:
+
+```toml
+[ikev2_server]
+enabled = true
+local_id = "vpn.example.com"
+pool = "10.10.10.0/24"
+dns_servers = ["1.1.1.1", "8.8.8.8"]
+
+[ikev2_server.eap_users]
+demo = "change_this_password"
+```
+
+Then start `play-server` with the feature enabled:
+
+```bash
+cargo run -p play-server --features ikev2-server
+```
+
+On first start, if the configured IKEv2 certificate files are missing, `play-server` now generates them automatically under `DATA_DIR/certs/ikev2/`:
+
+- `ca-cert.pem`
+- `ca-key.pem`
+- `server-cert.pem`
+- `server-key.pem`
+
+You do not need to create the default cert files by hand. The generated CA certificate is the one you distribute to clients so they can trust the VPN server certificate.
+
+### 2. Runtime requirements
+
+- The embedded IKEv2 runtime is currently Linux-only.
+- `play-server` must be built with the `ikev2-server` feature.
+- The host needs strongSwan binaries available in `PATH`, by default `charon-systemd` and `swanctl`.
+- The process needs permission to bind UDP `500` and `4500`, which generally means running as root or with the needed capabilities.
+
+### 3. What gets started
+
+When enabled, `play-server` generates a temporary strongSwan runtime directory, writes `strongswan.conf` and `swanctl.conf`, starts `charon-systemd`, then loads the generated connection through `swanctl`.
+
+The default connection name is `play-ikev2`, the default UDP ports are `500` and `4500`, and the default address pool is `10.10.10.0/24`.
+
 ## Workspace Notes
 
 - The default workspace member is `crates/play-server`.
@@ -184,6 +235,8 @@ Once the client is connected, requests to `http://127.0.0.1:8081` should reach t
 - `play-gui` does not start or manage `play-server`.
 - FRP server support is optional. Enable the `frp-server` cargo feature and configure `[frp_server]` in the root `config.toml`.
 - FRP server settings now live entirely inside the main `config.toml`; there is no user-managed `frp/server.toml`.
+- IKEv2 server support is optional. Enable the `ikev2-server` cargo feature and configure `[ikev2_server]` in the root `config.toml`.
+- With the default certificate paths, `play-server` auto-generates the IKEv2 CA/server certificate bundle when the server starts and the files are missing.
 - MCP support is still active in the workspace through `play-mcp` and the server's `/mcp` controller.
 
 ## Documentation

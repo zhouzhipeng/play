@@ -586,7 +586,10 @@ async fn handle_count(
     return Ok(Json(CountResp { rows: count }));
 }
 
-async fn handle_categories(s: S, Query(query_param): Query<CategoryListParam>) -> R<Json<Vec<String>>> {
+async fn handle_categories(
+    s: S,
+    Query(query_param): Query<CategoryListParam>,
+) -> R<Json<Vec<String>>> {
     let categories =
         GeneralData::query_distinct_categories(query_param.include_deleted, &s.db).await?;
     Ok(Json(categories))
