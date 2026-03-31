@@ -7,6 +7,7 @@ use rcgen::{
     ExtendedKeyUsagePurpose, IsCa, Issuer, KeyPair, KeyUsagePurpose, SanType,
 };
 use tokio::fs;
+use tokio::sync::oneshot;
 use tracing::{info, warn};
 
 use crate::config::Ikev2ServerConfig;
@@ -28,6 +29,23 @@ pub struct Ikev2ServerHandle {
     _runtime_dir: tempfile::TempDir,
 }
 
+pub struct Ikev2BackgroundHandle {
+    shutdown_tx: Option<oneshot::Sender<()>>,
+    join_handle: tokio::task::JoinHandle<()>,
+}
+
+impl Ikev2BackgroundHandle {
+    pub async fn shutdown(mut self) {
+        if let Some(shutdown_tx) = self.shutdown_tx.take() {
+            let _ = shutdown_tx.send(());
+        }
+
+        if let Err(error) = self.join_handle.await {
+            warn!("IKEv2 background task join failed: {}", error);
+        }
+    }
+}
+
 impl Ikev2ServerHandle {
     pub async fn shutdown(mut self) {
         #[cfg(all(feature = "ikev2-server", target_os = "linux"))]
@@ -41,6 +59,52 @@ impl Ikev2ServerHandle {
             }
         }
     }
+}
+
+pub fn maybe_start_ikev2_server_in_background(
+    config: &Ikev2ServerConfig,
+) -> Option<Ikev2BackgroundHandle> {
+    if !config.enabled {
+        return None;
+    }
+
+    let config = config.clone();
+    let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
+
+    let join_handle = tokio::spawn(async move {
+        info!("Starting embedded IKEv2 service in background");
+
+        let startup = maybe_start_ikev2_server(&config);
+        tokio::pin!(startup);
+
+        let handle = tokio::select! {
+            result = &mut startup => {
+                match result {
+                    Ok(handle) => handle,
+                    Err(error) => {
+                        error_background_startup(&error);
+                        return;
+                    }
+                }
+            }
+            _ = &mut shutdown_rx => {
+                info!("Embedded IKEv2 background startup cancelled before completion");
+                return;
+            }
+        };
+
+        let Some(handle) = handle else {
+            return;
+        };
+
+        let _ = (&mut shutdown_rx).await;
+        handle.shutdown().await;
+    });
+
+    Some(Ikev2BackgroundHandle {
+        shutdown_tx: Some(shutdown_tx),
+        join_handle,
+    })
 }
 
 pub async fn maybe_start_ikev2_server(
@@ -120,6 +184,12 @@ pub async fn maybe_start_ikev2_server(
         );
         Ok(None)
     }
+}
+
+fn error_background_startup(error: &anyhow::Error) {
+    warn!(
+        "Embedded IKEv2 startup failed in background; HTTP server continues running without IKEv2: {error:#}"
+    );
 }
 
 #[cfg(all(feature = "ikev2-server", target_os = "linux"))]
