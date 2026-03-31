@@ -1000,6 +1000,7 @@ fn render_swanctl_conf(
         "    local_addrs = {}\n",
         render_connection_local_addrs(config)
     ));
+    text.push_str("    remote_addrs = %any\n");
     text.push_str("    send_cert = always\n");
     text.push_str(&format!("    mobike = {}\n", yes_no(config.mobike)));
     text.push_str(&format!(
@@ -1152,6 +1153,7 @@ mod tests {
         assert!(conf.contains("certs = \"server-cert.pem\""));
         assert!(conf.contains("file = \"private/server-key.pem\""));
         assert!(conf.contains("local_addrs = %any"));
+        assert!(conf.contains("remote_addrs = %any"));
     }
 
     #[test]
