@@ -282,7 +282,7 @@ async fn load_runtime_config(
     .await?;
 
     if output.status.success() {
-        ensure_runtime_connection_loaded(config, runtime, vici_uri, binaries).await?;
+        ensure_runtime_connection_loaded(config, runtime, vici_uri, binaries, &output).await?;
         return Ok(());
     }
 
@@ -300,6 +300,7 @@ async fn ensure_runtime_connection_loaded(
     runtime: &RuntimeFiles,
     vici_uri: &str,
     binaries: &ResolvedRuntimeBinaries,
+    load_output: &std::process::Output,
 ) -> Result<()> {
     let output = run_swanctl_command(
         binaries,
@@ -326,8 +327,11 @@ async fn ensure_runtime_connection_loaded(
     }
 
     bail!(
-        "IKEv2 connection `{}` was not loaded into charon. `{} --list-conns` output: stdout=`{}` stderr=`{}`",
+        "IKEv2 connection `{}` was not loaded into charon. `{} --load-all` output: stdout=`{}` stderr=`{}`. `{} --list-conns` output: stdout=`{}` stderr=`{}`",
         config.connection_name,
+        binaries.swanctl_bin.display(),
+        String::from_utf8_lossy(&load_output.stdout).trim(),
+        String::from_utf8_lossy(&load_output.stderr).trim(),
         binaries.swanctl_bin.display(),
         stdout.trim(),
         String::from_utf8_lossy(&output.stderr).trim()
@@ -845,7 +849,7 @@ async fn write_runtime_files(config: &Ikev2ServerConfig) -> Result<RuntimeFiles>
         .await
         .with_context(|| format!("write {}", strongswan_conf_path.display()))?;
 
-    let swanctl_conf = render_swanctl_conf(config, &server_cert_name, &server_key_name);
+    let swanctl_conf = render_swanctl_conf(config, &server_cert_name);
     fs::write(&swanctl_conf_path, swanctl_conf)
         .await
         .with_context(|| format!("write {}", swanctl_conf_path.display()))?;
@@ -1112,7 +1116,6 @@ fn render_strongswan_conf(config: &Ikev2ServerConfig, vici_socket_path: &Path) -
 fn render_swanctl_conf(
     config: &Ikev2ServerConfig,
     server_cert_name: &str,
-    server_key_name: &str,
 ) -> String {
     let mut text = String::new();
     let child_name = format!("{}-child", config.connection_name);
@@ -1141,7 +1144,7 @@ fn render_swanctl_conf(
         }
     }
     text.push_str("    pools = play-ipv4\n");
-    text.push_str("    local-1 {\n");
+    text.push_str("    local {\n");
     text.push_str("      auth = pubkey\n");
     text.push_str(&format!("      id = {}\n", quote_value(&config.local_id)));
     text.push_str(&format!(
@@ -1149,7 +1152,7 @@ fn render_swanctl_conf(
         quote_value(server_cert_name)
     ));
     text.push_str("    }\n");
-    text.push_str("    remote-1 {\n");
+    text.push_str("    remote {\n");
     text.push_str("      auth = eap-mschapv2\n");
     text.push_str("      eap_id = %any\n");
     text.push_str("    }\n");
@@ -1179,12 +1182,6 @@ fn render_swanctl_conf(
     text.push_str("}\n\n");
 
     text.push_str("secrets {\n");
-    text.push_str("  private-play {\n");
-    text.push_str(&format!(
-        "    file = {}\n",
-        quote_value(&format!("private/{server_key_name}"))
-    ));
-    text.push_str("  }\n");
     for (user, password) in &config.eap_users {
         text.push_str(&format!("  eap-{} {{\n", sanitize_section_name(user)));
         text.push_str(&format!("    id = {}\n", quote_value(user)));
@@ -1270,14 +1267,16 @@ mod tests {
     fn render_swanctl_conf_contains_eap_users_and_pool() {
         let mut config = Ikev2ServerConfig::default();
         config.local_id = "vpn.example.com".to_string();
-        let conf = render_swanctl_conf(&config, "server-cert.pem", "server-key.pem");
+        let conf = render_swanctl_conf(&config, "server-cert.pem");
         assert!(conf.contains("auth = eap-mschapv2"));
         assert!(conf.contains("addrs = 10.10.10.0/24"));
         assert!(conf.contains("secret = \"change_this_password\""));
         assert!(conf.contains("certs = \"server-cert.pem\""));
-        assert!(conf.contains("file = \"private/server-key.pem\""));
         assert!(conf.contains("local_addrs = %any"));
         assert!(conf.contains("remote_addrs = %any"));
+        assert!(conf.contains("local {\n"));
+        assert!(conf.contains("remote {\n"));
+        assert!(!conf.contains("private-play"));
     }
 
     #[test]
