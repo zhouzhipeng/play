@@ -5,7 +5,8 @@ use std::path::{Path, PathBuf};
 use anyhow::{anyhow, bail, Context, Result};
 use rcgen::{
     BasicConstraints, CertificateParams, CertifiedIssuer, DistinguishedName, DnType,
-    ExtendedKeyUsagePurpose, IsCa, Issuer, KeyPair, KeyUsagePurpose, SanType,
+    ExtendedKeyUsagePurpose, IsCa, Issuer, KeyPair, KeyUsagePurpose, RsaKeySize, SanType,
+    PKCS_RSA_SHA256,
 };
 use tokio::fs;
 use tokio::sync::oneshot;
@@ -827,7 +828,7 @@ async fn generate_server_credentials(
     paths: &ResolvedCredentialPaths,
     issuer: &Issuer<'_, KeyPair>,
 ) -> Result<()> {
-    let server_key = KeyPair::generate().context("generate IKEv2 server private key failed")?;
+    let server_key = generate_ikev2_rsa_key_pair("server")?;
     let server_params = build_server_certificate_params(config)?;
     let server_cert = server_params
         .signed_by(&server_key, issuer)
@@ -861,7 +862,7 @@ fn build_ca_issuer(config: &Ikev2ServerConfig) -> Result<(String, String, Issuer
     ];
     ca_params.distinguished_name = build_distinguished_name("Play IKEv2 CA", &config.local_id);
 
-    let ca_key = KeyPair::generate().context("generate IKEv2 CA private key failed")?;
+    let ca_key = generate_ikev2_rsa_key_pair("CA")?;
     let ca_cert = ca_params
         .self_signed(&ca_key)
         .context("generate IKEv2 CA certificate failed")?;
@@ -869,6 +870,11 @@ fn build_ca_issuer(config: &Ikev2ServerConfig) -> Result<(String, String, Issuer
     let issuer = Issuer::new(ca_params, ca_key);
 
     Ok((ca_cert.pem(), ca_key_pem, issuer))
+}
+
+fn generate_ikev2_rsa_key_pair(purpose: &str) -> Result<KeyPair> {
+    KeyPair::generate_rsa_for(&PKCS_RSA_SHA256, RsaKeySize::_2048)
+        .with_context(|| format!("generate IKEv2 {purpose} RSA private key failed"))
 }
 
 fn build_server_certificate_params(config: &Ikev2ServerConfig) -> Result<CertificateParams> {
@@ -1179,6 +1185,12 @@ VERSION_CODENAME=bookworm
                 version_codename: Some("bookworm".to_string()),
             }
         );
+    }
+
+    #[test]
+    fn generated_ikev2_key_pair_uses_rsa_sha256() {
+        let key_pair = generate_ikev2_rsa_key_pair("test").unwrap();
+        assert_eq!(key_pair.algorithm(), &PKCS_RSA_SHA256);
     }
 
     #[test]
