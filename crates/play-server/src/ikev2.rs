@@ -9,7 +9,7 @@ use rcgen::{
 };
 use tokio::fs;
 use tokio::sync::oneshot;
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 use crate::config::Ikev2ServerConfig;
 use play_shared::constants::DATA_DIR;
@@ -143,7 +143,7 @@ pub async fn maybe_start_ikev2_server(
             tokio::spawn(async move {
                 let mut lines = BufReader::new(stdout).lines();
                 while let Ok(Some(line)) = lines.next_line().await {
-                    info!("ikev2-daemon stdout: {}", line);
+                    log_ikev2_daemon_line("stdout", &line);
                 }
             });
         }
@@ -152,7 +152,7 @@ pub async fn maybe_start_ikev2_server(
             tokio::spawn(async move {
                 let mut lines = BufReader::new(stderr).lines();
                 while let Ok(Some(line)) = lines.next_line().await {
-                    warn!("ikev2-daemon stderr: {}", line);
+                    log_ikev2_daemon_line("stderr", &line);
                 }
             });
         }
@@ -195,6 +195,33 @@ fn error_background_startup(error: &anyhow::Error) {
     warn!(
         "Embedded IKEv2 startup failed in background; HTTP server continues running without IKEv2: {error:#}"
     );
+}
+
+fn log_ikev2_daemon_line(stream: &str, line: &str) {
+    if looks_like_ikev2_problem(line) {
+        warn!("ikev2-daemon {}: {}", stream, line);
+    } else {
+        debug!("ikev2-daemon {}: {}", stream, line);
+    }
+}
+
+fn looks_like_ikev2_problem(line: &str) -> bool {
+    let line = line.to_ascii_lowercase();
+    [
+        "error",
+        "fail",
+        "fatal",
+        "unable",
+        "denied",
+        "timed out",
+        "timeout",
+        "no such file",
+        "not found",
+        "invalid",
+        "refused",
+    ]
+    .iter()
+    .any(|needle| line.contains(needle))
 }
 
 #[cfg(all(feature = "ikev2-server", target_os = "linux"))]
@@ -1152,6 +1179,20 @@ VERSION_CODENAME=bookworm
                 version_codename: Some("bookworm".to_string()),
             }
         );
+    }
+
+    #[test]
+    fn normal_ikev2_daemon_watcher_log_is_not_treated_as_problem() {
+        assert!(!looks_like_ikev2_problem(
+            "02[JOB] watcher got notification, rebuilding"
+        ));
+    }
+
+    #[test]
+    fn failing_ikev2_daemon_log_is_treated_as_problem() {
+        assert!(looks_like_ikev2_problem(
+            "00[LIB] failed to load plugin: No such file or directory"
+        ));
     }
 
     #[test]

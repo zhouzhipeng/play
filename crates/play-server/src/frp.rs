@@ -5,6 +5,7 @@ use serde::Serialize;
 use tokio::fs;
 #[cfg(feature = "frp-server")]
 use tokio::sync::broadcast;
+use tokio::sync::oneshot;
 use tracing::{error, info, warn};
 
 use crate::config::{FrpServerConfig, FrpServerServiceConfig, FrpTransportConfig};
@@ -52,6 +53,23 @@ pub struct FrpServerHandle {
     _runtime_dir: tempfile::TempDir,
 }
 
+pub struct FrpBackgroundHandle {
+    shutdown_tx: Option<oneshot::Sender<()>>,
+    join_handle: tokio::task::JoinHandle<()>,
+}
+
+impl FrpBackgroundHandle {
+    pub async fn shutdown(mut self) {
+        if let Some(shutdown_tx) = self.shutdown_tx.take() {
+            let _ = shutdown_tx.send(());
+        }
+
+        if let Err(error) = self.join_handle.await {
+            warn!("FRP background task join failed: {}", error);
+        }
+    }
+}
+
 impl FrpServerHandle {
     pub async fn shutdown(self) {
         #[cfg(feature = "frp-server")]
@@ -62,6 +80,54 @@ impl FrpServerHandle {
             }
         }
     }
+}
+
+pub fn maybe_start_frp_server_in_background(
+    config: &FrpServerConfig,
+) -> Option<FrpBackgroundHandle> {
+    if !config.enabled {
+        return None;
+    }
+
+    let config = config.clone();
+    let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
+
+    let join_handle = tokio::spawn(async move {
+        info!("Starting embedded FRP service in background");
+
+        let startup = maybe_start_frp_server(&config);
+        tokio::pin!(startup);
+
+        let handle = tokio::select! {
+            result = &mut startup => {
+                match result {
+                    Ok(handle) => handle,
+                    Err(error) => {
+                        warn!(
+                            "Embedded FRP startup failed in background; HTTP server continues running without FRP: {error:#}"
+                        );
+                        return;
+                    }
+                }
+            }
+            _ = &mut shutdown_rx => {
+                info!("Embedded FRP background startup cancelled before completion");
+                return;
+            }
+        };
+
+        let Some(handle) = handle else {
+            return;
+        };
+
+        let _ = (&mut shutdown_rx).await;
+        handle.shutdown().await;
+    });
+
+    Some(FrpBackgroundHandle {
+        shutdown_tx: Some(shutdown_tx),
+        join_handle,
+    })
 }
 
 pub async fn maybe_start_frp_server(config: &FrpServerConfig) -> Result<Option<FrpServerHandle>> {
