@@ -217,7 +217,8 @@ local_addr = "127.0.0.1:{backend_port}"
             genkey: None,
         };
 
-        let client_handle = tokio::spawn(async move { rathole::run(client_args, client_shutdown_rx).await });
+        let client_handle =
+            tokio::spawn(async move { rathole::run(client_args, client_shutdown_rx).await });
 
         let smoke_result = wait_for_tunnel(tunnel_port).await;
 
@@ -232,15 +233,14 @@ local_addr = "127.0.0.1:{backend_port}"
         Ok(())
     }
 
-    async fn start_backend_server(port: u16) -> Result<(oneshot::Sender<()>, JoinHandle<Result<()>>)> {
+    async fn start_backend_server(
+        port: u16,
+    ) -> Result<(oneshot::Sender<()>, JoinHandle<Result<()>>)> {
         let listener = tokio::net::TcpListener::bind(("127.0.0.1", port))
             .await
             .with_context(|| format!("bind backend server on {port}"))?;
 
-        let app = Router::new().route(
-            "/",
-            get(|| async move { format!("{SMOKE_RESPONSE}\n") }),
-        );
+        let app = Router::new().route("/", get(|| async move { format!("{SMOKE_RESPONSE}\n") }));
 
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
         let handle = tokio::spawn(async move {
@@ -268,7 +268,9 @@ local_addr = "127.0.0.1:{backend_port}"
             match client.get(&url).send().await {
                 Ok(response) => match response.text().await {
                     Ok(body) if body.contains(SMOKE_RESPONSE) => return Ok(()),
-                    Ok(body) => last_error = Some(anyhow::anyhow!("unexpected FRP response body: {body:?}")),
+                    Ok(body) => {
+                        last_error = Some(anyhow::anyhow!("unexpected FRP response body: {body:?}"))
+                    }
                     Err(error) => last_error = Some(error.into()),
                 },
                 Err(error) => last_error = Some(error.into()),
@@ -277,12 +279,13 @@ local_addr = "127.0.0.1:{backend_port}"
             sleep(Duration::from_millis(250)).await;
         }
 
-        Err(last_error.unwrap_or_else(|| anyhow::anyhow!("FRP smoke test timed out without a response")))
+        Err(last_error
+            .unwrap_or_else(|| anyhow::anyhow!("FRP smoke test timed out without a response")))
     }
 
     fn free_port() -> Result<u16> {
-        let listener = std::net::TcpListener::bind(("127.0.0.1", 0))
-            .context("bind ephemeral port failed")?;
+        let listener =
+            std::net::TcpListener::bind(("127.0.0.1", 0)).context("bind ephemeral port failed")?;
         let port = listener
             .local_addr()
             .context("read ephemeral port failed")?
