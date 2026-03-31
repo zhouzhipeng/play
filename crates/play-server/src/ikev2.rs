@@ -909,6 +909,13 @@ fn server_subject_alt_names(config: &Ikev2ServerConfig) -> Result<Vec<SanType>> 
     }
 
     if let Ok(ip) = local_id.parse::<IpAddr>() {
+        names.push(
+            SanType::DnsName(
+                local_id
+                    .try_into()
+                    .map_err(|_| anyhow!("invalid IKEv2 local_id `{local_id}` for DNS SAN"))?,
+            ),
+        );
         names.push(SanType::IpAddress(ip));
     } else {
         names.push(
@@ -945,13 +952,23 @@ fn derive_ca_key_path(ca_cert_path: &Path) -> PathBuf {
 }
 
 fn render_strongswan_conf(config: &Ikev2ServerConfig, vici_socket_path: &Path) -> String {
+    let handshake_level = config.log_level.max(2);
     format!(
         r#"charon {{
   port = {}
   port_nat_t = {}
   filelog {{
     stderr {{
-      default = {}
+      default = 1
+      ike = {handshake_level}
+      cfg = {handshake_level}
+      net = {handshake_level}
+      enc = {handshake_level}
+      chd = {handshake_level}
+      job = 0
+      wch = 0
+      lib = 0
+      ike_name = yes
       flush_line = yes
     }}
   }}
@@ -964,7 +981,6 @@ fn render_strongswan_conf(config: &Ikev2ServerConfig, vici_socket_path: &Path) -
 "#,
         config.port,
         config.port_nat_t,
-        config.log_level,
         quote_value(&format!("unix://{}", vici_socket_path.display()))
     )
 }
@@ -1104,6 +1120,9 @@ mod tests {
         assert!(conf.contains("port = 500"));
         assert!(conf.contains("port_nat_t = 4500"));
         assert!(conf.contains("unix:///tmp/play-ikev2/charon.vici"));
+        assert!(conf.contains("job = 0"));
+        assert!(conf.contains("lib = 0"));
+        assert!(conf.contains("ike_name = yes"));
     }
 
     #[test]
@@ -1191,6 +1210,17 @@ VERSION_CODENAME=bookworm
     fn generated_ikev2_key_pair_uses_rsa_sha256() {
         let key_pair = generate_ikev2_rsa_key_pair("test").unwrap();
         assert_eq!(key_pair.algorithm(), &PKCS_RSA_SHA256);
+    }
+
+    #[test]
+    fn ip_local_id_adds_dns_and_ip_subject_alt_names() {
+        let mut config = Ikev2ServerConfig::default();
+        config.local_id = "203.0.113.10".to_string();
+
+        let names = server_subject_alt_names(&config).unwrap();
+        assert_eq!(names.len(), 2);
+        assert!(matches!(names[0], SanType::DnsName(_)));
+        assert!(matches!(names[1], SanType::IpAddress(_)));
     }
 
     #[test]
