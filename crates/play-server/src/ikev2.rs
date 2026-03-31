@@ -1150,7 +1150,7 @@ fn render_swanctl_conf(
     ));
     text.push_str("    }\n");
     text.push_str("    remote-1 {\n");
-    text.push_str("      auth = eap-dynamic\n");
+    text.push_str("      auth = eap-mschapv2\n");
     text.push_str("      eap_id = %any\n");
     text.push_str("    }\n");
     text.push_str("    children {\n");
@@ -1271,7 +1271,7 @@ mod tests {
         let mut config = Ikev2ServerConfig::default();
         config.local_id = "vpn.example.com".to_string();
         let conf = render_swanctl_conf(&config, "server-cert.pem", "server-key.pem");
-        assert!(conf.contains("auth = eap-dynamic"));
+        assert!(conf.contains("auth = eap-mschapv2"));
         assert!(conf.contains("addrs = 10.10.10.0/24"));
         assert!(conf.contains("secret = \"change_this_password\""));
         assert!(conf.contains("certs = \"server-cert.pem\""));
