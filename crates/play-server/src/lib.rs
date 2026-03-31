@@ -753,7 +753,7 @@ pub async fn start_server_with_config(data_dir: String, config: &Config) -> anyh
     }
 
     let ikev2_handle = ikev2::maybe_start_ikev2_server_in_background(&config.ikev2_server);
-    let frp_handle = frp::maybe_start_frp_server(&config.frp_server).await?;
+    let frp_handle = frp::maybe_start_frp_server_in_background(&config.frp_server);
 
     start_server(router, app_state).await?;
 
