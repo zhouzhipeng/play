@@ -325,6 +325,8 @@ pub struct FrpServerConfig {
 pub struct Ikev2ServerConfig {
     #[serde(default)]
     pub enabled: bool,
+    #[serde(default = "default_ikev2_auto_install_dependencies")]
+    pub auto_install_dependencies: bool,
     #[serde(default = "default_ikev2_daemon_bin")]
     pub daemon_bin: String,
     #[serde(default = "default_ikev2_swanctl_bin")]
@@ -400,6 +402,7 @@ impl Default for Ikev2ServerConfig {
 
         Self {
             enabled: false,
+            auto_install_dependencies: default_ikev2_auto_install_dependencies(),
             daemon_bin: default_ikev2_daemon_bin(),
             swanctl_bin: default_ikev2_swanctl_bin(),
             listen_addr: default_ikev2_listen_addr(),
@@ -455,6 +458,10 @@ fn default_frp_keepalive_interval() -> u64 {
 
 fn default_ikev2_daemon_bin() -> String {
     "charon-systemd".to_string()
+}
+
+fn default_ikev2_auto_install_dependencies() -> bool {
+    true
 }
 
 fn default_ikev2_swanctl_bin() -> String {
@@ -547,6 +554,7 @@ bind_addr = "0.0.0.0:8081"
 
 [ikev2_server]
 enabled = false
+auto_install_dependencies = true
 listen_addr = "0.0.0.0"
 port = 500
 port_nat_t = 4500

@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 
@@ -116,13 +117,17 @@ pub async fn maybe_start_ikev2_server(
 
     #[cfg(all(feature = "ikev2-server", target_os = "linux"))]
     {
+        let binaries = ensure_runtime_binaries(config).await?;
+        if config.auto_install_dependencies {
+            stop_conflicting_strongswan_services().await;
+        }
         ensure_credentials_exist(config).await?;
         validate_config(config).await?;
 
         let runtime = write_runtime_files(config).await?;
         let vici_uri = format!("unix://{}", runtime.vici_socket_path.display());
 
-        let mut child = Command::new(&config.daemon_bin);
+        let mut child = Command::new(&binaries.daemon_bin);
         child
             .env("STRONGSWAN_CONF", &runtime.strongswan_conf_path)
             .current_dir(runtime.root.path())
@@ -132,7 +137,7 @@ pub async fn maybe_start_ikev2_server(
 
         let mut child = child
             .spawn()
-            .with_context(|| format!("start IKEv2 daemon binary `{}`", config.daemon_bin))?;
+            .with_context(|| format!("start IKEv2 daemon binary `{}`", binaries.daemon_bin.display()))?;
 
         if let Some(stdout) = child.stdout.take() {
             tokio::spawn(async move {
@@ -152,7 +157,7 @@ pub async fn maybe_start_ikev2_server(
             });
         }
 
-        wait_until_ready(config, &runtime, &vici_uri, &mut child).await?;
+        wait_until_ready(config, &runtime, &vici_uri, &binaries, &mut child).await?;
 
         info!(
             "Embedded IKEv2 service started with connection `{}` on {}:{} / {}:{}",
@@ -197,6 +202,7 @@ async fn wait_until_ready(
     config: &Ikev2ServerConfig,
     runtime: &RuntimeFiles,
     vici_uri: &str,
+    binaries: &ResolvedRuntimeBinaries,
     child: &mut Child,
 ) -> Result<()> {
     let deadline = Instant::now() + Duration::from_secs(config.startup_timeout_secs.max(1));
@@ -208,7 +214,7 @@ async fn wait_until_ready(
         }
 
         if runtime.vici_socket_path.exists() {
-            match load_runtime_config(config, runtime, vici_uri).await {
+            match load_runtime_config(config, runtime, vici_uri, binaries).await {
                 Ok(()) => return Ok(()),
                 Err(error) => last_error = Some(error),
             }
@@ -235,8 +241,9 @@ async fn load_runtime_config(
     config: &Ikev2ServerConfig,
     runtime: &RuntimeFiles,
     vici_uri: &str,
+    binaries: &ResolvedRuntimeBinaries,
 ) -> Result<()> {
-    let output = Command::new(&config.swanctl_bin)
+    let output = Command::new(&binaries.swanctl_bin)
         .arg("--load-all")
         .arg("--file")
         .arg(&runtime.swanctl_conf_path)
@@ -245,7 +252,12 @@ async fn load_runtime_config(
         .env("SWANCTL_DIR", &runtime.swanctl_dir)
         .output()
         .await
-        .with_context(|| format!("run `{}` to load IKEv2 config", config.swanctl_bin))?;
+        .with_context(|| {
+            format!(
+                "run `{}` to load IKEv2 config",
+                binaries.swanctl_bin.display()
+            )
+        })?;
 
     if output.status.success() {
         return Ok(());
@@ -253,7 +265,7 @@ async fn load_runtime_config(
 
     bail!(
         "{} --load-all failed: stdout=`{}` stderr=`{}`",
-        config.swanctl_bin,
+        binaries.swanctl_bin.display(),
         String::from_utf8_lossy(&output.stdout).trim(),
         String::from_utf8_lossy(&output.stderr).trim()
     );
@@ -266,6 +278,273 @@ struct RuntimeFiles {
     strongswan_conf_path: PathBuf,
     swanctl_conf_path: PathBuf,
     vici_socket_path: PathBuf,
+}
+
+#[derive(Debug)]
+struct ResolvedRuntimeBinaries {
+    daemon_bin: PathBuf,
+    swanctl_bin: PathBuf,
+}
+
+#[derive(Debug, Default, PartialEq, Eq)]
+struct OsReleaseInfo {
+    id: String,
+    version_id: Option<String>,
+    version_codename: Option<String>,
+}
+
+fn resolve_runtime_binaries(config: &Ikev2ServerConfig) -> Result<ResolvedRuntimeBinaries> {
+    let daemon_bin = if config.daemon_bin == "charon-systemd" {
+        resolve_executable_with_fallbacks(&config.daemon_bin, &["charon"])?
+    } else {
+        resolve_executable(&config.daemon_bin)?
+    };
+    let swanctl_bin = resolve_executable(&config.swanctl_bin)?;
+
+    if daemon_bin.file_name() != Some(OsStr::new(&config.daemon_bin)) {
+        warn!(
+            "Configured IKEv2 daemon binary `{}` not found, using fallback `{}`",
+            config.daemon_bin,
+            daemon_bin.display()
+        );
+    }
+
+    Ok(ResolvedRuntimeBinaries {
+        daemon_bin,
+        swanctl_bin,
+    })
+}
+
+#[cfg(all(feature = "ikev2-server", target_os = "linux"))]
+async fn ensure_runtime_binaries(config: &Ikev2ServerConfig) -> Result<ResolvedRuntimeBinaries> {
+    match resolve_runtime_binaries(config) {
+        Ok(binaries) => Ok(binaries),
+        Err(initial_error) => {
+            if !config.auto_install_dependencies {
+                return Err(initial_error.context(
+                    "IKEv2 runtime binaries are missing and automatic installation is disabled",
+                ));
+            }
+
+            info!(
+                "IKEv2 runtime binaries are missing; attempting automatic install on Debian Bookworm: {initial_error:#}"
+            );
+
+            ensure_supported_auto_install_host().await?;
+            install_ikev2_runtime_dependencies().await?;
+
+            resolve_runtime_binaries(config).with_context(|| {
+                format!(
+                    "IKEv2 runtime binaries are still unavailable after automatic installation. Initial detection failed with: {initial_error:#}"
+                )
+            })
+        }
+    }
+}
+
+#[cfg(all(feature = "ikev2-server", target_os = "linux"))]
+async fn ensure_supported_auto_install_host() -> Result<()> {
+    let os_release = fs::read_to_string("/etc/os-release")
+        .await
+        .context("read /etc/os-release for IKEv2 dependency auto-install")?;
+    let info = parse_os_release(&os_release);
+
+    let is_supported = info.id == "debian"
+        && (info.version_codename.as_deref() == Some("bookworm")
+            || info.version_id.as_deref() == Some("12"));
+
+    if is_supported {
+        return Ok(());
+    }
+
+    bail!(
+        "IKEv2 dependency auto-install only supports Debian Bookworm. Detected ID=`{}` VERSION_ID=`{}` VERSION_CODENAME=`{}`",
+        info.id,
+        info.version_id.as_deref().unwrap_or(""),
+        info.version_codename.as_deref().unwrap_or("")
+    );
+}
+
+#[cfg(all(feature = "ikev2-server", target_os = "linux"))]
+async fn install_ikev2_runtime_dependencies() -> Result<()> {
+    let apt_get = resolve_apt_get_binary()?;
+    info!(
+        "Installing IKEv2 runtime dependencies with `{}`",
+        apt_get.display()
+    );
+
+    run_command_checked(
+        Command::new(&apt_get)
+            .env("DEBIAN_FRONTEND", "noninteractive")
+            .env("APT_LISTCHANGES_FRONTEND", "none")
+            .env("NEEDRESTART_MODE", "a")
+            .arg("update"),
+        "update Debian package indexes for IKEv2 bootstrap",
+    )
+    .await?;
+
+    run_command_checked(
+        Command::new(&apt_get)
+            .env("DEBIAN_FRONTEND", "noninteractive")
+            .env("APT_LISTCHANGES_FRONTEND", "none")
+            .env("NEEDRESTART_MODE", "a")
+            .arg("install")
+            .arg("-y")
+            .arg("--no-install-recommends")
+            .arg("charon-systemd")
+            .arg("strongswan-swanctl")
+            .arg("libcharon-extauth-plugins"),
+        "install IKEv2 runtime dependencies",
+    )
+    .await
+}
+
+#[cfg(all(feature = "ikev2-server", target_os = "linux"))]
+async fn run_command_checked(command: &mut Command, description: &str) -> Result<()> {
+    let output = command
+        .output()
+        .await
+        .with_context(|| format!("failed to {description}"))?;
+
+    if output.status.success() {
+        return Ok(());
+    }
+
+    bail!(
+        "{}: stdout=`{}` stderr=`{}`",
+        description,
+        String::from_utf8_lossy(&output.stdout).trim(),
+        String::from_utf8_lossy(&output.stderr).trim()
+    );
+}
+
+#[cfg(all(feature = "ikev2-server", target_os = "linux"))]
+fn resolve_apt_get_binary() -> Result<PathBuf> {
+    resolve_executable("/usr/bin/apt-get").or_else(|_| resolve_executable("apt-get"))
+}
+
+#[cfg(all(feature = "ikev2-server", target_os = "linux"))]
+async fn stop_conflicting_strongswan_services() {
+    let systemctl = match resolve_executable("/usr/bin/systemctl")
+        .or_else(|_| resolve_executable("/bin/systemctl"))
+        .or_else(|_| resolve_executable("systemctl"))
+    {
+        Ok(path) => path,
+        Err(_) => return,
+    };
+
+    for unit in [
+        "strongswan.service",
+        "strongswan-starter.service",
+        "strongswan-swanctl.service",
+        "charon-systemd.service",
+    ] {
+        match Command::new(&systemctl)
+            .arg("disable")
+            .arg("--now")
+            .arg("--quiet")
+            .arg(unit)
+            .output()
+            .await
+        {
+            Ok(output) if output.status.success() => {
+                info!("Disabled conflicting strongSwan service `{}`", unit);
+            }
+            Ok(_) => {}
+            Err(error) => warn!(
+                "Failed to invoke `{}` for `{}`: {}",
+                systemctl.display(),
+                unit,
+                error
+            ),
+        }
+    }
+}
+
+fn resolve_executable_with_fallbacks(primary: &str, fallbacks: &[&str]) -> Result<PathBuf> {
+    resolve_executable_with_fallbacks_in_path(primary, fallbacks, std::env::var_os("PATH").as_deref())
+}
+
+fn resolve_executable_with_fallbacks_in_path(
+    primary: &str,
+    fallbacks: &[&str],
+    path_var: Option<&OsStr>,
+) -> Result<PathBuf> {
+    let mut candidates = Vec::with_capacity(fallbacks.len() + 1);
+    candidates.push(primary);
+    candidates.extend(fallbacks.iter().copied());
+
+    for candidate in candidates {
+        if let Some(path) = lookup_executable_in_path(candidate, path_var) {
+            return Ok(path);
+        }
+    }
+
+    bail!(
+        "unable to find IKEv2 executable `{}` in PATH. Tried fallbacks: {}",
+        primary,
+        fallbacks.join(", ")
+    )
+}
+
+fn resolve_executable(command: &str) -> Result<PathBuf> {
+    lookup_executable(command)
+        .ok_or_else(|| anyhow!("unable to find IKEv2 executable `{command}` in PATH"))
+}
+
+fn lookup_executable(command: &str) -> Option<PathBuf> {
+    let candidate = PathBuf::from(command);
+    if candidate.components().count() > 1 {
+        return candidate.is_file().then_some(candidate);
+    }
+
+    lookup_executable_in_path(command, std::env::var_os("PATH").as_deref())
+}
+
+fn lookup_executable_in_path(command: &str, path_var: Option<&OsStr>) -> Option<PathBuf> {
+    let path_var = path_var?;
+    for directory in std::env::split_paths(&path_var) {
+        let full_path = directory.join(command);
+        if full_path.is_file() {
+            return Some(full_path);
+        }
+    }
+
+    None
+}
+
+fn parse_os_release(content: &str) -> OsReleaseInfo {
+    let mut info = OsReleaseInfo::default();
+
+    for line in content.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+
+        let Some((key, value)) = line.split_once('=') else {
+            continue;
+        };
+        let value = parse_os_release_value(value.trim());
+
+        match key {
+            "ID" => info.id = value,
+            "VERSION_ID" => info.version_id = Some(value),
+            "VERSION_CODENAME" => info.version_codename = Some(value),
+            _ => {}
+        }
+    }
+
+    info
+}
+
+fn parse_os_release_value(value: &str) -> String {
+    value
+        .strip_prefix('"')
+        .and_then(|value| value.strip_suffix('"'))
+        .or_else(|| value.strip_prefix('\'').and_then(|value| value.strip_suffix('\'')))
+        .unwrap_or(value)
+        .to_string()
 }
 
 async fn validate_config(config: &Ikev2ServerConfig) -> Result<()> {
@@ -853,5 +1132,51 @@ mod tests {
             derive_ca_key_path(Path::new("/tmp/certs/ikev2/ca-cert.pem")),
             PathBuf::from("/tmp/certs/ikev2/ca-key.pem")
         );
+    }
+
+    #[test]
+    fn parse_os_release_detects_debian_bookworm() {
+        let info = parse_os_release(
+            r#"
+ID=debian
+VERSION_ID="12"
+VERSION_CODENAME=bookworm
+"#,
+        );
+
+        assert_eq!(
+            info,
+            OsReleaseInfo {
+                id: "debian".to_string(),
+                version_id: Some("12".to_string()),
+                version_codename: Some("bookworm".to_string()),
+            }
+        );
+    }
+
+    #[test]
+    fn lookup_executable_in_path_finds_binary_in_custom_path() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let bin_path = temp_dir.path().join("charon");
+        std::fs::write(&bin_path, b"#!/bin/sh\n").unwrap();
+
+        let found = lookup_executable_in_path("charon", Some(temp_dir.path().as_os_str()));
+        assert_eq!(found, Some(bin_path));
+    }
+
+    #[test]
+    fn resolve_executable_with_fallbacks_uses_first_available_fallback() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let bin_path = temp_dir.path().join("charon");
+        std::fs::write(&bin_path, b"#!/bin/sh\n").unwrap();
+
+        let resolved = resolve_executable_with_fallbacks_in_path(
+            "charon-systemd",
+            &["charon"],
+            Some(temp_dir.path().as_os_str()),
+        )
+        .unwrap();
+
+        assert_eq!(resolved, bin_path);
     }
 }
