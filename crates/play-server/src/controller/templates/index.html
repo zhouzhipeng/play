@@ -1076,6 +1076,28 @@
         if (builtTimeElement && typeof formatTimestamp === "function") {
             builtTimeElement.textContent = formatTimestamp({{built_time}});
         }
+
+        async function redirectToDashboardWhenReady() {
+            try {
+                const response = await fetch("/ping", {
+                    method: "GET",
+                    cache: "no-store",
+                    credentials: "same-origin"
+                });
+                if (!response.ok) {
+                    return;
+                }
+
+                const body = (await response.text()).trim();
+                if (body === "pong") {
+                    window.location.replace("/dashboard");
+                }
+            } catch (error) {
+                console.debug("Skipping dashboard redirect because /ping failed.", error);
+            }
+        }
+
+        redirectToDashboardWhenReady();
     </script>
 </body>
 </html>
