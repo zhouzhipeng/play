@@ -158,7 +158,11 @@ pub async fn maybe_start_ikev2_server(
             });
         }
 
-        wait_until_ready(config, &runtime, &vici_uri, &binaries, &mut child).await?;
+        if let Err(error) = wait_until_ready(config, &runtime, &vici_uri, &binaries, &mut child).await
+        {
+            persist_ikev2_startup_diagnostics(config, &runtime, &error).await;
+            return Err(error);
+        }
 
         info!(
             "Embedded IKEv2 service started with connection `{}` on {}:{} / {}:{}",
@@ -1203,6 +1207,96 @@ fn resolve_config_path(path: &str) -> Result<PathBuf> {
         .map(PathBuf::from)
         .map_err(|_| anyhow!("DATA_DIR is not set while resolving `{path}`"))?;
     Ok(data_dir.join(candidate))
+}
+
+#[cfg(all(feature = "ikev2-server", target_os = "linux"))]
+async fn persist_ikev2_startup_diagnostics(
+    config: &Ikev2ServerConfig,
+    runtime: &RuntimeFiles,
+    error: &anyhow::Error,
+) {
+    let diagnostics_dir = PathBuf::from(
+        std::env::var(DATA_DIR).unwrap_or_else(|_| "./output_dir".to_string()),
+    )
+    .join("diagnostics")
+    .join("ikev2");
+
+    if let Err(write_error) = fs::create_dir_all(&diagnostics_dir).await {
+        warn!(
+            "Failed to create IKEv2 diagnostics directory {}: {}",
+            diagnostics_dir.display(),
+            write_error
+        );
+        return;
+    }
+
+    let strongswan_conf_path = diagnostics_dir.join("strongswan.conf");
+    if let Err(write_error) = fs::copy(&runtime.strongswan_conf_path, &strongswan_conf_path).await {
+        warn!(
+            "Failed to persist IKEv2 strongSwan config to {}: {}",
+            strongswan_conf_path.display(),
+            write_error
+        );
+    }
+
+    let swanctl_conf_path = diagnostics_dir.join("swanctl.conf");
+    match fs::read_to_string(&runtime.swanctl_conf_path).await {
+        Ok(content) => {
+            let redacted = redact_swanctl_conf(&content);
+            if let Err(write_error) = fs::write(&swanctl_conf_path, redacted).await {
+                warn!(
+                    "Failed to persist IKEv2 swanctl config to {}: {}",
+                    swanctl_conf_path.display(),
+                    write_error
+                );
+            }
+        }
+        Err(read_error) => warn!(
+            "Failed to read IKEv2 swanctl config {} for diagnostics: {}",
+            runtime.swanctl_conf_path.display(),
+            read_error
+        ),
+    }
+
+    let summary_path = diagnostics_dir.join("startup-error.txt");
+    let summary = format!(
+        "connection = {}\nerror = {:#}\nstrongswan_conf = {}\nswanctl_conf = {}\n",
+        config.connection_name,
+        error,
+        strongswan_conf_path.display(),
+        swanctl_conf_path.display()
+    );
+    if let Err(write_error) = fs::write(&summary_path, summary).await {
+        warn!(
+            "Failed to persist IKEv2 startup summary to {}: {}",
+            summary_path.display(),
+            write_error
+        );
+        return;
+    }
+
+    warn!(
+        "Persisted IKEv2 startup diagnostics under {}",
+        diagnostics_dir.display()
+    );
+}
+
+fn redact_swanctl_conf(content: &str) -> String {
+    content
+        .lines()
+        .map(|line| {
+            if line.trim_start().starts_with("secret =") {
+                format!(
+                    "{}secret = \"***redacted***\"",
+                    line.split("secret =").next().unwrap_or_default()
+                )
+            } else {
+                line.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n"
 }
 
 fn render_list(items: &[String]) -> String {
