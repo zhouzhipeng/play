@@ -1,9 +1,11 @@
 use axum::body::Body;
 use axum::extract::Query;
 use axum::response::{Html, IntoResponse, Response};
+use axum::Json;
+use serde::{Deserialize, Serialize};
+use std::net::{IpAddr, UdpSocket};
 use std::path::PathBuf;
 // removed dioxus usage; render pure HTML
-use serde::Deserialize;
 // serde_json available elsewhere if needed; not used here
 use tokio::fs::File;
 use tokio_util::codec::{BytesCodec, FramedRead};
@@ -23,6 +25,7 @@ method_router!(
     get : "/dashboard"-> dashboard,
     get : "/robots.txt"-> robots,
     get : "/ping"-> ping,
+    get : "/info"-> info,
     get : "/save-fingerprint"-> save_fingerprint,
     get : "/download-db"-> serve_db_file,
     get : "/download-config"-> serve_config_file,
@@ -240,6 +243,26 @@ async fn dashboard(s: S) -> HTML {
 async fn ping() -> R<String> {
     info!("ping");
     Ok("pong".to_string())
+}
+
+#[derive(Serialize)]
+struct InfoResponse {
+    ip: String,
+}
+
+async fn info() -> R<Json<InfoResponse>> {
+    Ok(Json(InfoResponse {
+        ip: server_ip().to_string(),
+    }))
+}
+
+fn server_ip() -> IpAddr {
+    UdpSocket::bind("0.0.0.0:0")
+        .and_then(|socket| {
+            socket.connect("8.8.8.8:80")?;
+            Ok(socket.local_addr()?.ip())
+        })
+        .unwrap_or_else(|_| IpAddr::from([127, 0, 0, 1]))
 }
 
 #[derive(Deserialize, Debug)]
