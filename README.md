@@ -1,78 +1,106 @@
 # Play Workspace
 
-`play` is now a Rust workspace, not just a single server crate.
+`play` is a Rust workspace built around `play-server`. The repository also includes desktop GUI tools, web terminal support, MCP integration, dynamic plugin loading, and shared utility crates.
 
-The repo is centered around `play-server`, plus a growing set of desktop tools, MCP integration crates, shared libraries, dynamic-loading support, and utility crates.
-
-## Current Workspace Layout
+## Workspace Structure
 
 ```text
 play/
-├── crates/
-│   ├── play-server/                         # Main HTTP server and static assets
-│   ├── play-gui/                            # Pure egui toolbox shell
-│   │   ├── src/
-│   │   ├── assets/
-│   │   ├── curl-helper/                     # Embedded desktop curl manager tool
-│   │   └── frp-client/                      # Embedded desktop FRP client tool
-│   ├── play-mcp/                            # MCP tool registry and tool definitions
-│   ├── play-integration/
-│   │   └── play-integration-xiaozhi/        # Xiaozhi MCP client integration
-│   ├── play-terminal/                       # Web terminal support
-│   ├── play-db/                             # Database helpers
-│   ├── play-shared/                         # Shared types, constants, helpers
-│   ├── play-lua/                            # Lua integration
-│   ├── play-redis/                          # Redis integration
-│   ├── play-https/                          # HTTPS support
-│   ├── play-macros/                         # Proc macros
-│   ├── play-dylib/
-│   │   ├── play-dylib-abi/                  # ABI shared by host/plugins
-│   │   ├── play-dylib-loader/               # Dynamic plugin loader
-│   │   └── play-dylib-example/              # Example dylib plugin
-│   └── play-utils/
-│       ├── play-utils-sql-util/
-│       ├── play-utils-common-crypt/
-│       ├── play-utils-blockchain/
-│       ├── play-utils-data-api/
-│       └── play-utils-strings/
-├── docs/
-├── scripts/
-├── Cargo.toml
-└── README.md
+|- .cargo/
+|- crates/
+|  |- play-server/                         Main HTTP server, controllers, templates, and static assets
+|  |- play-gui/                            eframe desktop toolbox shell
+|  |  |- assets/
+|  |  |- curl-helper/                      Standalone + embedded desktop curl tool
+|  |  `- frp-client/                       Standalone + embedded desktop FRP client
+|  |- play-terminal/                       Web terminal backend and static assets
+|  |- play-db/                             Database helpers and asset/document storage helpers
+|  |- play-shared/                         Shared models, constants, logging, and helpers
+|  |- play-mcp/                            MCP registry, metadata loader, and tool definitions
+|  |- play-integration/
+|  |  `- play-integration-xiaozhi/         Xiaozhi integration crate
+|  |- play-lua/                            Lua runtime and template integration
+|  |- play-redis/                          Redis connection and pubsub helpers
+|  |- play-https/                          HTTPS support crate
+|  |- play-macros/                         Procedural macros
+|  |- play-dylib/
+|  |  |- play-dylib-abi/                   ABI shared by host and plugins
+|  |  |- play-dylib-loader/                Runtime plugin loader
+|  |  `- play-dylib-example/               Example dynamic plugin
+|  `- play-utils/
+|     |- play-utils-sql-util/              SQL helpers
+|     |- play-utils-common-crypt/          Common cryptography helpers
+|     |- play-utils-blockchain/            Bitcoin and Ethereum helpers
+|     |- play-utils-data-api/              General data API helpers
+|     `- play-utils-strings/               String utilities
+|- docs/                                   API, plugin, and development docs
+|- scripts/                                Build, cache, install, and packaging helpers
+|- third_party/
+|  `- rathole/                             Vendored FRP dependency
+|- Cargo.toml                              Workspace manifest
+`- README.md
 ```
 
-## Key Crates
+## Crate Map
 
-- `play-server`
-  Main backend service. Provides the data APIs, file APIs, admin/static pages, plugin loading hooks, MCP HTTP endpoint support, and optional embedded FRP server and IKEv2 server support behind feature flags.
+### Applications
 
-- `play-gui`
-  Pure `egui` desktop toolbox shell. It hosts local tools in-process from library crates instead of spawning child processes.
+| Crate | Path | Purpose |
+| --- | --- | --- |
+| `play-server` | `crates/play-server` | Main backend service with controllers, APIs, templates, static pages, and optional FRP/IKEv2 support |
+| `play-gui` | `crates/play-gui` | Desktop toolbox shell built with `eframe` |
+| `curl-helper` | `crates/play-gui/curl-helper` | Desktop curl request organizer and runner |
+| `frp-client` | `crates/play-gui/frp-client` | Desktop FRP client powered by the vendored `rathole` crate |
 
-- `curl-helper`
-  Desktop tool nested under `crates/play-gui/curl-helper`. Used to organize and run curl commands locally.
+### Core Libraries
 
-- `frp-client`
-  Desktop tool nested under `crates/play-gui/frp-client`. Used to edit and run a `rathole` client config from the toolbox.
+| Crate | Path | Purpose |
+| --- | --- | --- |
+| `play-terminal` | `crates/play-terminal` | Web terminal backend and session management |
+| `play-db` | `crates/play-db` | SQLite-oriented helpers for assets, docs, and KV storage |
+| `play-shared` | `crates/play-shared` | Shared models, constants, logging setup, and cross-crate helpers |
+| `play-mcp` | `crates/play-mcp` | MCP registry, metadata loading, and tool definitions |
+| `play-lua` | `crates/play-lua` | Lua runtime integration |
+| `play-redis` | `crates/play-redis` | Redis connection, pubsub, and error helpers |
+| `play-https` | `crates/play-https` | HTTPS support helpers |
+| `play-macros` | `crates/play-macros` | Procedural macros used across the workspace |
 
-- `play-mcp`
-  MCP tool registry and tool-definition crate. Still used by `play-server` and `play-integration-xiaozhi`.
+### Plugins and Integrations
 
-- `play-integration-xiaozhi`
-  Xiaozhi-side MCP client integration. Uses `play-mcp::ToolRegistry` to expose tools remotely.
+| Crate | Path | Purpose |
+| --- | --- | --- |
+| `play-integration-xiaozhi` | `crates/play-integration/play-integration-xiaozhi` | Xiaozhi integration built on top of `play-mcp` |
+| `play-dylib-abi` | `crates/play-dylib/play-dylib-abi` | Stable ABI definitions for host/plugin communication |
+| `play-dylib-loader` | `crates/play-dylib/play-dylib-loader` | Dynamic plugin loading runtime |
+| `play-dylib-example` | `crates/play-dylib/play-dylib-example` | Example plugin implementation |
 
-- `play-dylib-loader` and `play-dylib-abi`
-  Runtime plugin loading infrastructure for server-side extensions.
+### Utility Libraries
 
-- `play-shared`
-  Shared constants, helpers, and cross-crate common code.
+| Crate | Path | Purpose |
+| --- | --- | --- |
+| `play-utils-sql-util` | `crates/play-utils/play-utils-sql-util` | SQL helpers |
+| `play-utils-common-crypt` | `crates/play-utils/play-utils-common-crypt` | Common cryptography helpers |
+| `play-utils-blockchain` | `crates/play-utils/play-utils-blockchain` | Bitcoin and Ethereum helpers |
+| `play-utils-data-api` | `crates/play-utils/play-utils-data-api` | General data API helpers |
+| `play-utils-strings` | `crates/play-utils/play-utils-strings` | String utilities |
 
-## Development Commands
+## Cargo Features
 
-### Build the whole workspace
+`play-server` currently exposes these notable features:
+
+- `server`: enables the full server bundle, including plugin loading, Lua, Redis, FRP server support, and IKEv2 support.
+- `frp-server`: enables embedded FRP support through the vendored `third_party/rathole` crate.
+- `ikev2-server`: enables IKEv2 runtime integration.
+- `debug`: convenience development feature that currently enables `play-lua` and `frp-server`.
+- `use_mysql`: enables MySQL support in `sqlx` and SQL parser support in `play-shared`.
+
+## Common Commands
+
+### Build
 
 ```bash
 cargo build
+cargo build --workspace
 ```
 
 ### Run the main server
@@ -81,33 +109,19 @@ cargo build
 cargo run -p play-server
 ```
 
-### Run the main server with embedded FRP server support compiled in
+### Run the main server with optional features
 
 ```bash
+cargo run -p play-server --features server
 cargo run -p play-server --features frp-server
-```
-
-### Run the main server with embedded IKEv2 support compiled in
-
-```bash
 cargo run -p play-server --features ikev2-server
 ```
 
-### Run the desktop toolbox
+### Run the desktop tools
 
 ```bash
 cargo run -p play-gui
-```
-
-### Run the curl desktop tool directly
-
-```bash
 cargo run -p curl-helper
-```
-
-### Run the FRP desktop tool directly
-
-```bash
 cargo run -p frp-client
 ```
 
@@ -116,153 +130,38 @@ cargo run -p frp-client
 Defined in `.cargo/config.toml`:
 
 ```bash
-cargo dev_server   # release build for play-server with server features
-cargo dev_gui      # release build for play-gui and its embedded tool libraries
+cargo dev_server   # build --locked --package play-server --release --features=server
+cargo dev_gui      # build --locked --package play-gui --release
 ```
-
-## FRP Usage
-
-### 1. Enable the embedded FRP server
-
-Put the FRP server settings directly in `DATA_DIR/config.toml`:
-
-```toml
-[frp_server]
-enabled = true
-bind_addr = "0.0.0.0:2333"
-default_token = "change_this_token"
-heartbeat_interval = 30
-
-[frp_server.services.demo_http]
-bind_addr = "0.0.0.0:8081"
-```
-
-Then start `play-server` with the feature enabled:
-
-```bash
-cargo run -p play-server --features frp-server
-```
-
-This means:
-
-- `2333` is the FRP control port the client connects to.
-- `8081` is the public port exposed by the FRP server.
-
-### 2. Configure and start the FRP client
-
-Open `play-gui`, launch `FRP Client`, then edit the client config.
-
-Example client config:
-
-```toml
-[client]
-remote_addr = "127.0.0.1:2333"
-default_token = "change_this_token"
-
-[client.services.demo_http]
-local_addr = "127.0.0.1:3000"
-```
-
-This forwards the local service at `127.0.0.1:3000` through the FRP connection so it becomes reachable from the FRP server on port `8081`.
-
-You can also run the client tool directly:
-
-```bash
-cargo run -p frp-client
-```
-
-### 3. Verify the tunnel
-
-With the example configs above:
-
-- local service: `127.0.0.1:3000`
-- FRP server port: `127.0.0.1:2333`
-- exposed tunnel port: `127.0.0.1:8081`
-
-Once the client is connected, requests to `http://127.0.0.1:8081` should reach the local service behind the FRP client.
-
-## IKEv2 Usage
-
-### 1. Enable the embedded IKEv2 server
-
-Put the IKEv2 settings in `DATA_DIR/config.toml`:
-
-```toml
-[ikev2_server]
-enabled = true
-auto_install_dependencies = true
-local_id = "vpn.example.com"
-pool = "10.10.10.0/24"
-dns_servers = ["1.1.1.1", "8.8.8.8"]
-
-[ikev2_server.eap_users]
-demo = "change_this_password"
-```
-
-Then start `play-server` with the feature enabled:
-
-```bash
-cargo run -p play-server --features ikev2-server
-```
-
-On first start, if the configured IKEv2 certificate files are missing, `play-server` now generates them automatically under `DATA_DIR/certs/ikev2/`:
-
-- `ca-cert.pem`
-- `ca-key.pem`
-- `server-cert.pem`
-- `server-key.pem`
-
-You do not need to create the default cert files by hand. The generated CA certificate is the one you distribute to clients so they can trust the VPN server certificate.
-For compatibility with manually configured iPhone IKEv2 clients, the auto-generated IKEv2 CA/server certificates use RSA.
-
-On Debian Bookworm, `play-server` can also install the required strongSwan runtime packages automatically when IKEv2 is enabled and the binaries are missing. With the default `auto_install_dependencies = true`, you do not need to preinstall `charon-systemd` or `swanctl` yourself.
-
-### 2. Runtime requirements
-
-- The embedded IKEv2 runtime is currently Linux-only.
-- `play-server` must be built with the `ikev2-server` feature.
-- On Debian Bookworm, `play-server` will automatically run `apt-get update` and install the required strongSwan packages if they are missing.
-- The host still needs outbound network access for the first automatic install, and the `play-server` process needs enough privilege to run `apt-get` and bind UDP `500` and `4500`.
-- After the packages are present, `play-server` tries `charon-systemd` first, then falls back to `charon`, and uses `swanctl` to load the generated config.
-- If your distro installs the binaries in a non-standard location or under a different name, set `ikev2_server.daemon_bin` and `ikev2_server.swanctl_bin` explicitly in `config.toml`.
-- During startup, `play-server` also best-effort disables system strongSwan services so they do not compete for the same UDP ports.
-
-### 3. What gets started
-
-When enabled, `play-server` generates a temporary strongSwan runtime directory, writes `strongswan.conf` and `swanctl.conf`, starts the strongSwan IKE daemon (`charon-systemd` or `charon`), then loads the generated connection through `swanctl`.
-
-The default connection name is `play-ikev2`, the default UDP ports are `500` and `4500`, and the default address pool is `10.10.10.0/24`.
 
 ## Workspace Notes
 
 - The default workspace member is `crates/play-server`.
-- `play-ui` has been removed. Desktop entry now lives in `play-gui`.
-- `play-gui` no longer spawns tool subprocesses. It opens embedded tools from linked libraries in the same `eframe` process.
-- `play-gui` keeps the toolbox window open and opens tools in separate native windows.
-- `play-gui` does not start or manage `play-server`.
-- FRP server support is optional. Enable the `frp-server` cargo feature and configure `[frp_server]` in the root `config.toml`.
-- FRP server settings now live entirely inside the main `config.toml`; there is no user-managed `frp/server.toml`.
-- IKEv2 server support is optional. Enable the `ikev2-server` cargo feature and configure `[ikev2_server]` in the root `config.toml`.
-- With the default certificate paths, `play-server` auto-generates the IKEv2 CA/server certificate bundle when the server starts and the files are missing.
-- MCP support is still active in the workspace through `play-mcp` and the server's `/mcp` controller.
+- `play-gui` hosts `curl-helper` and `frp-client` in-process, but both tools remain runnable as standalone binaries.
+- `play-server` templates live under `crates/play-server/src/controller/templates/`.
+- `play-server` static assets live under `crates/play-server/static/`.
+- FRP support in both server and client code is backed by `third_party/rathole`.
 
 ## Documentation
 
+- [Documentation Index](docs/README.md)
 - [Quick Development Guide](docs/quick_dev.md)
+- [Plugin Development](docs/plugin-dev.md)
+- [General Data API](docs/general-data-api.md)
 - [API v4 English](docs/api-v4-doc-en.md)
-- [API v4 中文文档](docs/api-v4-doc-cn.md)
+- [API v4 Chinese](docs/api-v4-doc-cn.md)
+- [Dynamic Library Usage](docs/play-dylib-usage-cn.md)
 
-## Deployment
+## Deployment and Packaging
 
 ### Linux service install
+
+The service install helper downloads the latest published Linux binary from GitHub releases and registers it as a `systemd` service:
 
 ```bash
 bash <(curl -Ls https://raw.githubusercontent.com/zhouzhipeng/play/main/scripts/install_service.sh)
 ```
 
-### Docker
+### Container and packaging scripts
 
-```bash
-docker build -t play .
-docker run -p 8080:8080 play
-```
+Container and packaging recipes live under `scripts/dockerfiles/`. For example, `scripts/dockerfiles/bin.Dockerfile` builds a release `play-server` binary inside the cache image.
