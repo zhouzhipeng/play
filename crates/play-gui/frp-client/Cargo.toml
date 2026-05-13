@@ -16,13 +16,14 @@ name = "frp-client"
 path = "src/main.rs"
 
 [features]
-default = ["gui"]
+default = ["gui", "tls"]
 gui = ["dep:eframe", "dep:directories"]
+tls = ["rathole/rustls", "rathole/websocket-rustls"]
 
 [dependencies]
 anyhow = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
-rathole = { workspace = true, features = ["client", "noise", "hot-reload", "rustls", "websocket-rustls"] }
+rathole = { workspace = true, features = ["client", "noise", "hot-reload"] }
 
 directories = { workspace = true, optional = true }
 eframe = { version = "0.29", optional = true }
