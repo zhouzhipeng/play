@@ -44,6 +44,8 @@ pub struct Config {
     pub frp_server: FrpServerConfig,
     #[serde(default)]
     pub ikev2_server: Ikev2ServerConfig,
+    #[serde(default)]
+    pub one_key_change_ip: OneKeyChangeIpConfig,
 
     #[cfg(feature = "play-integration-xiaozhi")]
     #[serde(default)]
@@ -195,6 +197,96 @@ pub struct MiscConfig {
     pub mail_notify_url: String,
     #[serde(default)]
     pub github_token: String,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct OneKeyChangeIpConfig {
+    #[serde(default)]
+    pub aws_region: String,
+    #[serde(default)]
+    pub aws_access_key_id: String,
+    #[serde(default)]
+    pub aws_secret_access_key: String,
+    #[serde(default)]
+    pub aws_session_token: String,
+    #[serde(default)]
+    pub instance_name: String,
+    #[serde(default)]
+    pub cloudflare_api_token: String,
+    #[serde(default)]
+    pub cloudflare_zone_id: String,
+    #[serde(default)]
+    pub cloudflare_dns_records: Vec<CloudflareDnsRecordConfig>,
+    #[serde(default = "default_one_key_request_timeout_secs")]
+    pub request_timeout_secs: u64,
+    #[serde(default = "default_one_key_poll_interval_secs")]
+    pub poll_interval_secs: u64,
+    #[serde(default = "default_one_key_operation_timeout_secs")]
+    pub operation_timeout_secs: u64,
+}
+
+impl Default for OneKeyChangeIpConfig {
+    fn default() -> Self {
+        Self {
+            aws_region: String::default(),
+            aws_access_key_id: String::default(),
+            aws_secret_access_key: String::default(),
+            aws_session_token: String::default(),
+            instance_name: String::default(),
+            cloudflare_api_token: String::default(),
+            cloudflare_zone_id: String::default(),
+            cloudflare_dns_records: Vec::new(),
+            request_timeout_secs: default_one_key_request_timeout_secs(),
+            poll_interval_secs: default_one_key_poll_interval_secs(),
+            operation_timeout_secs: default_one_key_operation_timeout_secs(),
+        }
+    }
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct CloudflareDnsRecordConfig {
+    #[serde(default = "default_cloudflare_dns_record_type")]
+    pub record_type: String,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub record_id: Option<String>,
+    #[serde(default = "default_cloudflare_ttl")]
+    pub ttl: u32,
+    #[serde(default)]
+    pub proxied: bool,
+}
+
+impl Default for CloudflareDnsRecordConfig {
+    fn default() -> Self {
+        Self {
+            record_type: default_cloudflare_dns_record_type(),
+            name: String::default(),
+            record_id: None,
+            ttl: default_cloudflare_ttl(),
+            proxied: false,
+        }
+    }
+}
+
+fn default_cloudflare_dns_record_type() -> String {
+    "A".to_string()
+}
+
+fn default_cloudflare_ttl() -> u32 {
+    1
+}
+
+fn default_one_key_request_timeout_secs() -> u64 {
+    30
+}
+
+fn default_one_key_poll_interval_secs() -> u64 {
+    2
+}
+
+fn default_one_key_operation_timeout_secs() -> u64 {
+    180
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Copy, Default)]
@@ -568,6 +660,18 @@ dns_servers = ["1.1.1.1", "8.8.8.8"]
 [ikev2_server.eap_users]
 demo = "change_this_password"
 
+[one_key_change_ip]
+aws_region = ""
+aws_access_key_id = ""
+aws_secret_access_key = ""
+aws_session_token = ""
+instance_name = ""
+cloudflare_api_token = ""
+cloudflare_zone_id = ""
+request_timeout_secs = 30
+poll_interval_secs = 2
+operation_timeout_secs = 180
+
 "#;
         fs::write(&final_path, default_config)?;
         info!("Created default config file at {:?}", final_path);
@@ -626,5 +730,43 @@ mod tests {
         let content = read_config_file(true).await?;
         println!("{}", content);
         Ok(())
+    }
+
+    #[test]
+    fn parses_one_key_change_ip_config() {
+        let content = r#"
+server_port = 3000
+log_level = "DEBUG"
+
+[database]
+url = ":memory:"
+
+[one_key_change_ip]
+aws_region = "ap-northeast-1"
+aws_access_key_id = "test-access-key"
+aws_secret_access_key = "test-secret-key"
+aws_session_token = ""
+instance_name = "Debian-1"
+cloudflare_api_token = "test-cloudflare-token"
+cloudflare_zone_id = "test-zone-id"
+
+[[one_key_change_ip.cloudflare_dns_records]]
+name = "zhouzhipeng.com"
+record_id = "record-one"
+proxied = true
+
+[[one_key_change_ip.cloudflare_dns_records]]
+name = "ip.zhouzhipeng.com"
+record_id = "record-two"
+proxied = false
+"#;
+
+        let config: Config = toml::from_str(content).unwrap();
+
+        assert_eq!(config.one_key_change_ip.aws_region, "ap-northeast-1");
+        assert_eq!(config.one_key_change_ip.instance_name, "Debian-1");
+        assert_eq!(config.one_key_change_ip.cloudflare_dns_records.len(), 2);
+        assert!(config.one_key_change_ip.cloudflare_dns_records[0].proxied);
+        assert!(!config.one_key_change_ip.cloudflare_dns_records[1].proxied);
     }
 }

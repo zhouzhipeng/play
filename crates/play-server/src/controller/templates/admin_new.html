@@ -380,6 +380,18 @@
         <div id="saveResult" class="notification" style="display: none;"></div>
     </div>
 
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title"><i class="fas fa-network-wired"></i> Network Operations</h2>
+        </div>
+        <div class="btn-group">
+            <button type="button" id="oneKeyChangeIpBtn" class="btn btn-danger" onclick="oneKeyChangeIp()">
+                <i class="fas fa-exchange-alt"></i> One-Key Change IP
+            </button>
+        </div>
+        <div id="oneKeyChangeIpResult" class="notification" style="display: none;"></div>
+    </div>
+
     <!-- 备份和恢复卡片 -->
     <div class="card">
         <div class="card-header">
@@ -506,6 +518,39 @@
     }
 
     // 文件上传处理
+    function oneKeyChangeIp(){
+        if (!confirm('Start one-key IP change now?')) {
+            return;
+        }
+
+        const button = document.getElementById('oneKeyChangeIpBtn');
+        const result = document.getElementById('oneKeyChangeIpResult');
+
+        button.disabled = true;
+        result.style.display = 'block';
+        result.className = 'notification';
+        result.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting one-key IP change...';
+
+        fetch('/admin/one-key-change-ip', {method: "GET"})
+            .then(response => response.text().then(text => {
+                if (!response.ok) {
+                    throw new Error(text || response.statusText);
+                }
+                return text;
+            }))
+            .then(data => {
+                result.innerHTML = '<i class="fas fa-check-circle"></i> ' + data;
+                result.className = 'notification notification-success';
+            })
+            .catch(error => {
+                result.innerHTML = '<i class="fas fa-times-circle"></i> ' + error.message;
+                result.className = 'notification notification-error';
+            })
+            .finally(() => {
+                button.disabled = false;
+            });
+    }
+
     const fileInput = document.getElementById('fileInput');
     const fileInfo = document.getElementById('fileInfo');
     const uploadBtn = document.getElementById('uploadBtn');

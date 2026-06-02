@@ -1,22 +1,24 @@
 use std::env::temp_dir;
 use std::fs::File;
 use std::io::{copy, BufRead, BufReader, Cursor, Write};
-use std::path::Path;
-use std::time::Duration;
+use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 use std::{env, fs, io};
 
-use anyhow::{anyhow, bail};
+use anyhow::{anyhow, bail, Context};
 use axum::body::Bytes;
 use axum::extract::{Multipart, Query};
 use axum::response::{Html, IntoResponse, Response};
 use axum::{Form, Json};
-use chrono::Local;
+use chrono::{DateTime, Local, Utc};
 use fs_extra::dir::CopyOptions;
 use futures_util::TryStreamExt;
+use hmac::{Hmac, Mac};
 use http::StatusCode;
-use reqwest::{ClientBuilder, Url};
+use reqwest::{Client, ClientBuilder, Url};
 use serde::Deserialize;
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use std::process::Command;
 use std::sync::Arc;
 use tokio_util::codec::{BytesCodec, FramedRead};
@@ -29,7 +31,10 @@ use zip::{
 use play_shared::constants::DATA_DIR;
 use play_shared::{current_timestamp, timestamp_to_date_str};
 
-use crate::config::{get_config_path, read_config_file, save_config_file, Config};
+use crate::config::{
+    get_config_path, read_config_file, save_config_file, CloudflareDnsRecordConfig, Config,
+    OneKeyChangeIpConfig,
+};
 use crate::tables::change_log::ChangeLog;
 use crate::{data_dir, files_dir, method_router, promise, return_error, template, HTML, R, S};
 
@@ -48,6 +53,10 @@ pub fn init() -> axum::Router<std::sync::Arc<crate::AppState>> {
     router = router.route(
         "/admin/backup-encrypted-to-cloud",
         axum::routing::get(backup_encrypted_to_cloud),
+    );
+    router = router.route(
+        "/admin/one-key-change-ip",
+        axum::routing::get(one_key_change_ip),
     );
     router = router.route("/admin/restore", axum::routing::post(restore));
     router = router.route("/admin/logs", axum::routing::get(display_logs));
@@ -106,6 +115,48 @@ struct TranslateRequest {
     text: String,
     #[serde(default)]
     complex_mode: bool,
+}
+
+type HmacSha256 = Hmac<Sha256>;
+
+#[derive(Debug, Clone)]
+struct OneKeyChangeIpResult {
+    old_static_ip_name: Option<String>,
+    old_ip: Option<String>,
+    new_static_ip_name: String,
+    new_ip: String,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+struct StaticIpInfo {
+    name: String,
+    #[serde(default, rename = "ipAddress")]
+    ip_address: String,
+    #[serde(default, rename = "attachedTo")]
+    attached_to: Option<String>,
+}
+
+impl StaticIpInfo {
+    fn attached_to_instance(&self, instance_name: &str) -> bool {
+        self.attached_to.as_deref() == Some(instance_name)
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct StaticIpsResponse {
+    #[serde(default, rename = "staticIps")]
+    static_ips: Vec<StaticIpInfo>,
+}
+
+#[derive(Debug, Deserialize)]
+struct StaticIpResponse {
+    #[serde(rename = "staticIp")]
+    static_ip: StaticIpInfo,
+}
+
+struct LightsailClient {
+    http_client: Client,
+    config: OneKeyChangeIpConfig,
 }
 
 fn default_days() -> u32 {
@@ -468,6 +519,676 @@ async fn backup_encrypted_to_cloud(s: S) -> R<String> {
     )
 }
 
+async fn one_key_change_ip(s: S) -> R<String> {
+    let config = s.config.one_key_change_ip.clone();
+    validate_one_key_change_ip_config(&config)?;
+
+    let mail_notify_url = s.config.misc_config.mail_notify_url.clone();
+    let data_dir = PathBuf::from(env::var(DATA_DIR)?);
+
+    tokio::spawn(async move {
+        match run_one_key_change_ip_task(config, mail_notify_url.clone(), data_dir).await {
+            Ok(result) => {
+                info!(
+                    "one-key-change-ip completed: old_static_ip_name={:?}, old_ip={:?}, new_static_ip_name={}, new_ip={}",
+                    result.old_static_ip_name, result.old_ip, result.new_static_ip_name, result.new_ip
+                );
+            }
+            Err(error) => {
+                error!("one-key-change-ip failed: {:?}", error);
+                app_push(
+                    &mail_notify_url,
+                    "one-key-change-ip error",
+                    &format!("failed: {}", error),
+                )
+                .await;
+            }
+        }
+    });
+
+    Ok("one-key-change-ip started in background.".to_string())
+}
+
+fn validate_one_key_change_ip_config(config: &OneKeyChangeIpConfig) -> anyhow::Result<()> {
+    require_config_value(&config.aws_region, "one_key_change_ip.aws_region")?;
+    require_config_value(
+        &config.aws_access_key_id,
+        "one_key_change_ip.aws_access_key_id",
+    )?;
+    require_config_value(
+        &config.aws_secret_access_key,
+        "one_key_change_ip.aws_secret_access_key",
+    )?;
+    require_config_value(&config.instance_name, "one_key_change_ip.instance_name")?;
+    require_config_value(
+        &config.cloudflare_api_token,
+        "one_key_change_ip.cloudflare_api_token",
+    )?;
+    require_config_value(
+        &config.cloudflare_zone_id,
+        "one_key_change_ip.cloudflare_zone_id",
+    )?;
+
+    promise!(
+        !config.cloudflare_dns_records.is_empty(),
+        "one_key_change_ip.cloudflare_dns_records must contain at least one DNS record"
+    );
+
+    for (index, record) in config.cloudflare_dns_records.iter().enumerate() {
+        require_config_value(
+            &record.name,
+            &format!("one_key_change_ip.cloudflare_dns_records[{index}].name"),
+        )?;
+        require_config_value(
+            &record.record_type,
+            &format!("one_key_change_ip.cloudflare_dns_records[{index}].record_type"),
+        )?;
+        promise!(
+            record.ttl > 0,
+            "one_key_change_ip.cloudflare_dns_records[{index}].ttl must be greater than 0"
+        );
+    }
+
+    Ok(())
+}
+
+fn require_config_value(value: &str, name: &str) -> anyhow::Result<()> {
+    promise!(!value.trim().is_empty(), "{} is not configured", name);
+    Ok(())
+}
+
+async fn run_one_key_change_ip_task(
+    config: OneKeyChangeIpConfig,
+    mail_notify_url: String,
+    data_dir: PathBuf,
+) -> anyhow::Result<OneKeyChangeIpResult> {
+    validate_one_key_change_ip_config(&config)?;
+
+    app_push(
+        &mail_notify_url,
+        "one-key-change-ip",
+        &format!("started for instance {}", config.instance_name),
+    )
+    .await;
+
+    let http_client = ClientBuilder::new()
+        .timeout(Duration::from_secs(config.request_timeout_secs.max(1)))
+        .build()?;
+    let lightsail_client = LightsailClient {
+        http_client: http_client.clone(),
+        config: config.clone(),
+    };
+
+    let old_static_ip = lightsail_client
+        .find_attached_static_ip(&config.instance_name)
+        .await?;
+
+    if let Some(old) = &old_static_ip {
+        app_push(
+            &mail_notify_url,
+            "one-key-change-ip",
+            &format!("old static IP: {} {}", old.name, old.ip_address),
+        )
+        .await;
+
+        lightsail_client.detach_static_ip(&old.name).await?;
+        app_push(
+            &mail_notify_url,
+            "one-key-change-ip",
+            &format!("detached old static IP {}", old.name),
+        )
+        .await;
+
+        lightsail_client
+            .wait_until_no_static_ip_attached(&config.instance_name)
+            .await?;
+        app_push(
+            &mail_notify_url,
+            "one-key-change-ip",
+            &format!("{} has no static IP attached", config.instance_name),
+        )
+        .await;
+    } else {
+        app_push(
+            &mail_notify_url,
+            "one-key-change-ip",
+            &format!("no existing static IP attached to {}", config.instance_name),
+        )
+        .await;
+    }
+
+    let new_static_ip_name = format!(
+        "{}-ip-{}",
+        config.instance_name,
+        Local::now().format("%Y%m%d%H%M%S")
+    );
+
+    lightsail_client
+        .allocate_static_ip(&new_static_ip_name)
+        .await?;
+    app_push(
+        &mail_notify_url,
+        "one-key-change-ip",
+        &format!("allocated static IP name {}", new_static_ip_name),
+    )
+    .await;
+
+    let new_static_ip = lightsail_client
+        .wait_until_static_ip_exists(&new_static_ip_name)
+        .await?;
+    promise!(
+        !new_static_ip.ip_address.trim().is_empty(),
+        "allocated static IP `{}` has no IP address",
+        new_static_ip_name
+    );
+    app_push(
+        &mail_notify_url,
+        "one-key-change-ip",
+        &format!("allocated static IP address {}", new_static_ip.ip_address),
+    )
+    .await;
+
+    lightsail_client
+        .attach_static_ip(&config.instance_name, &new_static_ip_name)
+        .await?;
+    app_push(
+        &mail_notify_url,
+        "one-key-change-ip",
+        &format!(
+            "attaching {} to {}",
+            new_static_ip_name, config.instance_name
+        ),
+    )
+    .await;
+
+    lightsail_client
+        .wait_until_static_ip_attached(&config.instance_name, &new_static_ip_name)
+        .await?;
+    app_push(
+        &mail_notify_url,
+        "one-key-change-ip",
+        &format!(
+            "attached {} to {}",
+            new_static_ip_name, config.instance_name
+        ),
+    )
+    .await;
+
+    if let Some(old) = &old_static_ip {
+        if old.name != new_static_ip_name {
+            lightsail_client.release_static_ip(&old.name).await?;
+            app_push(
+                &mail_notify_url,
+                "one-key-change-ip",
+                &format!("released old static IP {}", old.name),
+            )
+            .await;
+        }
+    }
+
+    for record in &config.cloudflare_dns_records {
+        let query_response = query_cloudflare_dns_record(&http_client, &config, record).await?;
+        let record_id = resolve_cloudflare_record_id(record, &query_response)?;
+        app_push(
+            &mail_notify_url,
+            "one-key-change-ip",
+            &format!(
+                "queried Cloudflare DNS record {} ({})",
+                record.name, record_id
+            ),
+        )
+        .await;
+
+        update_cloudflare_dns_record(
+            &http_client,
+            &config,
+            record,
+            &record_id,
+            &new_static_ip.ip_address,
+        )
+        .await?;
+        app_push(
+            &mail_notify_url,
+            "one-key-change-ip",
+            &format!(
+                "updated Cloudflare DNS record {} -> {}",
+                record.name, new_static_ip.ip_address
+            ),
+        )
+        .await;
+    }
+
+    let old_ip = old_static_ip
+        .as_ref()
+        .map(|static_ip| static_ip.ip_address.clone())
+        .filter(|ip| !ip.trim().is_empty())
+        .ok_or_else(|| {
+            anyhow!(
+                "cannot update vpn.yaml because no existing static IP address was attached to {}",
+                config.instance_name
+            )
+        })?;
+    let vpn_path = data_dir.join("files").join("vpn.yaml");
+    replace_ip_in_vpn_yaml(&vpn_path, &old_ip, &new_static_ip.ip_address).await?;
+    app_push(
+        &mail_notify_url,
+        "one-key-change-ip",
+        &format!(
+            "updated {} from {} to {}",
+            vpn_path.display(),
+            old_ip,
+            new_static_ip.ip_address
+        ),
+    )
+    .await;
+
+    app_push(
+        &mail_notify_url,
+        "one-key-change-ip final",
+        &format!("done: {} -> {}", old_ip, new_static_ip.ip_address),
+    )
+    .await;
+
+    Ok(OneKeyChangeIpResult {
+        old_static_ip_name: old_static_ip
+            .as_ref()
+            .map(|static_ip| static_ip.name.clone()),
+        old_ip: Some(old_ip),
+        new_static_ip_name,
+        new_ip: new_static_ip.ip_address,
+    })
+}
+
+impl LightsailClient {
+    async fn lightsail_api(&self, action: &str, payload: Value) -> anyhow::Result<Value> {
+        let host = format!("lightsail.{}.amazonaws.com", self.config.aws_region);
+        let url = format!("https://{host}/");
+        let target = format!("Lightsail_20161128.{action}");
+        let body = payload.to_string();
+        let headers =
+            build_lightsail_sigv4_headers(&self.config, &host, &target, &body, Utc::now())?;
+
+        let mut request = self.http_client.post(url).body(body);
+        for (name, value) in headers {
+            request = request.header(name.as_str(), value);
+        }
+
+        let response = request.send().await?;
+        parse_json_response(response, &format!("Lightsail {action}")).await
+    }
+
+    async fn get_static_ips(&self) -> anyhow::Result<Vec<StaticIpInfo>> {
+        let value = self.lightsail_api("GetStaticIps", json!({})).await?;
+        let response = serde_json::from_value::<StaticIpsResponse>(value)
+            .context("failed to parse Lightsail GetStaticIps response")?;
+        Ok(response.static_ips)
+    }
+
+    async fn get_static_ip(&self, static_ip_name: &str) -> anyhow::Result<StaticIpInfo> {
+        let value = self
+            .lightsail_api("GetStaticIp", json!({ "staticIpName": static_ip_name }))
+            .await?;
+        let response = serde_json::from_value::<StaticIpResponse>(value)
+            .context("failed to parse Lightsail GetStaticIp response")?;
+        Ok(response.static_ip)
+    }
+
+    async fn find_attached_static_ip(
+        &self,
+        instance_name: &str,
+    ) -> anyhow::Result<Option<StaticIpInfo>> {
+        Ok(self
+            .get_static_ips()
+            .await?
+            .into_iter()
+            .find(|static_ip| static_ip.attached_to_instance(instance_name)))
+    }
+
+    async fn detach_static_ip(&self, static_ip_name: &str) -> anyhow::Result<()> {
+        self.lightsail_api("DetachStaticIp", json!({ "staticIpName": static_ip_name }))
+            .await?;
+        Ok(())
+    }
+
+    async fn allocate_static_ip(&self, static_ip_name: &str) -> anyhow::Result<()> {
+        self.lightsail_api(
+            "AllocateStaticIp",
+            json!({ "staticIpName": static_ip_name }),
+        )
+        .await?;
+        Ok(())
+    }
+
+    async fn attach_static_ip(
+        &self,
+        instance_name: &str,
+        static_ip_name: &str,
+    ) -> anyhow::Result<()> {
+        self.lightsail_api(
+            "AttachStaticIp",
+            json!({
+                "instanceName": instance_name,
+                "staticIpName": static_ip_name
+            }),
+        )
+        .await?;
+        Ok(())
+    }
+
+    async fn release_static_ip(&self, static_ip_name: &str) -> anyhow::Result<()> {
+        self.lightsail_api("ReleaseStaticIp", json!({ "staticIpName": static_ip_name }))
+            .await?;
+        Ok(())
+    }
+
+    async fn wait_until_no_static_ip_attached(&self, instance_name: &str) -> anyhow::Result<()> {
+        let deadline = Instant::now() + self.operation_timeout();
+        loop {
+            if self.find_attached_static_ip(instance_name).await?.is_none() {
+                return Ok(());
+            }
+            promise!(
+                Instant::now() < deadline,
+                "timed out waiting for {} to detach its static IP",
+                instance_name
+            );
+            tokio::time::sleep(self.poll_interval()).await;
+        }
+    }
+
+    async fn wait_until_static_ip_exists(
+        &self,
+        static_ip_name: &str,
+    ) -> anyhow::Result<StaticIpInfo> {
+        let deadline = Instant::now() + self.operation_timeout();
+        let mut last_error = None;
+
+        loop {
+            match self.get_static_ip(static_ip_name).await {
+                Ok(static_ip) => return Ok(static_ip),
+                Err(error) => last_error = Some(error.to_string()),
+            }
+
+            let last_error_text = last_error.as_deref().unwrap_or("none");
+            promise!(
+                Instant::now() < deadline,
+                "timed out waiting for static IP `{}` to exist; last error: {}",
+                static_ip_name,
+                last_error_text
+            );
+            tokio::time::sleep(self.poll_interval()).await;
+        }
+    }
+
+    async fn wait_until_static_ip_attached(
+        &self,
+        instance_name: &str,
+        static_ip_name: &str,
+    ) -> anyhow::Result<()> {
+        let deadline = Instant::now() + self.operation_timeout();
+        loop {
+            let attached = self.get_static_ips().await?.into_iter().any(|static_ip| {
+                static_ip.name == static_ip_name && static_ip.attached_to_instance(instance_name)
+            });
+            if attached {
+                return Ok(());
+            }
+
+            promise!(
+                Instant::now() < deadline,
+                "timed out waiting for static IP `{}` to attach to {}",
+                static_ip_name,
+                instance_name
+            );
+            tokio::time::sleep(self.poll_interval()).await;
+        }
+    }
+
+    fn poll_interval(&self) -> Duration {
+        Duration::from_secs(self.config.poll_interval_secs.max(1))
+    }
+
+    fn operation_timeout(&self) -> Duration {
+        Duration::from_secs(self.config.operation_timeout_secs.max(1))
+    }
+}
+
+fn build_lightsail_sigv4_headers(
+    config: &OneKeyChangeIpConfig,
+    host: &str,
+    target: &str,
+    body: &str,
+    now: DateTime<Utc>,
+) -> anyhow::Result<Vec<(String, String)>> {
+    let amz_date = now.format("%Y%m%dT%H%M%SZ").to_string();
+    let date = now.format("%Y%m%d").to_string();
+    let credential_scope = format!("{}/{}/lightsail/aws4_request", date, config.aws_region);
+    let payload_hash = sha256_hex(body.as_bytes());
+
+    let mut canonical_headers = vec![
+        (
+            "content-type".to_string(),
+            "application/x-amz-json-1.1".to_string(),
+        ),
+        ("host".to_string(), host.to_string()),
+        ("x-amz-date".to_string(), amz_date.clone()),
+        ("x-amz-target".to_string(), target.to_string()),
+    ];
+
+    let session_token = config.aws_session_token.trim();
+    if !session_token.is_empty() {
+        canonical_headers.push((
+            "x-amz-security-token".to_string(),
+            session_token.to_string(),
+        ));
+    }
+    canonical_headers.sort_by(|left, right| left.0.cmp(&right.0));
+
+    let canonical_headers_text = canonical_headers
+        .iter()
+        .map(|(name, value)| format!("{name}:{value}\n"))
+        .collect::<String>();
+    let signed_headers = canonical_headers
+        .iter()
+        .map(|(name, _)| name.as_str())
+        .collect::<Vec<_>>()
+        .join(";");
+
+    let canonical_request = format!(
+        "POST\n/\n\n{}\n{}\n{}",
+        canonical_headers_text, signed_headers, payload_hash
+    );
+    let string_to_sign = format!(
+        "AWS4-HMAC-SHA256\n{}\n{}\n{}",
+        amz_date,
+        credential_scope,
+        sha256_hex(canonical_request.as_bytes())
+    );
+    let signing_key = aws_signing_key(
+        &config.aws_secret_access_key,
+        &date,
+        &config.aws_region,
+        "lightsail",
+    )?;
+    let signature = hex::encode(hmac_sha256(&signing_key, string_to_sign.as_bytes())?);
+    let authorization = format!(
+        "AWS4-HMAC-SHA256 Credential={}/{}, SignedHeaders={}, Signature={}",
+        config.aws_access_key_id, credential_scope, signed_headers, signature
+    );
+
+    let mut headers = vec![
+        (
+            "Content-Type".to_string(),
+            "application/x-amz-json-1.1".to_string(),
+        ),
+        ("Host".to_string(), host.to_string()),
+        ("X-Amz-Date".to_string(), amz_date),
+        ("X-Amz-Target".to_string(), target.to_string()),
+        ("Authorization".to_string(), authorization),
+    ];
+    if !session_token.is_empty() {
+        headers.push((
+            "X-Amz-Security-Token".to_string(),
+            session_token.to_string(),
+        ));
+    }
+
+    Ok(headers)
+}
+
+fn aws_signing_key(
+    secret_access_key: &str,
+    date: &str,
+    region: &str,
+    service: &str,
+) -> anyhow::Result<Vec<u8>> {
+    let date_key = hmac_sha256(
+        format!("AWS4{}", secret_access_key).as_bytes(),
+        date.as_bytes(),
+    )?;
+    let region_key = hmac_sha256(&date_key, region.as_bytes())?;
+    let service_key = hmac_sha256(&region_key, service.as_bytes())?;
+    hmac_sha256(&service_key, b"aws4_request")
+}
+
+fn hmac_sha256(key: &[u8], data: &[u8]) -> anyhow::Result<Vec<u8>> {
+    let mut mac = HmacSha256::new_from_slice(key)
+        .map_err(|error| anyhow!("failed to create HMAC-SHA256 key: {}", error))?;
+    mac.update(data);
+    Ok(mac.finalize().into_bytes().to_vec())
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    hex::encode(Sha256::digest(bytes))
+}
+
+async fn query_cloudflare_dns_record(
+    http_client: &Client,
+    config: &OneKeyChangeIpConfig,
+    record: &CloudflareDnsRecordConfig,
+) -> anyhow::Result<Value> {
+    let url = format!(
+        "https://api.cloudflare.com/client/v4/zones/{}/dns_records?type={}&name={}",
+        config.cloudflare_zone_id,
+        urlencoding::encode(&record.record_type),
+        urlencoding::encode(&record.name)
+    );
+
+    let response = http_client
+        .get(url)
+        .bearer_auth(&config.cloudflare_api_token)
+        .header("Content-Type", "application/json")
+        .send()
+        .await?;
+
+    parse_json_response(response, &format!("Cloudflare query {}", record.name)).await
+}
+
+async fn update_cloudflare_dns_record(
+    http_client: &Client,
+    config: &OneKeyChangeIpConfig,
+    record: &CloudflareDnsRecordConfig,
+    record_id: &str,
+    new_ip: &str,
+) -> anyhow::Result<Value> {
+    let url = format!(
+        "https://api.cloudflare.com/client/v4/zones/{}/dns_records/{}",
+        config.cloudflare_zone_id, record_id
+    );
+
+    let response = http_client
+        .patch(url)
+        .bearer_auth(&config.cloudflare_api_token)
+        .header("Content-Type", "application/json")
+        .json(&json!({
+            "type": &record.record_type,
+            "name": &record.name,
+            "content": new_ip,
+            "ttl": record.ttl,
+            "proxied": record.proxied
+        }))
+        .send()
+        .await?;
+
+    parse_json_response(response, &format!("Cloudflare update {}", record.name)).await
+}
+
+fn resolve_cloudflare_record_id(
+    record: &CloudflareDnsRecordConfig,
+    query_response: &Value,
+) -> anyhow::Result<String> {
+    if let Some(record_id) = record
+        .record_id
+        .as_ref()
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+    {
+        return Ok(record_id.to_string());
+    }
+
+    let result = query_response
+        .get("result")
+        .and_then(Value::as_array)
+        .ok_or_else(|| {
+            anyhow!(
+                "Cloudflare query response has no result array for {}",
+                record.name
+            )
+        })?;
+
+    result
+        .iter()
+        .find(|item| {
+            item.get("name").and_then(Value::as_str) == Some(record.name.as_str())
+                && item.get("type").and_then(Value::as_str) == Some(record.record_type.as_str())
+        })
+        .and_then(|item| item.get("id").and_then(Value::as_str))
+        .map(|id| id.to_string())
+        .ok_or_else(|| {
+            anyhow!(
+                "Cloudflare DNS record id not found for {} {}",
+                record.record_type,
+                record.name
+            )
+        })
+}
+
+async fn parse_json_response(
+    response: reqwest::Response,
+    description: &str,
+) -> anyhow::Result<Value> {
+    let status = response.status();
+    let text = response.text().await?;
+
+    if !status.is_success() {
+        bail!("{} failed ({}): {}", description, status, text);
+    }
+
+    if text.trim().is_empty() {
+        return Ok(json!({}));
+    }
+
+    serde_json::from_str(&text)
+        .with_context(|| format!("failed to parse {} JSON response: {}", description, text))
+}
+
+async fn app_push(mail_notify_url: &str, sender: &str, title: &str) {
+    let notify_url = mail_notify_url.trim();
+    if notify_url.is_empty() {
+        info!("app push skipped because misc_config.mail_notify_url is empty: {sender} {title}");
+        return;
+    }
+
+    let sender = urlencoding::encode(sender).into_owned();
+    let title = urlencoding::encode(title).into_owned();
+    let url = format!("{}/{}/{}", notify_url.trim_end_matches('/'), sender, title);
+
+    match reqwest::get(url).await {
+        Ok(response) => info!("app push response: {}", response.status()),
+        Err(error) => error!("app push failed: {}", error),
+    }
+}
+
 async fn backup_encrypted(s: S) -> R<impl IntoResponse> {
     let files_path = files_dir!();
 
@@ -543,6 +1264,22 @@ async fn backup_encrypted(s: S) -> R<impl IntoResponse> {
             return_error!("file not found!")
         }
     }
+}
+
+async fn replace_ip_in_vpn_yaml(path: &Path, old_ip: &str, new_ip: &str) -> anyhow::Result<()> {
+    promise!(!old_ip.trim().is_empty(), "old IP is empty");
+    promise!(!new_ip.trim().is_empty(), "new IP is empty");
+
+    let content = tokio::fs::read_to_string(path).await?;
+    promise!(
+        content.contains(old_ip),
+        "old IP `{}` not found in {}",
+        old_ip,
+        path.display()
+    );
+
+    tokio::fs::write(path, content.replace(old_ip, new_ip)).await?;
+    Ok(())
 }
 
 static ADMIN_HTML: &str = include_str!("templates/admin_new.html");
@@ -910,5 +1647,94 @@ mod tests {
     pub async fn test_copy_me() {
         let r = copy_me();
         println!("{:?}", r);
+    }
+
+    #[tokio::test]
+    async fn replaces_old_ip_in_vpn_yaml() -> anyhow::Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let vpn_path = temp_dir.path().join("vpn.yaml");
+        tokio::fs::write(
+            &vpn_path,
+            "server: 13.230.224.104\nremote: 13.230.224.104:500\n",
+        )
+        .await?;
+
+        replace_ip_in_vpn_yaml(&vpn_path, "13.230.224.104", "203.0.113.10").await?;
+
+        let content = tokio::fs::read_to_string(&vpn_path).await?;
+        assert_eq!(content, "server: 203.0.113.10\nremote: 203.0.113.10:500\n");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn replace_ip_in_vpn_yaml_errors_when_old_ip_is_missing() -> anyhow::Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let vpn_path = temp_dir.path().join("vpn.yaml");
+        tokio::fs::write(&vpn_path, "server: 198.51.100.10\n").await?;
+
+        let error = replace_ip_in_vpn_yaml(&vpn_path, "13.230.224.104", "203.0.113.10")
+            .await
+            .unwrap_err();
+
+        assert!(error.to_string().contains("13.230.224.104"));
+        Ok(())
+    }
+
+    #[test]
+    fn one_key_change_ip_config_validation_requires_dns_records() {
+        let config = crate::config::OneKeyChangeIpConfig {
+            aws_region: "ap-northeast-1".to_string(),
+            aws_access_key_id: "test-access-key".to_string(),
+            aws_secret_access_key: "test-secret-key".to_string(),
+            instance_name: "Debian-1".to_string(),
+            cloudflare_api_token: "test-cloudflare-token".to_string(),
+            cloudflare_zone_id: "test-zone-id".to_string(),
+            ..Default::default()
+        };
+
+        let error = validate_one_key_change_ip_config(&config).unwrap_err();
+
+        assert!(error.to_string().contains("cloudflare_dns_records"));
+    }
+
+    #[test]
+    fn one_key_change_ip_config_validation_allows_missing_record_id() {
+        let config = crate::config::OneKeyChangeIpConfig {
+            aws_region: "ap-northeast-1".to_string(),
+            aws_access_key_id: "test-access-key".to_string(),
+            aws_secret_access_key: "test-secret-key".to_string(),
+            instance_name: "Debian-1".to_string(),
+            cloudflare_api_token: "test-cloudflare-token".to_string(),
+            cloudflare_zone_id: "test-zone-id".to_string(),
+            cloudflare_dns_records: vec![CloudflareDnsRecordConfig {
+                name: "ip.zhouzhipeng.com".to_string(),
+                record_id: None,
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+
+        validate_one_key_change_ip_config(&config).unwrap();
+    }
+
+    #[test]
+    fn resolves_cloudflare_record_id_from_query_response_when_missing_in_config() {
+        let record = CloudflareDnsRecordConfig {
+            record_type: "A".to_string(),
+            name: "ip.zhouzhipeng.com".to_string(),
+            record_id: None,
+            ..Default::default()
+        };
+        let response = json!({
+            "success": true,
+            "result": [
+                {"id": "ignored-aaaa", "type": "AAAA", "name": "ip.zhouzhipeng.com"},
+                {"id": "resolved-a", "type": "A", "name": "ip.zhouzhipeng.com"}
+            ]
+        });
+
+        let record_id = resolve_cloudflare_record_id(&record, &response).unwrap();
+
+        assert_eq!(record_id, "resolved-a");
     }
 }
