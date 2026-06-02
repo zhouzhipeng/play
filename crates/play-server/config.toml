@@ -32,3 +32,25 @@ dns_servers = ["1.1.1.1", "8.8.8.8"]
 
 [ikev2_server.eap_users]
 demo = "change_this_password"
+
+[one_key_change_ip]
+aws_region = ""
+aws_access_key_id = ""
+aws_secret_access_key = ""
+aws_session_token = ""
+instance_name = ""
+cloudflare_api_token = ""
+cloudflare_zone_id = ""
+request_timeout_secs = 30
+poll_interval_secs = 2
+operation_timeout_secs = 180
+
+# [[one_key_change_ip.cloudflare_dns_records]]
+# name = "example.com"
+# record_id = "" # optional; omit to query by name and type
+# proxied = true
+
+# [[one_key_change_ip.cloudflare_dns_records]]
+# name = "ip.example.com"
+# record_id = "" # optional; omit to query by name and type
+# proxied = false
