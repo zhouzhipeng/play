@@ -1,5 +1,6 @@
 use std::env::temp_dir;
 use std::fs::File;
+use std::future::Future;
 use std::io::{copy, BufRead, BufReader, Cursor, Write};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -613,6 +614,9 @@ async fn run_one_key_change_ip_task(
 
     let http_client = ClientBuilder::new()
         .timeout(Duration::from_secs(config.request_timeout_secs.max(1)))
+        .http1_only()
+        .pool_max_idle_per_host(0)
+        .user_agent("play-server-one-key-change-ip")
         .build()?;
     let lightsail_client = LightsailClient {
         http_client: http_client.clone(),
@@ -813,7 +817,21 @@ impl LightsailClient {
             request = request.header(name.as_str(), value);
         }
 
-        let response = request.send().await?;
+        let clone_error = format!("failed to clone Lightsail {action} request");
+        let response = retry_external_request(
+            &format!("Lightsail {action} request"),
+            3,
+            Duration::from_secs(2),
+            || {
+                let request = request.try_clone();
+                let clone_error = clone_error.clone();
+                async move {
+                    let request = request.ok_or_else(|| anyhow!(clone_error))?;
+                    Ok(request.send().await?)
+                }
+            },
+        )
+        .await?;
         parse_json_response(response, &format!("Lightsail {action}")).await
     }
 
@@ -1062,6 +1080,38 @@ fn sha256_hex(bytes: &[u8]) -> String {
     hex::encode(Sha256::digest(bytes))
 }
 
+async fn retry_external_request<F, Fut, T>(
+    description: &str,
+    attempts: u32,
+    delay: Duration,
+    mut operation: F,
+) -> anyhow::Result<T>
+where
+    F: FnMut() -> Fut,
+    Fut: Future<Output = anyhow::Result<T>>,
+{
+    let attempts = attempts.max(1);
+    for attempt in 1..=attempts {
+        match operation().await {
+            Ok(value) => return Ok(value),
+            Err(error) if attempt < attempts => {
+                error!(
+                    "{} failed on attempt {}/{}: {}",
+                    description, attempt, attempts, error
+                );
+                tokio::time::sleep(delay).await;
+            }
+            Err(error) => {
+                return Err(error).with_context(|| {
+                    format!("{} failed after {} attempt(s)", description, attempts)
+                });
+            }
+        }
+    }
+
+    unreachable!("attempts is clamped to at least one");
+}
+
 async fn query_cloudflare_dns_record(
     http_client: &Client,
     config: &OneKeyChangeIpConfig,
@@ -1074,12 +1124,26 @@ async fn query_cloudflare_dns_record(
         urlencoding::encode(&record.name)
     );
 
-    let response = http_client
-        .get(url)
-        .bearer_auth(&config.cloudflare_api_token)
-        .header("Content-Type", "application/json")
-        .send()
-        .await?;
+    let cloudflare_api_token = config.cloudflare_api_token.clone();
+    let response = retry_external_request(
+        &format!("Cloudflare query {} request", record.name),
+        3,
+        Duration::from_secs(2),
+        || {
+            let http_client = http_client.clone();
+            let url = url.clone();
+            let cloudflare_api_token = cloudflare_api_token.clone();
+            async move {
+                Ok(http_client
+                    .get(url)
+                    .bearer_auth(cloudflare_api_token)
+                    .header("Content-Type", "application/json")
+                    .send()
+                    .await?)
+            }
+        },
+    )
+    .await?;
 
     parse_json_response(response, &format!("Cloudflare query {}", record.name)).await
 }
@@ -1096,19 +1160,36 @@ async fn update_cloudflare_dns_record(
         config.cloudflare_zone_id, record_id
     );
 
-    let response = http_client
-        .patch(url)
-        .bearer_auth(&config.cloudflare_api_token)
-        .header("Content-Type", "application/json")
-        .json(&json!({
-            "type": &record.record_type,
-            "name": &record.name,
-            "content": new_ip,
-            "ttl": record.ttl,
-            "proxied": record.proxied
-        }))
-        .send()
-        .await?;
+    let payload = json!({
+        "type": &record.record_type,
+        "name": &record.name,
+        "content": new_ip,
+        "ttl": record.ttl,
+        "proxied": record.proxied
+    });
+
+    let cloudflare_api_token = config.cloudflare_api_token.clone();
+    let response = retry_external_request(
+        &format!("Cloudflare update {} request", record.name),
+        3,
+        Duration::from_secs(2),
+        || {
+            let http_client = http_client.clone();
+            let url = url.clone();
+            let cloudflare_api_token = cloudflare_api_token.clone();
+            let payload = payload.clone();
+            async move {
+                Ok(http_client
+                    .patch(url)
+                    .bearer_auth(cloudflare_api_token)
+                    .header("Content-Type", "application/json")
+                    .json(&payload)
+                    .send()
+                    .await?)
+            }
+        },
+    )
+    .await?;
 
     parse_json_response(response, &format!("Cloudflare update {}", record.name)).await
 }
@@ -1736,5 +1817,30 @@ mod tests {
         let record_id = resolve_cloudflare_record_id(&record, &response).unwrap();
 
         assert_eq!(record_id, "resolved-a");
+    }
+
+    #[tokio::test]
+    async fn retry_external_request_retries_until_success() -> anyhow::Result<()> {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        let attempts = Arc::new(AtomicUsize::new(0));
+        let attempts_copy = attempts.clone();
+
+        let result = retry_external_request("test retry", 3, Duration::ZERO, move || {
+            let attempts = attempts_copy.clone();
+            async move {
+                let attempt = attempts.fetch_add(1, Ordering::SeqCst);
+                if attempt < 2 {
+                    Err(anyhow!("temporary failure"))
+                } else {
+                    Ok("ok")
+                }
+            }
+        })
+        .await?;
+
+        assert_eq!(result, "ok");
+        assert_eq!(attempts.load(Ordering::SeqCst), 3);
+        Ok(())
     }
 }
