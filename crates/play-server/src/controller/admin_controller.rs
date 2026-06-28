@@ -1,5 +1,7 @@
 use std::env::temp_dir;
+use std::fmt;
 use std::fs::File;
+use std::future::Future;
 use std::io::{copy, BufRead, BufReader, Cursor, Write};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -20,7 +22,10 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::process::Command;
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 use tokio_util::codec::{BytesCodec, FramedRead};
 use tracing::{error, info};
 use zip::{
@@ -119,6 +124,8 @@ struct TranslateRequest {
 
 type HmacSha256 = Hmac<Sha256>;
 
+static ONE_KEY_CHANGE_IP_RUNNING: AtomicBool = AtomicBool::new(false);
+
 #[derive(Debug, Clone)]
 struct OneKeyChangeIpResult {
     old_static_ip_name: Option<String>,
@@ -140,6 +147,14 @@ impl StaticIpInfo {
     fn attached_to_instance(&self, instance_name: &str) -> bool {
         self.attached_to.as_deref() == Some(instance_name)
     }
+
+    fn is_attached(&self) -> bool {
+        self.attached_to
+            .as_deref()
+            .map(str::trim)
+            .map(|attached_to| !attached_to.is_empty())
+            .unwrap_or(false)
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -152,6 +167,43 @@ struct StaticIpsResponse {
 struct StaticIpResponse {
     #[serde(rename = "staticIp")]
     static_ip: StaticIpInfo,
+}
+
+#[derive(Debug)]
+struct ApiResponseError {
+    description: String,
+    status: StatusCode,
+    body: String,
+}
+
+impl fmt::Display for ApiResponseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{} failed ({}): {}",
+            self.description, self.status, self.body
+        )
+    }
+}
+
+impl std::error::Error for ApiResponseError {}
+
+#[derive(Debug)]
+struct OneKeyChangeIpRunGuard;
+
+impl OneKeyChangeIpRunGuard {
+    fn try_acquire() -> anyhow::Result<Self> {
+        ONE_KEY_CHANGE_IP_RUNNING
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .map_err(|_| anyhow!("one-key-change-ip is already running"))?;
+        Ok(Self)
+    }
+}
+
+impl Drop for OneKeyChangeIpRunGuard {
+    fn drop(&mut self) {
+        ONE_KEY_CHANGE_IP_RUNNING.store(false, Ordering::SeqCst);
+    }
 }
 
 struct LightsailClient {
@@ -525,8 +577,10 @@ async fn one_key_change_ip(s: S) -> R<String> {
 
     let mail_notify_url = s.config.misc_config.mail_notify_url.clone();
     let data_dir = PathBuf::from(env::var(DATA_DIR)?);
+    let run_guard = OneKeyChangeIpRunGuard::try_acquire()?;
 
     tokio::spawn(async move {
+        let _run_guard = run_guard;
         match run_one_key_change_ip_task(config, mail_notify_url.clone(), data_dir).await {
             Ok(result) => {
                 info!(
@@ -613,6 +667,9 @@ async fn run_one_key_change_ip_task(
 
     let http_client = ClientBuilder::new()
         .timeout(Duration::from_secs(config.request_timeout_secs.max(1)))
+        .http1_only()
+        .pool_max_idle_per_host(0)
+        .user_agent("play-server-one-key-change-ip")
         .build()?;
     let lightsail_client = LightsailClient {
         http_client: http_client.clone(),
@@ -714,16 +771,29 @@ async fn run_one_key_change_ip_task(
     )
     .await;
 
-    if let Some(old) = &old_static_ip {
-        if old.name != new_static_ip_name {
-            lightsail_client.release_static_ip(&old.name).await?;
-            app_push(
-                &mail_notify_url,
-                "one-key-change-ip",
-                &format!("released old static IP {}", old.name),
-            )
-            .await;
-        }
+    let static_ips_after_attach = lightsail_client.get_static_ips().await?;
+    let unused_static_ip_names =
+        unused_static_ip_names(&static_ips_after_attach, &new_static_ip_name);
+    app_push(
+        &mail_notify_url,
+        "one-key-change-ip",
+        &format!(
+            "queried static IP cleanup inventory; {} unused static IP(s) found",
+            unused_static_ip_names.len()
+        ),
+    )
+    .await;
+
+    for unused_static_ip_name in unused_static_ip_names {
+        lightsail_client
+            .release_static_ip(&unused_static_ip_name)
+            .await?;
+        app_push(
+            &mail_notify_url,
+            "one-key-change-ip",
+            &format!("released unused static IP {}", unused_static_ip_name),
+        )
+        .await;
     }
 
     for record in &config.cloudflare_dns_records {
@@ -813,7 +883,21 @@ impl LightsailClient {
             request = request.header(name.as_str(), value);
         }
 
-        let response = request.send().await?;
+        let clone_error = format!("failed to clone Lightsail {action} request");
+        let response = retry_external_request(
+            &format!("Lightsail {action} request"),
+            3,
+            Duration::from_secs(2),
+            || {
+                let request = request.try_clone();
+                let clone_error = clone_error.clone();
+                async move {
+                    let request = request.ok_or_else(|| anyhow!(clone_error))?;
+                    Ok(request.send().await?)
+                }
+            },
+        )
+        .await?;
         parse_json_response(response, &format!("Lightsail {action}")).await
     }
 
@@ -851,12 +935,23 @@ impl LightsailClient {
     }
 
     async fn allocate_static_ip(&self, static_ip_name: &str) -> anyhow::Result<()> {
-        self.lightsail_api(
-            "AllocateStaticIp",
-            json!({ "staticIpName": static_ip_name }),
-        )
-        .await?;
-        Ok(())
+        match self
+            .lightsail_api(
+                "AllocateStaticIp",
+                json!({ "staticIpName": static_ip_name }),
+            )
+            .await
+        {
+            Ok(_) => Ok(()),
+            Err(error) if is_lightsail_name_exists_error(&error, static_ip_name) => {
+                info!(
+                    "Lightsail static IP {} already exists after AllocateStaticIp; continuing",
+                    static_ip_name
+                );
+                Ok(())
+            }
+            Err(error) => Err(error),
+        }
     }
 
     async fn attach_static_ip(
@@ -1062,6 +1157,75 @@ fn sha256_hex(bytes: &[u8]) -> String {
     hex::encode(Sha256::digest(bytes))
 }
 
+fn is_lightsail_name_exists_error(error: &anyhow::Error, static_ip_name: &str) -> bool {
+    let Some(api_error) = error.downcast_ref::<ApiResponseError>() else {
+        return false;
+    };
+
+    if api_error.description != "Lightsail AllocateStaticIp"
+        || api_error.status != StatusCode::BAD_REQUEST
+    {
+        return false;
+    }
+
+    let Ok(body) = serde_json::from_str::<Value>(&api_error.body) else {
+        return false;
+    };
+
+    let code_matches = body.get("code").and_then(Value::as_str) == Some("NameExists");
+    let message_matches = body
+        .get("message")
+        .and_then(Value::as_str)
+        .map(|message| message.contains(static_ip_name))
+        .unwrap_or(false);
+
+    code_matches && message_matches
+}
+
+fn unused_static_ip_names(
+    static_ips: &[StaticIpInfo],
+    protected_static_ip_name: &str,
+) -> Vec<String> {
+    static_ips
+        .iter()
+        .filter(|static_ip| static_ip.name != protected_static_ip_name)
+        .filter(|static_ip| !static_ip.is_attached())
+        .map(|static_ip| static_ip.name.clone())
+        .collect()
+}
+
+async fn retry_external_request<F, Fut, T>(
+    description: &str,
+    attempts: u32,
+    delay: Duration,
+    mut operation: F,
+) -> anyhow::Result<T>
+where
+    F: FnMut() -> Fut,
+    Fut: Future<Output = anyhow::Result<T>>,
+{
+    let attempts = attempts.max(1);
+    for attempt in 1..=attempts {
+        match operation().await {
+            Ok(value) => return Ok(value),
+            Err(error) if attempt < attempts => {
+                error!(
+                    "{} failed on attempt {}/{}: {}",
+                    description, attempt, attempts, error
+                );
+                tokio::time::sleep(delay).await;
+            }
+            Err(error) => {
+                return Err(error).with_context(|| {
+                    format!("{} failed after {} attempt(s)", description, attempts)
+                });
+            }
+        }
+    }
+
+    unreachable!("attempts is clamped to at least one");
+}
+
 async fn query_cloudflare_dns_record(
     http_client: &Client,
     config: &OneKeyChangeIpConfig,
@@ -1074,12 +1238,26 @@ async fn query_cloudflare_dns_record(
         urlencoding::encode(&record.name)
     );
 
-    let response = http_client
-        .get(url)
-        .bearer_auth(&config.cloudflare_api_token)
-        .header("Content-Type", "application/json")
-        .send()
-        .await?;
+    let cloudflare_api_token = config.cloudflare_api_token.clone();
+    let response = retry_external_request(
+        &format!("Cloudflare query {} request", record.name),
+        3,
+        Duration::from_secs(2),
+        || {
+            let http_client = http_client.clone();
+            let url = url.clone();
+            let cloudflare_api_token = cloudflare_api_token.clone();
+            async move {
+                Ok(http_client
+                    .get(url)
+                    .bearer_auth(cloudflare_api_token)
+                    .header("Content-Type", "application/json")
+                    .send()
+                    .await?)
+            }
+        },
+    )
+    .await?;
 
     parse_json_response(response, &format!("Cloudflare query {}", record.name)).await
 }
@@ -1096,19 +1274,36 @@ async fn update_cloudflare_dns_record(
         config.cloudflare_zone_id, record_id
     );
 
-    let response = http_client
-        .patch(url)
-        .bearer_auth(&config.cloudflare_api_token)
-        .header("Content-Type", "application/json")
-        .json(&json!({
-            "type": &record.record_type,
-            "name": &record.name,
-            "content": new_ip,
-            "ttl": record.ttl,
-            "proxied": record.proxied
-        }))
-        .send()
-        .await?;
+    let payload = json!({
+        "type": &record.record_type,
+        "name": &record.name,
+        "content": new_ip,
+        "ttl": record.ttl,
+        "proxied": record.proxied
+    });
+
+    let cloudflare_api_token = config.cloudflare_api_token.clone();
+    let response = retry_external_request(
+        &format!("Cloudflare update {} request", record.name),
+        3,
+        Duration::from_secs(2),
+        || {
+            let http_client = http_client.clone();
+            let url = url.clone();
+            let cloudflare_api_token = cloudflare_api_token.clone();
+            let payload = payload.clone();
+            async move {
+                Ok(http_client
+                    .patch(url)
+                    .bearer_auth(cloudflare_api_token)
+                    .header("Content-Type", "application/json")
+                    .json(&payload)
+                    .send()
+                    .await?)
+            }
+        },
+    )
+    .await?;
 
     parse_json_response(response, &format!("Cloudflare update {}", record.name)).await
 }
@@ -1161,7 +1356,12 @@ async fn parse_json_response(
     let text = response.text().await?;
 
     if !status.is_success() {
-        bail!("{} failed ({}): {}", description, status, text);
+        return Err(ApiResponseError {
+            description: description.to_string(),
+            status,
+            body: text,
+        }
+        .into());
     }
 
     if text.trim().is_empty() {
@@ -1736,5 +1936,93 @@ mod tests {
         let record_id = resolve_cloudflare_record_id(&record, &response).unwrap();
 
         assert_eq!(record_id, "resolved-a");
+    }
+
+    #[test]
+    fn detects_lightsail_allocate_name_exists_error() {
+        let error = anyhow!(ApiResponseError {
+            description: "Lightsail AllocateStaticIp".to_string(),
+            status: StatusCode::BAD_REQUEST,
+            body: r#"{"__type":"InvalidInputException","code":"NameExists","message":"Some names are already in use: Debian-1-ip-20260627234106"}"#.to_string(),
+        });
+
+        assert!(is_lightsail_name_exists_error(
+            &error,
+            "Debian-1-ip-20260627234106"
+        ));
+        assert!(!is_lightsail_name_exists_error(
+            &error,
+            "Debian-1-ip-20260627234107"
+        ));
+    }
+
+    #[test]
+    fn one_key_change_ip_run_guard_rejects_concurrent_run() -> anyhow::Result<()> {
+        let guard = OneKeyChangeIpRunGuard::try_acquire()?;
+
+        let error = OneKeyChangeIpRunGuard::try_acquire().unwrap_err();
+        assert!(error.to_string().contains("already running"));
+
+        drop(guard);
+        let _guard = OneKeyChangeIpRunGuard::try_acquire()?;
+        Ok(())
+    }
+
+    #[test]
+    fn unused_static_ip_names_excludes_attached_and_protected_static_ips() {
+        let static_ips = vec![
+            StaticIpInfo {
+                name: "attached-to-current".to_string(),
+                ip_address: "203.0.113.10".to_string(),
+                attached_to: Some("Debian-1".to_string()),
+            },
+            StaticIpInfo {
+                name: "unused-old".to_string(),
+                ip_address: "203.0.113.11".to_string(),
+                attached_to: None,
+            },
+            StaticIpInfo {
+                name: "protected-new".to_string(),
+                ip_address: "203.0.113.12".to_string(),
+                attached_to: None,
+            },
+            StaticIpInfo {
+                name: "empty-attached-to".to_string(),
+                ip_address: "203.0.113.13".to_string(),
+                attached_to: Some(" ".to_string()),
+            },
+        ];
+
+        let names = unused_static_ip_names(&static_ips, "protected-new");
+
+        assert_eq!(
+            names,
+            vec!["unused-old".to_string(), "empty-attached-to".to_string()]
+        );
+    }
+
+    #[tokio::test]
+    async fn retry_external_request_retries_until_success() -> anyhow::Result<()> {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        let attempts = Arc::new(AtomicUsize::new(0));
+        let attempts_copy = attempts.clone();
+
+        let result = retry_external_request("test retry", 3, Duration::ZERO, move || {
+            let attempts = attempts_copy.clone();
+            async move {
+                let attempt = attempts.fetch_add(1, Ordering::SeqCst);
+                if attempt < 2 {
+                    Err(anyhow!("temporary failure"))
+                } else {
+                    Ok("ok")
+                }
+            }
+        })
+        .await?;
+
+        assert_eq!(result, "ok");
+        assert_eq!(attempts.load(Ordering::SeqCst), 3);
+        Ok(())
     }
 }
