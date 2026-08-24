@@ -57,7 +57,7 @@ play-utils-data-api = { path = "crates/play-utils/play-utils-data-api"}
 play-utils-strings = { path = "crates/play-utils/play-utils-strings"}
 play-integration-xiaozhi = { path = "crates/play-integration/play-integration-xiaozhi"}
 play-terminal = { path = "crates/play-terminal"}
-safebox-sdk = { path = "../../../../../code/SafeBox/sdk/rust" }
+safebox-sdk = { git="https://github.com/zhouzhipeng/SafeBox" }
 rathole = { path = "third_party/rathole", default-features = false }
 
 # Additional common dependencies
