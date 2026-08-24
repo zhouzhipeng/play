@@ -6,7 +6,7 @@ use std::path::{Component, PathBuf};
 use std::time::UNIX_EPOCH;
 
 use axum::body::{Body, Bytes, HttpBody};
-use axum::extract::{Path, Query};
+use axum::extract::{Path, Query, Request};
 use axum::response::{IntoResponse, Response};
 use axum::{BoxError, Json};
 use chrono::{DateTime, Local};
@@ -18,9 +18,10 @@ use serde::{Deserialize, Serialize};
 use sqlx::Row;
 use tokio::fs;
 use tokio::fs::File;
-use tokio::io::{AsyncReadExt, BufWriter};
+use tokio::io::BufWriter;
 use tokio_util::codec::{BytesCodec, FramedRead};
 use tokio_util::io::StreamReader;
+use tower_http::services::ServeFile;
 use tracing::info;
 
 use play_shared::{current_timestamp, file_path};
@@ -247,7 +248,24 @@ async fn upload_file(Query(option): Query<UploadOption>, body: CustomFileExtract
     };
 }
 
-pub async fn download_file(Path(file_path): Path<String>) -> impl IntoResponse {
+async fn stream_file_response(path: &std::path::Path, request: Request) -> io::Result<Response> {
+    let mime_type = mime_guess::from_path(path).first_or_octet_stream();
+    let mut service = ServeFile::new_with_mime(path, &mime_type);
+    let mut response = service.try_call(request).await?.map(Body::new);
+
+    response.headers_mut().insert(
+        "cross-origin-opener-policy",
+        HeaderValue::from_static("same-origin"),
+    );
+    response.headers_mut().insert(
+        "cross-origin-embedder-policy",
+        HeaderValue::from_static("require-corp"),
+    );
+
+    Ok(response)
+}
+
+pub async fn download_file(Path(file_path): Path<String>, request: Request) -> impl IntoResponse {
     // Sanitize file path and prevent directory traversal
     let safe_path = files_dir!().join(file_path.trim_start_matches('/'));
     if safe_path
@@ -257,13 +275,21 @@ pub async fn download_file(Path(file_path): Path<String>) -> impl IntoResponse {
         return Err((StatusCode::FORBIDDEN, "Access denied"));
     }
 
-    if !safe_path.exists() {
-        return Err((StatusCode::FORBIDDEN, "Access denied"));
-    }
+    let metadata = match fs::metadata(&safe_path).await {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            return Err((StatusCode::FORBIDDEN, "Access denied"));
+        }
+        Err(error) => {
+            info!(
+                "Failed to read file metadata for {:?}: {}",
+                safe_path, error
+            );
+            return Err((StatusCode::INTERNAL_SERVER_ERROR, "Failed to read the file"));
+        }
+    };
 
-    let mime_type = mime_guess::from_path(&safe_path).first_or_octet_stream();
-
-    if safe_path.is_dir() {
+    if metadata.is_dir() {
         // 要列举的目录路径
         let directory_path = &safe_path;
 
@@ -307,46 +333,11 @@ pub async fn download_file(Path(file_path): Path<String>) -> impl IntoResponse {
         return Ok(response);
     }
 
-    // Attempt to open the file
-    match File::open(&safe_path).await {
-        Ok(mut file) => {
-            let mut contents = Vec::new();
-            // Read the file contents into a buffer
-            if let Ok(_) = file.read_to_end(&mut contents).await {
-                // Create a response with the file contents
-                let mut res_builder = Response::builder()
-                    .status(StatusCode::OK)
-                    .header(
-                        header::CONTENT_TYPE,
-                        HeaderValue::from_str(mime_type.as_ref()).unwrap(),
-                    )
-                    .header("Cross-Origin-Opener-Policy", "same-origin")
-                    .header("Cross-Origin-Embedder-Policy", "require-corp");
-                // if mime_type.as_ref().contains("wasm") {
-                //     //dont compress wasm file , because ios safari has issue with it.
-                //     res_builder = res_builder
-                //         .header("Content-Encoding", "identity")
-                //         .header("Cache-Control", "no-transform");
-                // }
-                let response = res_builder
-                    .body(Body::from(contents))
-                    .expect("Failed to build response"); // Convert Vec<u8> into Body
-
-                // You can add or modify response headers here
-                // response.headers_mut().insert(
-                //     "Content-Disposition",
-                //     HeaderValue::from_str(&format!("attachment; filename=\"{}\"", safe_path.file_name().unwrap().to_str().unwrap())).unwrap(),
-                // );
-
-                Ok(response)
-            } else {
-                // If file reading fails
-                Err((StatusCode::INTERNAL_SERVER_ERROR, "Failed to read the file"))
-            }
-        }
-        Err(_) => {
-            // If file opening fails
-            Err((StatusCode::NOT_FOUND, "File not found"))
+    match stream_file_response(&safe_path, request).await {
+        Ok(response) => Ok(response),
+        Err(error) => {
+            info!("File streaming error for {:?}: {}", safe_path, error);
+            Err((StatusCode::INTERNAL_SERVER_ERROR, "Failed to read the file"))
         }
     }
 }
@@ -433,16 +424,105 @@ async fn rename_file_with_correct_extension(path: &std::path::Path) -> anyhow::R
 mod test {
     use super::*;
     use crate::{mock_server, mock_state};
+    use axum::http::Method;
+    use http_body_util::BodyExt;
+
+    async fn create_test_file() -> anyhow::Result<(tempfile::TempDir, PathBuf)> {
+        let directory = tempfile::tempdir()?;
+        let path = directory.path().join("sample.bin");
+        fs::write(&path, b"0123456789").await?;
+        Ok((directory, path))
+    }
+
+    #[tokio::test]
+    async fn streams_file_with_download_headers() -> anyhow::Result<()> {
+        let (_directory, path) = create_test_file().await?;
+        let request = Request::builder().body(Body::empty())?;
+
+        let response = stream_file_response(&path, request).await?;
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers()[header::CONTENT_LENGTH], "10");
+        assert_eq!(response.headers()[header::ACCEPT_RANGES], "bytes");
+        assert_eq!(
+            response.headers()["cross-origin-opener-policy"],
+            "same-origin"
+        );
+        assert_eq!(
+            response.headers()["cross-origin-embedder-policy"],
+            "require-corp"
+        );
+        assert_eq!(
+            response.into_body().collect().await?.to_bytes(),
+            Bytes::from_static(b"0123456789")
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn supports_single_byte_range() -> anyhow::Result<()> {
+        let (_directory, path) = create_test_file().await?;
+        let request = Request::builder()
+            .header(header::RANGE, "bytes=2-5")
+            .body(Body::empty())?;
+
+        let response = stream_file_response(&path, request).await?;
+
+        assert_eq!(response.status(), StatusCode::PARTIAL_CONTENT);
+        assert_eq!(response.headers()[header::CONTENT_RANGE], "bytes 2-5/10");
+        assert_eq!(response.headers()[header::CONTENT_LENGTH], "4");
+        assert_eq!(
+            response.into_body().collect().await?.to_bytes(),
+            Bytes::from_static(b"2345")
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn rejects_unsatisfiable_byte_range() -> anyhow::Result<()> {
+        let (_directory, path) = create_test_file().await?;
+        let request = Request::builder()
+            .header(header::RANGE, "bytes=20-30")
+            .body(Body::empty())?;
+
+        let response = stream_file_response(&path, request).await?;
+
+        assert_eq!(response.status(), StatusCode::RANGE_NOT_SATISFIABLE);
+        assert_eq!(response.headers()[header::CONTENT_RANGE], "bytes */10");
+        assert!(response.into_body().collect().await?.to_bytes().is_empty());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn head_returns_headers_without_body() -> anyhow::Result<()> {
+        let (_directory, path) = create_test_file().await?;
+        let request = Request::builder()
+            .method(Method::HEAD)
+            .body(Body::empty())?;
+
+        let response = stream_file_response(&path, request).await?;
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers()[header::CONTENT_LENGTH], "10");
+        assert_eq!(response.headers()[header::ACCEPT_RANGES], "bytes");
+        assert!(response.into_body().collect().await?.to_bytes().is_empty());
+
+        Ok(())
+    }
 
     #[tokio::test]
     async fn test_rename() -> anyhow::Result<()> {
-        let path = std::path::Path::new(
-            "/Users/zhouzhipeng/RustroverProjects/play/server/output_dir/files/test",
-        );
-        println!(
-            "new name : {}",
-            rename_file_with_correct_extension(path).await?
-        );
+        let directory = tempfile::tempdir()?;
+        let path = directory.path().join("test");
+        fs::write(&path, b"\x89PNG\r\n\x1a\n").await?;
+
+        let new_name = rename_file_with_correct_extension(&path).await?;
+
+        assert_eq!(new_name, "test.png");
+        assert!(directory.path().join(new_name).is_file());
 
         Ok(())
     }
