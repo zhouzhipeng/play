@@ -4,6 +4,10 @@ log_level = "DEBUG"
 [database]
 url=":memory:"
 
+[backup_config]
+# Paste the sboxpk1: single-line key copied by SafeBox's "复制公钥" button.
+sbox_public_key = ""
+
 [frp_server]
 enabled = false
 bind_addr = "0.0.0.0:2333"
@@ -15,6 +19,11 @@ bind_addr = "0.0.0.0:8081"
 
 [ikev2_server]
 enabled = false
+auto_install_dependencies = true
+# On Debian Bookworm, play-server can automatically install the required strongSwan packages.
+# Optional overrides if your strongSwan binaries are not on PATH or use different names.
+# daemon_bin = "/usr/sbin/charon"
+# swanctl_bin = "/usr/sbin/swanctl"
 listen_addr = "0.0.0.0"
 port = 500
 port_nat_t = 4500
@@ -27,3 +36,25 @@ dns_servers = ["1.1.1.1", "8.8.8.8"]
 
 [ikev2_server.eap_users]
 demo = "change_this_password"
+
+[one_key_change_ip]
+aws_region = ""
+aws_access_key_id = ""
+aws_secret_access_key = ""
+aws_session_token = ""
+instance_name = ""
+cloudflare_api_token = ""
+cloudflare_zone_id = ""
+request_timeout_secs = 30
+poll_interval_secs = 2
+operation_timeout_secs = 180
+
+# [[one_key_change_ip.cloudflare_dns_records]]
+# name = "example.com"
+# record_id = "" # optional; omit to query by name and type
+# proxied = true
+
+# [[one_key_change_ip.cloudflare_dns_records]]
+# name = "ip.example.com"
+# record_id = "" # optional; omit to query by name and type
+# proxied = false

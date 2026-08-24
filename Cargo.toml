@@ -57,6 +57,7 @@ play-utils-data-api = { path = "crates/play-utils/play-utils-data-api"}
 play-utils-strings = { path = "crates/play-utils/play-utils-strings"}
 play-integration-xiaozhi = { path = "crates/play-integration/play-integration-xiaozhi"}
 play-terminal = { path = "crates/play-terminal"}
+safebox-sdk = { git="https://github.com/zhouzhipeng/SafeBox" }
 rathole = { path = "third_party/rathole", default-features = false }
 
 # Additional common dependencies
@@ -94,6 +95,7 @@ md5 = "0.7.0"
 sha1 = "0.10"
 sha2 = "0.10"
 sha3 = "0.10.8"
+hmac = "0.12"
 base64 = "0.22.1"
 hex = "0.4.3"
 bs58 = "0.5.1"
@@ -106,7 +108,7 @@ secp256k1 = "0.29.0"
 # File and system utilities
 tempfile = "3.15.0"
 walkdir = "2.4.0"
-zip = { version = "2.2.1", features = ["aes-crypto", "deflate"] }
+zip = { version = "2.2.1", features = ["deflate"] }
 zip-extract = "0.2.1"
 zip-extensions = "0.8.1"
 include_dir = "0.7.3"
@@ -170,4 +172,4 @@ difference = "2.0.0"
 tower-livereload = "0.8.2"
 notify = "6.1.1"
 rustls-acme = { version = "0.8.1", features = ["axum"] }
-rcgen = { version = "0.14", features = ["x509-parser"] }
+rcgen = { version = "0.14", features = ["x509-parser", "aws_lc_rs"] }
