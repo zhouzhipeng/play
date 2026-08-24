@@ -37,6 +37,8 @@ pub struct Config {
     #[serde(default)]
     pub misc_config: MiscConfig,
     #[serde(default)]
+    pub backup_config: BackupConfig,
+    #[serde(default)]
     pub cache_config: CacheConfig,
     #[serde(default)]
     pub plugin_config: Vec<PluginConfig>,
@@ -197,6 +199,13 @@ pub struct MiscConfig {
     pub mail_notify_url: String,
     #[serde(default)]
     pub github_token: String,
+}
+
+#[derive(Deserialize, Debug, Clone, Default)]
+pub struct BackupConfig {
+    /// Compact `sboxpk1:` public key copied from SafeBox. Legacy JSON is also accepted.
+    #[serde(default)]
+    pub sbox_public_key: String,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -635,6 +644,10 @@ log_level = "DEBUG"
 [database]
 url=":memory:"
 
+[backup_config]
+# Paste the sboxpk1: single-line key copied by SafeBox's "复制公钥" button.
+sbox_public_key = ""
+
 [frp_server]
 enabled = false
 bind_addr = "0.0.0.0:2333"
@@ -768,5 +781,22 @@ proxied = false
         assert_eq!(config.one_key_change_ip.cloudflare_dns_records.len(), 2);
         assert!(config.one_key_change_ip.cloudflare_dns_records[0].proxied);
         assert!(!config.one_key_change_ip.cloudflare_dns_records[1].proxied);
+    }
+
+    #[test]
+    fn parses_sbox_backup_public_key_as_a_single_line_string() {
+        let content = r#"
+server_port = 3000
+
+[database]
+url = "sqlite://play.db"
+
+[backup_config]
+sbox_public_key = "sboxpk1:Abc_123-"
+"#;
+
+        let config: Config = toml::from_str(content).unwrap();
+
+        assert_eq!(config.backup_config.sbox_public_key, "sboxpk1:Abc_123-");
     }
 }

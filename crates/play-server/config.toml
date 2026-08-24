@@ -4,6 +4,10 @@ log_level = "DEBUG"
 [database]
 url=":memory:"
 
+[backup_config]
+# Paste the sboxpk1: single-line key copied by SafeBox's "复制公钥" button.
+sbox_public_key = ""
+
 [frp_server]
 enabled = false
 bind_addr = "0.0.0.0:2333"

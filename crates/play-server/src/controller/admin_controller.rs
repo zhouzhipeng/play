@@ -1,13 +1,14 @@
+use std::collections::{HashMap, HashSet};
 use std::env::temp_dir;
 use std::fmt;
 use std::fs::File;
 use std::future::Future;
-use std::io::{copy, BufRead, BufReader, Cursor, Write};
+use std::io::{BufRead, BufReader, Cursor, copy};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 use std::{env, fs, io};
 
-use anyhow::{anyhow, bail, Context};
+use anyhow::{Context, anyhow, bail};
 use axum::body::Bytes;
 use axum::extract::{Multipart, Query};
 use axum::response::{Html, IntoResponse, Response};
@@ -16,32 +17,36 @@ use chrono::{DateTime, Local, Utc};
 use fs_extra::dir::CopyOptions;
 use futures_util::TryStreamExt;
 use hmac::{Hmac, Mac};
-use http::StatusCode;
+use http::{StatusCode, header};
 use reqwest::{Client, ClientBuilder, Url};
+use safebox_sdk::{
+    EncryptOptions, MAX_NOMINAL_SHARD_SIZE, PublicIdentity, WrittenBundle, encrypt_file,
+};
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::process::Command;
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     Arc,
+    atomic::{AtomicBool, Ordering},
 };
+use tokio::io::AsyncReadExt;
 use tokio_util::codec::{BytesCodec, FramedRead};
 use tracing::{error, info};
 use zip::{
-    write::{ExtendedFileOptions, FileOptions},
-    CompressionMethod, ZipArchive, ZipWriter,
+    CompressionMethod, ZipArchive,
+    write::{SimpleFileOptions, ZipWriter},
 };
 
 use play_shared::constants::DATA_DIR;
 use play_shared::{current_timestamp, timestamp_to_date_str};
 
 use crate::config::{
-    get_config_path, read_config_file, save_config_file, CloudflareDnsRecordConfig, Config,
-    OneKeyChangeIpConfig,
+    CloudflareDnsRecordConfig, Config, OneKeyChangeIpConfig, get_config_path, read_config_file,
+    save_config_file,
 };
 use crate::tables::change_log::ChangeLog;
-use crate::{data_dir, files_dir, method_router, promise, return_error, template, HTML, R, S};
+use crate::{HTML, R, S, data_dir, files_dir, method_router, promise, return_error, template};
 
 // Create the init function manually to handle conditional compilation
 pub fn init() -> axum::Router<std::sync::Arc<crate::AppState>> {
@@ -354,210 +359,450 @@ async fn backup(s: S) -> R<impl IntoResponse> {
     }
 }
 
+const SBOX_DOWNLOAD_CONTENT_TYPE: &str = "application/octet-stream";
+const GITHUB_BACKUP_RELEASE_URL: &str =
+    "https://api.github.com/repos/zhouzhipeng/play/releases/tags/backup";
+
+fn parse_sbox_public_identity(value: &str) -> anyhow::Result<PublicIdentity> {
+    let value = value.trim();
+    if value.is_empty() {
+        bail!(
+            "backup_config.sbox_public_key is not configured; paste the sboxpk1: key copied by SafeBox's 复制公钥 button"
+        );
+    }
+
+    PublicIdentity::from_encoded(value).context(
+        "backup_config.sbox_public_key is not a valid SafeBox public key (sboxpk1: or legacy JSON)",
+    )
+}
+
+fn create_sbox_backup(
+    identity: &PublicIdentity,
+    database_url: &str,
+    files_path: &Path,
+    config_file_path: &Path,
+    temporary_root: &Path,
+    original_name: &str,
+) -> anyhow::Result<WrittenBundle> {
+    let folder_path = temporary_root.join("backup");
+    fs::create_dir(&folder_path)?;
+
+    let sqlite_path = database_url
+        .strip_prefix("sqlite://")
+        .filter(|path| !path.is_empty())
+        .ok_or_else(|| anyhow!("database.url must be a sqlite:// file URL for backups"))?;
+    let items = vec![
+        files_path.to_path_buf(),
+        PathBuf::from(sqlite_path),
+        config_file_path.to_path_buf(),
+    ];
+
+    fs_extra::copy_items(
+        &items,
+        &folder_path,
+        &CopyOptions {
+            copy_inside: true,
+            ..Default::default()
+        },
+    )?;
+
+    let zip_path = temporary_root.join(original_name);
+    crate::controller::files_controller::zip_dir(&folder_path, &zip_path)?;
+
+    let mut options = EncryptOptions::new(original_name, "application/zip");
+    options.title = Some("Play server backup".to_string());
+    options.tags = vec!["backup".to_string(), "play-server".to_string()];
+    // Prefer one downloadable .sbox object while retaining protocol-compliant
+    // multipart output for backups larger than 512 MiB.
+    options.target_nominal_shard_size = MAX_NOMINAL_SHARD_SIZE;
+
+    encrypt_file(identity, &zip_path, temporary_root.join("sbox"), &options)
+        .context("failed to encrypt the ZIP backup with the SafeBox public key")
+}
+
+async fn create_sbox_backup_off_thread(
+    identity: PublicIdentity,
+    database_url: String,
+    files_path: PathBuf,
+    config_file_path: PathBuf,
+    temporary_directory: tempfile::TempDir,
+    original_name: String,
+) -> anyhow::Result<(tempfile::TempDir, WrittenBundle)> {
+    let result = tokio::task::spawn_blocking(move || {
+        let bundle = create_sbox_backup(
+            &identity,
+            &database_url,
+            &files_path,
+            &config_file_path,
+            temporary_directory.path(),
+            &original_name,
+        )?;
+        Ok::<_, anyhow::Error>((temporary_directory, bundle))
+    })
+    .await
+    .context("SBOX backup worker stopped unexpectedly")??;
+
+    Ok(result)
+}
+
+fn prepare_sbox_download(
+    bundle: &WrittenBundle,
+    temporary_root: &Path,
+    backup_label: &str,
+) -> anyhow::Result<(PathBuf, String, &'static str)> {
+    if bundle.objects.len() == 1 {
+        let path = bundle.objects[0].path.clone();
+        let basename = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or_else(|| anyhow!("SafeBox SDK returned an invalid object path"))?
+            .to_string();
+        return Ok((path, basename, SBOX_DOWNLOAD_CONTENT_TYPE));
+    }
+
+    // Browsers download one response at a time. Preserve every canonical SBOX
+    // shard in an unencrypted transport ZIP so the user can extract and import
+    // the complete Bundle into SafeBox.
+    let archive_name = format!("{}_sbox_bundle.zip", backup_label);
+    let archive_path = temporary_root.join(&archive_name);
+    let mut archive = ZipWriter::new(File::create(&archive_path)?);
+    for object in &bundle.objects {
+        let basename = object
+            .path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or_else(|| anyhow!("SafeBox SDK returned an invalid object path"))?;
+        archive.start_file(
+            basename,
+            SimpleFileOptions::default().compression_method(CompressionMethod::Stored),
+        )?;
+        copy(&mut File::open(&object.path)?, &mut archive)?;
+    }
+    archive.finish()?;
+
+    Ok((archive_path, archive_name, "application/zip"))
+}
+
+async fn prepare_sbox_download_off_thread(
+    temporary_directory: tempfile::TempDir,
+    bundle: WrittenBundle,
+    backup_label: String,
+) -> anyhow::Result<(tempfile::TempDir, PathBuf, String, &'static str)> {
+    let result = tokio::task::spawn_blocking(move || {
+        let (path, name, content_type) =
+            prepare_sbox_download(&bundle, temporary_directory.path(), &backup_label)?;
+        Ok::<_, anyhow::Error>((temporary_directory, path, name, content_type))
+    })
+    .await
+    .context("SBOX download worker stopped unexpectedly")??;
+
+    Ok(result)
+}
+
+struct SboxDownloadState {
+    file: tokio::fs::File,
+    _temporary_directory: tempfile::TempDir,
+}
+
+async fn stream_sbox_download(
+    path: &Path,
+    download_name: &str,
+    content_type: &'static str,
+    temporary_directory: tempfile::TempDir,
+) -> anyhow::Result<Response> {
+    let file = tokio::fs::File::open(path).await?;
+    let content_length = file.metadata().await?.len();
+    let stream = futures_util::stream::try_unfold(
+        SboxDownloadState {
+            file,
+            _temporary_directory: temporary_directory,
+        },
+        |mut state| async move {
+            let mut buffer = vec![0_u8; 64 * 1024];
+            let read = state.file.read(&mut buffer).await?;
+            if read == 0 {
+                return Ok::<_, io::Error>(None);
+            }
+            buffer.truncate(read);
+            Ok(Some((Bytes::from(buffer), state)))
+        },
+    );
+
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, content_type)
+        .header(header::CONTENT_LENGTH, content_length)
+        .header(
+            header::CONTENT_DISPOSITION,
+            format!("attachment; filename=\"{}\"", download_name),
+        )
+        .header(header::CACHE_CONTROL, "no-store")
+        .body(axum::body::Body::from_stream(stream))
+        .context("failed to build the SBOX download response")
+}
+
+fn expired_sbox_backup_assets(assets: &[Value], keep_bundles: usize) -> Vec<(String, String)> {
+    let mut groups: HashMap<String, (String, Vec<(String, String)>)> = HashMap::new();
+
+    for asset in assets {
+        let Some(name) = asset["name"].as_str() else {
+            continue;
+        };
+        let Some(label) = asset["label"].as_str() else {
+            continue;
+        };
+        let Some(id) = asset["id"].as_u64() else {
+            continue;
+        };
+        let Some(created_at) = asset["created_at"].as_str() else {
+            continue;
+        };
+        if !name.ends_with(".sbox") || !label.starts_with("play_backup_") {
+            continue;
+        }
+
+        let group = groups
+            .entry(label.to_string())
+            .or_insert_with(|| (created_at.to_string(), Vec::new()));
+        if created_at > group.0.as_str() {
+            group.0 = created_at.to_string();
+        }
+        group.1.push((name.to_string(), id.to_string()));
+    }
+
+    let mut groups: Vec<_> = groups
+        .into_iter()
+        .map(|(label, (created_at, assets))| (label, created_at, assets))
+        .collect();
+    groups.sort_by(|left, right| right.1.cmp(&left.1).then_with(|| right.0.cmp(&left.0)));
+
+    groups
+        .into_iter()
+        .skip(keep_bundles)
+        .flat_map(|(_, _, assets)| assets)
+        .collect()
+}
+
 async fn backup_encrypted_to_cloud(s: S) -> R<String> {
-    // Check GitHub token early
     let github_token = s.config.misc_config.github_token.clone();
-    if github_token.is_empty() {
+    if github_token.trim().is_empty() {
         return_error!("GitHub token not configured in config.toml");
     }
 
-    // Clone necessary config values for the spawned task
+    // Validate before spawning so configuration errors are returned to the caller.
+    let public_identity = parse_sbox_public_identity(&s.config.backup_config.sbox_public_key)?;
     let database_url = s.config.database.url.clone();
-    let passcode = s.config.auth_config.passcode.clone();
     let mail_notify_url = s.config.misc_config.mail_notify_url.clone();
+    let data_directory = PathBuf::from(env::var(DATA_DIR)?);
+    let files_path = data_directory.join("files");
+    let config_file_path = data_directory.join("config.toml");
 
-    // Spawn background task
     tokio::spawn(async move {
         let result = async {
-            let files_path = files_dir!();
-
-            //make a temp dir
-            let folder_path = data_dir!().join("backup");
-            if folder_path.exists() {
-                fs::remove_dir_all(&folder_path)?;
-            }
-            fs::create_dir(&folder_path)?;
-
-            //db file path
-            let db_path =
-                Path::new(&database_url["sqlite://".len()..database_url.len()]).to_path_buf();
-
-            //config file path
-            let config_file_path = get_config_path()?;
-
-            fs_extra::copy_items(
-                &vec![files_path, db_path, config_file_path.into()],
-                &folder_path,
-                &CopyOptions {
-                    copy_inside: true,
-                    ..Default::default()
-                },
-            )?;
-
-            // Create unencrypted zip first
-            let temp_file = data_dir!().join("play_temp.zip");
-            if temp_file.exists() {
-                tokio::fs::remove_file(&temp_file).await?;
-            }
-            crate::controller::files_controller::zip_dir(&folder_path, &temp_file)?;
-
-            // Create encrypted zip with passcode
+            let temporary_directory = tempfile::Builder::new()
+                .prefix("play-sbox-cloud-")
+                .tempdir_in(&data_directory)?;
             let timestamp = current_timestamp!();
             let date_str = timestamp_to_date_str!(timestamp);
-            let backup_filename = format!("play_backup_{}.zip", date_str);
-            let target_file = data_dir!().join(&backup_filename);
-            if target_file.exists() {
-                tokio::fs::remove_file(&target_file).await?;
-            }
-
-            // Read the temp zip and create encrypted version
-            let temp_data = fs::read(&temp_file)?;
-            let encrypted_file = File::create(&target_file)?;
-            let mut zip = ZipWriter::new(encrypted_file);
-
-            let options = FileOptions::<ExtendedFileOptions>::default()
-                .compression_method(CompressionMethod::Deflated)
-                .with_aes_encryption(zip::AesMode::Aes256, passcode.as_str());
-
-            zip.start_file("play_backup.zip", options)?;
-            std::io::Write::write_all(&mut zip, &temp_data)?;
-            zip.finish()?;
-
-            // Clean up temp file
-            fs::remove_file(&temp_file)?;
-
-            // Read the encrypted file
-            let file_data = fs::read(&target_file)?;
+            let backup_label = format!("play_backup_{}", date_str);
+            let original_name = format!("{}.zip", backup_label);
+            let (temporary_directory, bundle) = create_sbox_backup_off_thread(
+                public_identity,
+                database_url,
+                files_path,
+                config_file_path,
+                temporary_directory,
+                original_name,
+            )
+            .await?;
+            let _temporary_directory = temporary_directory;
+            let object_count = bundle.objects.len();
 
             let client = ClientBuilder::new()
                 .timeout(Duration::from_secs(300))
                 .build()?;
-
-            // First, get the release ID for the 'backup' tag
-            let release_url = "https://api.github.com/repos/zhouzhipeng/play/releases/tags/backup";
-
-            // Get the release information again to get the upload URL
             let release_response = client
-                .get(release_url)
-                .header("Authorization", format!("Bearer {}", github_token))
+                .get(GITHUB_BACKUP_RELEASE_URL)
+                .bearer_auth(&github_token)
                 .header("Accept", "application/vnd.github+json")
                 .header("X-GitHub-Api-Version", "2022-11-28")
                 .header("User-Agent", "play-server-backup")
                 .send()
                 .await?;
+            let release_status = release_response.status();
+            if !release_status.is_success() {
+                let body = release_response.text().await?;
+                bail!(
+                    "failed to load the GitHub backup release ({}): {}",
+                    release_status,
+                    body
+                );
+            }
 
             let release_info: Value = release_response.json().await?;
             let upload_url_template = release_info["upload_url"]
                 .as_str()
-                .ok_or_else(|| anyhow!("Upload URL not found in release info"))?;
+                .ok_or_else(|| anyhow!("Upload URL not found in release info"))?
+                .to_string();
+            let release_assets = release_info["assets"]
+                .as_array()
+                .cloned()
+                .unwrap_or_default();
+            let object_names: HashSet<String> = bundle
+                .objects
+                .iter()
+                .map(|object| {
+                    object
+                        .path
+                        .file_name()
+                        .and_then(|name| name.to_str())
+                        .map(str::to_string)
+                        .ok_or_else(|| anyhow!("SafeBox SDK returned an invalid object path"))
+                })
+                .collect::<anyhow::Result<_>>()?;
+            let existing_assets: HashMap<String, String> = release_assets
+                .iter()
+                .filter_map(|asset| {
+                    Some((
+                        asset["name"].as_str()?.to_string(),
+                        asset["id"].as_u64()?.to_string(),
+                    ))
+                })
+                .collect();
 
-            // Remove the {?name,label} template part and add our filename
-            let actual_upload_url =
-                upload_url_template.replace("{?name,label}", "") + "?name=" + &backup_filename;
-
-            // Upload the file
-            let upload_response = client
-                .post(&actual_upload_url)
-                .header("Authorization", format!("Bearer {}", github_token))
-                .header("Accept", "application/vnd.github+json")
-                .header("X-GitHub-Api-Version", "2022-11-28")
-                .header("User-Agent", "play-server-backup")
-                .header("Content-Type", "application/zip")
-                .body(file_data)
-                .send()
-                .await?;
-
-            if !upload_response.status().is_success() {
-                let error_text = upload_response.text().await?;
-                bail!("Failed to upload to GitHub: {}", error_text);
-            }
-
-            // Clean up old backup files - keep only latest 10
-            // Get the assets from the release info we already have
-            let assets_url =
-                format!("https://api.github.com/repos/zhouzhipeng/play/releases/tags/backup");
-            let assets_response = client
-                .get(&assets_url)
-                .header("Authorization", format!("Bearer {}", github_token))
-                .header("Accept", "application/vnd.github+json")
-                .header("X-GitHub-Api-Version", "2022-11-28")
-                .header("User-Agent", "play-server-backup")
-                .send()
-                .await?;
-
-            if assets_response.status().is_success() {
-                let release_data: Value = assets_response.json().await?;
-                let assets = release_data["assets"]
-                    .as_array()
-                    .unwrap_or(&Vec::new())
-                    .clone();
-
-                // Filter only backup files (matching pattern play_backup_*.zip)
-                let mut backup_files: Vec<(String, String, String)> = assets
+            let already_exists = object_names
+                .iter()
+                .all(|name| existing_assets.contains_key(name));
+            if !already_exists {
+                // Repair a previous partial publication before uploading the
+                // complete Bundle. Canonical SBOX names are content-addressed.
+                for name in object_names
                     .iter()
-                    .filter_map(|asset| {
-                        let name = asset["name"].as_str()?;
-                        let id = asset["id"].as_u64()?.to_string();
-                        let created_at = asset["created_at"].as_str()?.to_string();
-                        if name.starts_with("play_backup_") && name.ends_with(".zip") {
-                            Some((name.to_string(), id, created_at))
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
-
-                // Sort by created_at timestamp (newest first)
-                backup_files.sort_by(|a, b| b.2.cmp(&a.2));
-
-                // Delete files beyond the 10th position
-                if backup_files.len() > 10 {
-                    for (name, id, _) in backup_files.iter().skip(10) {
-                        let delete_url = format!(
+                    .filter(|name| existing_assets.contains_key(*name))
+                {
+                    let id = &existing_assets[name];
+                    let delete_response = client
+                        .delete(format!(
                             "https://api.github.com/repos/zhouzhipeng/play/releases/assets/{}",
                             id
-                        );
-                        let delete_response = client
-                            .delete(&delete_url)
-                            .header("Authorization", format!("Bearer {}", github_token))
-                            .header("Accept", "application/vnd.github+json")
-                            .header("X-GitHub-Api-Version", "2022-11-28")
-                            .header("User-Agent", "play-server-backup")
-                            .send()
-                            .await?;
+                        ))
+                        .bearer_auth(&github_token)
+                        .header("Accept", "application/vnd.github+json")
+                        .header("X-GitHub-Api-Version", "2022-11-28")
+                        .header("User-Agent", "play-server-backup")
+                        .send()
+                        .await?;
+                    if !delete_response.status().is_success() {
+                        bail!("failed to remove incomplete GitHub backup asset {}", name);
+                    }
+                }
 
-                        if delete_response.status().is_success() {
-                            info!("Deleted old backup file: {}", name);
-                        } else {
-                            error!("Failed to delete old backup file: {}", name);
-                        }
+                // Continuation shards are published before shard zero, which is
+                // the root/publication point of a multipart SBOX Bundle.
+                let upload_order = bundle
+                    .objects
+                    .iter()
+                    .skip(1)
+                    .chain(bundle.objects.iter().take(1));
+                for object in upload_order {
+                    let basename = object
+                        .path
+                        .file_name()
+                        .and_then(|name| name.to_str())
+                        .ok_or_else(|| anyhow!("SafeBox SDK returned an invalid object path"))?;
+                    let upload_base = upload_url_template
+                        .split_once('{')
+                        .map_or(upload_url_template.as_str(), |(base, _)| base);
+                    let mut upload_url = Url::parse(upload_base)?;
+                    upload_url
+                        .query_pairs_mut()
+                        .append_pair("name", basename)
+                        .append_pair("label", &backup_label);
+
+                    let file = tokio::fs::File::open(&object.path).await?;
+                    let content_length = file.metadata().await?.len();
+                    let stream =
+                        FramedRead::new(file, BytesCodec::new()).map_ok(|bytes| bytes.freeze());
+                    let upload_response = client
+                        .post(upload_url)
+                        .bearer_auth(&github_token)
+                        .header("Accept", "application/vnd.github+json")
+                        .header("X-GitHub-Api-Version", "2022-11-28")
+                        .header("User-Agent", "play-server-backup")
+                        .header(header::CONTENT_TYPE, SBOX_DOWNLOAD_CONTENT_TYPE)
+                        .header(header::CONTENT_LENGTH, content_length)
+                        .body(reqwest::Body::wrap_stream(stream))
+                        .send()
+                        .await?;
+
+                    if !upload_response.status().is_success() {
+                        let status = upload_response.status();
+                        let body = upload_response.text().await?;
+                        bail!(
+                            "failed to upload SBOX object {} to GitHub ({}): {}",
+                            basename,
+                            status,
+                            body
+                        );
                     }
                 }
             }
 
-            // Clean up local file after successful upload
-            fs::remove_file(&target_file)?;
-            fs::remove_dir_all(&folder_path)?;
+            // Keep the latest ten logical backups, deleting every shard in an
+            // expired group rather than counting multipart objects separately.
+            let assets_response = client
+                .get(GITHUB_BACKUP_RELEASE_URL)
+                .bearer_auth(&github_token)
+                .header("Accept", "application/vnd.github+json")
+                .header("X-GitHub-Api-Version", "2022-11-28")
+                .header("User-Agent", "play-server-backup")
+                .send()
+                .await?;
+            if assets_response.status().is_success() {
+                let release_data: Value = assets_response.json().await?;
+                let assets = release_data["assets"]
+                    .as_array()
+                    .cloned()
+                    .unwrap_or_default();
+                for (name, id) in expired_sbox_backup_assets(&assets, 10) {
+                    let delete_response = client
+                        .delete(format!(
+                            "https://api.github.com/repos/zhouzhipeng/play/releases/assets/{}",
+                            id
+                        ))
+                        .bearer_auth(&github_token)
+                        .header("Accept", "application/vnd.github+json")
+                        .header("X-GitHub-Api-Version", "2022-11-28")
+                        .header("User-Agent", "play-server-backup")
+                        .send()
+                        .await?;
+                    if delete_response.status().is_success() {
+                        info!("Deleted old SBOX backup object: {}", name);
+                    } else {
+                        error!("Failed to delete old SBOX backup object: {}", name);
+                    }
+                }
+            }
 
-            Ok::<String, anyhow::Error>(format!(
-                "Backup {} successfully uploaded to GitHub releases",
-                backup_filename
-            ))
+            let message = if already_exists {
+                format!(
+                    "SBOX backup {} already exists in GitHub releases ({} object(s))",
+                    backup_label, object_count
+                )
+            } else {
+                format!(
+                    "SBOX backup {} successfully uploaded to GitHub releases ({} object(s))",
+                    backup_label, object_count
+                )
+            };
+            Ok::<String, anyhow::Error>(message)
         }
         .await;
 
-        // Log the result and send notification
         match result {
-            Ok(msg) => {
-                info!("Cloud backup success: {}", msg);
-                // // Send success notification
-                // let sender = urlencoding::encode("cloud backup success").into_owned();
-                // let title = urlencoding::encode(&msg).into_owned();
-                // let _ = reqwest::get(format!("{}/{}/{}", mail_notify_url, sender, title)).await;
-            }
+            Ok(msg) => info!("Cloud backup success: {}", msg),
             Err(e) => {
                 error!("Cloud backup failed: {}", e);
-                // Send error notification
                 let sender = urlencoding::encode("cloud backup error").into_owned();
                 let title = urlencoding::encode(&format!("Backup failed: {}", e)).into_owned();
                 let _ = reqwest::get(format!("{}/{}/{}", mail_notify_url, sender, title)).await;
@@ -566,7 +811,7 @@ async fn backup_encrypted_to_cloud(s: S) -> R<String> {
     });
 
     Ok(
-        "Backup to cloud started in background. You will receive a notification when complete."
+        "SBOX backup to cloud started in background. You will receive a notification when complete."
             .to_string(),
     )
 }
@@ -585,7 +830,10 @@ async fn one_key_change_ip(s: S) -> R<String> {
             Ok(result) => {
                 info!(
                     "one-key-change-ip completed: old_static_ip_name={:?}, old_ip={:?}, new_static_ip_name={}, new_ip={}",
-                    result.old_static_ip_name, result.old_ip, result.new_static_ip_name, result.new_ip
+                    result.old_static_ip_name,
+                    result.old_ip,
+                    result.new_static_ip_name,
+                    result.new_ip
                 );
             }
             Err(error) => {
@@ -1390,80 +1638,36 @@ async fn app_push(mail_notify_url: &str, sender: &str, title: &str) {
 }
 
 async fn backup_encrypted(s: S) -> R<impl IntoResponse> {
-    let files_path = files_dir!();
+    let identity = parse_sbox_public_identity(&s.config.backup_config.sbox_public_key)?;
+    let data_directory = PathBuf::from(env::var(DATA_DIR)?);
+    let files_path = data_directory.join("files");
+    let config_file_path = data_directory.join("config.toml");
+    let temporary_directory = tempfile::Builder::new()
+        .prefix("play-sbox-download-")
+        .tempdir_in(data_directory)?;
+    let timestamp = current_timestamp!();
+    let date_str = timestamp_to_date_str!(timestamp);
+    let backup_label = format!("play_backup_{}", date_str);
+    let original_name = format!("{}.zip", backup_label);
+    let (temporary_directory, bundle) = create_sbox_backup_off_thread(
+        identity,
+        s.config.database.url.clone(),
+        files_path,
+        config_file_path,
+        temporary_directory,
+        original_name,
+    )
+    .await?;
+    let (temporary_directory, download_path, download_name, content_type) =
+        prepare_sbox_download_off_thread(temporary_directory, bundle, backup_label).await?;
 
-    //make a temp dir
-    let folder_path = data_dir!().join("backup");
-    if folder_path.exists() {
-        fs::remove_dir_all(&folder_path)?;
-    }
-    fs::create_dir(&folder_path)?;
-
-    //db file path
-    let raw = s.config.database.url.to_string();
-    let db_path = Path::new(&raw["sqlite://".len()..raw.len()]).to_path_buf();
-
-    //config file path
-    let config_file_path = get_config_path()?;
-
-    fs_extra::copy_items(
-        &vec![files_path, db_path, config_file_path.into()],
-        &folder_path,
-        &CopyOptions {
-            copy_inside: true,
-            ..Default::default()
-        },
-    )?;
-
-    // Create unencrypted zip first
-    let temp_file = data_dir!().join("play_temp.zip");
-    if temp_file.exists() {
-        tokio::fs::remove_file(&temp_file).await?;
-    }
-    crate::controller::files_controller::zip_dir(&folder_path, &temp_file)?;
-
-    // Create encrypted zip with passcode
-    let target_file = data_dir!().join("play_encrypted.zip");
-    if target_file.exists() {
-        tokio::fs::remove_file(&target_file).await?;
-    }
-
-    // Read the temp zip and create encrypted version
-    let temp_data = fs::read(&temp_file)?;
-    let encrypted_file = File::create(&target_file)?;
-    let mut zip = ZipWriter::new(encrypted_file);
-
-    let options = FileOptions::<ExtendedFileOptions>::default()
-        .compression_method(CompressionMethod::Deflated)
-        .with_aes_encryption(zip::AesMode::Aes256, s.config.auth_config.passcode.as_str());
-
-    zip.start_file("play_backup.zip", options)?;
-    std::io::Write::write_all(&mut zip, &temp_data)?;
-    zip.finish()?;
-
-    // Clean up temp file
-    fs::remove_file(&temp_file)?;
-
-    match tokio::fs::File::open(&target_file).await {
-        Ok(file) => {
-            // 使用 FramedRead 和 BytesCodec 将文件转换为 Stream
-            let stream = FramedRead::new(file, BytesCodec::new())
-                .map_ok(|bytes| bytes.freeze())
-                .map_err(|e| {
-                    info!("File streaming error: {}", e);
-                    // 在流中发生错误时，将错误转换为 HTTP 500 状态码
-                    anyhow!("file stream error")
-                });
-
-            // In axum 0.8 we use Body::from_stream instead of StreamBody
-            let body = axum::body::Body::from_stream(stream);
-            Ok(Response::new(body))
-        }
-        Err(_) => {
-            // 文件无法打开时，返回 HTTP 404 状态码
-            return_error!("file not found!")
-        }
-    }
+    Ok(stream_sbox_download(
+        &download_path,
+        &download_name,
+        content_type,
+        temporary_directory,
+    )
+    .await?)
 }
 
 async fn replace_ip_in_vpn_yaml(path: &Path, old_ip: &str, new_ip: &str) -> anyhow::Result<()> {
@@ -1842,6 +2046,116 @@ mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
 
     use super::*;
+
+    #[test]
+    fn sbox_backup_requires_a_public_identity() {
+        let error = parse_sbox_public_identity("  ").unwrap_err();
+
+        assert!(error.to_string().contains("backup_config.sbox_public_key"));
+    }
+
+    #[test]
+    fn creates_zip_backup_as_a_canonical_sbox_object() -> anyhow::Result<()> {
+        let root = tempfile::tempdir()?;
+        let source = root.path().join("source");
+        let files_path = source.join("files");
+        fs::create_dir_all(&files_path)?;
+        fs::write(files_path.join("note.txt"), b"SafeBox integration test")?;
+        let database_path = source.join("play.db");
+        fs::write(&database_path, b"sqlite fixture")?;
+        let config_path = source.join("config.toml");
+        fs::write(&config_path, b"server_port = 3000")?;
+        let output = root.path().join("output");
+        fs::create_dir(&output)?;
+
+        let legacy_identity =
+            PublicIdentity::from_json(include_str!("test_sbox_public_identity.json"))?;
+        let compact_key = legacy_identity.to_compact();
+        let identity = parse_sbox_public_identity(&compact_key)?;
+        assert_eq!(identity.spki_der(), legacy_identity.spki_der());
+        assert_eq!(
+            parse_sbox_public_identity(include_str!("test_sbox_public_identity.json"))?.spki_der(),
+            identity.spki_der(),
+        );
+        let mut bundle = create_sbox_backup(
+            &identity,
+            &format!("sqlite://{}", database_path.display()),
+            &files_path,
+            &config_path,
+            &output,
+            "play_backup_test.zip",
+        )?;
+
+        assert_eq!(bundle.manifest.original_name, "play_backup_test.zip");
+        assert_eq!(bundle.manifest.media_type, "application/zip");
+        assert_eq!(bundle.objects.len(), 1);
+        let object = fs::read(&bundle.objects[0].path)?;
+        assert_eq!(&object[..8], b"SBOX\r\n\x1a\n");
+        assert_eq!(
+            bundle.objects[0]
+                .path
+                .extension()
+                .and_then(|extension| extension.to_str()),
+            Some("sbox")
+        );
+
+        let bundle_id = bundle.manifest.bundle_id.clone();
+        let root_path = output.join(format!("{}_0_2.sbox", bundle_id));
+        let continuation_path = output.join(format!("{}_1_2.sbox", bundle_id));
+        fs::write(&root_path, b"root shard")?;
+        fs::write(&continuation_path, b"continuation shard")?;
+        bundle.objects = vec![
+            safebox_sdk::WrittenObject {
+                shard_index: 0,
+                path: root_path,
+            },
+            safebox_sdk::WrittenObject {
+                shard_index: 1,
+                path: continuation_path,
+            },
+        ];
+
+        let (archive_path, archive_name, content_type) =
+            prepare_sbox_download(&bundle, &output, "play_backup_test")?;
+        assert_eq!(archive_name, "play_backup_test_sbox_bundle.zip");
+        assert_eq!(content_type, "application/zip");
+        let mut archive = ZipArchive::new(File::open(archive_path)?)?;
+        let archived_names = (0..archive.len())
+            .map(|index| archive.by_index(index).map(|file| file.name().to_string()))
+            .collect::<Result<Vec<_>, _>>()?;
+        assert_eq!(
+            archived_names,
+            vec![
+                format!("{}_0_2.sbox", bundle_id),
+                format!("{}_1_2.sbox", bundle_id),
+            ]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn sbox_backup_retention_keeps_complete_multipart_groups() {
+        let assets = vec![
+            json!({"name":"new_0_2.sbox","label":"play_backup_2026-08-24-03","id":31,"created_at":"2026-08-24T03:00:00Z"}),
+            json!({"name":"new_1_2.sbox","label":"play_backup_2026-08-24-03","id":32,"created_at":"2026-08-24T03:00:01Z"}),
+            json!({"name":"middle.sbox","label":"play_backup_2026-08-24-02","id":21,"created_at":"2026-08-24T02:00:00Z"}),
+            json!({"name":"old_0_2.sbox","label":"play_backup_2026-08-24-01","id":11,"created_at":"2026-08-24T01:00:00Z"}),
+            json!({"name":"old_1_2.sbox","label":"play_backup_2026-08-24-01","id":12,"created_at":"2026-08-24T01:00:01Z"}),
+            json!({"name":"legacy.zip","label":"play_backup_legacy","id":1,"created_at":"2020-01-01T00:00:00Z"}),
+            json!({"name":"unrelated.sbox","label":"other","id":2,"created_at":"2020-01-01T00:00:00Z"}),
+        ];
+
+        let mut expired = expired_sbox_backup_assets(&assets, 2);
+        expired.sort();
+
+        assert_eq!(
+            expired,
+            vec![
+                ("old_0_2.sbox".to_string(), "11".to_string()),
+                ("old_1_2.sbox".to_string(), "12".to_string()),
+            ]
+        );
+    }
 
     #[tokio::test]
     pub async fn test_copy_me() {

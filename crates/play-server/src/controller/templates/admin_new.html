@@ -406,19 +406,19 @@
                 <a href="/admin/backup" download class="btn">
                     <i class="fas fa-download"></i> Download Backup
                 </a>
-                <a href="/admin/backup-encrypted" download class="btn btn-success" title="Encrypted with passcode from config">
-                    <i class="fas fa-lock"></i> Download Backup (Encrypted)
+                <a href="/admin/backup-encrypted" download class="btn btn-success" title="Encrypted with the configured SafeBox public key">
+                    <i class="fas fa-lock"></i> Download SafeBox Backup
                 </a>
             </div>
             <p style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--gray-color);">
-                <i class="fas fa-info-circle"></i> Encrypted backup uses AES-256 encryption with your configured passcode
+                <i class="fas fa-info-circle"></i> Produces a public-key encrypted .sbox file. Backups larger than 512 MiB download as a ZIP containing all canonical .sbox shards.
             </p>
         </div>
 
         <!-- 恢复上传部分 -->
         <div class="form-group" style="margin-top: 2rem;">
             <h3><i class="fas fa-upload"></i> Restore System</h3>
-            <p>Upload a backup file to restore the system configuration.</p>
+            <p>Upload a ZIP backup to restore the system configuration. Decrypt a SafeBox backup in SafeBox first, then upload the resulting .zip file here.</p>
 
             <div class="upload-container">
                 <form id="uploadForm" onsubmit="return false;">

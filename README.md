@@ -142,6 +142,23 @@ cargo dev_gui      # build --locked --package play-gui --release
 - `play-server` static assets live under `crates/play-server/static/`.
 - FRP support in both server and client code is backed by `third_party/rathole`.
 
+## SafeBox-encrypted backups
+
+Encrypted backups use the local SafeBox Rust SDK and a public identity instead of the login passcode. In SafeBox, choose **Settings → Security Identity → 复制公钥**, then paste the copied `sboxpk1:` single-line key into `config.toml`:
+
+```toml
+[backup_config]
+sbox_public_key = "sboxpk1:..."
+```
+
+The compact key is 526 characters for the current RSA-3072 profile. Existing `SBOX-PUBLIC-IDENTITY-1` JSON values remain accepted for backward compatibility.
+
+`GET /admin/backup-encrypted` encrypts the generated ZIP and downloads a canonical `.sbox` object. If the ZIP exceeds the SBOX 512 MiB shard limit, the response is an unencrypted transport ZIP containing every canonical `.sbox` shard; extract all shards before importing them into SafeBox. To restore, decrypt the SBOX Bundle in SafeBox and upload the resulting ZIP through the admin restore form.
+
+`GET /admin/backup-encrypted-to-cloud` uploads canonical SBOX objects to the GitHub `backup` release, publishes continuation shards before the root shard, and retains the latest ten logical backup groups.
+
+The workspace dependency currently points to `D:\code\SafeBox\sdk\rust` through a relative path in `Cargo.toml`; update that path if the two checkouts are moved.
+
 ## Documentation
 
 - [Documentation Index](docs/README.md)

@@ -57,6 +57,7 @@ play-utils-data-api = { path = "crates/play-utils/play-utils-data-api"}
 play-utils-strings = { path = "crates/play-utils/play-utils-strings"}
 play-integration-xiaozhi = { path = "crates/play-integration/play-integration-xiaozhi"}
 play-terminal = { path = "crates/play-terminal"}
+safebox-sdk = { path = "../../../../../code/SafeBox/sdk/rust" }
 rathole = { path = "third_party/rathole", default-features = false }
 
 # Additional common dependencies
@@ -107,7 +108,7 @@ secp256k1 = "0.29.0"
 # File and system utilities
 tempfile = "3.15.0"
 walkdir = "2.4.0"
-zip = { version = "2.2.1", features = ["aes-crypto", "deflate"] }
+zip = { version = "2.2.1", features = ["deflate"] }
 zip-extract = "0.2.1"
 zip-extensions = "0.8.1"
 include_dir = "0.7.3"
