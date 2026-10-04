@@ -1,9 +1,11 @@
 use axum::body::Body;
 use axum::extract::Query;
 use axum::response::{Html, IntoResponse, Response};
-use std::path::PathBuf;
-// removed dioxus usage; render pure HTML
+use axum::Json;
 use serde::Deserialize;
+use std::path::PathBuf;
+use std::time::Duration;
+// removed dioxus usage; render pure HTML
 // serde_json available elsewhere if needed; not used here
 use tokio::fs::File;
 use tokio_util::codec::{BytesCodec, FramedRead};
@@ -23,6 +25,7 @@ method_router!(
     get : "/dashboard"-> dashboard,
     get : "/robots.txt"-> robots,
     get : "/ping"-> ping,
+    get : "/info"-> info,
     get : "/save-fingerprint"-> save_fingerprint,
     get : "/download-db"-> serve_db_file,
     get : "/download-config"-> serve_config_file,
@@ -240,6 +243,20 @@ async fn dashboard(s: S) -> HTML {
 async fn ping() -> R<String> {
     info!("ping");
     Ok("pong".to_string())
+}
+
+async fn info() -> R<Json<serde_json::Value>> {
+    let value = reqwest::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()?
+        .get("https://ipinfo.io/json")
+        .send()
+        .await?
+        .error_for_status()?
+        .json::<serde_json::Value>()
+        .await?;
+
+    Ok(Json(value))
 }
 
 #[derive(Deserialize, Debug)]

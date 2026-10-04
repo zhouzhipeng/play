@@ -1,5 +1,5 @@
 build_macos:
-	cd  crates/play-ui && ./build-dmg.sh
+	cargo dev_gui
 
 build_server:
 	cargo dev_server

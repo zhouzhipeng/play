@@ -1,0 +1,29 @@
+[package]
+name = "frp-client"
+version = "0.1.0"
+edition = "2021"
+description = "Desktop FRP client powered by rathole"
+
+[package.metadata.play-gui]
+display-name = "FRP Client"
+description = "Edit and run a rathole-based FRP client from the Play toolbox"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "frp-client"
+path = "src/main.rs"
+
+[features]
+default = ["gui", "tls"]
+gui = ["dep:eframe", "dep:directories"]
+tls = ["rathole/rustls", "rathole/websocket-rustls"]
+
+[dependencies]
+anyhow = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+rathole = { workspace = true, features = ["client", "noise", "hot-reload"] }
+
+directories = { workspace = true, optional = true }
+eframe = { version = "0.29", optional = true }

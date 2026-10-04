@@ -48,6 +48,7 @@ use crate::tables::general_data::GeneralData;
 use crate::tables::DBPool;
 use play_shared::tpl_engine_api::{Template, TemplateData};
 use std::env::set_var;
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use tracing::level_filters::LevelFilter;
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
@@ -57,6 +58,8 @@ use tracing_subscriber::util::SubscriberInitExt;
 pub mod config;
 pub mod controller;
 pub mod extractor;
+mod frp;
+mod ikev2;
 pub mod layer;
 pub mod service;
 pub mod tables;
@@ -416,7 +419,7 @@ pub async fn routers(app_state: Arc<AppState>) -> anyhow::Result<Router<Arc<AppS
         .merge(shortlink_controller::init(app_state.clone()))
         .merge(plugin_controller::init(app_state.clone()))
         .merge(app_routers())
-        .merge(play_web_terminal::create_router::<Arc<AppState>>());
+        .merge(play_terminal::create_router::<Arc<AppState>>());
 
     // Add Redis routes if feature is enabled and client was initialized successfully
     #[cfg(feature = "play-redis")]
@@ -752,37 +755,58 @@ pub async fn start_server_with_config(data_dir: String, config: &Config) -> anyh
         }
     }
 
+    let ikev2_handle = ikev2::maybe_start_ikev2_server_in_background(&config.ikev2_server);
+    let frp_handle = frp::maybe_start_frp_server_in_background(&config.frp_server);
+
     start_server(router, app_state).await?;
+
+    if let Some(handle) = frp_handle {
+        handle.shutdown().await;
+    }
+    if let Some(handle) = ikev2_handle {
+        handle.shutdown().await;
+    }
+
     Ok(())
 }
 
 fn make_executable_if_needed(file_path: &str) -> std::io::Result<bool> {
-    let path = Path::new(file_path);
+    #[cfg(windows)]
+    {
+        let _ = file_path;
+        info!("Skipping executable permission update on Windows");
+        return Ok(false);
+    }
 
-    // 获取当前文件权限
-    let mut perms = std::fs::metadata(path)?.permissions();
+    #[cfg(unix)]
+    {
+        let path = Path::new(file_path);
 
-    // 获取当前权限模式
-    let mode = perms.mode();
+        // 获取当前文件权限
+        let mut perms = std::fs::metadata(path)?.permissions();
 
-    // 检查是否已经有执行权限
-    // 检查所有者、组和其他用户的执行权限
-    let has_execute_permission = (mode & 0o100 != 0) || // 所有者执行权限
+        // 获取当前权限模式
+        let mode = perms.mode();
+
+        // 检查是否已经有执行权限
+        // 检查所有者、组和其他用户的执行权限
+        let has_execute_permission = (mode & 0o100 != 0) || // 所有者执行权限
             (mode & 0o010 != 0) || // 组执行权限
             (mode & 0o001 != 0); // 其他用户执行权限
 
-    if !has_execute_permission {
-        // 如果没有执行权限，则添加
-        let new_mode = mode | 0o111; // 为所有者、组和其他用户添加执行权限
-        perms.set_mode(new_mode);
+        if !has_execute_permission {
+            // 如果没有执行权限，则添加
+            let new_mode = mode | 0o111; // 为所有者、组和其他用户添加执行权限
+            perms.set_mode(new_mode);
 
-        // 应用新权限
-        std::fs::set_permissions(path, perms)?;
+            // 应用新权限
+            std::fs::set_permissions(path, perms)?;
 
-        info!("Added execute permissions to {}", file_path);
-        Ok(true)
-    } else {
-        info!("File already has execute permissions");
-        Ok(false)
+            info!("Added execute permissions to {}", file_path);
+            Ok(true)
+        } else {
+            info!("File already has execute permissions");
+            Ok(false)
+        }
     }
 }

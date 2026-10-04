@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use std::collections::BTreeMap;
 use std::path::Path;
 use std::{env, fs};
 
@@ -36,9 +37,17 @@ pub struct Config {
     #[serde(default)]
     pub misc_config: MiscConfig,
     #[serde(default)]
+    pub backup_config: BackupConfig,
+    #[serde(default)]
     pub cache_config: CacheConfig,
     #[serde(default)]
     pub plugin_config: Vec<PluginConfig>,
+    #[serde(default)]
+    pub frp_server: FrpServerConfig,
+    #[serde(default)]
+    pub ikev2_server: Ikev2ServerConfig,
+    #[serde(default)]
+    pub one_key_change_ip: OneKeyChangeIpConfig,
 
     #[cfg(feature = "play-integration-xiaozhi")]
     #[serde(default)]
@@ -192,8 +201,416 @@ pub struct MiscConfig {
     pub github_token: String,
 }
 
+#[derive(Deserialize, Debug, Clone, Default)]
+pub struct BackupConfig {
+    /// Compact `sboxpk1:` public key copied from SafeBox. Legacy JSON is also accepted.
+    #[serde(default)]
+    pub sbox_public_key: String,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct OneKeyChangeIpConfig {
+    #[serde(default)]
+    pub aws_region: String,
+    #[serde(default)]
+    pub aws_access_key_id: String,
+    #[serde(default)]
+    pub aws_secret_access_key: String,
+    #[serde(default)]
+    pub aws_session_token: String,
+    #[serde(default)]
+    pub instance_name: String,
+    #[serde(default)]
+    pub cloudflare_api_token: String,
+    #[serde(default)]
+    pub cloudflare_zone_id: String,
+    #[serde(default)]
+    pub cloudflare_dns_records: Vec<CloudflareDnsRecordConfig>,
+    #[serde(default = "default_one_key_request_timeout_secs")]
+    pub request_timeout_secs: u64,
+    #[serde(default = "default_one_key_poll_interval_secs")]
+    pub poll_interval_secs: u64,
+    #[serde(default = "default_one_key_operation_timeout_secs")]
+    pub operation_timeout_secs: u64,
+}
+
+impl Default for OneKeyChangeIpConfig {
+    fn default() -> Self {
+        Self {
+            aws_region: String::default(),
+            aws_access_key_id: String::default(),
+            aws_secret_access_key: String::default(),
+            aws_session_token: String::default(),
+            instance_name: String::default(),
+            cloudflare_api_token: String::default(),
+            cloudflare_zone_id: String::default(),
+            cloudflare_dns_records: Vec::new(),
+            request_timeout_secs: default_one_key_request_timeout_secs(),
+            poll_interval_secs: default_one_key_poll_interval_secs(),
+            operation_timeout_secs: default_one_key_operation_timeout_secs(),
+        }
+    }
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct CloudflareDnsRecordConfig {
+    #[serde(default = "default_cloudflare_dns_record_type")]
+    pub record_type: String,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub record_id: Option<String>,
+    #[serde(default = "default_cloudflare_ttl")]
+    pub ttl: u32,
+    #[serde(default)]
+    pub proxied: bool,
+}
+
+impl Default for CloudflareDnsRecordConfig {
+    fn default() -> Self {
+        Self {
+            record_type: default_cloudflare_dns_record_type(),
+            name: String::default(),
+            record_id: None,
+            ttl: default_cloudflare_ttl(),
+            proxied: false,
+        }
+    }
+}
+
+fn default_cloudflare_dns_record_type() -> String {
+    "A".to_string()
+}
+
+fn default_cloudflare_ttl() -> u32 {
+    1
+}
+
+fn default_one_key_request_timeout_secs() -> u64 {
+    30
+}
+
+fn default_one_key_poll_interval_secs() -> u64 {
+    2
+}
+
+fn default_one_key_operation_timeout_secs() -> u64 {
+    180
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, Copy, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum FrpServiceType {
+    #[default]
+    Tcp,
+    Udp,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, Copy, Default)]
+pub enum FrpTransportType {
+    #[default]
+    #[serde(rename = "tcp")]
+    Tcp,
+    #[serde(rename = "tls")]
+    Tls,
+    #[serde(rename = "noise")]
+    Noise,
+    #[serde(rename = "websocket")]
+    Websocket,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, Default)]
+pub struct FrpServerServiceConfig {
+    #[serde(rename = "type", default)]
+    pub service_type: FrpServiceType,
+    #[serde(default)]
+    pub bind_addr: String,
+    #[serde(default)]
+    pub token: Option<String>,
+    #[serde(default)]
+    pub nodelay: Option<bool>,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, Default)]
+pub struct FrpTlsConfig {
+    #[serde(default)]
+    pub hostname: Option<String>,
+    #[serde(default)]
+    pub trusted_root: Option<String>,
+    #[serde(default)]
+    pub pkcs12: Option<String>,
+    #[serde(default)]
+    pub pkcs12_password: Option<String>,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct FrpNoiseConfig {
+    #[serde(default = "default_frp_noise_pattern")]
+    pub pattern: String,
+    #[serde(default)]
+    pub local_private_key: Option<String>,
+    #[serde(default)]
+    pub remote_public_key: Option<String>,
+}
+
+impl Default for FrpNoiseConfig {
+    fn default() -> Self {
+        Self {
+            pattern: default_frp_noise_pattern(),
+            local_private_key: None,
+            remote_public_key: None,
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, Default)]
+pub struct FrpWebsocketConfig {
+    #[serde(default)]
+    pub tls: bool,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct FrpTcpConfig {
+    #[serde(default = "default_frp_nodelay")]
+    pub nodelay: bool,
+    #[serde(default = "default_frp_keepalive_secs")]
+    pub keepalive_secs: u64,
+    #[serde(default = "default_frp_keepalive_interval")]
+    pub keepalive_interval: u64,
+    #[serde(default)]
+    pub proxy: Option<String>,
+}
+
+impl Default for FrpTcpConfig {
+    fn default() -> Self {
+        Self {
+            nodelay: default_frp_nodelay(),
+            keepalive_secs: default_frp_keepalive_secs(),
+            keepalive_interval: default_frp_keepalive_interval(),
+            proxy: None,
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, Default)]
+pub struct FrpTransportConfig {
+    #[serde(rename = "type", default)]
+    pub transport_type: FrpTransportType,
+    #[serde(default)]
+    pub tcp: FrpTcpConfig,
+    #[serde(default)]
+    pub tls: Option<FrpTlsConfig>,
+    #[serde(default)]
+    pub noise: Option<FrpNoiseConfig>,
+    #[serde(default)]
+    pub websocket: Option<FrpWebsocketConfig>,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct FrpServerConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_frp_server_bind_addr")]
+    pub bind_addr: String,
+    #[serde(default)]
+    pub default_token: Option<String>,
+    #[serde(default)]
+    pub services: BTreeMap<String, FrpServerServiceConfig>,
+    #[serde(default)]
+    pub transport: FrpTransportConfig,
+    #[serde(default = "default_frp_heartbeat_interval")]
+    pub heartbeat_interval: u64,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct Ikev2ServerConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_ikev2_auto_install_dependencies")]
+    pub auto_install_dependencies: bool,
+    #[serde(default = "default_ikev2_daemon_bin")]
+    pub daemon_bin: String,
+    #[serde(default = "default_ikev2_swanctl_bin")]
+    pub swanctl_bin: String,
+    #[serde(default = "default_ikev2_listen_addr")]
+    pub listen_addr: String,
+    #[serde(default = "default_ikev2_port")]
+    pub port: u16,
+    #[serde(default = "default_ikev2_port_nat_t")]
+    pub port_nat_t: u16,
+    #[serde(default = "default_ikev2_connection_name")]
+    pub connection_name: String,
+    #[serde(default)]
+    pub local_id: String,
+    #[serde(default)]
+    pub server_cert: String,
+    #[serde(default)]
+    pub server_key: String,
+    #[serde(default)]
+    pub ca_cert: Option<String>,
+    #[serde(default = "default_ikev2_pool")]
+    pub pool: String,
+    #[serde(default = "default_ikev2_local_ts")]
+    pub local_ts: Vec<String>,
+    #[serde(default)]
+    pub dns_servers: Vec<String>,
+    #[serde(default)]
+    pub eap_users: BTreeMap<String, String>,
+    #[serde(default = "default_ikev2_fragmentation")]
+    pub fragmentation: bool,
+    #[serde(default = "default_ikev2_mobike")]
+    pub mobike: bool,
+    #[serde(default = "default_ikev2_dpd_delay_secs")]
+    pub dpd_delay_secs: u64,
+    #[serde(default)]
+    pub proposals: Option<String>,
+    #[serde(default)]
+    pub esp_proposals: Option<String>,
+    #[serde(default = "default_ikev2_log_level")]
+    pub log_level: u8,
+    #[serde(default = "default_ikev2_startup_timeout_secs")]
+    pub startup_timeout_secs: u64,
+}
+
+impl Default for FrpServerConfig {
+    fn default() -> Self {
+        let mut services = BTreeMap::new();
+        services.insert(
+            "demo_http".to_string(),
+            FrpServerServiceConfig {
+                service_type: FrpServiceType::Tcp,
+                bind_addr: "0.0.0.0:8081".to_string(),
+                token: None,
+                nodelay: None,
+            },
+        );
+
+        Self {
+            enabled: false,
+            bind_addr: default_frp_server_bind_addr(),
+            default_token: Some("change_this_token".to_string()),
+            services,
+            transport: FrpTransportConfig::default(),
+            heartbeat_interval: default_frp_heartbeat_interval(),
+        }
+    }
+}
+
+impl Default for Ikev2ServerConfig {
+    fn default() -> Self {
+        let mut eap_users = BTreeMap::new();
+        eap_users.insert("demo".to_string(), "change_this_password".to_string());
+
+        Self {
+            enabled: false,
+            auto_install_dependencies: default_ikev2_auto_install_dependencies(),
+            daemon_bin: default_ikev2_daemon_bin(),
+            swanctl_bin: default_ikev2_swanctl_bin(),
+            listen_addr: default_ikev2_listen_addr(),
+            port: default_ikev2_port(),
+            port_nat_t: default_ikev2_port_nat_t(),
+            connection_name: default_ikev2_connection_name(),
+            local_id: "vpn.example.com".to_string(),
+            server_cert: "certs/ikev2/server-cert.pem".to_string(),
+            server_key: "certs/ikev2/server-key.pem".to_string(),
+            ca_cert: Some("certs/ikev2/ca-cert.pem".to_string()),
+            pool: default_ikev2_pool(),
+            local_ts: default_ikev2_local_ts(),
+            dns_servers: vec!["1.1.1.1".to_string(), "8.8.8.8".to_string()],
+            eap_users,
+            fragmentation: default_ikev2_fragmentation(),
+            mobike: default_ikev2_mobike(),
+            dpd_delay_secs: default_ikev2_dpd_delay_secs(),
+            proposals: None,
+            esp_proposals: None,
+            log_level: default_ikev2_log_level(),
+            startup_timeout_secs: default_ikev2_startup_timeout_secs(),
+        }
+    }
+}
+
 fn default_log_level() -> String {
     "INFO".to_string()
+}
+
+fn default_frp_server_bind_addr() -> String {
+    "0.0.0.0:2333".to_string()
+}
+
+fn default_frp_heartbeat_interval() -> u64 {
+    30
+}
+
+fn default_frp_noise_pattern() -> String {
+    "Noise_NK_25519_ChaChaPoly_BLAKE2s".to_string()
+}
+
+fn default_frp_nodelay() -> bool {
+    true
+}
+
+fn default_frp_keepalive_secs() -> u64 {
+    20
+}
+
+fn default_frp_keepalive_interval() -> u64 {
+    8
+}
+
+fn default_ikev2_daemon_bin() -> String {
+    "charon-systemd".to_string()
+}
+
+fn default_ikev2_auto_install_dependencies() -> bool {
+    true
+}
+
+fn default_ikev2_swanctl_bin() -> String {
+    "swanctl".to_string()
+}
+
+fn default_ikev2_listen_addr() -> String {
+    "0.0.0.0".to_string()
+}
+
+fn default_ikev2_port() -> u16 {
+    500
+}
+
+fn default_ikev2_port_nat_t() -> u16 {
+    4500
+}
+
+fn default_ikev2_connection_name() -> String {
+    "play-ikev2".to_string()
+}
+
+fn default_ikev2_pool() -> String {
+    "10.10.10.0/24".to_string()
+}
+
+fn default_ikev2_local_ts() -> Vec<String> {
+    vec!["0.0.0.0/0".to_string(), "::/0".to_string()]
+}
+
+fn default_ikev2_fragmentation() -> bool {
+    true
+}
+
+fn default_ikev2_mobike() -> bool {
+    true
+}
+
+fn default_ikev2_dpd_delay_secs() -> u64 {
+    30
+}
+
+fn default_ikev2_log_level() -> u8 {
+    2
+}
+
+fn default_ikev2_startup_timeout_secs() -> u64 {
+    15
 }
 
 #[derive(Deserialize, Debug, Clone, Default)]
@@ -226,6 +643,47 @@ log_level = "DEBUG"
 
 [database]
 url=":memory:"
+
+[backup_config]
+# Paste the sboxpk1: single-line key copied by SafeBox's "复制公钥" button.
+sbox_public_key = ""
+
+[frp_server]
+enabled = false
+bind_addr = "0.0.0.0:2333"
+default_token = "change_this_token"
+heartbeat_interval = 30
+
+[frp_server.services.demo_http]
+bind_addr = "0.0.0.0:8081"
+
+[ikev2_server]
+enabled = false
+auto_install_dependencies = true
+listen_addr = "0.0.0.0"
+port = 500
+port_nat_t = 4500
+local_id = "vpn.example.com"
+server_cert = "certs/ikev2/server-cert.pem"
+server_key = "certs/ikev2/server-key.pem"
+ca_cert = "certs/ikev2/ca-cert.pem"
+pool = "10.10.10.0/24"
+dns_servers = ["1.1.1.1", "8.8.8.8"]
+
+[ikev2_server.eap_users]
+demo = "change_this_password"
+
+[one_key_change_ip]
+aws_region = ""
+aws_access_key_id = ""
+aws_secret_access_key = ""
+aws_session_token = ""
+instance_name = ""
+cloudflare_api_token = ""
+cloudflare_zone_id = ""
+request_timeout_secs = 30
+poll_interval_secs = 2
+operation_timeout_secs = 180
 
 "#;
         fs::write(&final_path, default_config)?;
@@ -285,5 +743,60 @@ mod tests {
         let content = read_config_file(true).await?;
         println!("{}", content);
         Ok(())
+    }
+
+    #[test]
+    fn parses_one_key_change_ip_config() {
+        let content = r#"
+server_port = 3000
+log_level = "DEBUG"
+
+[database]
+url = ":memory:"
+
+[one_key_change_ip]
+aws_region = "ap-northeast-1"
+aws_access_key_id = "test-access-key"
+aws_secret_access_key = "test-secret-key"
+aws_session_token = ""
+instance_name = "Debian-1"
+cloudflare_api_token = "test-cloudflare-token"
+cloudflare_zone_id = "test-zone-id"
+
+[[one_key_change_ip.cloudflare_dns_records]]
+name = "zhouzhipeng.com"
+record_id = "record-one"
+proxied = true
+
+[[one_key_change_ip.cloudflare_dns_records]]
+name = "ip.zhouzhipeng.com"
+record_id = "record-two"
+proxied = false
+"#;
+
+        let config: Config = toml::from_str(content).unwrap();
+
+        assert_eq!(config.one_key_change_ip.aws_region, "ap-northeast-1");
+        assert_eq!(config.one_key_change_ip.instance_name, "Debian-1");
+        assert_eq!(config.one_key_change_ip.cloudflare_dns_records.len(), 2);
+        assert!(config.one_key_change_ip.cloudflare_dns_records[0].proxied);
+        assert!(!config.one_key_change_ip.cloudflare_dns_records[1].proxied);
+    }
+
+    #[test]
+    fn parses_sbox_backup_public_key_as_a_single_line_string() {
+        let content = r#"
+server_port = 3000
+
+[database]
+url = "sqlite://play.db"
+
+[backup_config]
+sbox_public_key = "sboxpk1:Abc_123-"
+"#;
+
+        let config: Config = toml::from_str(content).unwrap();
+
+        assert_eq!(config.backup_config.sbox_public_key, "sboxpk1:Abc_123-");
     }
 }

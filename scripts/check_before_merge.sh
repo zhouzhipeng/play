@@ -11,7 +11,7 @@ cargo clean
 cargo update
 
 cargo build --all-features
-cargo dev_ui
+cargo dev_gui
 cargo dev_server
 
 
