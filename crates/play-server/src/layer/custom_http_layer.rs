@@ -92,8 +92,9 @@ pub async fn http_middleware(
 ) -> Response {
     // println!("Connection from: {}", addr);
 
-    let remote_ip = addr.ip().to_string();
-    let is_local_request = remote_ip == "::ffff:127.0.0.1";
+    // to_canonical() maps "::ffff:127.0.0.1" (IPv4 client on a [::] listener) back to 127.0.0.1,
+    // so this works for both the IPv6 listener and the IPv4 listeners used by play-https.
+    let is_local_request = addr.ip().to_canonical().is_loopback();
     // info!("is_local_request >> {}", is_local_request);
 
     if is_local_request {
