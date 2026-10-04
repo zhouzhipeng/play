@@ -281,32 +281,35 @@ pub async fn start_server(
     println!("server started at  : http://127.0.0.1:{}", server_port);
     info!("server started at  : http://127.0.0.1:{}", server_port);
 
-    let addr = SocketAddr::from((Ipv6Addr::UNSPECIFIED, server_port as u16));
-
-    #[cfg(not(feature = "play-https"))]
-    // run it with hyper on localhost:3000
     // 使用 with_state 重置状态类型，使其与 axum_server 兼容
     let app = router.with_state(app_state.clone());
-    axum_server::bind(addr)
-        .serve(app.into_make_service_with_connect_info::<SocketAddr>())
-        .await?;
 
-    let certs_path = Path::new(env::var(DATA_DIR)?.as_str()).join("certs");
+    #[cfg(not(feature = "play-https"))]
+    {
+        // run it with hyper on localhost:3000
+        let addr = SocketAddr::from((Ipv6Addr::UNSPECIFIED, server_port as u16));
+        axum_server::bind(addr)
+            .serve(app.into_make_service_with_connect_info::<SocketAddr>())
+            .await?;
+    }
 
     #[cfg(feature = "play-https")]
-    play_https::start_https_server(
-        &play_https::HttpsConfig {
-            domains: app_state.config.https_cert.domains.clone(),
-            email: app_state.config.https_cert.emails.clone(),
-            cache_dir: certs_path.to_str().unwrap().to_string(),
-            prod: true,
-            http_port: server_port as u16,
-            https_port: app_state.config.https_cert.https_port,
-            auto_redirect: app_state.config.https_cert.auto_redirect,
-        },
-        router,
-    )
-    .await;
+    {
+        let certs_path = Path::new(env::var(DATA_DIR)?.as_str()).join("certs");
+        play_https::start_https_server(
+            &play_https::HttpsConfig {
+                domains: app_state.config.https_cert.domains.clone(),
+                email: app_state.config.https_cert.emails.clone(),
+                cache_dir: certs_path.to_str().unwrap().to_string(),
+                prod: true,
+                http_port: server_port as u16,
+                https_port: app_state.config.https_cert.https_port,
+                auto_redirect: app_state.config.https_cert.auto_redirect,
+            },
+            app,
+        )
+        .await;
+    }
 
     // dont put code here (will never run!!!!)
 

@@ -167,4 +167,4 @@ difference = "2.0.0"
 # Optional dependencies for specific features
 tower-livereload = "0.8.2"
 notify = "6.1.1"
-rustls-acme = { version = "0.8.1", features = ["axum"] }
+rustls-acme = { version = "0.14.1", features = ["axum"] }

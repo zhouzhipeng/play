@@ -9,6 +9,6 @@ edition = "2021"
 tokio = { workspace = true }
 rustls-acme = { workspace = true }
 log = { workspace = true }
-axum-server = { version = "0.5", features = ["tls-rustls"]}
+axum-server = { workspace = true }
 axum = { workspace = true }
 tokio-stream = { workspace = true }

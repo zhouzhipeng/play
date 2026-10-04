@@ -1,9 +1,8 @@
 use std::net::SocketAddr;
 
 use axum::{BoxError, Router};
-use axum::extract::Host;
 use axum::handler::HandlerWithoutStateExt;
-use axum::http::{StatusCode, Uri};
+use axum::http::{header, HeaderMap, StatusCode, Uri};
 use axum::response::Redirect;
 use log::{info, warn};
 use rustls_acme::AcmeConfig;
@@ -48,7 +47,7 @@ pub async fn start_https_server(config : &HttpsConfig, app: Router){
         let http_port = config.http_port;
         tokio::spawn(async move{
             let addr = SocketAddr::from(([0, 0, 0, 0], http_port));
-            axum_server::bind(addr).serve(app_clone.into_make_service()).await.unwrap();
+            axum_server::bind(addr).serve(app_clone.into_make_service_with_connect_info::<SocketAddr>()).await.unwrap();
         });
     }
 
@@ -56,7 +55,7 @@ pub async fn start_https_server(config : &HttpsConfig, app: Router){
 
     let addr = SocketAddr::from(([0, 0, 0, 0], config.https_port));
     info!("start a https server at : {:?}", addr);
-    axum_server::bind(addr).acceptor(acceptor).serve(app.into_make_service()).await.unwrap();
+    axum_server::bind(addr).acceptor(acceptor).serve(app.into_make_service_with_connect_info::<SocketAddr>()).await.unwrap();
 }
 
 #[derive(Clone, Copy)]
@@ -80,7 +79,13 @@ async fn redirect_http_to_https(ports: Ports) {
         Ok(Uri::from_parts(parts)?)
     }
 
-    let redirect = move |Host(host): Host, uri: Uri| async move {
+    let redirect = move |headers: HeaderMap, uri: Uri| async move {
+        let host = headers
+            .get(header::HOST)
+            .and_then(|h| h.to_str().ok())
+            .map(str::to_string)
+            .or_else(|| uri.authority().map(|a| a.to_string()))
+            .ok_or(StatusCode::BAD_REQUEST)?;
         match make_https(host, uri, ports) {
             Ok(uri) => Ok(Redirect::permanent(&uri.to_string())),
             Err(error) => {

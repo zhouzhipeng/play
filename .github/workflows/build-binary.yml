@@ -105,7 +105,7 @@ jobs:
       - name: Trigger Upgrade
         uses: fjogeleit/http-request-action@v1
         with:
-          url: ${{ secrets.TRIGGER_UPGRADE_URL }}
+          url: http://ip.zhouzhipeng.com/admin/upgrade
           method: 'GET'
           customHeaders:  ${{ secrets.TRIGGER_UPGRADE_CUSTOM_HEADER }}
       - name: Send Push
