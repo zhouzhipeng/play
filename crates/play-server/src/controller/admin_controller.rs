@@ -906,6 +906,14 @@ async fn run_one_key_change_ip_task(
 ) -> anyhow::Result<OneKeyChangeIpResult> {
     validate_one_key_change_ip_config(&config)?;
 
+    // fail before touching Lightsail/Cloudflare if vpn.yaml can't be updated afterwards
+    let vpn_path = data_dir.join("files").join("vpn.yaml");
+    let vpn_content = tokio::fs::read_to_string(&vpn_path)
+        .await
+        .with_context(|| format!("failed to read {}", vpn_path.display()))?;
+    replace_proxy_server_in_vpn_yaml(&vpn_content, &config.vpn_proxy_name, "0.0.0.0")
+        .with_context(|| format!("invalid {}", vpn_path.display()))?;
+
     app_push(
         &mail_notify_url,
         "one-key-change-ip",
@@ -1079,22 +1087,19 @@ async fn run_one_key_change_ip_task(
     let old_ip = old_static_ip
         .as_ref()
         .map(|static_ip| static_ip.ip_address.clone())
-        .filter(|ip| !ip.trim().is_empty())
-        .ok_or_else(|| {
-            anyhow!(
-                "cannot update vpn.yaml because no existing static IP address was attached to {}",
-                config.instance_name
-            )
-        })?;
-    let vpn_path = data_dir.join("files").join("vpn.yaml");
-    replace_ip_in_vpn_yaml(&vpn_path, &old_ip, &new_static_ip.ip_address).await?;
+        .filter(|ip| !ip.trim().is_empty());
+
+    let old_vpn_server =
+        update_proxy_server_in_vpn_yaml(&vpn_path, &config.vpn_proxy_name, &new_static_ip.ip_address)
+            .await?;
     app_push(
         &mail_notify_url,
         "one-key-change-ip",
         &format!(
-            "updated {} from {} to {}",
+            "updated {} proxy `{}` server from {} to {}",
             vpn_path.display(),
-            old_ip,
+            config.vpn_proxy_name,
+            old_vpn_server,
             new_static_ip.ip_address
         ),
     )
@@ -1103,7 +1108,11 @@ async fn run_one_key_change_ip_task(
     app_push(
         &mail_notify_url,
         "one-key-change-ip final",
-        &format!("done: {} -> {}", old_ip, new_static_ip.ip_address),
+        &format!(
+            "done: {} -> {}",
+            old_ip.as_deref().unwrap_or("<none>"),
+            new_static_ip.ip_address
+        ),
     )
     .await;
 
@@ -1111,7 +1120,7 @@ async fn run_one_key_change_ip_task(
         old_static_ip_name: old_static_ip
             .as_ref()
             .map(|static_ip| static_ip.name.clone()),
-        old_ip: Some(old_ip),
+        old_ip,
         new_static_ip_name,
         new_ip: new_static_ip.ip_address,
     })
@@ -1670,20 +1679,88 @@ async fn backup_encrypted(s: S) -> R<impl IntoResponse> {
     .await?)
 }
 
-async fn replace_ip_in_vpn_yaml(path: &Path, old_ip: &str, new_ip: &str) -> anyhow::Result<()> {
-    promise!(!old_ip.trim().is_empty(), "old IP is empty");
+/// Sets the `server` of the proxy named `proxy_name` in vpn.yaml to `new_ip`, returning the previous server.
+async fn update_proxy_server_in_vpn_yaml(
+    path: &Path,
+    proxy_name: &str,
+    new_ip: &str,
+) -> anyhow::Result<String> {
+    let content = tokio::fs::read_to_string(path).await?;
+    let (content, old_server) = replace_proxy_server_in_vpn_yaml(&content, proxy_name, new_ip)
+        .with_context(|| format!("failed to update {}", path.display()))?;
+    tokio::fs::write(path, content).await?;
+    Ok(old_server)
+}
+
+/// Rewrites the `server` field of the flow-style proxy entry whose `name` is `proxy_name`, e.g.
+/// `  - {name: zhou, server: 1.2.3.4, port: 32058, type: vmess}`.
+/// Returns the new content and the previous server value.
+fn replace_proxy_server_in_vpn_yaml(
+    content: &str,
+    proxy_name: &str,
+    new_ip: &str,
+) -> anyhow::Result<(String, String)> {
+    promise!(!proxy_name.trim().is_empty(), "vpn proxy name is empty");
     promise!(!new_ip.trim().is_empty(), "new IP is empty");
 
-    let content = tokio::fs::read_to_string(path).await?;
-    promise!(
-        content.contains(old_ip),
-        "old IP `{}` not found in {}",
-        old_ip,
-        path.display()
-    );
+    let mut old_server = None;
+    let mut output = String::with_capacity(content.len());
+    for line in content.split_inclusive('\n') {
+        if old_server.is_none() {
+            if let Some((replaced, old)) = replace_server_in_flow_entry(line, proxy_name, new_ip) {
+                output.push_str(&replaced);
+                old_server = Some(old);
+                continue;
+            }
+        }
+        output.push_str(line);
+    }
 
-    tokio::fs::write(path, content.replace(old_ip, new_ip)).await?;
-    Ok(())
+    let old_server = old_server.ok_or_else(|| {
+        anyhow!(
+            "no proxy entry like `{{name: {}, server: ...}}` found in vpn.yaml",
+            proxy_name
+        )
+    })?;
+    Ok((output, old_server))
+}
+
+fn replace_server_in_flow_entry(line: &str, proxy_name: &str, new_ip: &str) -> Option<(String, String)> {
+    let open = line.find('{')?;
+    let close = line.rfind('}')?;
+    if close < open {
+        return None;
+    }
+
+    let mut name_matches = false;
+    let mut server_range = None;
+    let mut offset = open + 1;
+    for field in line[open + 1..close].split(',') {
+        if let Some((key, value)) = field.split_once(':') {
+            match key.trim() {
+                "name" => name_matches = unquote_yaml(value.trim()) == proxy_name,
+                "server" => {
+                    let start = offset + key.len() + 1 + (value.len() - value.trim_start().len());
+                    server_range = Some(start..start + value.trim().len());
+                }
+                _ => {}
+            }
+        }
+        offset += field.len() + 1;
+    }
+
+    if !name_matches {
+        return None;
+    }
+    let server_range = server_range?;
+    let old_server = unquote_yaml(&line[server_range.clone()]).to_string();
+    let mut replaced = line.to_string();
+    replaced.replace_range(server_range, new_ip);
+    Some((replaced, old_server))
+}
+
+fn unquote_yaml(value: &str) -> &str {
+    value.trim_matches(|c| c == '"' || c == '\'')
 }
 
 static ADMIN_HTML: &str = include_str!("templates/admin_new.html");
@@ -2164,34 +2241,50 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn replaces_old_ip_in_vpn_yaml() -> anyhow::Result<()> {
+    async fn updates_server_of_named_proxy_in_vpn_yaml() -> anyhow::Result<()> {
         let temp_dir = tempfile::tempdir()?;
         let vpn_path = temp_dir.path().join("vpn.yaml");
         tokio::fs::write(
             &vpn_path,
-            "server: 13.230.224.104\nremote: 13.230.224.104:500\n",
+            "proxies:\n  - {name: zhou2, server: 198.51.100.7, port: 1, type: vmess}\n  - {name: zhou, server: 198.51.100.7, port: 32058, type: vmess, cipher: auto}\nproxy-groups:\n    proxies:\n      - zhou\n",
         )
         .await?;
 
-        replace_ip_in_vpn_yaml(&vpn_path, "13.230.224.104", "203.0.113.10").await?;
+        let old_server =
+            update_proxy_server_in_vpn_yaml(&vpn_path, "zhou", "203.0.113.10").await?;
 
+        assert_eq!(old_server, "198.51.100.7");
         let content = tokio::fs::read_to_string(&vpn_path).await?;
-        assert_eq!(content, "server: 203.0.113.10\nremote: 203.0.113.10:500\n");
+        assert_eq!(
+            content,
+            "proxies:\n  - {name: zhou2, server: 198.51.100.7, port: 1, type: vmess}\n  - {name: zhou, server: 203.0.113.10, port: 32058, type: vmess, cipher: auto}\nproxy-groups:\n    proxies:\n      - zhou\n"
+        );
         Ok(())
     }
 
-    #[tokio::test]
-    async fn replace_ip_in_vpn_yaml_errors_when_old_ip_is_missing() -> anyhow::Result<()> {
-        let temp_dir = tempfile::tempdir()?;
-        let vpn_path = temp_dir.path().join("vpn.yaml");
-        tokio::fs::write(&vpn_path, "server: 198.51.100.10\n").await?;
+    #[test]
+    fn replace_proxy_server_handles_quotes_and_field_order() -> anyhow::Result<()> {
+        let (content, old_server) = replace_proxy_server_in_vpn_yaml(
+            "  - { server: '198.51.100.7', name: \"zhou\" }\r\n",
+            "zhou",
+            "203.0.113.10",
+        )?;
 
-        let error = replace_ip_in_vpn_yaml(&vpn_path, "13.230.224.104", "203.0.113.10")
-            .await
-            .unwrap_err();
-
-        assert!(error.to_string().contains("13.230.224.104"));
+        assert_eq!(old_server, "198.51.100.7");
+        assert_eq!(content, "  - { server: 203.0.113.10, name: \"zhou\" }\r\n");
         Ok(())
+    }
+
+    #[test]
+    fn replace_proxy_server_errors_when_proxy_name_is_missing() {
+        let error = replace_proxy_server_in_vpn_yaml(
+            "proxies:\n  - {name: hk, server: 198.51.100.7, port: 443}\n",
+            "zhou",
+            "203.0.113.10",
+        )
+        .unwrap_err();
+
+        assert!(error.to_string().contains("zhou"));
     }
 
     #[test]

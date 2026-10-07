@@ -226,6 +226,9 @@ pub struct OneKeyChangeIpConfig {
     pub cloudflare_zone_id: String,
     #[serde(default)]
     pub cloudflare_dns_records: Vec<CloudflareDnsRecordConfig>,
+    /// `name` of the proxy entry in files/vpn.yaml whose `server` is rewritten to the new IP.
+    #[serde(default = "default_one_key_vpn_proxy_name")]
+    pub vpn_proxy_name: String,
     #[serde(default = "default_one_key_request_timeout_secs")]
     pub request_timeout_secs: u64,
     #[serde(default = "default_one_key_poll_interval_secs")]
@@ -245,6 +248,7 @@ impl Default for OneKeyChangeIpConfig {
             cloudflare_api_token: String::default(),
             cloudflare_zone_id: String::default(),
             cloudflare_dns_records: Vec::new(),
+            vpn_proxy_name: default_one_key_vpn_proxy_name(),
             request_timeout_secs: default_one_key_request_timeout_secs(),
             poll_interval_secs: default_one_key_poll_interval_secs(),
             operation_timeout_secs: default_one_key_operation_timeout_secs(),
@@ -284,6 +288,10 @@ fn default_cloudflare_dns_record_type() -> String {
 
 fn default_cloudflare_ttl() -> u32 {
     1
+}
+
+fn default_one_key_vpn_proxy_name() -> String {
+    "zhou".to_string()
 }
 
 fn default_one_key_request_timeout_secs() -> u64 {
