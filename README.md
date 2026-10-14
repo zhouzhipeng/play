@@ -103,6 +103,14 @@ cargo build
 cargo build --workspace
 ```
 
+For the local macOS setup on `/Volumes/ssd512`:
+
+```bash
+source /Volumes/ssd512/dev-tools/env.sh
+cd /Volumes/ssd512/play
+cargo build --locked --workspace
+```
+
 ### Run the main server
 
 ```bash

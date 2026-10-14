@@ -1,5 +1,6 @@
 [workspace]
 resolver="2"
+exclude = ["third_party/rathole"]
 members = [
     "crates/play-gui",
     "crates/play-gui/curl-helper",
