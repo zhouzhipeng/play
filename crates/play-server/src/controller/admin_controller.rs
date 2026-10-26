@@ -821,23 +821,52 @@ async fn backup_encrypted_to_cloud(s: S) -> R<String> {
 }
 
 async fn check_if_should_change_ip(s: S) -> R<String> {
-    let should_change = Client::builder()
-        .timeout(Duration::from_secs(10))
-        .no_proxy()
-        .redirect(reqwest::redirect::Policy::none())
-        .build()?
-        .get("http://8.153.146.11:8081/should-change-ip")
-        .send()
-        .await
-        .context("failed to contact IP probe")?
-        .error_for_status()?
-        .json::<bool>()
-        .await
-        .context("IP probe did not return a JSON boolean")?;
+    let started = Instant::now();
+    let probe_url = "http://8.153.146.11:8081/should-change-ip";
+    info!("check-if-should-change-ip: request received, probe_url={probe_url}");
+    let probe_result: anyhow::Result<bool> = async {
+        Ok(Client::builder()
+            .timeout(Duration::from_secs(10))
+            .no_proxy()
+            .redirect(reqwest::redirect::Policy::none())
+            .build()?
+            .get(probe_url)
+            .send()
+            .await
+            .context("failed to contact IP probe")?
+            .error_for_status()?
+            .json::<bool>()
+            .await
+            .context("IP probe did not return a JSON boolean")?)
+    }
+    .await;
+    let should_change = match probe_result {
+        Ok(value) => value,
+        Err(error) => {
+            error!(
+                "check-if-should-change-ip: probe failed, no IP change triggered, elapsed_ms={}, error={error:#}",
+                started.elapsed().as_millis()
+            );
+            return Err(error.into());
+        }
+    };
+    info!(
+        "check-if-should-change-ip: probe returned should_change={should_change}, elapsed_ms={}",
+        started.elapsed().as_millis()
+    );
 
     if should_change {
-        one_key_change_ip(s).await
+        info!("check-if-should-change-ip: triggering one-key-change-ip");
+        let result = one_key_change_ip(s).await;
+        match &result {
+            Ok(message) => info!("check-if-should-change-ip: {message}"),
+            Err(error) => {
+                error!("check-if-should-change-ip: failed to start one-key-change-ip: {error:?}")
+            }
+        }
+        result
     } else {
+        info!("check-if-should-change-ip: completed, no IP change needed");
         Ok("IP probe returned false; no IP change needed.".to_string())
     }
 }
