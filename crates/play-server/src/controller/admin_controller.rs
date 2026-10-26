@@ -69,6 +69,10 @@ pub fn init() -> axum::Router<std::sync::Arc<crate::AppState>> {
         axum::routing::get(one_key_change_ip),
     );
     router = router.route("/admin/restore", axum::routing::post(restore));
+    router = router.route(
+        "/admin/check-if-should-change-ip",
+        axum::routing::get(check_if_should_change_ip),
+    );
     router = router.route("/admin/logs", axum::routing::get(display_logs));
     router = router.route(
         "/admin/clean-change-logs",
@@ -814,6 +818,28 @@ async fn backup_encrypted_to_cloud(s: S) -> R<String> {
         "SBOX backup to cloud started in background. You will receive a notification when complete."
             .to_string(),
     )
+}
+
+async fn check_if_should_change_ip(s: S) -> R<String> {
+    let should_change = Client::builder()
+        .timeout(Duration::from_secs(10))
+        .no_proxy()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()?
+        .get("http://8.153.146.11:8081/should-change-ip")
+        .send()
+        .await
+        .context("failed to contact IP probe")?
+        .error_for_status()?
+        .json::<bool>()
+        .await
+        .context("IP probe did not return a JSON boolean")?;
+
+    if should_change {
+        one_key_change_ip(s).await
+    } else {
+        Ok("IP probe returned false; no IP change needed.".to_string())
+    }
 }
 
 async fn one_key_change_ip(s: S) -> R<String> {
