@@ -1,23 +1,17 @@
 import unittest
-from probe import ProbeState
+from unittest.mock import MagicMock, patch
+from probe import should_change_ip
 
 
-class ProbeStateTest(unittest.TestCase):
-    def test_threshold_and_recovery(self):
-        state = ProbeState()
-        self.assertFalse(state.read())
-        for _ in range(2):
-            state.record(False)
-            self.assertFalse(state.read())
-        state.record(False)
-        self.assertTrue(state.read())
-        state.record(False)
-        self.assertTrue(state.read())
-        state.record(True)
-        self.assertFalse(state.read())
-        state.record(False)
-        self.assertFalse(state.read())
-        self.assertEqual(state.failures, 1)
+class LiveProbeTest(unittest.TestCase):
+    def test_checks_again_after_failure_and_recovery(self):
+        with patch('probe.socket.create_connection') as connect:
+            connect.side_effect = [TimeoutError('timed out'), MagicMock(), OSError('refused')]
+            self.assertTrue(should_change_ip())
+            self.assertFalse(should_change_ip())
+            self.assertTrue(should_change_ip())
+            self.assertEqual(connect.call_count, 3)
+            connect.assert_called_with(('ip.zhouzhipeng.com', 80), timeout=5)
 
 
 if __name__ == '__main__':
