@@ -13,7 +13,7 @@ use sqlx::__rt::timeout;
 use std::convert::Infallible;
 use std::process::Stdio;
 use std::time::Duration;
-use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::unbounded_channel;
@@ -78,130 +78,43 @@ struct ApplyResponse {
 }
 
 async fn handle_apply_crontab(s: S) -> R<Json<ApplyResponse>> {
-    // First, get the current system crontab
-    let current_output = Command::new("sh")
-        .arg("-c")
-        .arg("crontab -l 2>/dev/null || true")
-        .output()
+    // The manager is the source of truth for this user's crontab. Replacing it
+    // also removes entries that were deleted or disabled in the manager.
+    let mut entries = Vec::new();
+    let mut offset = 0;
+    loop {
+        let page = GeneralData::query_composite(
+            "*", "crontab", &format!("{},1000", offset), "1=1", false, "id asc", &s.db,
+        )
         .await?;
-
-    let current_crontab = String::from_utf8_lossy(&current_output.stdout);
-
-    // Parse existing crontab entries and extract commands
-    let mut existing_entries: Vec<String> = Vec::new();
-    let mut existing_commands: Vec<String> = Vec::new();
-
-    for line in current_crontab.lines() {
-        let trimmed = line.trim();
-        // Skip empty lines and comments
-        if trimmed.is_empty() || trimmed.starts_with('#') {
-            existing_entries.push(line.to_string());
-            continue;
+        let count = page.len();
+        entries.extend(page);
+        if count < 1000 {
+            break;
         }
-
-        // Parse the cron line to extract the command part
-        let parts: Vec<&str> = trimmed.splitn(6, ' ').collect();
-        if parts.len() == 6 {
-            let command = parts[5];
-            existing_commands.push(command.to_string());
-            existing_entries.push(line.to_string());
-        } else {
-            // Keep malformed lines as-is
-            existing_entries.push(line.to_string());
-        }
+        offset += count;
     }
 
-    // Query all crontab entries from database
-    let entries = GeneralData::query_composite(
-        "*", "crontab", "0,1000", // Limit: start at index 0, fetch up to 1000 entries
-        "1=1",    // Where condition: select all
-        false,    // Don't include deleted entries
-        "id asc", // Order by ID ascending
-        &s.db,
-    )
-    .await?;
-
-    // Collect database commands to check for duplicates
-    let mut db_commands: Vec<String> = Vec::new();
-    let mut db_crontab_lines: Vec<String> = Vec::new();
-
-    for entry in &entries {
-        let data_map = entry.extract_data()?;
-
-        // Check if entry is enabled (default to true if not specified)
-        let enabled = match data_map.get("enabled") {
-            Some(Value::Bool(enabled)) => *enabled,
-            Some(Value::String(s)) if s == "false" => false,
-            Some(Value::Number(n)) if n.as_u64() == Some(0) => false,
-            _ => true, // Default to enabled if not specified or if value is unexpected
-        };
-
-        // Skip disabled entries
-        if !enabled {
-            continue;
-        }
-
-        // Extract crontab fields with defaults
-        let minute = get_value_as_string(&data_map, "minute").unwrap_or_else(|| "*".to_string());
-        let hour = get_value_as_string(&data_map, "hour").unwrap_or_else(|| "*".to_string());
-        let day_of_month =
-            get_value_as_string(&data_map, "day_of_month").unwrap_or_else(|| "*".to_string());
-        let month = get_value_as_string(&data_map, "month").unwrap_or_else(|| "*".to_string());
-        let day_of_week =
-            get_value_as_string(&data_map, "day_of_week").unwrap_or_else(|| "*".to_string());
-        let command = get_value_as_string(&data_map, "command").unwrap_or_else(|| "".to_string());
-
-        if !command.is_empty() {
-            db_commands.push(command.clone());
-            db_crontab_lines.push(format!(
-                "{} {} {} {} {} {}",
-                minute, hour, day_of_month, month, day_of_week, command
-            ));
-        }
-    }
-
-    // Build the final crontab string
     let mut final_crontab = String::new();
-
-    // First, add existing entries that don't have matching commands in the database
-    for (i, line) in existing_entries.iter().enumerate() {
-        let trimmed = line.trim();
-
-        // Always keep empty lines and comments
-        if trimmed.is_empty() || trimmed.starts_with('#') {
-            final_crontab.push_str(line);
-            final_crontab.push('\n');
-            continue;
-        }
-
-        // Check if this is a cron entry
-        let parts: Vec<&str> = trimmed.splitn(6, ' ').collect();
-        if parts.len() == 6 {
-            let command = parts[5];
-            // Only keep if command is not in database entries
-            if !db_commands.contains(&command.to_string()) {
-                final_crontab.push_str(line);
-                final_crontab.push('\n');
-            }
-        } else {
-            // Keep malformed lines as-is
-            final_crontab.push_str(line);
+    for entry in &entries {
+        let data = entry.extract_data()?;
+        if let Some(line) = crontab_line(&data) {
+            final_crontab.push_str(&line);
             final_crontab.push('\n');
         }
     }
 
-    // Add all database entries (they override matching commands)
-    for db_line in db_crontab_lines {
-        final_crontab.push_str(&db_line);
-        final_crontab.push('\n');
-    }
-
-    // Execute a shell command to update the system's crontab
-    let output = Command::new("sh")
-        .arg("-c")
-        .arg(format!("echo \"{}\" | crontab -", final_crontab.trim_end()))
-        .output()
-        .await?;
+    // Pass the file through stdin, without interpreting its contents as shell code.
+    let mut child = Command::new("crontab")
+        .arg("-")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+    let mut stdin = child.stdin.take().expect("piped crontab stdin");
+    stdin.write_all(final_crontab.as_bytes()).await?;
+    drop(stdin);
+    let output = child.wait_with_output().await?;
 
     if output.status.success() {
         Ok(Json(ApplyResponse {
@@ -215,6 +128,22 @@ async fn handle_apply_crontab(s: S) -> R<Json<ApplyResponse>> {
             message: format!("Failed to apply crontab: {}", error_message),
         }))
     }
+}
+
+fn crontab_line(data: &Map<String, Value>) -> Option<String> {
+    let enabled = match data.get("enabled") {
+        Some(Value::Bool(enabled)) => *enabled,
+        Some(Value::String(value)) if value == "false" => false,
+        Some(Value::Number(value)) if value.as_u64() == Some(0) => false,
+        _ => true,
+    };
+    let command = get_value_as_string(data, "command").unwrap_or_default();
+    if !enabled || command.is_empty() {
+        return None;
+    }
+    let fields = ["minute", "hour", "day_of_month", "month", "day_of_week"]
+        .map(|key| get_value_as_string(data, key).unwrap_or_else(|| "*".to_string()));
+    Some(format!("{} {}", fields.join(" "), command))
 }
 
 // Helper function to extract string values from the JSON map
@@ -342,6 +271,16 @@ fn check_input(input: &str) -> anyhow::Result<()> {
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn crontab_line_respects_enabled_and_preserves_command() {
+        let mut data = serde_json::json!({
+            "minute": "0", "hour": "4,12,20", "command": "echo \"$HOME\" $(date)"
+        }).as_object().unwrap().clone();
+        assert_eq!(crontab_line(&data).as_deref(), Some("0 4,12,20 * * * echo \"$HOME\" $(date)"));
+        data.insert("enabled".into(), Value::Bool(false));
+        assert_eq!(crontab_line(&data), None);
+    }
 
     #[tokio::test]
     async fn test_execute_command() {
